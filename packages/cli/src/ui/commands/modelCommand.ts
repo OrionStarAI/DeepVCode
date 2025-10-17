@@ -10,6 +10,7 @@ import { proxyAuthManager, Config } from 'deepv-code-core';
 import { HistoryItemWithoutId } from '../types.js';
 import { t, tp } from '../utils/i18n.js';
 import { appEvents, AppEvent } from '../../utils/events.js';
+import { Suggestion } from '../components/SuggestionsDisplay.js';
 
 // 降级模型列表（当服务端不可用时使用）
 const FALLBACK_MODELS = ['claude-sonnet-4@20250514', 'gemini-2.5-flash'];
@@ -427,7 +428,7 @@ export const modelCommand: SlashCommand = {
   },
 
   // 提供自动完成功能
-  completion: async (context, partialArg): Promise<string[]> => {
+  completion: async (context, partialArg) => {
     const lowerPartial = partialArg.toLowerCase();
 
     try {
@@ -448,7 +449,12 @@ export const modelCommand: SlashCommand = {
         displayName.toLowerCase().includes(lowerPartial)
       );
 
-      return matchedModels;
+      // 返回带有 willAutoExecute 标记的 Suggestion 对象数组，以便选择后自动执行
+      return matchedModels.map((displayName: string) => ({
+        label: displayName,
+        value: displayName,
+        willAutoExecute: true
+      }));
     } catch (error) {
       // 检查是否是未登录
       const authStatus = proxyAuthManager.getStatus();
@@ -462,7 +468,12 @@ export const modelCommand: SlashCommand = {
         model.toLowerCase().includes(lowerPartial)
       );
 
-      return matchedModels;
+      // 降级模型也需要支持自动执行
+      return matchedModels.map((model: string) => ({
+        label: model,
+        value: model,
+        willAutoExecute: true
+      }));
     }
   },
 };
