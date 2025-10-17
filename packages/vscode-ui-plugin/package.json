@@ -1,0 +1,212 @@
+{
+  "name": "deepv-code-vscode-ui-plugin",
+  "displayName": "DeepV Code for VSCode",
+  "description": "AI-powered programming assistant with visual interface for VS Code",
+  "version": "1.0.164",
+  "publisher": "DeepX",
+  "icon": "assets/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OrionStarAI/DeepVCode.git"
+  },
+  "engines": {
+    "vscode": "^1.99.0"
+  },
+  "license": "Apache-2.0",
+  "categories": [
+    "AI",
+    "Programming Languages",
+    "Other"
+  ],
+  "keywords": [
+    "ai",
+    "assistant",
+    "programming",
+    "code analysis",
+    "automation"
+  ],
+  "activationEvents": [
+    "onCommand:deepv.openAIAssistant",
+    "onCommand:deepv.explainCode",
+    "onCommand:deepv.optimizeCode",
+    "onCommand:deepv.generateTests",
+    "onView:deepv.aiAssistant"
+  ],
+  "main": "./dist/extension.bundle.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "deepv.openAIAssistant",
+        "title": "Open AI Assistant",
+        "category": "DeepV Code"
+      },
+      {
+        "command": "deepv.explainCode",
+        "title": "Explain Selected Code",
+        "category": "DeepV Code"
+      },
+      {
+        "command": "deepv.optimizeCode",
+        "title": "Optimize Code",
+        "category": "DeepV Code"
+      },
+      {
+        "command": "deepv.generateTests",
+        "title": "Generate Tests",
+        "category": "DeepV Code"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "deepv-ai-sidebar",
+          "title": "DeepV AI Assistant",
+          "icon": "./assets/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "deepv-ai-sidebar": [
+        {
+          "type": "webview",
+          "id": "deepv.aiAssistant",
+          "name": "AI Assistant",
+          "when": "true"
+        }
+      ]
+    },
+    "menus": {
+      "editor/context": [
+        {
+          "command": "deepv.explainCode",
+          "when": "editorHasSelection",
+          "group": "deepv@1"
+        },
+        {
+          "command": "deepv.optimizeCode",
+          "when": "editorHasSelection",
+          "group": "deepv@2"
+        },
+        {
+          "command": "deepv.generateTests",
+          "when": "editorHasSelection",
+          "group": "deepv@3"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "deepv.openAIAssistant"
+        },
+        {
+          "command": "deepv.explainCode",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "deepv.optimizeCode",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "deepv.generateTests",
+          "when": "editorHasSelection"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "DeepV Code",
+      "properties": {
+        "deepv.enableAutoAnalysis": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable automatic code analysis"
+        },
+        "deepv.confirmDangerousOperations": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show confirmation dialog for dangerous operations"
+        },
+        "deepv.maxHistoryItems": {
+          "type": "number",
+          "default": 100,
+          "description": "Maximum number of history items to keep"
+        },
+        "deepv.feishuToken": {
+          "type": "string",
+          "default": "",
+          "description": "Feishu access token for authentication",
+          "markdownDescription": "Feishu access token for authentication. You can get it from the Feishu Developer Console."
+        },
+        "deepv.logLevel": {
+          "type": "string",
+          "enum": [
+            "debug",
+            "info",
+            "warn",
+            "error"
+          ],
+          "default": "debug",
+          "description": "Set the log output level",
+          "markdownDescription": "Log level: debug (most detailed) | info (general) | warn (warnings) | error (errors only)"
+        },
+        "deepv.preferredModel": {
+          "type": "string",
+          "default": "auto",
+          "description": "Preferred AI model for new sessions",
+          "markdownDescription": "The default AI model to use for new chat sessions. Set to 'auto' for automatic model selection."
+        },
+        "deepv.cloudModels": {
+          "type": "array",
+          "default": [],
+          "description": "Cached list of available cloud models",
+          "markdownDescription": "Cached list of AI models available from the cloud service. This is automatically updated and should not be manually modified."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "clean": "node -e \"const fs = require('fs'); const path = require('path'); const dir = path.join(__dirname, 'dist'); if (fs.existsSync(dir)) { fs.rmSync(dir, { recursive: true, force: true }); }\"",
+    "clean:src": "node scripts/clean-src.js",
+    "check:src": "node scripts/check-src-clean.js",
+    "build": "npm run clean && npm run clean:src && npm run build:extension && npm run build:webview && npm run bundle",
+    "prebuild": "npm run check:src",
+    "build:extension": "tsc -p .",
+    "build:webview": "cd webview && npm run build",
+    "bundle": "webpack --mode production",
+    "build:dev": "npm run build:extension && npm run build:webview",
+    "copy:core": "node scripts/copy-core.js",
+    "watch": "npm run watch:extension & npm run watch:webview",
+    "watch:extension": "tsc -p . --watch",
+    "watch:webview": "cd webview && npm run dev",
+    "bump-version": "node scripts/bump-version.js",
+    "bump-version:minor": "node scripts/bump-version.js minor",
+    "bump-version:major": "node scripts/bump-version.js major",
+    "pre-package": "node scripts/pre-package.js",
+    "package": "node scripts/smart-package.js",
+    "package:no-bump": "node scripts/smart-package.js --no-bump",
+    "package:minor": "node scripts/smart-package.js minor",
+    "package:major": "node scripts/smart-package.js major",
+    "package:legacy": "npm run bump-version && npm run pre-package && npx @vscode/vsce package",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "@types/node": "20.x",
+    "@types/vscode": "^1.99.0",
+    "@typescript-eslint/eslint-plugin": "^8.31.1",
+    "@typescript-eslint/parser": "^8.31.1",
+    "buffer": "^5.7.1",
+    "copy-webpack-plugin": "^13.0.1",
+    "crypto-browserify": "^3.12.1",
+    "eslint": "^9.25.1",
+    "path-browserify": "^1.0.1",
+    "stream-browserify": "^3.0.0",
+    "ts-loader": "^9.5.4",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4",
+    "vsce": "^2.15.0",
+    "webpack": "^5.101.3",
+    "webpack-cli": "^6.0.1"
+  },
+  "dependencies": {
+    "@vscode/ripgrep": "^1.15.14"
+  }
+}

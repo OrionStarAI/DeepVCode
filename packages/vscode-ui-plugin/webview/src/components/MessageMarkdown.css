@@ -1,0 +1,471 @@
+/* Markdown 内容样式 - 字体大小差距控制较小 */
+.assistant-message .message-content {
+  line-height: 1.5;
+  font-size: 14px;
+  color: var(--vscode-editor-foreground);
+}
+
+/* 标题样式 - 字体大小差距不大 */
+.markdown-h1 {
+  font-size: 16px; /* 比正文大2px */
+  font-weight: 600;
+  margin: 12px 0 8px 0;
+  color: var(--vscode-editor-foreground);
+  border-bottom: 1px solid var(--vscode-panel-border);
+  padding-bottom: 4px;
+}
+
+.markdown-h2 {
+  font-size: 15px; /* 比正文大1px */
+  font-weight: 600;
+  margin: 10px 0 6px 0;
+  color: var(--vscode-editor-foreground);
+}
+
+.markdown-h3 {
+  font-size: 14px; /* 与正文相同，用粗体区分 */
+  font-weight: 700;
+  margin: 8px 0 4px 0;
+  color: var(--vscode-editor-foreground);
+}
+
+/* 段落样式 */
+.markdown-p {
+  margin: 6px 0;
+  line-height: 1.5;
+  font-size: 14px;
+}
+
+/* 代码块容器样式 */
+.code-block-wrapper {
+  background-color: var(--vscode-textBlockQuote-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  margin: 12px 0;
+  overflow: hidden;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.code-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background-color: var(--vscode-editorGroupHeader-tabsBackground);
+  border-bottom: 1px solid var(--vscode-panel-border);
+  font-size: 11px;
+  min-height: 32px;
+}
+
+.code-language {
+  color: var(--vscode-descriptionForeground);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  font-size: 10px;
+}
+
+.code-copy-btn {
+  background: none;
+  border: none;
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 3px;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.7;
+}
+
+.code-copy-btn:hover {
+  background-color: var(--vscode-toolbar-hoverBackground);
+  color: var(--vscode-foreground);
+  opacity: 1;
+}
+
+/* 代码块本身 */
+.code-block {
+  margin: 0;
+  padding: 14px 16px;
+  overflow-x: auto;
+  font-family: var(--vscode-editor-font-family, 'Consolas', 'Monaco', 'SF Mono', monospace);
+  font-size: 13px;
+  line-height: 1.6;
+  background: transparent !important;
+}
+
+.code-block code {
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  background: none;
+  padding: 0;
+  border: none;
+  white-space: pre;
+  word-wrap: normal;
+  display: block;
+}
+
+/* highlight.js 语法高亮样式覆盖 - 适配 VSCode 主题 */
+.code-block .hljs {
+  background: transparent;
+  color: var(--vscode-editor-foreground);
+  padding: 0;
+}
+
+/* 关键字 */
+.code-block .hljs-keyword,
+.code-block .hljs-selector-tag,
+.code-block .hljs-literal,
+.code-block .hljs-section,
+.code-block .hljs-link {
+  color: #569cd6;
+  font-weight: normal;
+}
+
+/* 字符串 */
+.code-block .hljs-string {
+  color: #ce9178;
+}
+
+/* 数字 */
+.code-block .hljs-number {
+  color: #b5cea8;
+}
+
+/* 注释 */
+.code-block .hljs-comment {
+  color: #6a9955;
+  font-style: italic;
+}
+
+/* 函数名 */
+.code-block .hljs-title,
+.code-block .hljs-function {
+  color: #dcdcaa;
+}
+
+/* 类型 */
+.code-block .hljs-type,
+.code-block .hljs-class,
+.code-block .hljs-built_in {
+  color: #4ec9b0;
+}
+
+/* 变量 */
+.code-block .hljs-variable,
+.code-block .hljs-attr {
+  color: #9cdcfe;
+}
+
+/* 符号 */
+.code-block .hljs-symbol,
+.code-block .hljs-bullet,
+.code-block .hljs-meta {
+  color: #c586c0;
+}
+
+/* 行内代码样式 */
+.inline-code {
+  background-color: var(--vscode-textPreformat-background);
+  color: var(--vscode-textPreformat-foreground);
+  padding: 1px 4px;
+  border-radius: 3px;
+  font-family: var(--vscode-editor-font-family, 'SF Mono', 'Monaco', 'Consolas', monospace);
+  font-size: 13px; /* 比正文小1px */
+  border: 1px solid var(--vscode-panel-border);
+}
+
+/* 列表样式 */
+.markdown-ul, .markdown-ol {
+  padding-left: 16px;
+  margin: 6px 0;
+}
+
+.markdown-li {
+  margin: 2px 0;
+  line-height: 1.4;
+  font-size: 14px; /* 与正文相同 */
+}
+
+.markdown-ul .markdown-li {
+  list-style-type: disc;
+}
+
+.markdown-ol .markdown-li {
+  list-style-type: decimal;
+}
+
+/* 嵌套列表 */
+.markdown-ul .markdown-ul,
+.markdown-ol .markdown-ol,
+.markdown-ul .markdown-ol,
+.markdown-ol .markdown-ul {
+  margin: 2px 0;
+}
+
+/* 引用块样式 */
+.markdown-blockquote {
+  border-left: 3px solid var(--vscode-textBlockQuote-border);
+  background-color: var(--vscode-textBlockQuote-background);
+  margin: 8px 0;
+  padding: 8px 12px;
+  border-radius: 0 4px 4px 0;
+  font-style: italic;
+  color: var(--vscode-descriptionForeground);
+  font-size: 14px; /* 与正文相同 */
+}
+
+/* 表格样式 - 增强版 */
+.table-wrapper {
+  overflow-x: auto;
+  margin: 12px 0;
+  border-radius: 6px;
+  border: 1px solid var(--vscode-panel-border);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.markdown-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  background-color: var(--vscode-editor-background);
+}
+
+.markdown-table th,
+.markdown-table td {
+  padding: 10px 14px;
+  text-align: left;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  vertical-align: top;
+}
+
+.markdown-table th {
+  background-color: var(--vscode-editorGroupHeader-tabsBackground);
+  font-weight: 600;
+  color: var(--vscode-editor-foreground);
+  font-size: 13px;
+  border-bottom: 2px solid var(--vscode-panel-border);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.markdown-table tbody tr {
+  transition: background-color 0.15s ease;
+}
+
+.markdown-table tbody tr:hover {
+  background-color: var(--vscode-list-hoverBackground);
+}
+
+.markdown-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* 表格中的代码 */
+.markdown-table .inline-code {
+  font-size: 12px;
+  padding: 2px 4px;
+}
+
+/* 链接样式 */
+.markdown-link {
+  color: var(--vscode-textLink-foreground);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--vscode-textLink-foreground);
+  transition: all 0.2s ease;
+  font-size: 14px; /* 与正文相同 */
+}
+
+.markdown-link:hover {
+  color: var(--vscode-textLink-activeForeground);
+  border-bottom-style: solid;
+}
+
+/* 分隔线样式 */
+.markdown-hr {
+  border: none;
+  height: 1px;
+  background: var(--vscode-panel-border);
+  margin: 16px 0;
+}
+
+/* 强调文本 */
+.markdown-strong {
+  font-weight: 600;
+  color: var(--vscode-editor-foreground);
+}
+
+.markdown-em {
+  font-style: italic;
+  color: var(--vscode-editor-foreground);
+}
+
+/* 删除线 */
+.markdown-del {
+  text-decoration: line-through;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* 任务列表 */
+.markdown-task-list {
+  list-style: none;
+  padding-left: 0;
+}
+
+.markdown-task-list-item {
+  display: flex;
+  align-items: flex-start;
+  margin: 2px 0;
+}
+
+.markdown-task-list-item input[type="checkbox"] {
+  margin-right: 6px;
+  margin-top: 2px;
+  cursor: pointer;
+}
+
+/* 响应式调整 */
+@media (max-width: 600px) {
+  .code-block {
+    margin: 6px -8px;
+    border-radius: 0;
+  }
+
+  .table-wrapper {
+    margin: 6px -8px;
+    border-radius: 0;
+  }
+
+  .markdown-h1 {
+    font-size: 15px;
+  }
+
+  .markdown-h2 {
+    font-size: 14px;
+  }
+}
+
+/* 确保代码块内容不会被截断 */
+.code-block pre {
+  margin: 0;
+  white-space: pre;
+  word-wrap: normal;
+}
+
+/* 优化代码块滚动条 */
+.code-block::-webkit-scrollbar,
+.table-wrapper::-webkit-scrollbar {
+  height: 8px;
+  width: 8px;
+}
+
+.code-block::-webkit-scrollbar-track,
+.table-wrapper::-webkit-scrollbar-track {
+  background: var(--vscode-scrollbarSlider-background);
+  border-radius: 4px;
+}
+
+.code-block::-webkit-scrollbar-thumb,
+.table-wrapper::-webkit-scrollbar-thumb {
+  background: var(--vscode-scrollbarSlider-hoverBackground);
+  border-radius: 4px;
+}
+
+.code-block::-webkit-scrollbar-thumb:hover,
+.table-wrapper::-webkit-scrollbar-thumb:hover {
+  background: var(--vscode-scrollbarSlider-activeBackground);
+}
+
+/* 数学公式样式 */
+.katex {
+  font-size: 1.1em;
+  color: var(--vscode-editor-foreground);
+}
+
+.katex-display {
+  margin: 16px 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.katex-display::-webkit-scrollbar {
+  height: 6px;
+}
+
+.katex-display::-webkit-scrollbar-track {
+  background: var(--vscode-scrollbarSlider-background);
+}
+
+.katex-display::-webkit-scrollbar-thumb {
+  background: var(--vscode-scrollbarSlider-hoverBackground);
+  border-radius: 3px;
+}
+
+/* 图片样式 */
+.assistant-message img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 6px;
+  margin: 12px 0;
+  border: 1px solid var(--vscode-panel-border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* 改进引用块视觉效果 */
+.markdown-blockquote {
+  position: relative;
+  padding-left: 16px;
+}
+
+.markdown-blockquote::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: linear-gradient(
+    to bottom,
+    var(--vscode-textBlockQuote-border),
+    transparent
+  );
+  border-radius: 2px;
+}
+
+/* 改进列表视觉层次 */
+.markdown-ul > .markdown-li::marker,
+.markdown-ol > .markdown-li::marker {
+  color: var(--vscode-textLink-foreground);
+  font-weight: 600;
+}
+
+/* 嵌套列表缩进优化 */
+.markdown-ul .markdown-ul,
+.markdown-ol .markdown-ol {
+  padding-left: 20px;
+}
+
+/* 水平线样式增强 */
+.markdown-hr {
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--vscode-panel-border),
+    transparent
+  );
+  height: 2px;
+  margin: 20px 0;
+}
+
+/* 优化整体间距和排版 */
+.assistant-message .message-content > *:first-child {
+  margin-top: 0;
+}
+
+.assistant-message .message-content > *:last-child {
+  margin-bottom: 0;
+}

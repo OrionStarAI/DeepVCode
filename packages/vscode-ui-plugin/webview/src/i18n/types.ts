@@ -1,0 +1,225 @@
+/**
+ * i18n Type definitions
+ */
+
+export interface Translations {
+  common: {
+    loading: string;
+    ready: string;
+    send: string;
+    cancel: string;
+    confirm: string;
+    clear: string;
+    search: string;
+    read: string;
+    success: string;
+    failed: string;
+    error: string;
+    warning: string;
+    info: string;
+    close: string;
+    save: string;
+    delete: string;
+    edit: string;
+    copy: string;
+    paste: string;
+    cut: string;
+    undo: string;
+    redo: string;
+    yes: string;
+    no: string;
+    ok: string;
+    apply: string;
+    reset: string;
+    refresh: string;
+    back: string;
+    next: string;
+    previous: string;
+    continue: string;
+    skip: string;
+    finish: string;
+  };
+
+  welcome: {
+    title: string;
+    description: string;
+    quickStart: string;
+    analyzeFile: string;
+    explainCode: string;
+    refactorCode: string;
+    generateTests: string;
+    analyzeFilePrompt: string;
+    explainCodePrompt: string;
+    refactorCodePrompt: string;
+    generateTestsPrompt: string;
+    tip: string;
+    tipContent: string;
+  };
+
+  chat: {
+    thinking: string;
+    inputPlaceholder: string;
+    sendHint: string;
+    multilineHint: string;
+    singlelineHint: string;
+    toggleSingleLine: string;
+    toggleMultiLine: string;
+    sendMessage: string;
+    clearInput: string;
+    scrollToBottom: string;
+  };
+
+  messages: {
+    user: string;
+    assistant: string;
+    system: string;
+    toolExecution: string;
+    toolCalls: string;
+    successful: string;
+    failed: string;
+  };
+
+  tools: {
+    toolbox: string;
+    quickActions: string;
+    availableTools: string;
+    executionHistory: string;
+    confirmationRequired: string;
+    executeOnce: string;
+    executeOnceTooltip: string;
+    alwaysAllowType: string;
+    alwaysAllowTypeTooltip: string;
+    enableYolo: string;
+    enableYoloTooltip: string;
+    yoloMode: string;
+    yoloWarning: string;
+    expandDetails: string;
+    collapseDetails: string;
+    output: string;
+    waitingForOutput: string;
+    noParameters: string;
+    more: string;
+    unknownFile: string;
+    clickToViewDiff: string;
+    working: string;
+    toolNames: {
+      write_file: string;
+      read_file: string;
+      bash: string;
+      terminal: string;
+      web_search: string;
+      grep: string;
+      delete_file: string;
+    };
+    status: {
+      executing: string;
+      completed: string;
+      failed: string;
+      canceled: string;
+      processing: string;
+      scheduled: string;
+      validating: string;
+      awaiting_approval: string;
+    };
+  };
+
+  confirmation: {
+    title: string;
+    riskLevel: string;
+    estimatedTime: string;
+    affectedFiles: string;
+    showAdvanced: string;
+    hideAdvanced: string;
+    userNotes: string;
+    userNotesPlaceholder: string;
+    reversible: string;
+    irreversible: string;
+    escapeHint: string;
+    confirmExecution: string;
+    riskLevels: {
+      low: string;
+      medium: string;
+      high: string;
+    };
+  };
+
+  context: {
+    title: string;
+    currentFile: string;
+    selectedText: string;
+    cursorPosition: string;
+    projectInfo: string;
+    openFiles: string;
+    noActiveFile: string;
+    line: string;
+    column: string;
+    rootDirectory: string;
+    language: string;
+    gitBranch: string;
+    moreFiles: string;
+  };
+
+  status: {
+    processing: string;
+    ready: string;
+    messages: string;
+    successRate: string;
+    version: string;
+  };
+
+  app: {
+    title: string;
+    toggleSidebar: string;
+    expandSidebar: string;
+    collapseSidebar: string;
+    cancelAllTools: string;
+    projectSettings: string;
+    projectSettingsDialog: string;
+  };
+
+  model: {
+    selector: {
+      title: string;
+      selectModel: string;
+      currentModel: string;
+      changingModel: string;
+    };
+    categories: {
+      claude: string;
+      gemini: string;
+      gpt: string;
+      kimi: string;
+      qwen: string;
+      grok: string;
+    };
+    descriptions: {
+      'claude-sonnet-4-1M': string;
+      'claude-sonnet-4': string;
+      'gemini-2.5-flash': string;
+      'gemini-2.5-pro': string;
+      'kimi-k2-0905': string;
+      'gpt-5': string;
+      'qwen3-max-preview': string;
+      'grok-code-fast-1': string;
+    };
+  };
+
+  errors: {
+    generic: string;
+    networkError: string;
+    timeoutError: string;
+    validationError: string;
+    permissionError: string;
+    fileNotFound: string;
+    operationCanceled: string;
+  };
+}
+
+export type SupportedLocale = 'zh-CN' | 'en-US';
+
+export interface LocaleConfig {
+  code: SupportedLocale;
+  name: string;
+  flag: string;
+  rtl?: boolean;
+}

@@ -1,0 +1,397 @@
+/**
+ * LoadingScreen Styles - Loading Screen Styles
+ * Elegant loading animations and VS Code theme adaptation
+ */
+
+.loading-screen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  background: var(--vscode-editor-background, #181818);
+  color: var(--vscode-foreground, #cccccc);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  font-family: var(--vscode-font-family, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif);
+
+  /* Fade-in animation */
+  animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.loading-screen__container {
+  text-align: center;
+  max-width: 400px;
+  padding: 2rem;
+}
+
+/* ================================
+   Logo Area Styles
+   ================================ */
+
+.loading-screen__logo {
+  margin-bottom: 3rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.loading-screen__logo-icon {
+  position: relative;
+}
+
+.loading-screen__logo-shape {
+  width: 80px;
+  height: 80px;
+  position: relative;
+
+  /* Outer circular background */
+  background: linear-gradient(135deg,
+    var(--vscode-button-background, #0e639c) 0%,
+    var(--vscode-button-hoverBackground, #1177bb) 50%,
+    var(--vscode-textLink-foreground, #3794ff) 100%
+  );
+  border-radius: 50%;
+
+  /* 旋转动画 */
+  animation: logoRotate 4s linear infinite;
+
+  /* 阴影效果 */
+  box-shadow:
+    0 0 30px rgba(55, 148, 255, 0.3),
+    0 0 60px rgba(55, 148, 255, 0.1);
+}
+
+.loading-screen__logo-inner {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 60px;
+  height: 60px;
+  background: var(--vscode-editor-background, #181818);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  /* 内部文字 */
+  font-weight: bold;
+  font-size: 18px;
+  color: var(--vscode-textLink-foreground, #3794ff);
+  letter-spacing: 1px;
+}
+
+@keyframes logoRotate {
+  0% {
+    transform: rotate(0deg);
+    box-shadow:
+      0 0 30px rgba(55, 148, 255, 0.3),
+      0 0 60px rgba(55, 148, 255, 0.1);
+  }
+  50% {
+    transform: rotate(180deg);
+    box-shadow:
+      0 0 40px rgba(55, 148, 255, 0.4),
+      0 0 80px rgba(55, 148, 255, 0.2);
+  }
+  100% {
+    transform: rotate(360deg);
+    box-shadow:
+      0 0 30px rgba(55, 148, 255, 0.3),
+      0 0 60px rgba(55, 148, 255, 0.1);
+  }
+}
+
+.loading-screen__logo-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.loading-screen__title {
+  font-size: 2rem;
+  font-weight: 600;
+  margin: 0;
+  color: var(--vscode-foreground, #cccccc);
+  letter-spacing: 1px;
+
+  /* 文字发光效果 */
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
+}
+
+.loading-screen__subtitle {
+  font-size: 1rem;
+  margin: 0;
+  color: var(--vscode-descriptionForeground, #cccccc99);
+  font-weight: 300;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+/* ================================
+   状态区域样式
+   ================================ */
+
+.loading-screen__status {
+  margin-bottom: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.loading-screen__stage {
+  font-size: 0.9rem;
+  color: var(--vscode-descriptionForeground, #cccccc99);
+  min-height: 1.2rem;
+
+  /* 文字切换动画 */
+  animation: textFade 0.5s ease-in-out;
+}
+
+@keyframes textFade {
+  0% {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ================================
+   进度条样式
+   ================================ */
+
+.loading-screen__progress {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.loading-screen__progress-bar {
+  width: 280px;
+  height: 6px;
+  background: var(--vscode-progressBar-background, rgba(128, 128, 128, 0.3));
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+
+  /* 外层发光和3D效果 */
+  box-shadow:
+    0 0 15px rgba(55, 148, 255, 0.25),
+    inset 0 1px 2px rgba(0, 0, 0, 0.3),
+    inset 0 -1px 1px rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(128, 128, 128, 0.2);
+}
+
+.loading-screen__progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg,
+    var(--vscode-textLink-foreground, #3794ff) 0%,
+    var(--vscode-button-hoverBackground, #1177bb) 30%,
+    var(--vscode-textLink-foreground, #3794ff) 60%,
+    #58a6ff 100%
+  );
+  border-radius: 2px;
+  position: relative;
+
+  /* 进度条动画光效 - 更流畅的填充动画 */
+  background-size: 300% 100%;
+  animation: progressShine 2.5s ease-in-out infinite, progressFill 0.8s ease-out;
+
+  /* 进度条发光和3D效果 */
+  box-shadow:
+    0 0 15px rgba(55, 148, 255, 0.6),
+    0 0 25px rgba(55, 148, 255, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
+
+  /* 添加溢出光效 */
+  overflow: hidden;
+}
+
+.loading-screen__progress-fill::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.4) 50%,
+    transparent 100%
+  );
+  animation: progressGlow 3s ease-in-out infinite;
+}
+
+@keyframes progressFill {
+  0% {
+    transform: scaleX(0);
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: scaleX(1);
+    opacity: 1;
+  }
+}
+
+@keyframes progressGlow {
+  0% { left: -100%; }
+  50% { left: 100%; }
+  100% { left: 100%; }
+}
+
+@keyframes progressShine {
+  0% {
+    background-position: 300% 0;
+    filter: brightness(1);
+  }
+  50% {
+    background-position: -100% 0;
+    filter: brightness(1.2);
+  }
+  100% {
+    background-position: 300% 0;
+    filter: brightness(1);
+  }
+}
+
+.loading-screen__progress-text {
+  font-size: 0.8rem;
+  color: var(--vscode-textLink-foreground, #3794ff);
+  font-weight: 500;
+  min-width: 40px;
+  text-align: center;
+}
+
+/* ================================
+   加载点动画
+   ================================ */
+
+.loading-screen__dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.loading-screen__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--vscode-textLink-foreground, #3794ff);
+  opacity: 0.3;
+  animation: dotPulse 1.5s ease-in-out infinite;
+}
+
+.loading-screen__dot--1 {
+  animation-delay: 0s;
+}
+
+.loading-screen__dot--2 {
+  animation-delay: 0.3s;
+}
+
+.loading-screen__dot--3 {
+  animation-delay: 0.6s;
+}
+
+@keyframes dotPulse {
+  0%, 60%, 100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1.2);
+  }
+}
+
+/* ================================
+   响应式设计
+   ================================ */
+
+@media (max-width: 480px) {
+  .loading-screen__container {
+    padding: 1rem;
+    max-width: 320px;
+  }
+
+  .loading-screen__logo-shape {
+    width: 60px;
+    height: 60px;
+  }
+
+  .loading-screen__logo-inner {
+    width: 45px;
+    height: 45px;
+    font-size: 14px;
+  }
+
+  .loading-screen__title {
+    font-size: 1.5rem;
+  }
+
+  .loading-screen__progress-bar {
+    width: 240px;
+  }
+}
+
+/* ================================
+   暗色模式优化
+   ================================ */
+
+.loading-screen[data-theme="dark"] {
+  background: #0d1117;
+}
+
+.loading-screen[data-theme="dark"] .loading-screen__logo-shape {
+  background: linear-gradient(135deg,
+    #1f6feb 0%,
+    #388bfd 50%,
+    #58a6ff 100%
+  );
+  box-shadow:
+    0 0 30px rgba(88, 166, 255, 0.3),
+    0 0 60px rgba(88, 166, 255, 0.1);
+}
+
+/* ================================
+   过渡动画
+   ================================ */
+
+.loading-screen--fadeout {
+  animation: fadeOut 0.5s ease-in forwards;
+}
+
+@keyframes fadeOut {
+  from {
+    opacity: 1;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+}

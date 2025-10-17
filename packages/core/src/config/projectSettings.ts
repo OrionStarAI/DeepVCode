@@ -1,0 +1,164 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import * as fs from 'fs';
+import * as path from 'path';
+import { ApprovalMode } from './config.js';
+
+/**
+ * 项目级配置接口
+ */
+export interface ProjectSettings {
+  yolo?: boolean;  // YOLO模式开关
+  autoTrimTrailingSpaces?: boolean;  // 自动删除行末空格（适用于C++、Python等源代码）
+}
+
+
+export const PROJECT_CONFIG_DIR_NAME = '.deepvcode';
+/**
+ * 项目级配置管理器
+ * 负责读写项目根目录下的 ./deepvcode/settings.json 文件
+ */
+export class ProjectSettingsManager {
+  private readonly configFileName = 'settings.json';
+  private readonly workspaceDir: string;
+  private settings: ProjectSettings = {};
+
+  constructor(workspaceDir: string) {
+    this.workspaceDir = workspaceDir;
+  }
+
+  /**
+   * 获取配置文件路径
+   */
+  private getConfigFilePath(): string {
+    return path.join(this.workspaceDir, PROJECT_CONFIG_DIR_NAME, this.configFileName);
+  }
+
+  /**
+   * 获取配置目录路径
+   */
+  public getConfigDirPath(): string {
+    return path.join(this.workspaceDir, PROJECT_CONFIG_DIR_NAME);
+  }
+
+  /**
+   * 确保配置目录存在
+   */
+  private ensureConfigDir(): void {
+    const configDir = this.getConfigDirPath();
+    if (!fs.existsSync(configDir)) {
+      fs.mkdirSync(configDir, { recursive: true });
+    }
+  }
+
+  /**
+   * 从文件加载配置
+   */
+  load(): ProjectSettings {
+    try {
+      const configPath = this.getConfigFilePath();
+      
+      if (!fs.existsSync(configPath)) {
+        // 文件不存在，返回默认配置
+        this.settings = {};
+        return this.settings;
+      }
+
+      const content = fs.readFileSync(configPath, 'utf-8');
+      const parsed = JSON.parse(content) as ProjectSettings;
+      
+      // 验证配置格式
+      this.settings = {
+        yolo: typeof parsed.yolo === 'boolean' ? parsed.yolo : undefined,
+        autoTrimTrailingSpaces: typeof parsed.autoTrimTrailingSpaces === 'boolean' ? parsed.autoTrimTrailingSpaces : undefined,
+      };
+      
+      return this.settings;
+    } catch (error) {
+      console.warn('Failed to load project settings:', error);
+      this.settings = {};
+      return this.settings;
+    }
+  }
+
+  /**
+   * 保存配置到文件
+   */
+  save(settings: ProjectSettings): void {
+    try {
+      this.ensureConfigDir();
+      
+      const configPath = this.getConfigFilePath();
+      const content = JSON.stringify(settings, null, 2);
+      
+      fs.writeFileSync(configPath, content, 'utf-8');
+      this.settings = { ...settings };
+    } catch (error) {
+      console.warn('Failed to save project settings:', error);
+      throw new Error(`无法保存项目配置: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+   * 获取当前YOLO模式设置
+   */
+  getYoloMode(): boolean | undefined {
+    return this.settings.yolo;
+  }
+
+  /**
+   * 设置YOLO模式
+   */
+  setYoloMode(enabled: boolean): void {
+    const newSettings = {
+      ...this.settings,
+      yolo: enabled,
+    };
+    this.save(newSettings);
+  }
+
+  /**
+   * 获取自动删除行末空格设置
+   */
+  getAutoTrimTrailingSpaces(): boolean | undefined {
+    return this.settings.autoTrimTrailingSpaces;
+  }
+
+  /**
+   * 设置自动删除行末空格
+   */
+  setAutoTrimTrailingSpaces(enabled: boolean): void {
+    const newSettings = {
+      ...this.settings,
+      autoTrimTrailingSpaces: enabled,
+    };
+    this.save(newSettings);
+  }
+
+  /**
+   * 获取当前所有设置
+   */
+  getSettings(): ProjectSettings {
+    return { ...this.settings };
+  }
+
+  /**
+   * 将项目配置转换为ApprovalMode
+   */
+  static toApprovalMode(yolo: boolean | undefined): ApprovalMode | undefined {
+    if (yolo === true) return ApprovalMode.YOLO;
+    if (yolo === false) return ApprovalMode.DEFAULT;
+    return undefined; // 未设置，使用默认逻辑
+  }
+
+  /**
+   * 检查项目配置是否覆盖了YOLO设置
+   */
+  hasYoloOverride(): boolean {
+    return typeof this.settings.yolo === 'boolean';
+  }
+}

@@ -1,0 +1,63 @@
+# API keys and secrets
+.env
+.env~
+.env.backup.*
+
+# deepv-code settings
+.deepv/
+!deepv/config.yaml
+
+server/
+# Note: .deepv-clipboard/ is NOT in gitignore so DeepV Code can access pasted images
+
+# Dependency directory
+node_modules
+bower_components
+
+vertex-server/
+
+# Editors
+.idea
+*.iml
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# TypeScript build info files
+*.tsbuildinfo
+.tsbuildinfo
+
+# Ignore built ts files
+dist
+
+# TypeScript编译产物（在源码目录中的）
+# 注意：只忽略与.ts/.tsx文件同名的编译产物
+packages/*/src/**/*.js
+packages/*/src/**/*.d.ts
+packages/*/src/**/*.js.map
+
+# 构建缓存文件
+.build-cache.json
+**/.build-cache.json
+
+# Docker folder to help skip auth refreshes
+.docker
+
+bundle
+
+# Test report files
+junit.xml
+packages/*/coverage/
+
+# Generated files
+packages/cli/src/generated/
+.integration-tests/
+packages/vscode-ide-companion/*.vsix
+
+.augment/
+.cursor/
+temp
+packages/vscode-ui-plugin/webview/build
+remote-client/build
+.deepvcode

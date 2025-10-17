@@ -1,0 +1,39 @@
+{
+  "name": "deepv-webview",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@lexical/plain-text": "^0.12.2",
+    "@lexical/react": "^0.12.2",
+    "@lexical/selection": "^0.12.2",
+    "@lexical/text": "^0.12.2",
+    "@lexical/utils": "^0.12.2",
+    "lexical": "^0.12.2",
+    "lucide-react": "^0.544.0",
+    "prism-react-renderer": "^2.3.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-markdown": "^9.0.0",
+    "remark-gfm": "^4.0.0",
+    "rehype-highlight": "^7.0.0",
+    "rehype-raw": "^7.0.0",
+    "remark-math": "^6.0.0",
+    "rehype-katex": "^7.0.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "css-loader": "^6.10.0",
+    "html-webpack-plugin": "^5.6.0",
+    "style-loader": "^3.3.0",
+    "ts-loader": "^9.5.0",
+    "typescript": "^5.8.3",
+    "webpack": "^5.90.0",
+    "webpack-cli": "^5.1.0"
+  },
+  "scripts": {
+    "build": "webpack --mode production",
+    "dev": "webpack --mode development --watch",
+    "type-check": "tsc --noEmit"
+  }
+}

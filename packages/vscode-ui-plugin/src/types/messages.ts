@@ -1,0 +1,285 @@
+/**
+ * Message types for communication between Extension and WebView
+ */
+
+export interface ContextInfo {
+  activeFile?: string;
+  selectedText?: string;
+  cursorPosition?: {
+    line: number;
+    character: number;
+  };
+  workspaceRoot?: string;
+  openFiles?: string[];
+  projectLanguage?: string;
+  gitBranch?: string;
+}
+
+export interface ToolExecutionRequest {
+  id: string;
+  toolName: string;
+  parameters: Record<string, any>;
+  context?: ContextInfo;
+  requiresConfirmation?: boolean;
+}
+
+export interface ToolExecutionResult {
+  success: boolean;
+  data?: any;
+  error?: string;
+  executionTime: number;
+  toolName: string;
+}
+
+// 🎯 新的原始消息内容格式 - 保持编辑器的原始结构
+export type MessageContentPart =
+  | { type: 'text'; value: string }  // 原始文本片段
+  | { type: 'file_reference'; value: { fileName: string; filePath: string } }  // 文件引用
+  | { type: 'image_reference'; value: { fileName: string; data: string; mimeType: string; originalSize: number; compressedSize: number; width?: number; height?: number } };  // 图片引用
+
+export type MessageContent = MessageContentPart[];  // 现在存储原始结构，不是拼装后的内容
+
+export interface ChatMessage {
+  id: string;
+  content: MessageContent;  // 🎯 直接使用新格式
+  context?: ContextInfo;
+  timestamp: number;
+  type: 'user' | 'assistant' | 'system';
+  // 🎯 新增：工具调用相关
+  associatedToolCalls?: ToolCall[];
+}
+
+export interface ChatResponse {
+  id: string;
+  content: string;
+  timestamp: number;
+  toolCalls?: ToolCall[];
+}
+
+// 🎯 增强的工具调用状态枚举
+export enum ToolCallStatus {
+  Scheduled = 'scheduled',
+  Validating = 'validating',
+  Executing = 'executing',
+  WaitingForConfirmation = 'awaiting_approval',
+  Success = 'success',
+  Error = 'error',
+  Canceled = 'cancelled'
+}
+
+// 🎯 工具调用确认详情
+export interface ToolCallConfirmationDetails {
+  message: string;
+  requiresConfirmation: boolean;
+  riskLevel?: 'low' | 'medium' | 'high';
+  affectedFiles?: string[];
+}
+
+// 🎯 增强的工具调用接口 - 参考CLI版本的TrackedToolCall
+export interface ToolCall {
+  id: string;
+  toolName: string; // 原始工具名称，用于内部识别
+  displayName?: string; // 显示名称，用于前端展示
+  parameters: Record<string, any>;
+  result?: ToolExecutionResult;
+
+  // 🎯 工具描述 - 来自tool.getDescription()方法的动态描述
+  description?: string;
+
+  // 🎯 新增状态跟踪字段
+  status: ToolCallStatus;
+
+  // 🎯 实时输出和进度显示
+  liveOutput?: string;
+  progressText?: string;
+
+  // 🎯 确认机制
+  confirmationDetails?: ToolCallConfirmationDetails;
+
+  // 🎯 子工具调用支持
+  subToolCalls?: ToolCall[];
+
+  // 🎯 显示控制
+  renderOutputAsMarkdown?: boolean;
+  forceMarkdown?: boolean;
+
+  // 🎯 时间戳和元数据
+  startTime?: number;
+  endTime?: number;
+  executionDuration?: number;
+
+  // 🎯 响应状态（用于与AI的交互）
+  responseSubmittedToGemini?: boolean;
+
+  // 🎯 工具执行的LLM响应内容（已经过core处理的正确格式）
+  responseParts?: any;  // PartListUnion from core
+}
+
+// QuickAction removed - not used in actual implementation
+
+// =============================================================================
+// Multi-Session Message Interfaces
+// =============================================================================
+
+import { SessionInfo } from './sessionTypes';
+import { SessionType } from '../constants/sessionConstants';
+
+/** Session创建请求 */
+export interface CreateSessionMessagePayload {
+  name?: string;
+  type: SessionType;
+  systemPrompt?: string;
+  fromTemplate?: boolean;
+}
+
+/** Session更新请求 */
+export interface UpdateSessionMessagePayload {
+  sessionId: string;
+  updates: {
+    name?: string;
+    type?: SessionType;
+    description?: string;
+  };
+}
+
+/** Session操作请求 */
+export interface SessionOperationPayload {
+  sessionId: string;
+}
+
+/** Session列表更新载荷 */
+export interface SessionListUpdatePayload {
+  sessions: SessionInfo[];
+  currentSessionId: string | null;
+}
+
+/** Session导出请求 */
+export interface SessionExportPayload {
+  sessionIds?: string[];
+}
+
+/** Session导入请求 */
+export interface SessionImportPayload {
+  filePath?: string;
+  overwriteExisting?: boolean;
+}
+
+// =============================================================================
+// Enhanced Message Types with Session Support
+// =============================================================================
+
+// Message types from WebView to Extension
+export type WebViewToExtensionMessage =
+  // 原有消息类型（现在包含sessionId）
+  | { type: 'tool_execution_request'; payload: ToolExecutionRequest & { sessionId: string } }
+  | { type: 'tool_execution_confirm'; payload: { requestId: string; confirmed: boolean; sessionId?: string } }
+  | { type: 'tool_confirmation_response'; payload: { toolId: string; confirmed: boolean; userInput?: string; sessionId: string } }
+  | { type: 'tool_cancel_all'; payload: { sessionId: string } }
+  | { type: 'flow_abort'; payload: { sessionId: string } }  // 🎯 新增流程中断消息
+  | { type: 'chat_message'; payload: ChatMessage & { sessionId: string } }
+  | { type: 'edit_message_and_regenerate'; payload: { messageId: string; newContent: any; truncatedMessages: any[]; sessionId: string } }
+  | { type: 'get_context'; payload: { sessionId?: string } }
+  | { type: 'get_extension_version'; payload: {} }
+  | { type: 'check_for_updates'; payload: {} }
+  | { type: 'start_services'; payload: {} }
+  | { type: 'ready'; payload: {} }
+  // 新的多Session消息类型
+  | { type: 'session_create'; payload: CreateSessionMessagePayload }
+  | { type: 'session_delete'; payload: SessionOperationPayload }
+  | { type: 'session_switch'; payload: SessionOperationPayload }
+  | { type: 'session_update'; payload: UpdateSessionMessagePayload }
+  | { type: 'session_duplicate'; payload: SessionOperationPayload }
+  | { type: 'session_clear'; payload: SessionOperationPayload }
+  | { type: 'session_export'; payload: SessionExportPayload }
+  | { type: 'session_import'; payload: SessionImportPayload }
+  | { type: 'session_list_request'; payload: {} }
+  // 🎯 UI消息保存相关
+  | { type: 'save_ui_message'; payload: { sessionId: string; message: ChatMessage } }
+  | { type: 'save_session_ui_history'; payload: { sessionId: string; messages: ChatMessage[] } }
+  // 🎯 文件搜索相关
+  | { type: 'file_search'; payload: { prefix: string } }
+  // 🎯 文件路径解析相关
+  | { type: 'resolve_file_paths'; payload: { files: string[] } }
+  // 🎯 文件变更接受相关
+  | { type: 'acceptFileChanges'; payload: { lastAcceptedMessageId: string } }
+  // 🎯 项目设置相关
+  | { type: 'project_settings_update'; payload: { yoloMode: boolean } }
+  | { type: 'project_settings_request'; payload: {} }
+  // 🎯 Diff编辑器相关
+  | { type: 'openDiffInEditor'; payload: { fileDiff: string; fileName: string; originalContent: string; newContent: string } }
+  | { type: 'openDeletedFileContent'; payload: { fileName: string; filePath?: string; deletedContent: string } }
+  // 🎯 增强的 Lint 智能通知相关
+  | { type: 'smart_notification_action'; payload: { sessionId: string; action: string; notificationId?: string; additionalData?: any } }
+  | { type: 'quality_dashboard_request'; payload: { sessionId: string; timeRange?: string; scope?: 'workspace' | 'current_file' | 'specific_files'; files?: string[] } }
+  | { type: 'fix_suggestion_request'; payload: { sessionId: string; files?: string[]; errorTypes?: string[]; priority?: 'high' | 'medium' | 'low' } }
+  // 🎯 升级提示相关（用于解决webview沙箱限制）
+  | { type: 'open_external_url'; payload: { url: string } }
+  | { type: 'open_extension_marketplace'; payload: { extensionId: string } };
+
+// Message types from Extension to WebView
+export type ExtensionToWebViewMessage =
+  // 原有消息类型（现在包含sessionId）
+  | { type: 'tool_execution_result'; payload: { requestId: string; result: ToolExecutionResult; sessionId: string } }
+  | { type: 'tool_execution_error'; payload: { requestId: string; error: string; sessionId: string } }
+  | { type: 'tool_execution_confirmation_request'; payload: ToolExecutionRequest & { sessionId: string } }
+  | { type: 'tool_confirmation_request'; payload: { sessionId: string; toolCall: { toolId: string; toolName: string; displayName?: string; parameters: Record<string, any>; confirmationDetails: ToolCallConfirmationDetails } } }
+  | { type: 'tool_calls_update'; payload: { toolCalls: ToolCall[]; sessionId: string; associatedMessageId?: string } }
+  | { type: 'tool_results_continuation'; payload: ChatResponse & { sessionId: string } }
+  | { type: 'tool_message'; payload: { id: string; toolId: string; toolName?: string; content: string; timestamp: number; toolMessageType: 'status' | 'output'; toolStatus?: 'executing' | 'success' | 'error' | 'cancelled'; toolParameters?: Record<string, any>; sessionId: string } }
+  | { type: 'chat_response'; payload: ChatResponse & { sessionId: string } }
+  | { type: 'chat_error'; payload: { error: string; sessionId: string } }
+  | { type: 'chat_start'; payload: { messageId: string; sessionId: string } }
+  | { type: 'chat_chunk'; payload: { content: string; messageId: string; isComplete?: boolean; sessionId: string } }
+  | { type: 'chat_complete'; payload: { messageId: string; sessionId: string } }
+  | { type: 'context_update'; payload: ContextInfo & { sessionId?: string } }
+  | { type: 'extension_version_response'; payload: { version: string } }
+  | { type: 'update_check_response'; payload: { success: boolean; hasUpdate: boolean; currentVersion: string; latestVersion: string; forceUpdate: boolean; timestamp: string; downloadUrl: string } | { error: string } }
+  // 🎯 新增流程状态消息类型
+  | { type: 'flow_state_update'; payload: { sessionId: string; isProcessing: boolean; currentProcessingMessageId?: string; canAbort: boolean } }
+  | { type: 'flow_aborted'; payload: { sessionId: string } }
+  // 新的多Session响应消息类型
+  | { type: 'session_list_update'; payload: SessionListUpdatePayload }
+  | { type: 'session_created'; payload: { session: SessionInfo } }
+  | { type: 'session_updated'; payload: { sessionId: string; session: SessionInfo } }
+  | { type: 'session_deleted'; payload: { sessionId: string } }
+  | { type: 'session_switched'; payload: { sessionId: string; session: SessionInfo } }
+  | { type: 'session_export_complete'; payload: { filePath: string; sessionCount: number } }
+  | { type: 'session_import_complete'; payload: { importedSessions: SessionInfo[] } }
+  // 🎯 文件回滚相关消息类型
+  | { type: 'file_rollback_complete'; payload: { sessionId: string; result: any; targetMessageId: string } }
+  | { type: 'file_rollback_failed'; payload: { sessionId: string; error: string; targetMessageId: string } }
+  // 🎯 UI消息恢复相关
+  | { type: 'restore_ui_history'; payload: { sessionId: string; messages: ChatMessage[]; rollbackableMessageIds: string[] } }
+  // 🎯 请求前端发送UI历史记录
+  | { type: 'request_ui_history'; payload: { sessionId: string } }
+  // 🎯 可回滚消息ID列表更新
+  | { type: 'update_rollbackable_ids'; payload: { sessionId: string; rollbackableMessageIds: string[] } }
+  // 🎯 文件搜索结果
+  | { type: 'file_search_result'; payload: { files: Array<{ label: string; value: string; description?: string }> } }
+  // 🎯 文件路径解析结果
+  | { type: 'file_paths_resolved'; payload: { resolvedFiles: string[] } }
+  // 🎯 项目设置相关
+  | { type: 'project_settings_response'; payload: { yoloMode: boolean } }
+  // 🎯 服务初始化状态
+  | { type: 'service_initialization_status'; payload: { status: 'starting' | 'progress' | 'ready' | 'failed'; message: string; timestamp: number } }
+  | { type: 'service_initialization_done'; payload: {} }
+  // 🎯 增强的 Lint 智能通知
+  | { type: 'smart_notification'; payload: { notificationData: any; sessionId: string | null; timestamp: number } }
+  | { type: 'lint_suggestions'; payload: { suggestions: any[]; sessionId: string | null; timestamp: number } }
+  | { type: 'tool_suggestion'; payload: { sessionId: string; toolName: string; params: any; timestamp: number } }
+  // 🎯 模型配置相关
+  | { type: 'model_response'; payload: { requestId: string; success: boolean; models?: any[]; currentModel?: string; error?: string } };
+
+export type Message = WebViewToExtensionMessage | ExtensionToWebViewMessage;
+
+// Note: ToolDefinition, ParameterDefinition, and AppState interfaces removed
+// These are duplicates of types defined elsewhere and not used in actual implementation
+// Tool definitions come from backend dynamically, not static frontend types
+
+// Configuration
+export interface ExtensionConfiguration {
+  enableAutoAnalysis: boolean;
+  confirmDangerousOperations: boolean;
+  maxHistoryItems: number;
+  feishuToken: string;
+}

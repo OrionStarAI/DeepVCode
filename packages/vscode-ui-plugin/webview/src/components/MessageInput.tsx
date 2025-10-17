@@ -1,0 +1,822 @@
+/**
+ * Message Input Component - 重构后的主组件
+ * 基于 Lexical 的富文本输入组件，支持文件拖拽、富文本显示等功能
+ */
+
+import React, { useState, useRef, useEffect } from 'react';
+import { LexicalComposer } from '@lexical/react/LexicalComposer';
+import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
+import { ContentEditable } from '@lexical/react/LexicalContentEditable';
+import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin';
+import { OnChangePlugin } from '@lexical/react/LexicalOnChangePlugin';
+import { $getRoot, $getSelection, EditorState } from 'lexical';
+import { $isRangeSelection } from 'lexical';
+import { $createTextNode, $createParagraphNode, $createLineBreakNode } from 'lexical';
+import { Send, Square, Check } from 'lucide-react';
+import { useTranslation } from '../hooks/useTranslation';
+import { MessageContent } from '../types/index';
+import { ModelSelector } from './ModelSelector';
+
+
+// 导入拆分后的组件和节点
+import { FileReferenceNode, $createFileReferenceNode, $isFileReferenceNode } from './MessageInput/nodes/FileReferenceNode';
+import { ImageReferenceNode, $createImageReferenceNode, $isImageReferenceNode } from './MessageInput/nodes/ImageReferenceNode';
+import { KeyboardPlugin } from './MessageInput/plugins/KeyboardPlugin';
+import { DragDropPlugin } from './MessageInput/plugins/DragDropPlugin';
+import { ClipboardPlugin } from './MessageInput/plugins/ClipboardPlugin';
+import { FileAutocompletePlugin } from './MessageInput/plugins/FileAutocompletePlugin';
+import { EditorRefPlugin } from './MessageInput/plugins/EditorRefPlugin';
+import { ImageReference, resetImageCounter } from './MessageInput/utils/imageProcessor';
+
+import './MessageInput/MessageInput.css';
+
+interface MessageInputProps {
+  isLoading: boolean;
+  isProcessing?: boolean;
+  canAbort?: boolean;
+  onSendMessage: (content: MessageContent) => void;
+  onAbortProcess?: () => void;
+  onMessageSent?: () => void; // 🎯 新增：消息发送后的回调
+  selectedModelId?: string; // 🎯 新增：当前选中的模型ID
+  onModelChange?: (modelId: string) => void; // 🎯 新增：模型变更回调
+  sessionId?: string; // 🎯 新增：当前会话ID
+  tokenUsage?: { // 🎯 新增：Token使用情况
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    tokenLimit: number;
+    cachedContentTokens?: number;
+    cacheCreationInputTokens?: number;
+    cacheReadInputTokens?: number;
+    creditsUsage?: number;
+  };
+
+  // 🎯 新增：编辑模式支持
+  mode?: 'compose' | 'edit';                    // 模式：撰写新消息 | 编辑现有消息
+  editingMessageId?: string;                    // 编辑的消息ID
+  initialContent?: MessageContent;              // 初始内容（编辑模式使用）
+  onSaveEdit?: (messageId: string, content: MessageContent) => void;  // 保存编辑
+  onCancelEdit?: () => void;                   // 取消编辑
+
+  // 🎯 新增：样式和行为定制
+  className?: string;                          // 自定义样式类
+  showModelSelector?: boolean;                 // 是否显示模型选择器
+  showTokenUsage?: boolean;                    // 是否显示Token使用情况
+  placeholder?: string;                        // 自定义占位符
+  compact?: boolean;                          // 紧凑模式（编辑时可能需要）
+}
+
+// Lexical 错误边界组件
+function LexicalErrorBoundary({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
+}
+
+export const MessageInput: React.FC<MessageInputProps> = ({
+  isLoading,
+  isProcessing = false,
+  canAbort = false,
+  onSendMessage,
+  onAbortProcess,
+  onMessageSent,
+  selectedModelId,
+  onModelChange,
+  sessionId,
+  tokenUsage,
+
+  // 🎯 编辑模式属性
+  mode = 'compose',
+  editingMessageId,
+  initialContent,
+  onSaveEdit,
+  onCancelEdit,
+
+  // 🎯 样式和行为定制
+  className = '',
+  showModelSelector = true,
+  showTokenUsage = true,
+  placeholder,
+  compact = false
+}) => {
+  const { t } = useTranslation();
+  const [editorState, setEditorState] = useState<EditorState | null>(null);
+  const [textContent, setTextContent] = useState('');
+  const [isResizing, setIsResizing] = useState(false);
+  const [containerHeight, setContainerHeight] = useState(140); // 🎯 默认高度改为3行
+  const [isAutoExpanded, setIsAutoExpanded] = useState(false); // 是否是自动扩展状态
+  const editorRef = useRef<any>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const resizeStartY = useRef<number>(0);
+  const resizeStartHeight = useRef<number>(0);
+
+  // 🎯 模式判断
+  const isEditMode = mode === 'edit';
+  const isComposeMode = mode === 'compose' || !mode;
+
+  // 🎯 跟踪是否已经填充过初始内容
+  const [hasPopulatedContent, setHasPopulatedContent] = useState(false);
+
+  // 🎯 重置填充状态当编辑模式变化或编辑不同消息时
+  useEffect(() => {
+    if (!isEditMode || !editingMessageId) {
+      setHasPopulatedContent(false);
+    }
+  }, [isEditMode, editingMessageId]);
+
+  // 🎯 自动扩展配置
+  const MIN_HEIGHT = 140; // 🎯 编辑模式和撰写模式使用相同高度
+  const MAX_HEIGHT = 400; // 🎯 编辑模式和撰写模式使用相同最大高度
+  const LINE_HEIGHT = 24; // 大约每行的高度
+
+  // 🎯 Lexical 初始化配置
+  const initialConfig = {
+    namespace: 'MessageInput',
+    nodes: [FileReferenceNode, ImageReferenceNode], // 注册自定义文件引用节点和图片引用节点
+    onError: (error: Error) => {
+      console.error('Lexical Error:', error);
+    },
+    theme: {
+      root: 'lexical-root',
+      text: {
+        bold: 'lexical-text-bold',
+        italic: 'lexical-text-italic',
+        underline: 'lexical-text-underline',
+      }
+    }
+  };
+
+  // 🎯 计算剩余上下文百分比
+  const getContextLeftPercentage = (): number | null => {
+    if (!tokenUsage || !tokenUsage.tokenLimit || tokenUsage.tokenLimit <= 0) {
+      return null;
+    }
+
+    const usedPercentage = (tokenUsage.totalTokens / tokenUsage.tokenLimit) * 100;
+    const leftPercentage = Math.max(0, 100 - usedPercentage);
+    return Math.round(leftPercentage);
+  };
+
+  // 🎯 处理编辑器状态变化
+  const handleChange = (editorState: EditorState) => {
+    setEditorState(editorState);
+
+    let contentChanged = false;
+    let newTextContent = '';
+
+    editorState.read(() => {
+      const root = $getRoot();
+      newTextContent = root.getTextContent();
+      // 🎯 只有当内容真正发生变化时才触发自动扩展
+      contentChanged = newTextContent !== textContent;
+    });
+
+    setTextContent(newTextContent);
+
+    // 🎯 只在内容变化时检查自动扩展
+    if (contentChanged) {
+      requestAnimationFrame(() => {
+        checkAndAutoExpand();
+      });
+    }
+  };
+
+  // 🎯 编辑模式专用的高度检查和调整
+  const checkAndAutoExpandForEdit = () => {
+    if (isResizing) return;
+
+    const contentEditable = containerRef.current?.querySelector('.lexical-content-editable') as HTMLElement;
+    if (!contentEditable) return;
+
+    const scrollHeight = contentEditable.scrollHeight;
+    console.log('🎯 编辑模式高度检查:', { scrollHeight, currentContainerHeight: containerHeight });
+
+    // 🎯 计算需要的容器高度（内容高度 + padding + 其他元素空间）
+    const padding = 24; // 12px top + 12px bottom padding
+    const toolbarHeight = 40; // 底部工具栏高度（包括边距和边框）
+    const handleHeight = 8; // 拖拽手柄高度（虽然编辑模式隐藏了，但预留空间）
+    const extraSpace = padding + toolbarHeight + handleHeight + 8; // 额外的8px缓冲
+
+    // 🎯 编辑模式下，根据内容实际需要的高度来设置，不等待溢出
+    const neededContainerHeight = Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, scrollHeight + extraSpace));
+
+    console.log('🎯 编辑模式高度计算:', {
+      scrollHeight,
+      extraSpace,
+      neededContainerHeight,
+      currentHeight: containerHeight,
+      MIN_HEIGHT,
+      MAX_HEIGHT
+    });
+
+    // 🎯 设置合适的高度
+    if (Math.abs(neededContainerHeight - containerHeight) > 5) {
+      setContainerHeight(neededContainerHeight);
+      setIsAutoExpanded(neededContainerHeight > MIN_HEIGHT);
+      console.log('🎯 编辑模式高度已调整为:', neededContainerHeight);
+    }
+  };
+
+  // 🎯 检查并自动扩展容器高度
+  const checkAndAutoExpand = () => {
+    if (isResizing) return;
+
+    // 🎯 通过查找DOM元素来获取内容编辑器
+    const contentEditable = containerRef.current?.querySelector('.lexical-content-editable') as HTMLElement;
+    if (!contentEditable) return;
+
+    const scrollHeight = contentEditable.scrollHeight;
+    const currentHeight = contentEditable.clientHeight;
+
+    // 🎯 只有当内容实际溢出时才需要扩展
+    const isOverflowing = scrollHeight > currentHeight + 5; // 5px 容错
+    const hasContent = textContent.trim().length > 0;
+
+    // 🎯 计算需要的容器高度（内容高度 + padding + 其他元素空间）
+    const padding = 24; // 12px top + 12px bottom padding
+    const toolbarHeight = 40; // 底部工具栏高度（包括边距和边框）
+    const handleHeight = 8; // 拖拽手柄高度
+    const extraSpace = padding + toolbarHeight + handleHeight + 8; // 额外的8px缓冲
+
+    let neededContainerHeight;
+
+    if (!hasContent) {
+      // 🎯 没有内容时，重置为最小高度
+      neededContainerHeight = MIN_HEIGHT;
+    } else if (isOverflowing) {
+      // 🎯 只有在内容溢出时才增加高度
+      neededContainerHeight = Math.min(MAX_HEIGHT, scrollHeight + extraSpace);
+    } else {
+      // 🎯 内容没有溢出，保持当前高度
+      return;
+    }
+
+    // 🎯 如果需要的高度与当前高度不同
+    if (Math.abs(neededContainerHeight - containerHeight) > 10) {
+      setContainerHeight(neededContainerHeight);
+      setIsAutoExpanded(neededContainerHeight > MIN_HEIGHT);
+    }
+  };
+
+  // 🎯 插入文件引用节点到编辑器
+  const insertFileReferenceNode = (fullPath: string) => {
+    const fileName = fullPath.split(/[/\\]/).pop() || fullPath;
+
+    if (editorRef.current) {
+      editorRef.current.update(() => {
+        const selection = $getSelection();
+        if ($isRangeSelection(selection)) {
+          const fileReferenceNode = $createFileReferenceNode(fileName, fullPath);
+          selection.insertNodes([fileReferenceNode]);
+          // 在文件引用后添加一个空格
+          selection.insertText(' ');
+        }
+      });
+    }
+  };
+
+  // 🎯 处理文件拖拽 - 增强的路径解析逻辑
+  const handleFilesDrop = (filePaths: string[]) => {
+    console.log('🎯 MessageInput received files:', filePaths);
+
+    const processedFiles: string[] = [];
+    const needResolution: string[] = [];
+
+    // 🎯 改进的路径分类逻辑
+    for (const filePath of filePaths) {
+      // Windows: C:\ 或 \\  | Unix: /
+      const isAbsolutePath =
+        filePath.match(/^[A-Za-z]:[\\/]/) ||  // Windows 绝对路径: C:\, D:/
+        filePath.startsWith('\\\\') ||        // UNC 路径: \\server\share
+        filePath.startsWith('/');             // Unix 绝对路径: /path
+
+      if (isAbsolutePath) {
+        processedFiles.push(filePath);
+      } else {
+        needResolution.push(filePath);
+      }
+    }
+
+    console.log('🎯 路径分类结果:', { processedFiles, needResolution });
+
+    // 立即处理绝对路径文件
+    if (processedFiles.length > 0) {
+      processedFiles.forEach(insertFileReferenceNode);
+    }
+
+    // 🎯 对于需要解析的相对路径，通过VSCode API请求解析
+    if (needResolution.length > 0) {
+      console.log('🎯 Files need path resolution:', needResolution);
+
+      if (window.vscode) {
+        // 🎯 使用 flag 防止重复处理
+        let isResolved = false;
+
+        window.vscode.postMessage({
+          type: 'resolve_file_paths',
+          payload: { files: needResolution }
+        });
+
+        // 🎯 改进的消息监听器
+        const handlePathResolution = (event: MessageEvent) => {
+          const message = event.data;
+          if (message.type === 'file_paths_resolved' && !isResolved) {
+            isResolved = true;
+            window.removeEventListener('message', handlePathResolution);
+            const resolvedFiles: string[] = message.payload.resolvedFiles || [];
+            console.log('🎯 Resolved file paths:', resolvedFiles);
+
+            if (resolvedFiles.length > 0) {
+              resolvedFiles.forEach(insertFileReferenceNode);
+            }
+          }
+        };
+
+        window.addEventListener('message', handlePathResolution);
+
+        // 设置超时，避免无限等待
+        setTimeout(() => {
+          if (!isResolved) {
+            isResolved = true;
+            window.removeEventListener('message', handlePathResolution);
+            console.warn('🎯 File path resolution timeout, using original paths');
+            // 超时后使用原始路径作为后备
+            needResolution.forEach(insertFileReferenceNode);
+          }
+        }, 2000); // 减少到2秒超时
+      } else {
+        // 没有VSCode API的情况下，直接使用原始路径
+        needResolution.forEach(insertFileReferenceNode);
+      }
+    }
+  };
+
+  // 🎯 处理 @ 自动完成选择的文件
+  const handleFileAutoComplete = (fileName: string, filePath: string) => {
+    insertFileReferenceNode(filePath);
+  };
+
+  // 🎯 插入图片引用节点
+  const insertImageReferenceNode = (imageData: ImageReference) => {
+    if (editorRef.current) {
+      editorRef.current.update(() => {
+        const selection = $getSelection();
+        if ($isRangeSelection(selection)) {
+          const imageReferenceNode = $createImageReferenceNode(imageData);
+          selection.insertNodes([imageReferenceNode]);
+
+          // 在图片节点后添加空格
+          const spaceNode = $createTextNode(' ');
+          imageReferenceNode.insertAfter(spaceNode);
+        }
+      });
+    }
+  };
+
+  // 🎯 填充编辑器内容（编辑模式使用）- 支持新的原始结构
+  const populateEditorWithContent = (content: MessageContent) => {
+    if (!editorRef.current || !content) {
+      console.log('🎯 无法填充内容，编辑器或内容为空');
+      return;
+    }
+
+    console.log('🎯 开始填充编辑器内容（原始结构）:', content);
+
+    editorRef.current.update(() => {
+      const root = $getRoot();
+      root.clear();
+
+      // 🎯 处理新的原始结构化内容
+      if (Array.isArray(content)) {
+        // 创建一个段落来包含所有内容
+        const paragraph = $createParagraphNode();
+
+        // 按原始顺序恢复内容
+        content.forEach((item, index) => {
+          console.log(`🎯 恢复内容项 ${index}:`, item);
+
+          try {
+            if (item.type === 'text') {
+              // 🎯 处理文本内容
+              if (item.value) {
+                paragraph.append($createTextNode(item.value));
+                console.log('🎯 恢复文本节点:', item.value);
+              }
+            } else if (item.type === 'file_reference') {
+              // 🎯 处理文件引用
+              if (item.value?.fileName && item.value?.filePath) {
+                const fileNode = $createFileReferenceNode(item.value.fileName, item.value.filePath);
+                paragraph.append(fileNode);
+                console.log('🎯 恢复文件引用节点:', item.value.fileName);
+              }
+            } else if (item.type === 'image_reference') {
+              // 🎯 处理图片引用
+              if (item.value) {
+                // 确保图片数据包含所有必需字段
+                const imageData = {
+                  ...item.value,
+                  id: item.value.id || `img-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+                };
+                const imageNode = $createImageReferenceNode(imageData);
+                paragraph.append(imageNode);
+                console.log('🎯 恢复图片引用节点:', item.value.fileName);
+              }
+            }
+          } catch (error) {
+            console.error('🎯 恢复内容项时出错:', item, error);
+          }
+        });
+
+        root.append(paragraph);
+      } else {
+        // 🎯 如果内容不是数组格式，可能是旧格式的字符串
+        console.log('🎯 内容不是数组格式，尝试作为文本处理');
+        const textContent = typeof content === 'string' ? content : JSON.stringify(content);
+        const paragraph = $createParagraphNode();
+        paragraph.append($createTextNode(textContent));
+        root.append(paragraph);
+      }
+
+      console.log('🎯 编辑器内容填充完成');
+    });
+
+    // 🎯 更新文本内容状态并检查高度调整
+    setTimeout(() => {
+      if (editorRef.current) {
+        editorRef.current.getEditorState().read(() => {
+          const root = $getRoot();
+          const newTextContent = root.getTextContent();
+          setTextContent(newTextContent);
+          console.log('🎯 更新文本内容状态:', newTextContent);
+        });
+
+        // 🎯 编辑模式下，根据内容长度立即调整高度
+        if (isEditMode) {
+          setTimeout(() => {
+            checkAndAutoExpandForEdit();
+          }, 100);
+        }
+      }
+    }, 300);
+  };
+
+  // 🎯 编辑器准备就绪回调
+  const handleEditorReady = () => {
+    if (isEditMode && initialContent && !hasPopulatedContent) {
+      console.log('🎯 编辑器准备就绪，填充初始内容:', initialContent);
+      populateEditorWithContent(initialContent);
+      setHasPopulatedContent(true);
+      console.log('🎯 初始内容填充完成');
+      // 自动聚焦到编辑器，并将光标移到末尾
+      setTimeout(() => {
+        if (editorRef.current) {
+          editorRef.current.focus();
+          // 使用更健壮的光标定位方式
+          setTimeout(() => {
+            if (editorRef.current) {
+              editorRef.current.update(() => {
+                const root = $getRoot();
+                root.selectEnd();
+              });
+
+              // 🎯 检查并调整编辑器高度
+              setTimeout(() => {
+                checkAndAutoExpandForEdit();
+              }, 50);
+            }
+          }, 50);
+        }
+      }, 100);
+    }
+  };
+
+  // 🎯 编辑模式下预填充初始内容 (备用方案)
+  useEffect(() => {
+    if (isEditMode && initialContent && editorRef.current && !hasPopulatedContent) {
+      console.log('🎯 useEffect尝试填充初始内容:', initialContent);
+      // 确保编辑器完全初始化后再填充内容
+      setTimeout(() => {
+        if (editorRef.current && !hasPopulatedContent) {
+          populateEditorWithContent(initialContent);
+          setHasPopulatedContent(true);
+          console.log('🎯 useEffect初始内容填充完成');
+          // 自动聚焦到编辑器，并将光标移到末尾
+          setTimeout(() => {
+            if (editorRef.current) {
+              editorRef.current.focus();
+              // 使用更健壮的光标定位方式
+              setTimeout(() => {
+                if (editorRef.current) {
+                  editorRef.current.update(() => {
+                    const root = $getRoot();
+                    root.selectEnd();
+                  });
+
+                  // 🎯 检查并调整编辑器高度
+                  setTimeout(() => {
+                    checkAndAutoExpandForEdit();
+                  }, 50);
+                }
+              }, 50);
+            }
+          }, 50);
+        }
+      }, 200); // 增加延迟确保编辑器完全就绪
+    }
+  }, [isEditMode, initialContent, hasPopulatedContent]);
+
+  // 🎯 处理剪切板图片粘贴
+  const handleImagePaste = (imageData: ImageReference) => {
+    insertImageReferenceNode(imageData);
+  };
+
+  const handleSend = () => {
+    // 🎯 从当前编辑器状态提取原始结构，保持编辑器节点的原始顺序
+    if (!editorRef.current) return;
+
+    const rawContent: any[] = [];
+
+    editorRef.current.getEditorState().read(() => {
+      const root = $getRoot();
+
+      // 🎯 新逻辑：按节点顺序收集原始结构，避免重复内容
+      const collectRawStructure = (node: any) => {
+        if ($isFileReferenceNode(node)) {
+          // 文件引用节点 - 直接处理，不递归子节点
+          rawContent.push({
+            type: 'file_reference',
+            value: {
+              fileName: node.__fileName,
+              filePath: node.__filePath
+            }
+          });
+        } else if ($isImageReferenceNode(node)) {
+          // 图片引用节点 - 直接处理，不递归子节点
+          rawContent.push({
+            type: 'image_reference',
+            value: node.__imageData
+          });
+        } else {
+          // 对于其他节点，检查是否有子节点
+          const children = node.getChildren?.() || [];
+
+          if (children.length > 0) {
+            // 有子节点，递归处理子节点（不处理当前节点的文本）
+            children.forEach(collectRawStructure);
+          } else {
+            // 叶子节点，获取其文本内容
+            const textContent = node.getTextContent();
+            if (textContent) {
+              rawContent.push({
+                type: 'text',
+                value: textContent
+              });
+            }
+          }
+        }
+      };
+
+      // 遍历所有根节点，保持原始顺序
+      root.getChildren().forEach(collectRawStructure);
+    });
+
+    // 🎯 检查是否有内容并且不在加载/处理状态
+    const hasContent = rawContent.some(part =>
+      (part.type === 'text' && part.value.trim()) ||
+      part.type === 'file_reference' ||
+      part.type === 'image_reference'
+    );
+
+    if (hasContent && !isLoading && !isProcessing) {
+      // 🎯 根据模式调用不同的处理函数
+      if (isEditMode && editingMessageId && onSaveEdit) {
+        // 编辑模式：保存编辑，直接传递原始结构
+        onSaveEdit(editingMessageId, rawContent);
+      } else {
+        // 撰写模式：发送新消息，直接传递原始结构
+        onSendMessage(rawContent);
+
+        // 🎯 触发滚动到底部
+        if (onMessageSent) {
+          onMessageSent();
+        }
+      }
+
+      // 清空编辑器内容
+      clearEditor();
+    }
+  };
+
+  // 🎯 清空编辑器的统一方法
+  const clearEditor = () => {
+    if (editorRef.current) {
+      editorRef.current.update(() => {
+        const root = $getRoot();
+        root.clear();
+      });
+    }
+    setTextContent('');
+    resetImageCounter();
+    setHasPopulatedContent(false); // 🎯 重置填充状态
+
+    // 重置高度
+    setContainerHeight(MIN_HEIGHT);
+    setIsAutoExpanded(false);
+  };
+
+  // 🎯 处理取消编辑
+  const handleCancel = () => {
+    if (isEditMode && onCancelEdit) {
+      onCancelEdit();
+    }
+    clearEditor();
+  };
+
+
+
+  // 拖拽调整大小处理函数
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(true);
+    resizeStartY.current = e.clientY;
+    resizeStartHeight.current = containerHeight;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      // 🎯 修复拖拽方向：向上拖拽应该增加高度，向下拖拽应该减少高度
+      // 因为容器底部是固定的，所以向上拖拽手柄意味着增加容器高度
+      const deltaY = resizeStartY.current - e.clientY; // 向上拖为正值
+      const newHeight = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, resizeStartHeight.current + deltaY));
+      setContainerHeight(newHeight);
+
+      // 🎯 用户手动调整时，暂时禁用自动扩展
+      setIsAutoExpanded(false);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(false);
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+
+      // 🎯 拖拽结束后，如果内容需要更多空间，重新启用自动扩展
+      setTimeout(() => {
+        checkAndAutoExpand();
+      }, 100);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const insertQuickPrompt = (prompt: string) => {
+    if (editorRef.current) {
+      editorRef.current.update(() => {
+        const selection = $getSelection();
+        if ($isRangeSelection(selection)) {
+          selection.insertText(prompt);
+        }
+      });
+      editorRef.current.focus();
+    }
+  };
+
+  // 🎯 监听编辑器内容变化和窗口大小变化
+  React.useEffect(() => {
+    const handleResize = () => {
+      // 窗口大小变化时重新检查是否需要调整高度
+      setTimeout(checkAndAutoExpand, 100);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // 🎯 清空编辑器时重置高度
+  const handleClear = () => {
+    if (editorRef.current) {
+      editorRef.current.update(() => {
+        const root = $getRoot();
+        root.clear();
+      });
+    }
+    setTextContent('');
+    // 🎯 清空后重置为默认3行高度
+    setContainerHeight(MIN_HEIGHT);
+    setIsAutoExpanded(false);
+  };
+
+  // 🎯 构建容器样式类
+  const containerClasses = [
+    'message-input-container',
+    isResizing ? 'resizing' : '',
+    isEditMode ? 'edit-mode' : 'compose-mode',
+    compact ? 'compact' : '',
+    className
+  ].filter(Boolean).join(' ');
+
+  // 🎯 根据模式调整高度 - 编辑模式和撰写模式保持一致
+  const getContainerHeight = () => {
+    return containerHeight;
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      className={containerClasses}
+      style={{ height: `${getContainerHeight()}px` }}
+    >
+      {/* 拖拽调整大小手柄 */}
+      <div
+        className="resize-handle"
+        onMouseDown={handleResizeStart}
+        title="拖拽调整编辑器高度"
+      />
+      <div className="input-wrapper">
+        <LexicalComposer initialConfig={initialConfig}>
+          <div className="lexical-editor-container">
+            <div className="rich-text-wrapper">
+              <RichTextPlugin
+                contentEditable={
+                  <ContentEditable
+                    className={`message-input lexical-content-editable`}
+                    spellCheck={false}
+                  />
+                }
+                placeholder={
+                  <div className="lexical-placeholder">
+                    {placeholder || (isEditMode ? t('chat.editPlaceholder', undefined, '编辑你的消息...') : t('chat.inputPlaceholder'))}
+                  </div>
+                }
+                ErrorBoundary={({ children }: { children: React.ReactNode }) => (
+                  <div className="lexical-error-boundary">
+                    {children}
+                  </div>
+                )}
+              />
+            </div>
+            <HistoryPlugin />
+            <OnChangePlugin onChange={handleChange} />
+            <KeyboardPlugin onSend={handleSend} onClear={handleClear} />
+            <DragDropPlugin onFilesDrop={handleFilesDrop} />
+            <ClipboardPlugin onImagePaste={handleImagePaste} />
+            <FileAutocompletePlugin onFileSelect={handleFileAutoComplete} />
+            <EditorRefPlugin editorRef={editorRef} onEditorReady={handleEditorReady} />
+          </div>
+        </LexicalComposer>
+
+        {/* 🎯 底部工具栏 - 在输入框外部，形成上下分界关系 */}
+        <div className="input-toolbar">
+          {/* 左侧：模型选择器、字符计数和快速操作 */}
+          <div className="input-footer">
+            {/* 模型选择器 - 根据配置显示 */}
+            {showModelSelector && (
+              <ModelSelector
+                selectedModelId={selectedModelId}
+                onModelChange={(modelId) => onModelChange?.(modelId)}
+                disabled={isLoading || isProcessing}
+                className="message-input-model-selector"
+                sessionId={sessionId}
+              />
+            )}
+
+            {/* 上下文剩余量指示器 */}
+            {tokenUsage && getContextLeftPercentage() !== null && (
+              <div className="context-indicator">
+                <span className="context-percentage">
+                  {getContextLeftPercentage()}% Context Left
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* 右侧：发送按钮 */}
+          <div className="input-actions">
+            {/* 发送/保存按钮 - 与底部保持一致的样式 */}
+            {isProcessing ? (
+              <button
+                className="send-button processing"
+                onClick={onAbortProcess}
+                disabled={!canAbort}
+                title={canAbort ? "Stop AI processing" : "Cannot stop"}
+              >
+                <Square size={16} stroke="currentColor" />
+              </button>
+            ) : (
+              <button
+                className="send-button"
+                onClick={handleSend}
+                disabled={!textContent.trim() || isLoading || isProcessing}
+                title={isLoading ? 'Sending...' : 'Send message'}
+              >
+                {isLoading ? (
+                  <div className="button-spinner" />
+                ) : (
+                  <Send size={16} stroke="currentColor" />
+                )}
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+
+    </div>
+  );
+};

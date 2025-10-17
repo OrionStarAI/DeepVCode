@@ -1,0 +1,269 @@
+/**
+ * 文件修改状态栏样式
+ */
+
+.files-changed-container {
+  position: relative;
+  flex-shrink: 0; /* 防止在flex布局中被压缩 */
+}
+
+/* 主要的单行栏 - 模仿VSCode标签栏 */
+.files-changed-bar {
+  display: flex;
+  align-items: center;
+  padding: 4px 12px;
+  background: var(--vscode-tab-activeBackground, #181818);
+  border-top: 1px solid var(--vscode-tab-border, #2d2d30);
+  border-bottom: 1px solid var(--vscode-tab-border, #2d2d30);
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--vscode-tab-activeForeground, #cccccc);
+  gap: 8px;
+  transition: background-color 0.2s ease;
+  user-select: none;
+  min-height: 28px;
+}
+
+.files-changed-bar:hover {
+  background: var(--vscode-tab-hoverBackground, #2a2d2e);
+}
+
+.files-changed-bar:active {
+  background: var(--vscode-list-activeSelectionBackground, #094771);
+}
+
+.files-icon {
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.files-count {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+
+/* Accept 按钮 */
+.accept-changes-btn {
+  background: var(--vscode-button-background, #0e639c);
+  color: var(--vscode-button-foreground, #ffffff);
+  border: 1px solid var(--vscode-button-border, transparent);
+  border-radius: 3px;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  line-height: 1.2;
+}
+
+.accept-changes-btn:hover {
+  background: var(--vscode-button-hoverBackground, #1177bb);
+  transform: translateY(-1px);
+}
+
+.accept-changes-btn:active {
+  background: var(--vscode-button-activeBackground, #0e639c);
+  transform: translateY(0);
+}
+
+/* 展开箭头动画 */
+.expand-arrow {
+  transition: transform 0.2s ease;
+  font-size: 10px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.expand-arrow.expanded {
+  transform: rotate(180deg);
+}
+
+/* 悬浮展开列表 */
+.files-expanded-list {
+  position: absolute;
+  bottom: 100%; /* 向上展开 */
+  left: 0;
+  right: 0;
+  background: var(--vscode-dropdown-background, #252526);
+  border: 1px solid var(--vscode-dropdown-border, #454545);
+  border-radius: 4px;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.3);
+  max-height: 240px;
+  overflow-y: auto;
+  z-index: 1000;
+  animation: expandUp 0.15s ease-out;
+  margin-bottom: 2px;
+}
+
+@keyframes expandUp {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* 文件项 */
+.file-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px; /* 减少内边距使布局更紧凑 */
+  cursor: pointer;
+  transition: background-color 0.1s ease;
+  font-size: 12px; /* 减小字体 */
+  border-bottom: 1px solid var(--vscode-menu-separatorBackground, transparent);
+  min-height: 40px; /* 减少最小高度 */
+}
+
+.file-item:last-child {
+  border-bottom: none;
+}
+
+.file-item:hover {
+  background: var(--vscode-list-hoverBackground, #2a2d2e);
+}
+
+.file-item:active {
+  background: var(--vscode-list-activeSelectionBackground, #094771);
+}
+
+/* 文件项左侧：图标和信息 */
+.file-item-left {
+  display: flex;
+  align-items: center;
+  gap: 8px; /* 减少间距 */
+  flex: 1;
+  overflow: hidden;
+}
+
+/* 文件项右侧：计数等 */
+.file-item-right {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.file-icon {
+  font-size: 12px; /* 减小图标大小 */
+  width: 14px;
+  text-align: center;
+  flex-shrink: 0;
+  margin-top: 1px; /* 微调对齐 */
+  align-self: flex-start;
+}
+
+/* 文件信息容器（包含文件名和路径） */
+.file-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px; /* 减少间距 */
+  flex: 1;
+  overflow: hidden;
+}
+
+.file-name {
+  font-size: 12px; /* 减小字体 */
+  font-family: var(--vscode-editor-font-family, 'SF Mono', Monaco, 'Cascadia Code', monospace);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--vscode-foreground, #cccccc);
+  font-weight: 500;
+  line-height: 1.1; /* 减少行高 */
+}
+
+.file-path {
+  font-size: 10px; /* 减小字体 */
+  font-family: var(--vscode-editor-font-family, 'SF Mono', Monaco, 'Cascadia Code', monospace);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--vscode-descriptionForeground, #999999);
+  line-height: 1.1; /* 减少行高 */
+}
+
+/* 行数统计容器 */
+.line-stats {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* 新增行数 */
+.lines-added {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--vscode-charts-green, #22c55e); /* 使用语义绿色 */
+  background: var(--vscode-diffEditor-insertedTextBackground, rgba(34, 197, 94, 0.15));
+  border-radius: 3px;
+  padding: 1px 4px;
+  line-height: 1;
+}
+
+/* 删除行数 */
+.lines-removed {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--vscode-charts-red, #ef4444); /* 使用语义红色 */
+  background: var(--vscode-diffEditor-removedTextBackground, rgba(239, 68, 68, 0.15));
+  border-radius: 3px;
+  padding: 1px 4px;
+  line-height: 1;
+}
+
+/* 文件已删除标记 */
+.file-deleted {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--vscode-charts-red, #ef4444);
+  background: var(--vscode-diffEditor-removedTextBackground, rgba(239, 68, 68, 0.15));
+  border-radius: 3px;
+  padding: 2px 6px;
+  line-height: 1;
+  letter-spacing: 0.5px;
+}
+
+/* 滚动条样式 */
+.files-expanded-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.files-expanded-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.files-expanded-list::-webkit-scrollbar-thumb {
+  background: var(--vscode-scrollbarSlider-background, #424242);
+  border-radius: 3px;
+}
+
+.files-expanded-list::-webkit-scrollbar-thumb:hover {
+  background: var(--vscode-scrollbarSlider-hoverBackground, #4f4f4f);
+}
+
+/* 响应式调整 */
+@media (max-width: 480px) {
+  .files-changed-bar {
+    padding: 3px 8px;
+    font-size: 11px;
+    gap: 6px;
+  }
+
+  .file-item {
+    padding: 6px 8px;
+    gap: 8px;
+  }
+
+  .file-name {
+    font-size: 12px;
+  }
+}
