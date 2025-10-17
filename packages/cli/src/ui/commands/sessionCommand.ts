@@ -54,31 +54,25 @@ const listSessionsCommand: SlashCommand = {
         const lastActiveAt = new Date(session.lastActiveAt).toLocaleString();
         const checkpointIcon = session.hasCheckpoint ? ' [📍]' : '';
 
-        message += `${index + 1}. \u001b[36m${session.title}${checkpointIcon}\u001b[0m\n`;
-        message += `   📅 ${t('session.list.createdAt')}: ${createdAt}\n`;
-        message += `   🕒 ${t('session.list.lastActive')}: ${lastActiveAt}\n`;
-        message += `   💬 ${t('session.list.messageCount')}: ${session.messageCount}\n`;
-        message += `   🎯 ${t('session.list.tokenUsage')}: ${session.totalTokens}\n`;
+        const createdAtDate = new Date(session.createdAt);
+        const formattedDate = `${createdAtDate.getFullYear()}-${(createdAtDate.getMonth() + 1).toString().padStart(2, '0')}-${createdAtDate.getDate().toString().padStart(2, '0')} ${createdAtDate.getHours().toString().padStart(2, '0')}:${createdAtDate.getMinutes().toString().padStart(2, '0')}`;
 
-        if (session.model) {
-          message += `   🤖 ${t('session.list.model')}: ${session.model}\n`;
-        }
+        message += `\u001b[36m${index + 1}. ${session.title}\u001b[0m \u001b[90m(${formattedDate})${checkpointIcon}\u001b[0m\n`;
 
         if (session.firstUserMessage) {
           const preview = session.firstUserMessage.length > 50
             ? session.firstUserMessage.substring(0, 50) + '...'
             : session.firstUserMessage;
-          message += `   💭 首条消息: ${preview}\n`;
+          message += `   💭 ${preview}\n`;
         }
 
         if (session.lastAssistantMessage) {
           const preview = session.lastAssistantMessage.length > 50
             ? session.lastAssistantMessage.substring(0, 50) + '...'
             : session.lastAssistantMessage;
-          message += `   🤖 最后回复: ${preview}\n`;
+          message += `   🤖 ${preview}\n`;
         }
-
-        message += `   🔗 Session ID: \u001b[90m${session.sessionId}\u001b[0m\n\n`;
+        message += `\n`;
       });
 
       message += `\u001b[90m💡 提示：\u001b[0m\n`;
