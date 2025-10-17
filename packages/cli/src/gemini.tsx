@@ -653,7 +653,10 @@ export async function main() {
 
     // 注册会话清理函数，在程序退出时清理空会话
     registerCleanup(async () => {
-      await sessionManager.cleanupCurrentEmptySessionOnExit(finalSessionId);
+      // 使用 config.getSessionId() 获取当前会话ID，而不是闭包中的 finalSessionId
+      // 这样可以确保在切换会话后，清理的是正确的会话
+      const currentSessionId = config.getSessionId();
+      await sessionManager.cleanupCurrentEmptySessionOnExit(currentSessionId);
     });
 
     return;

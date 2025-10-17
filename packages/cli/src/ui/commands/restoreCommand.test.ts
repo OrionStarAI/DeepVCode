@@ -93,10 +93,11 @@ describe('restoreCommand', () => {
       await fs.rm(checkpointsDir, { recursive: true, force: true });
       const command = restoreCommand(mockConfig);
 
-      expect(await command?.action?.(mockContext, '')).toEqual({
+      const result = await command?.action?.(mockContext, '');
+      expect(result).toEqual({
         type: 'message',
         messageType: 'info',
-        content: 'No restorable tool calls found.',
+        content: expect.stringContaining('No checkpoints'),
       });
       // Verify the directory was created by the command.
       await expect(fs.stat(checkpointsDir)).resolves.toBeDefined();

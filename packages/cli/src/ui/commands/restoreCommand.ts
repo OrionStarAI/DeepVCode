@@ -52,7 +52,7 @@ async function restoreAction(
         return {
           type: 'message',
           messageType: 'info',
-          content: '⚠️  本次会话暂无检查点',
+          content: t('command.restore.no_checkpoints'),
         };
       }
 
@@ -85,7 +85,7 @@ async function restoreAction(
       return {
         type: 'message',
         messageType: 'error',
-        content: '⚠️  本次会话暂无检查点',
+        content: t('command.restore.no_checkpoints'),
       };
     }
 
