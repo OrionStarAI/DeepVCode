@@ -47,44 +47,35 @@ const listSessionsCommand: SlashCommand = {
         new Date(b.lastActiveAt).getTime() - new Date(a.lastActiveAt).getTime()
       );
 
-      let message = '📋 可用的会话记录：\n\n';
+      let message = `${t('session.list.title')}\n\n`;
 
       sortedSessions.forEach((session, index) => {
-        const createdAt = new Date(session.createdAt).toLocaleString();
-        const lastActiveAt = new Date(session.lastActiveAt).toLocaleString();
-        const checkpointIcon = session.hasCheckpoint ? ' [📍]' : '';
+        const createdAtDate = new Date(session.createdAt);
+        const formattedDate = `${createdAtDate.getFullYear()}-${(createdAtDate.getMonth() + 1).toString().padStart(2, '0')}-${createdAtDate.getDate().toString().padStart(2, '0')} ${createdAtDate.getHours().toString().padStart(2, '0')}:${createdAtDate.getMinutes().toString().padStart(2, '0')}`;
+        const checkpointStatus = session.hasCheckpoint ? t('session.list.checkpoint.yes') : t('session.list.checkpoint.no');
 
-        message += `${index + 1}. \u001b[36m${session.title}${checkpointIcon}\u001b[0m\n`;
-        message += `   📅 ${t('session.list.createdAt')}: ${createdAt}\n`;
-        message += `   🕒 ${t('session.list.lastActive')}: ${lastActiveAt}\n`;
-        message += `   💬 ${t('session.list.messageCount')}: ${session.messageCount}\n`;
-        message += `   🎯 ${t('session.list.tokenUsage')}: ${session.totalTokens}\n`;
-
-        if (session.model) {
-          message += `   🤖 ${t('session.list.model')}: ${session.model}\n`;
-        }
+        message += `\u001b[36m${index + 1}. ${session.title}\u001b[0m \u001b[90m(${formattedDate} | ${t('session.list.checkpoint')}: ${checkpointStatus})\u001b[0m\n`;
 
         if (session.firstUserMessage) {
           const preview = session.firstUserMessage.length > 50
             ? session.firstUserMessage.substring(0, 50) + '...'
             : session.firstUserMessage;
-          message += `   💭 首条消息: ${preview}\n`;
+          message += `   \u001b[90m${t('session.list.firstQuestion')}: ${preview}\u001b[0m\n`;
         }
 
         if (session.lastAssistantMessage) {
           const preview = session.lastAssistantMessage.length > 50
             ? session.lastAssistantMessage.substring(0, 50) + '...'
             : session.lastAssistantMessage;
-          message += `   🤖 最后回复: ${preview}\n`;
+          message += `   \u001b[90m${t('session.list.lastQuestion')}: ${preview}\u001b[0m\n`;
         }
-
-        message += `   🔗 Session ID: \u001b[90m${session.sessionId}\u001b[0m\n\n`;
+        message += `\n`;
       });
 
-      message += `\u001b[90m💡 提示：\u001b[0m\n`;
-      message += `   • 选择会话: /session select <编号或session-id>\n`;
-      message += `   • 创建新会话: /session new\n`;
-      message += `   • 查看帮助: /session help\n`;
+      message += `\u001b[90m${t('session.list.tips')}\u001b[0m\n`;
+      message += `   • ${t('session.list.selectSession')}\n`;
+      message += `   • ${t('session.list.createSession')}\n`;
+      message += `   • ${t('session.list.helpInfo')}\n`;
 
       return {
         type: 'message',
