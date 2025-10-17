@@ -193,6 +193,7 @@
     "@types/vscode": "^1.99.0",
     "@typescript-eslint/eslint-plugin": "^8.31.1",
     "@typescript-eslint/parser": "^8.31.1",
+    "@vscode/vsce": "3.6.2",
     "buffer": "^5.7.1",
     "copy-webpack-plugin": "^13.0.1",
     "crypto-browserify": "^3.12.1",
@@ -202,7 +203,6 @@
     "ts-loader": "^9.5.4",
     "typescript": "^5.8.3",
     "vitest": "^3.2.4",
-    "vsce": "^2.15.0",
     "webpack": "^5.101.3",
     "webpack-cli": "^6.0.1"
   },
