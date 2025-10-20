@@ -268,7 +268,9 @@ export type ExtensionToWebViewMessage =
   | { type: 'lint_suggestions'; payload: { suggestions: any[]; sessionId: string | null; timestamp: number } }
   | { type: 'tool_suggestion'; payload: { sessionId: string; toolName: string; params: any; timestamp: number } }
   // 🎯 模型配置相关
-  | { type: 'model_response'; payload: { requestId: string; success: boolean; models?: any[]; currentModel?: string; error?: string } };
+  | { type: 'model_response'; payload: { requestId: string; success: boolean; models?: any[]; currentModel?: string; error?: string } }
+  // 🎯 预填充消息（用于右键菜单命令）
+  | { type: 'prefill_message'; payload: { message: string } };
 
 export type Message = WebViewToExtensionMessage | ExtensionToWebViewMessage;
 

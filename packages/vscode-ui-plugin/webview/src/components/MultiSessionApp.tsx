@@ -250,6 +250,13 @@ export const MultiSessionApp: React.FC = () => {
       updateRollbackableIds(sessionId, rollbackableMessageIds || []);
     });
 
+    // 🎯 监听消息预填充（右键菜单快捷操作）
+    messageService.onPrefillMessage(({ message }) => {
+      console.log('📝 [PREFILL] Received prefill message, auto-sending:', message.substring(0, 50) + '...');
+      // 🎯 直接发送消息到当前session
+      handleSendMessage([{ type: 'text', value: message }]);
+    });
+
     // 🎯 监听可回滚消息ID列表更新
     messageService.onUpdateRollbackableIds(({ sessionId, rollbackableMessageIds }) => {
       updateRollbackableIds(sessionId, rollbackableMessageIds);

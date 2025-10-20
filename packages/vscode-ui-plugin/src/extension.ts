@@ -1114,6 +1114,102 @@ function registerCommands(context: vscode.ExtensionContext) {
       }
     }),
 
+    // 🎯 右键菜单命令：解释代码
+    vscode.commands.registerCommand('deepv.explainCode', async () => {
+      logger.info('deepv.explainCode command executed');
+
+      try {
+        const selectedText = getSelectedText();
+        if (!selectedText) {
+          vscode.window.showWarningMessage('请先选择要解释的代码');
+          return;
+        }
+
+        // 🎯 直接显示已有的 webview，不创建新的
+        if (webviewService) {
+          webviewService.show();
+        }
+
+        // 发送预填充消息到webview
+        const editor = vscode.window.activeTextEditor;
+        const fileName = editor?.document.fileName || 'selected code';
+        const message = `请解释以下代码:\n\n\`\`\`\n${selectedText}\n\`\`\`\n\n来自文件: ${fileName}`;
+
+        // 立即发送消息（communicationService 会处理队列）
+        communicationService.sendMessage({
+          type: 'prefill_message',
+          payload: { message }
+        });
+      } catch (error) {
+        logger.error('Failed to execute explainCode', error instanceof Error ? error : undefined);
+        vscode.window.showErrorMessage('无法执行代码解释功能');
+      }
+    }),
+
+    // 🎯 右键菜单命令：优化代码
+    vscode.commands.registerCommand('deepv.optimizeCode', async () => {
+      logger.info('deepv.optimizeCode command executed');
+
+      try {
+        const selectedText = getSelectedText();
+        if (!selectedText) {
+          vscode.window.showWarningMessage('请先选择要优化的代码');
+          return;
+        }
+
+        // 🎯 直接显示已有的 webview，不创建新的
+        if (webviewService) {
+          webviewService.show();
+        }
+
+        // 发送预填充消息到webview
+        const editor = vscode.window.activeTextEditor;
+        const fileName = editor?.document.fileName || 'selected code';
+        const message = `请优化以下代码，提高性能和可读性:\n\n\`\`\`\n${selectedText}\n\`\`\`\n\n来自文件: ${fileName}`;
+
+        // 立即发送消息（communicationService 会处理队列）
+        communicationService.sendMessage({
+          type: 'prefill_message',
+          payload: { message }
+        });
+      } catch (error) {
+        logger.error('Failed to execute optimizeCode', error instanceof Error ? error : undefined);
+        vscode.window.showErrorMessage('无法执行代码优化功能');
+      }
+    }),
+
+    // 🎯 右键菜单命令：生成测试
+    vscode.commands.registerCommand('deepv.generateTests', async () => {
+      logger.info('deepv.generateTests command executed');
+
+      try {
+        const selectedText = getSelectedText();
+        if (!selectedText) {
+          vscode.window.showWarningMessage('请先选择要生成测试的代码');
+          return;
+        }
+
+        // 🎯 直接显示已有的 webview，不创建新的
+        if (webviewService) {
+          webviewService.show();
+        }
+
+        // 发送预填充消息到webview
+        const editor = vscode.window.activeTextEditor;
+        const fileName = editor?.document.fileName || 'selected code';
+        const message = `请为以下代码生成单元测试:\n\n\`\`\`\n${selectedText}\n\`\`\`\n\n来自文件: ${fileName}`;
+
+        // 立即发送消息（communicationService 会处理队列）
+        communicationService.sendMessage({
+          type: 'prefill_message',
+          payload: { message }
+        });
+      } catch (error) {
+        logger.error('Failed to execute generateTests', error instanceof Error ? error : undefined);
+        vscode.window.showErrorMessage('无法执行生成测试功能');
+      }
+    }),
+
     // 🎯 添加日志查看命令
     vscode.commands.registerCommand('deepv.openLogFile', async () => {
       try {

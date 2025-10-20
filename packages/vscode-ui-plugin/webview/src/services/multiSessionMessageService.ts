@@ -56,7 +56,9 @@ interface MultiSessionMessageFromExtension {
        // 🎯 服务初始化状态
        'service_initialization_status' |
        // 🎯 模型配置相关
-       'model_response';
+       'model_response' |
+       // 🎯 消息预填充
+       'prefill_message';
   payload: Record<string, unknown> & {
     sessionId?: string; // 大部分消息都包含sessionId
   };
@@ -201,6 +203,23 @@ export class MultiSessionMessageService {
    * 发送消息到Extension
    */
   private sendMessage(message: MultiSessionMessageToExtension) {
+    // 🎯 检查VSCode API是否可用
+    if (typeof window.vscode === 'undefined' || !window.vscode) {
+      console.log('VSCode API not ready, queueing message:', message.type);
+      this.messageQueue.push(message);
+      
+      // 🎯 延迟重试发送队列消息
+      setTimeout(() => {
+        if (typeof window.vscode !== 'undefined' && window.vscode && this.messageQueue.length > 0) {
+          console.log('VSCode API now ready, flushing queue');
+          const queue = [...this.messageQueue];
+          this.messageQueue = [];
+          queue.forEach(msg => this.sendMessage(msg));
+        }
+      }, 500);
+      return;
+    }
+
     // 🎯 这些消息必须立即发送，不受ready状态限制
     const immediateMessages = ['ready', 'login_check_status', 'login_start'];
 
@@ -693,6 +712,13 @@ export class MultiSessionMessageService {
    */
   onServiceInitializationStatus(callback: (data: { status: string; message: string; timestamp: number }) => void) {
     this.addMessageHandler('service_initialization_status', callback);
+  }
+
+  /**
+   * 🎯 监听消息预填充（用于右键菜单快捷操作）
+   */
+  onPrefillMessage(callback: (data: { message: string }) => void) {
+    this.addMessageHandler('prefill_message', callback);
   }
 
   // =============================================================================
