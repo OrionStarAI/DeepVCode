@@ -1125,17 +1125,18 @@ function registerCommands(context: vscode.ExtensionContext) {
           return;
         }
 
-        // 🎯 直接显示已有的 webview，不创建新的
-        if (webviewService) {
-          webviewService.show();
-        }
+        // 🎯 先聚焦侧边栏视图（如果已打开就聚焦，如果没打开就打开）
+        await vscode.commands.executeCommand('deepv.aiAssistant.focus');
+
+        // 🎯 等待 webview 准备就绪（最多等待 3 秒）
+        await communicationService.waitForReady(3000);
 
         // 发送预填充消息到webview
         const editor = vscode.window.activeTextEditor;
         const fileName = editor?.document.fileName || 'selected code';
         const message = `请解释以下代码:\n\n\`\`\`\n${selectedText}\n\`\`\`\n\n来自文件: ${fileName}`;
 
-        // 立即发送消息（communicationService 会处理队列）
+        // 🎯 发送消息（webview 已 ready 或进入队列）
         communicationService.sendMessage({
           type: 'prefill_message',
           payload: { message }
@@ -1157,17 +1158,18 @@ function registerCommands(context: vscode.ExtensionContext) {
           return;
         }
 
-        // 🎯 直接显示已有的 webview，不创建新的
-        if (webviewService) {
-          webviewService.show();
-        }
+        // 🎯 先聚焦侧边栏视图（如果已打开就聚焦，如果没打开就打开）
+        await vscode.commands.executeCommand('deepv.aiAssistant.focus');
+
+        // 🎯 等待 webview 准备就绪（最多等待 3 秒）
+        await communicationService.waitForReady(3000);
 
         // 发送预填充消息到webview
         const editor = vscode.window.activeTextEditor;
         const fileName = editor?.document.fileName || 'selected code';
         const message = `请优化以下代码，提高性能和可读性:\n\n\`\`\`\n${selectedText}\n\`\`\`\n\n来自文件: ${fileName}`;
 
-        // 立即发送消息（communicationService 会处理队列）
+        // 🎯 发送消息（webview 已 ready 或进入队列）
         communicationService.sendMessage({
           type: 'prefill_message',
           payload: { message }
@@ -1189,17 +1191,18 @@ function registerCommands(context: vscode.ExtensionContext) {
           return;
         }
 
-        // 🎯 直接显示已有的 webview，不创建新的
-        if (webviewService) {
-          webviewService.show();
-        }
+        // 🎯 先聚焦侧边栏视图（如果已打开就聚焦，如果没打开就打开）
+        await vscode.commands.executeCommand('deepv.aiAssistant.focus');
+
+        // 🎯 等待 webview 准备就绪（最多等待 3 秒）
+        await communicationService.waitForReady(3000);
 
         // 发送预填充消息到webview
         const editor = vscode.window.activeTextEditor;
         const fileName = editor?.document.fileName || 'selected code';
         const message = `请为以下代码生成单元测试:\n\n\`\`\`\n${selectedText}\n\`\`\`\n\n来自文件: ${fileName}`;
 
-        // 立即发送消息（communicationService 会处理队列）
+        // 🎯 发送消息（webview 已 ready 或进入队列）
         communicationService.sendMessage({
           type: 'prefill_message',
           payload: { message }

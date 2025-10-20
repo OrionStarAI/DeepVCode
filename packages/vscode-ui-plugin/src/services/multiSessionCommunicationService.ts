@@ -29,6 +29,8 @@ export class MultiSessionCommunicationService {
   private messageHandlers = new Map<string, Function[]>();
   private messageQueue: ExtensionToWebViewMessage[] = [];
   private isWebviewReady = false;
+  private readyPromise: Promise<void> | null = null;
+  private readyResolve: (() => void) | null = null;
 
   constructor(private logger: Logger) {}
 
@@ -38,7 +40,36 @@ export class MultiSessionCommunicationService {
 
   setWebview(webview: vscode.Webview) {
     this.webview = webview;
+    this.isWebviewReady = false;
+    // 🎯 创建新的 ready Promise
+    this.readyPromise = new Promise<void>((resolve) => {
+      this.readyResolve = resolve;
+    });
     this.setupMessageListener();
+  }
+
+  /**
+   * 🎯 等待 WebView 准备就绪
+   */
+  async waitForReady(timeout: number = 5000): Promise<boolean> {
+    if (this.isWebviewReady) {
+      return true;
+    }
+    
+    if (!this.readyPromise) {
+      return false;
+    }
+
+    try {
+      await Promise.race([
+        this.readyPromise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), timeout))
+      ]);
+      return true;
+    } catch (error) {
+      this.logger.warn('Timeout waiting for WebView ready');
+      return false;
+    }
   }
 
   // =============================================================================
@@ -738,6 +769,12 @@ export class MultiSessionCommunicationService {
         if (message.type === 'ready') {
           this.isWebviewReady = true;
           this.logger.info(`WebView is ready, flushing ${this.messageQueue.length} queued messages`);
+
+          // 🎯 resolve ready Promise
+          if (this.readyResolve) {
+            this.readyResolve();
+            this.readyResolve = null;
+          }
 
           // 🎯 修复：直接发送队列消息，避免递归调用sendMessage
           for (const queuedMessage of this.messageQueue) {

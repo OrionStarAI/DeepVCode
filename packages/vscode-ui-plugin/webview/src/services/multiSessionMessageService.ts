@@ -147,6 +147,7 @@ export class MultiSessionMessageService {
   private listeners = new Map<string, Function[]>();
   private messageQueue: MultiSessionMessageToExtension[] = [];
   private isReady = false;
+  private retryTimer: NodeJS.Timeout | null = null;  // 🎯 防止重复创建 setTimeout
 
   constructor() {
     this.setupMessageListener();
@@ -208,15 +209,18 @@ export class MultiSessionMessageService {
       console.log('VSCode API not ready, queueing message:', message.type);
       this.messageQueue.push(message);
       
-      // 🎯 延迟重试发送队列消息
-      setTimeout(() => {
-        if (typeof window.vscode !== 'undefined' && window.vscode && this.messageQueue.length > 0) {
-          console.log('VSCode API now ready, flushing queue');
-          const queue = [...this.messageQueue];
-          this.messageQueue = [];
-          queue.forEach(msg => this.sendMessage(msg));
-        }
-      }, 500);
+      // 🎯 防止重复创建 setTimeout：只在没有定时器时创建
+      if (!this.retryTimer) {
+        this.retryTimer = setTimeout(() => {
+          this.retryTimer = null;  // 清除定时器标记
+          if (typeof window.vscode !== 'undefined' && window.vscode && this.messageQueue.length > 0) {
+            console.log('VSCode API now ready, flushing queue');
+            const queue = [...this.messageQueue];
+            this.messageQueue = [];
+            queue.forEach(msg => this.sendMessage(msg));
+          }
+        }, 500);
+      }
       return;
     }
 
@@ -761,6 +765,11 @@ export class MultiSessionMessageService {
    * 清理所有监听器
    */
   dispose() {
+    // 🎯 清理定时器，防止内存泄漏
+    if (this.retryTimer) {
+      clearTimeout(this.retryTimer);
+      this.retryTimer = null;
+    }
     this.listeners.clear();
     this.messageQueue = [];
     this.isReady = false;
