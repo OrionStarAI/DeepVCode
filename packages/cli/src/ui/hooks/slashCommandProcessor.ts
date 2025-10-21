@@ -413,6 +413,14 @@ export const useSlashCommandProcessor = (
                     type: 'submit_prompt',
                     content: result.content,
                   };
+                case 'refine_result':
+                  setShowHelp(false);
+                  return {
+                    type: 'refine_result',
+                    original: result.original,
+                    refined: result.refined,
+                    options: result.options,
+                  };
                 default: {
                   const unhandled: never = result;
                   throw new Error(
