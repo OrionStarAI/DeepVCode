@@ -1132,7 +1132,7 @@ function registerCommands(context: vscode.ExtensionContext) {
         }
 
         const selectedText = editor.document.getText(editor.selection);
-        const fileName = editor.document.uri.path.split('/').pop() || 'unknown';
+        const fileName = path.basename(editor.document.uri.fsPath);
         const filePath = editor.document.uri.fsPath;
         const startLine = editor.selection.start.line + 1;
         const endLine = editor.selection.end.line + 1;
@@ -1172,7 +1172,7 @@ function registerCommands(context: vscode.ExtensionContext) {
         }
 
         const selectedText = editor.document.getText(editor.selection);
-        const fileName = editor.document.uri.path.split('/').pop() || 'unknown';
+        const fileName = path.basename(editor.document.uri.fsPath);
         const filePath = editor.document.uri.fsPath;
         const startLine = editor.selection.start.line + 1;
         const endLine = editor.selection.end.line + 1;
@@ -1601,7 +1601,7 @@ function setupClipboardMonitoring(context: vscode.ExtensionContext) {
         if (selectedText.trim() === currentClipboard.trim()) {
           // 🎯 缓存文件信息
           clipboardCache.cache({
-            fileName: editor.document.uri.path.split('/').pop() || 'unknown',
+            fileName: path.basename(editor.document.uri.fsPath),
             filePath: editor.document.uri.fsPath,
             code: selectedText,
             startLine: selection.start.line + 1,
