@@ -14,6 +14,7 @@ import * as path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { buildEngineeringRefinePrompt, type RefinePromptOptions } from './refine_prompt_builder.js';
+import { getAvailableModels } from './modelCommand.js';
 
 const execAsync = promisify(exec);
 
@@ -221,8 +222,24 @@ async function refineText(
   const prompt = buildRefinePrompt(text, options);
 
   // 润色功能固定使用 Claude Haiku 4.5 模型（快速且经济）
-  // 不影响其他功能的模型选择
-  const refineModel = 'claude-3-5-haiku@20241022';
+  // 从服务器获取实际的 Haiku 模型名称
+  let refineModel: string;
+  try {
+    const { modelInfos } = await getAvailableModels(context.services.settings, config);
+    // 查找 Haiku 4.5 模型（displayName 包含 "Haiku" 和 "4.5"）
+    const haikuModel = modelInfos.find(m => 
+      m.displayName.includes('Haiku') && m.displayName.includes('4.5')
+    );
+    if (haikuModel) {
+      refineModel = haikuModel.name;
+    } else {
+      // 如果找不到 Haiku 4.5，使用用户当前配置的模型
+      refineModel = config.getModel();
+    }
+  } catch (_error) {
+    // 如果获取模型列表失败，使用用户当前配置的模型
+    refineModel = config.getModel();
+  }
 
   try {
     // 使用 generateContent 方法调用模型
@@ -231,7 +248,7 @@ async function refineText(
     // 润色功能专用模型：Claude Haiku 4.5 (New Fast)
     const response = await contentGenerator.generateContent(
       {
-        model: refineModel, // 固定使用 Haiku 模型进行润色
+        model: refineModel, // 使用 Haiku 模型进行润色
         contents: [
           {
             role: 'user',
