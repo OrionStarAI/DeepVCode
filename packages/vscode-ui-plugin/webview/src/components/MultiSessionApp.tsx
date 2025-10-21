@@ -19,6 +19,7 @@ import { ChatInterface } from './ChatInterface';
 import { LoginPage } from './LoginPage';
 import { LoadingScreen } from './LoadingScreen';
 import { UpdatePrompt } from './UpdatePrompt';
+import { MessageInputHandle } from './MessageInput';
 import { SessionType } from '../../../src/constants/sessionConstants';
 import { SessionInfo } from '../../../src/types/sessionTypes';
 import { MessageContent } from '../types/index';
@@ -39,6 +40,9 @@ import './MultiSessionApp.css';
 export const MultiSessionApp: React.FC = () => {
   const { t } = useTranslation();
   const [isInitialized, setIsInitialized] = useState(false);
+  
+  // 🎯 MessageInput 的 ref，用于插入代码引用
+  const messageInputRef = useRef<MessageInputHandle>(null);
 
   // 🎯 登录状态管理
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null); // null = 检查中, false = 未登录, true = 已登录
@@ -250,11 +254,29 @@ export const MultiSessionApp: React.FC = () => {
       updateRollbackableIds(sessionId, rollbackableMessageIds || []);
     });
 
-    // 🎯 监听消息预填充（右键菜单快捷操作）
+    // 🎯 监听消息预填充（右键菜单快捷操作 - 自动发送）
     messageService.onPrefillMessage(({ message }) => {
       console.log('📝 [PREFILL] Received prefill message, auto-sending:', message.substring(0, 50) + '...');
       // 🎯 直接发送消息到当前session
       handleSendMessage([{ type: 'text', value: message }]);
+    });
+
+    // 🎯 监听插入代码到输入框（只插入，不自动发送）
+    messageService.onInsertCodeToInput(({ fileName, filePath, code, startLine, endLine }) => {
+      console.log('📝 [INSERT CODE] Received code to insert:', fileName, startLine, '-', endLine);
+      
+      // 🎯 调用 MessageInput 的方法插入代码引用
+      if (messageInputRef.current) {
+        messageInputRef.current.insertCodeReference({
+          fileName,
+          filePath,
+          code,
+          startLine,
+          endLine
+        });
+      } else {
+        console.warn('MessageInput ref not available, cannot insert code');
+      }
     });
 
     // 🎯 监听可回滚消息ID列表更新
@@ -982,6 +1004,7 @@ export const MultiSessionApp: React.FC = () => {
               selectedModelId={selectedModelId}               // 🎯 传入选中的模型
               onModelChange={handleModelChange}               // 🎯 传入模型变更回调
               sessionId={state.currentSessionId || undefined} // 🎯 传入当前会话ID
+              messageInputRef={messageInputRef}               // 🎯 传入 MessageInput ref（用于插入代码引用）
               onUpdateMessages={(messages) => {               // 🎯 传入消息更新回调
                 if (state.currentSessionId) {
                   forceUpdateSessionMessages(state.currentSessionId, messages);

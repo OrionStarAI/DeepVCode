@@ -57,8 +57,12 @@ interface MultiSessionMessageFromExtension {
        'service_initialization_status' |
        // 🎯 模型配置相关
        'model_response' |
-       // 🎯 消息预填充
-       'prefill_message';
+       // 🎯 消息预填充（自动发送）
+       'prefill_message' |
+       // 🎯 插入代码到输入框（只插入，不自动发送）
+       'insert_code_to_input' |
+       // 🎯 剪贴板缓存响应
+       'clipboard_cache_response';
   payload: Record<string, unknown> & {
     sessionId?: string; // 大部分消息都包含sessionId
   };
@@ -100,7 +104,9 @@ export interface MultiSessionMessageToExtension {
        // 🎯 模型配置相关
        'get_available_models' |
        'set_current_model' |
-       'get_current_model';
+       'get_current_model' |
+       // 🎯 剪贴板缓存请求（用于智能粘贴代码引用）
+       'request_clipboard_cache';
   payload: Record<string, unknown> & {
     sessionId?: string; // 大部分消息都包含sessionId
   };
@@ -719,10 +725,41 @@ export class MultiSessionMessageService {
   }
 
   /**
-   * 🎯 监听消息预填充（用于右键菜单快捷操作）
+   * 🎯 监听消息预填充（用于右键菜单快捷操作 - 自动发送）
    */
   onPrefillMessage(callback: (data: { message: string }) => void) {
     this.addMessageHandler('prefill_message', callback);
+  }
+
+  /**
+   * 🎯 监听插入代码到输入框（只插入，不自动发送）
+   */
+  onInsertCodeToInput(callback: (data: { fileName: string; filePath: string; code: string; startLine?: number; endLine?: number }) => void) {
+    this.addMessageHandler('insert_code_to_input', callback);
+  }
+
+  /**
+   * 🎯 请求剪贴板缓存（用于智能粘贴代码引用）
+   */
+  requestClipboardCache(code: string): void {
+    this.sendMessage({
+      type: 'request_clipboard_cache',
+      payload: { code }
+    });
+  }
+
+  /**
+   * 🎯 监听剪贴板缓存响应
+   */
+  onClipboardCacheResponse(callback: (data: {
+    found: boolean;
+    fileName?: string;
+    filePath?: string;
+    code?: string;
+    startLine?: number;
+    endLine?: number;
+  }) => void) {
+    this.addMessageHandler('clipboard_cache_response', callback);
   }
 
   // =============================================================================

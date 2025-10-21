@@ -736,10 +736,13 @@ export class MultiSessionCommunicationService {
   }
 
   // =============================================================================
-  // 私有辅助方法
+  // 辅助方法
   // =============================================================================
 
-  private addMessageHandler(type: string, handler: Function): vscode.Disposable {
+  /**
+   * 添加消息处理器（公共方法，支持外部直接调用）
+   */
+  addMessageHandler(type: string, handler: Function): vscode.Disposable {
     if (!this.messageHandlers.has(type)) {
       this.messageHandlers.set(type, []);
     }
@@ -805,6 +808,7 @@ export class MultiSessionCommunicationService {
       }
     });
   }
+
 
   async dispose() {
     this.logger.info('Disposing MultiSessionCommunicationService');

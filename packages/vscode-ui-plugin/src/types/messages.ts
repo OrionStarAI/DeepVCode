@@ -214,7 +214,9 @@ export type WebViewToExtensionMessage =
   | { type: 'fix_suggestion_request'; payload: { sessionId: string; files?: string[]; errorTypes?: string[]; priority?: 'high' | 'medium' | 'low' } }
   // 🎯 升级提示相关（用于解决webview沙箱限制）
   | { type: 'open_external_url'; payload: { url: string } }
-  | { type: 'open_extension_marketplace'; payload: { extensionId: string } };
+  | { type: 'open_extension_marketplace'; payload: { extensionId: string } }
+  // 🎯 剪贴板缓存请求（用于智能粘贴代码引用）
+  | { type: 'request_clipboard_cache'; payload: { code: string } };
 
 // Message types from Extension to WebView
 export type ExtensionToWebViewMessage =
@@ -269,8 +271,12 @@ export type ExtensionToWebViewMessage =
   | { type: 'tool_suggestion'; payload: { sessionId: string; toolName: string; params: any; timestamp: number } }
   // 🎯 模型配置相关
   | { type: 'model_response'; payload: { requestId: string; success: boolean; models?: any[]; currentModel?: string; error?: string } }
-  // 🎯 预填充消息（用于右键菜单命令）
-  | { type: 'prefill_message'; payload: { message: string } };
+  // 🎯 预填充消息（用于右键菜单命令 - 自动发送）
+  | { type: 'prefill_message'; payload: { message: string } }
+  // 🎯 插入代码到输入框（只插入，不自动发送）
+  | { type: 'insert_code_to_input'; payload: { fileName: string; filePath: string; code: string; startLine?: number; endLine?: number } }
+  // 🎯 剪贴板缓存响应（用于智能粘贴代码引用）
+  | { type: 'clipboard_cache_response'; payload: { found: boolean; fileName?: string; filePath?: string; code?: string; startLine?: number; endLine?: number } };
 
 export type Message = WebViewToExtensionMessage | ExtensionToWebViewMessage;
 

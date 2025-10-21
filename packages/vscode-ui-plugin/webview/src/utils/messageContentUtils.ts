@@ -36,6 +36,14 @@ export function assembleForDisplay(content: MessageContent): string {
         return `@[${part.value.fileName}]`;
       case 'image_reference':
         return `[IMAGE:${part.value.fileName}]`;
+      case 'code_reference':
+        // 🎯 代码引用：显示文件名和行号
+        const lineInfo = part.value.startLine && part.value.endLine && part.value.startLine !== part.value.endLine
+          ? `${part.value.startLine}-${part.value.endLine}`
+          : part.value.startLine
+          ? `${part.value.startLine}`
+          : '';
+        return `📄 ${part.value.fileName}${lineInfo ? ` (${lineInfo})` : ''}`;
       default:
         return '';
     }
@@ -71,6 +79,13 @@ export function assembleForLLM(content: MessageContent): {
       case 'image_reference':
         textParts.push(`[IMAGE:${part.value.fileName}]`);
         images.push(part.value);
+        break;
+      case 'code_reference':
+        // 🎯 代码引用：发送完整代码给 AI
+        const lineInfo = part.value.startLine && part.value.endLine
+          ? ` (lines ${part.value.startLine}-${part.value.endLine})`
+          : '';
+        textParts.push(`\n\nFrom ${part.value.fileName}${lineInfo}:\n\`\`\`\n${part.value.code}\n\`\`\`\n`);
         break;
     }
   });
@@ -245,6 +260,11 @@ export function isValidRawContent(content: MessageContent): boolean {
                typeof part.value.filePath === 'string';
       case 'image_reference':
         return part.value && typeof part.value === 'object';
+      case 'code_reference':
+        return part.value &&
+               typeof part.value.fileName === 'string' &&
+               typeof part.value.filePath === 'string' &&
+               typeof part.value.code === 'string';
       default:
         return false;
     }
