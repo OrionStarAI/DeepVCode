@@ -290,7 +290,9 @@ export class DeepVServerAdapter implements ContentGenerator {
   }
 
   async generateContentStream(request: GenerateContentParameters, scene: SceneType): Promise<AsyncGenerator<GenerateContentResponse>> {
-    if (request.model === 'claude-sonnet-4@20250514') {
+    if (request.model === 'claude-sonnet-4@20250514' ||
+        request.model === 'claude-sonnet-4-5@20250929' ||
+        request.model === 'claude-haiku-4-5@20251001') {
       return this._generateContentStream(request, scene);
     } else {
       // 为非 Claude 模型将非流式响应包装为流式格式
