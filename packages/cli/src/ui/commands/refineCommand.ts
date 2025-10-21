@@ -578,6 +578,7 @@ export const refineCommand: SlashCommand = {
       }
 
       // 交互模式：返回润色结果，等待用户确认
+      console.log('[refineCommand] 返回 refine_result，原文长度:', inputText.length, '润色后长度:', result.result.length);
       return {
         type: 'refine_result',
         original: inputText,

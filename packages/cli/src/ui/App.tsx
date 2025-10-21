@@ -379,6 +379,11 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
   } | null>(null);
   const [refineLoading, setRefineLoading] = useState<boolean>(false);
 
+  // 调试：监听 refineResult 变化
+  useEffect(() => {
+    console.log('[App] refineResult 状态变化:', refineResult ? '有值' : 'null', refineResult ? { originalLength: refineResult.original.length, refinedLength: refineResult.refined.length } : null);
+  }, [refineResult]);
+
   // 监听Plan模式变化
   useEffect(() => {
     const intervalId = setInterval(() => {
@@ -812,6 +817,7 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
               return;
             } else if (slashCommandResult.type === 'refine_result') {
               // 润色结果，显示确认界面
+              console.log('[App] 收到 refine_result，设置 refineResult 状态');
               setRefineResult({
                 original: slashCommandResult.original,
                 refined: slashCommandResult.refined,
@@ -898,8 +904,10 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
 
     // 处理润色结果的确认
     if (refineResult) {
+      console.log('[App useInput] refineResult存在，处理按键:', { input, return: key.return });
       if (key.return) {
         // 回车：发送润色后的文本给 AI
+        console.log('[App useInput] 按回车，发送润色后的文本给 AI');
         const refinedText = refineResult.refined;
         setRefineResult(null);
         buffer.setText('');
