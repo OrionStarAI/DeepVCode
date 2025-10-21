@@ -290,12 +290,22 @@ export class DeepVServerAdapter implements ContentGenerator {
   }
 
   async generateContentStream(request: GenerateContentParameters, scene: SceneType): Promise<AsyncGenerator<GenerateContentResponse>> {
+    // 🆕 云模式下禁用SSE流式传输，直接使用非流式API避免消息被打断
+    // 通过检查环境变量判断是否为云模式
+    const isCloudMode = process.env.DEEPV_CLOUD_MODE === 'true';
+
+    if (isCloudMode) {
+      logger.info('[DeepV Server] 云模式下禁用SSE流式传输，使用非流式API', { model: request.model });
+      return this._generateContent(request, scene);
+    }
+
+    // 非云模式下，Claude模型使用SSE流式传输
     if (request.model === 'claude-sonnet-4@20250514' ||
         request.model === 'claude-sonnet-4-5@20250929' ||
         request.model === 'claude-haiku-4-5@20251001') {
       return this._generateContentStream(request, scene);
     } else {
-      // 为非 Claude 模型将非流式响应包装为流式格式
+      // 其他模型将非流式响应包装为流式格式
       return this._generateContent(request, scene);
     }
   }
