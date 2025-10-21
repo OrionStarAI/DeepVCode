@@ -220,17 +220,18 @@ async function refineText(
   // 构建提示词
   const prompt = buildRefinePrompt(text, options);
 
-  // 获取当前用户配置的模型
-  const currentModel = config.getModel();
+  // 润色功能固定使用 Claude Haiku 4.5 模型（快速且经济）
+  // 不影响其他功能的模型选择
+  const refineModel = 'claude-3-5-haiku@20241022';
 
   try {
     // 使用 generateContent 方法调用模型
     const contentGenerator = geminiClient.getContentGenerator();
 
-    // 使用当前用户配置的模型，而不是写死 haiku
+    // 润色功能专用模型：Claude Haiku 4.5 (New Fast)
     const response = await contentGenerator.generateContent(
       {
-        model: currentModel, // 使用用户配置的模型
+        model: refineModel, // 固定使用 Haiku 模型进行润色
         contents: [
           {
             role: 'user',
@@ -271,7 +272,7 @@ async function refineText(
       keepCode: options.keepCode,
       rules: options.rules,
       result: responseText.trim(),
-      modelUsed: currentModel,
+      modelUsed: refineModel, // 记录使用的模型
     };
 
     return result;
