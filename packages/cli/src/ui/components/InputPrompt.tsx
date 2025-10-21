@@ -635,7 +635,32 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
         // 2. 如果用户没有选择建议项（activeSuggestionIndex === -1），则直接提交
         if (key.name === 'return' && !key.shift) {
           if (completion.activeSuggestionIndex > -1 && completion.suggestions.length > 0) {
-            // 用户明确选择了建议项，进行自动补全
+            const selectedSuggestion = completion.suggestions[completion.activeSuggestionIndex];
+
+            // 检查是否需要自动执行（用于 /model 等参数补全命令）
+            if (selectedSuggestion?.willAutoExecute === true) {
+              // 直接构造完整命令并执行，无需先补全到输入框
+              const query = buffer.text;
+              const suggestion = selectedSuggestion.value;
+
+              // 构造完整的命令字符串（与 handleAutocomplete 逻辑一致）
+              if (query.trimStart().startsWith('/')) {
+                const parts = query.trimStart().substring(1).split(/\s+/).filter(Boolean);
+                const hasTrailingSpace = query.endsWith(' ');
+                const basePath = hasTrailingSpace ? parts : parts.slice(0, -1);
+                const finalCommand = `/${[...basePath, suggestion].join(' ')}`;
+
+                // 清空输入框并关闭补全列表
+                buffer.setText('');
+                completion.resetCompletionState();
+
+                // 直接执行命令
+                onSubmit(finalCommand);
+                return;
+              }
+            }
+
+            // 普通补全：只补全到输入框，不自动执行
             completion.handleAutocomplete(completion.activeSuggestionIndex);
             return;
           }
