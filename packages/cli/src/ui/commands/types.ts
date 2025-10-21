@@ -129,6 +129,23 @@ export interface SwitchSessionActionReturn {
   clientHistory: Content[]; // The history for the generative client
 }
 
+/**
+ * The return type for refine command that shows result and waits for user confirmation.
+ */
+export interface RefineResultActionReturn {
+  type: 'refine_result';
+  original: string;
+  refined: string;
+  options: {
+    tone: string;
+    level: string;
+    lang: string;
+    keepFormat: boolean;
+    keepCode: boolean;
+    [key: string]: any;
+  };
+}
+
 export type SlashCommandActionReturn =
   | ToolActionReturn
   | MessageActionReturn
@@ -136,7 +153,8 @@ export type SlashCommandActionReturn =
   | OpenDialogActionReturn
   | LoadHistoryActionReturn
   | SubmitPromptActionReturn
-  | SwitchSessionActionReturn;
+  | SwitchSessionActionReturn
+  | RefineResultActionReturn;
 
 export enum CommandKind {
   BUILT_IN = 'built-in',
