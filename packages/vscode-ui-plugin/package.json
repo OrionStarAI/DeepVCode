@@ -2,7 +2,7 @@
   "name": "deepv-code-vscode-ui-plugin",
   "displayName": "DeepV Code for VSCode",
   "description": "AI-powered programming assistant with visual interface for VS Code",
-  "version": "1.0.164",
+  "version": "1.0.165",
   "publisher": "DeepX",
   "icon": "assets/icon.png",
   "repository": {
@@ -54,6 +54,16 @@
         "command": "deepv.generateTests",
         "title": "Generate Tests",
         "category": "DeepV Code"
+      },
+      {
+        "command": "deepv.addToCurrentChat",
+        "title": "Add Symbol to Current Chat",
+        "category": "DeepV Code"
+      },
+      {
+        "command": "deepv.addToNewChat",
+        "title": "Add Symbol to New Chat",
+        "category": "DeepV Code"
       }
     ],
     "viewsContainers": {
@@ -78,19 +88,29 @@
     "menus": {
       "editor/context": [
         {
-          "command": "deepv.explainCode",
+          "command": "deepv.addToCurrentChat",
           "when": "editorHasSelection",
           "group": "deepv@1"
         },
         {
-          "command": "deepv.optimizeCode",
+          "command": "deepv.addToNewChat",
           "when": "editorHasSelection",
           "group": "deepv@2"
         },
         {
-          "command": "deepv.generateTests",
+          "command": "deepv.explainCode",
           "when": "editorHasSelection",
           "group": "deepv@3"
+        },
+        {
+          "command": "deepv.optimizeCode",
+          "when": "editorHasSelection",
+          "group": "deepv@4"
+        },
+        {
+          "command": "deepv.generateTests",
+          "when": "editorHasSelection",
+          "group": "deepv@5"
         }
       ],
       "commandPalette": [

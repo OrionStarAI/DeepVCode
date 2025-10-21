@@ -3,7 +3,7 @@
  * 基于 Lexical 的富文本输入组件，支持文件拖拽、富文本显示等功能
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useImperativeHandle } from 'react';
 import { LexicalComposer } from '@lexical/react/LexicalComposer';
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
 import { ContentEditable } from '@lexical/react/LexicalContentEditable';
@@ -21,6 +21,7 @@ import { ModelSelector } from './ModelSelector';
 // 导入拆分后的组件和节点
 import { FileReferenceNode, $createFileReferenceNode, $isFileReferenceNode } from './MessageInput/nodes/FileReferenceNode';
 import { ImageReferenceNode, $createImageReferenceNode, $isImageReferenceNode } from './MessageInput/nodes/ImageReferenceNode';
+import { CodeReferenceNode, $createCodeReferenceNode, $isCodeReferenceNode } from './MessageInput/nodes/CodeReferenceNode';
 import { KeyboardPlugin } from './MessageInput/plugins/KeyboardPlugin';
 import { DragDropPlugin } from './MessageInput/plugins/DragDropPlugin';
 import { ClipboardPlugin } from './MessageInput/plugins/ClipboardPlugin';
@@ -71,32 +72,44 @@ function LexicalErrorBoundary({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-export const MessageInput: React.FC<MessageInputProps> = ({
-  isLoading,
-  isProcessing = false,
-  canAbort = false,
-  onSendMessage,
-  onAbortProcess,
-  onMessageSent,
-  selectedModelId,
-  onModelChange,
-  sessionId,
-  tokenUsage,
+// 🎯 定义 MessageInput 暴露的方法接口
+export interface MessageInputHandle {
+  insertCodeReference: (codeRef: {
+    fileName: string;
+    filePath: string;
+    code: string;
+    startLine?: number;
+    endLine?: number;
+  }) => void;
+}
 
-  // 🎯 编辑模式属性
-  mode = 'compose',
-  editingMessageId,
-  initialContent,
-  onSaveEdit,
-  onCancelEdit,
+export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputProps>((props, ref) => {
+  const {
+    isLoading,
+    isProcessing = false,
+    canAbort = false,
+    onSendMessage,
+    onAbortProcess,
+    onMessageSent,
+    selectedModelId,
+    onModelChange,
+    sessionId,
+    tokenUsage,
 
-  // 🎯 样式和行为定制
-  className = '',
-  showModelSelector = true,
-  showTokenUsage = true,
-  placeholder,
-  compact = false
-}) => {
+    // 🎯 编辑模式属性
+    mode = 'compose',
+    editingMessageId,
+    initialContent,
+    onSaveEdit,
+    onCancelEdit,
+
+    // 🎯 样式和行为定制
+    className = '',
+    showModelSelector = true,
+    showTokenUsage = true,
+    placeholder,
+    compact = false
+  } = props;
   const { t } = useTranslation();
   const [editorState, setEditorState] = useState<EditorState | null>(null);
   const [textContent, setTextContent] = useState('');
@@ -115,6 +128,47 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   // 🎯 跟踪是否已经填充过初始内容
   const [hasPopulatedContent, setHasPopulatedContent] = useState(false);
 
+  // 🎯 暴露方法给父组件
+  useImperativeHandle(ref, () => ({
+    insertCodeReference: (codeRef: {
+      fileName: string;
+      filePath: string;
+      code: string;
+      startLine?: number;
+      endLine?: number;
+    }) => {
+      if (!editorRef.current) {
+        console.warn('Editor not ready, cannot insert code reference');
+        return;
+      }
+
+      editorRef.current.update(() => {
+        const selection = $getSelection();
+        
+        if ($isRangeSelection(selection)) {
+          // 🎯 创建代码引用节点
+          const codeNode = $createCodeReferenceNode(
+            codeRef.fileName,
+            codeRef.filePath,
+            codeRef.startLine,
+            codeRef.endLine,
+            codeRef.code
+          );
+          
+          // 🎯 插入节点和一个空格
+          const spaceNode = $createTextNode(' ');
+          selection.insertNodes([codeNode, spaceNode]);
+          
+          // 🎯 将光标移到空格后面
+          spaceNode.selectNext();
+        }
+      });
+
+      // 🎯 聚焦编辑器
+      editorRef.current.focus();
+    }
+  }));
+
   // 🎯 重置填充状态当编辑模式变化或编辑不同消息时
   useEffect(() => {
     if (!isEditMode || !editingMessageId) {
@@ -130,7 +184,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   // 🎯 Lexical 初始化配置
   const initialConfig = {
     namespace: 'MessageInput',
-    nodes: [FileReferenceNode, ImageReferenceNode], // 注册自定义文件引用节点和图片引用节点
+    nodes: [FileReferenceNode, ImageReferenceNode, CodeReferenceNode], // 注册自定义节点
     onError: (error: Error) => {
       console.error('Lexical Error:', error);
     },
@@ -419,6 +473,19 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                 paragraph.append(imageNode);
                 console.log('🎯 恢复图片引用节点:', item.value.fileName);
               }
+            } else if (item.type === 'code_reference') {
+              // 🎯 处理代码引用
+              if (item.value?.fileName && item.value?.filePath && item.value?.code) {
+                const codeNode = $createCodeReferenceNode(
+                  item.value.fileName,
+                  item.value.filePath,
+                  item.value.startLine,
+                  item.value.endLine,
+                  item.value.code
+                );
+                paragraph.append(codeNode);
+                console.log('🎯 恢复代码引用节点:', item.value.fileName, `(${item.value.startLine}-${item.value.endLine})`);
+              }
             }
           } catch (error) {
             console.error('🎯 恢复内容项时出错:', item, error);
@@ -554,6 +621,18 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             type: 'image_reference',
             value: node.__imageData
           });
+        } else if ($isCodeReferenceNode(node)) {
+          // 🎯 代码引用节点 - 发送完整代码内容给 AI
+          rawContent.push({
+            type: 'code_reference',
+            value: {
+              fileName: node.__fileName,
+              filePath: node.__filePath,
+              startLine: node.__startLine,
+              endLine: node.__endLine,
+              code: node.__code  // 发送完整代码给 AI
+            }
+          });
         } else {
           // 对于其他节点，检查是否有子节点
           const children = node.getChildren?.() || [];
@@ -582,7 +661,8 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     const hasContent = rawContent.some(part =>
       (part.type === 'text' && part.value.trim()) ||
       part.type === 'file_reference' ||
-      part.type === 'image_reference'
+      part.type === 'image_reference' ||
+      part.type === 'code_reference'  // 🎯 支持代码引用
     );
 
     if (hasContent && !isLoading && !isProcessing) {
@@ -819,4 +899,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
     </div>
   );
-};
+});
+
+// 🎯 设置 displayName 以便调试
+MessageInput.displayName = 'MessageInput';
