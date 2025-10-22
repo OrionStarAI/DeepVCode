@@ -54,6 +54,26 @@
         "command": "deepv.generateTests",
         "title": "Generate Tests",
         "category": "DeepV Code"
+      },
+      {
+        "command": "deepv.openLogFile",
+        "title": "Open Log File",
+        "category": "DeepV Code"
+      },
+      {
+        "command": "deepv.showLogPath",
+        "title": "Show Log Path",
+        "category": "DeepV Code"
+      },
+      {
+        "command": "deepv.testInlineCompletion",
+        "title": "Test Inline Completion",
+        "category": "DeepV Code"
+      },
+      {
+        "command": "deepv.toggleInlineCompletion",
+        "title": "Toggle Inline Completion",
+        "category": "DeepV Code"
       }
     ],
     "viewsContainers": {
@@ -158,6 +178,30 @@
           "default": [],
           "description": "Cached list of available cloud models",
           "markdownDescription": "Cached list of AI models available from the cloud service. This is automatically updated and should not be manually modified."
+        },
+        "deepv.enableInlineCompletion": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable AI-powered inline code completions",
+          "markdownDescription": "Enable or disable inline code completion suggestions powered by AI. When enabled, you'll see completion suggestions as you type."
+        },
+        "deepv.inlineCompletionDelay": {
+          "type": "number",
+          "default": 300,
+          "description": "Delay in milliseconds before triggering inline completion",
+          "markdownDescription": "Delay (in milliseconds) before AI suggestions appear. Lower values mean faster suggestions but may use more resources. Recommended range: 100-1000ms."
+        },
+        "deepv.inlineCompletionModel": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "gemini-2.5-flash",
+            "gemini-2.5-pro",
+            "claude-sonnet-4@20250514"
+          ],
+          "default": "auto",
+          "description": "Model to use for inline code completion",
+          "markdownDescription": "Choose which AI model to use for inline completions:\n- **auto**: Use the model from your current chat session\n- **gemini-2.5-flash**: Fast responses (recommended for completion)\n- **gemini-2.5-pro**: Higher quality but slower\n- **claude-sonnet-4**: Claude model for completion"
         }
       }
     }

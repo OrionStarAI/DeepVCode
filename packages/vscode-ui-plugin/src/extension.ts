@@ -12,6 +12,7 @@ import { MultiSessionCommunicationService } from './services/multiSessionCommuni
 import { SessionManager } from './services/sessionManager';
 import { FileSearchService } from './services/fileSearchService';
 import { FileRollbackService } from './services/fileRollbackService';
+import { DeepVInlineCompletionProvider } from './services/inlineCompletionProvider';
 import { Logger } from './utils/logger';
 import { startupOptimizer } from './utils/startupOptimizer';
 import { EnvironmentOptimizer } from './utils/environmentOptimizer';
@@ -23,6 +24,7 @@ let communicationService: MultiSessionCommunicationService;
 let sessionManager: SessionManager;
 let fileSearchService: FileSearchService;
 let fileRollbackService: FileRollbackService;
+let inlineCompletionProvider: DeepVInlineCompletionProvider;
 let extensionContext: vscode.ExtensionContext;
 
 export async function activate(context: vscode.ExtensionContext) {
@@ -88,6 +90,17 @@ export async function activate(context: vscode.ExtensionContext) {
     fileSearchService = new FileSearchService(logger);
     fileRollbackService = FileRollbackService.getInstance(logger);
 
+    // 🎯 初始化行内补全提供者
+    inlineCompletionProvider = new DeepVInlineCompletionProvider(logger);
+
+    // 🎯 注册行内补全提供者（支持所有编程语言）
+    const completionProviderDisposable = vscode.languages.registerInlineCompletionItemProvider(
+      { pattern: '**' }, // 匹配所有文件
+      inlineCompletionProvider
+    );
+    context.subscriptions.push(completionProviderDisposable);
+    logger.info('InlineCompletionProvider registered for all file types');
+
     // Setup communication between services
     setupServiceCommunication();
 
@@ -129,6 +142,9 @@ export async function deactivate(): Promise<void> {
   logger?.info('DeepV Code AI Assistant is deactivating...');
 
   try {
+    if (inlineCompletionProvider) {
+      inlineCompletionProvider.dispose();
+    }
     if (webviewService) {
       await webviewService.dispose();
     }
@@ -1152,12 +1168,140 @@ function registerCommands(context: vscode.ExtensionContext) {
         const folderUri = vscode.Uri.file(folderPath);
         await vscode.commands.executeCommand('vscode.openFolder', folderUri, { forceNewWindow: false });
       }
+    }),
+
+    // 🎯 测试行内补全功能
+    vscode.commands.registerCommand('deepv.testInlineCompletion', async () => {
+      const config = vscode.workspace.getConfiguration('deepv');
+      const isEnabled = config.get<boolean>('enableInlineCompletion', true);
+
+      if (!isEnabled) {
+        const action = await vscode.window.showWarningMessage(
+          '行内补全功能已禁用。是否启用？',
+          '启用',
+          '取消'
+        );
+
+        if (action === '启用') {
+          await config.update('enableInlineCompletion', true, vscode.ConfigurationTarget.Global);
+          vscode.window.showInformationMessage('✅ 行内补全已启用！请在代码文件中输入以测试。');
+        }
+        return;
+      }
+
+      // 检查补全服务状态
+      if (!inlineCompletionProvider) {
+        vscode.window.showErrorMessage('❌ 行内补全提供者未初始化');
+        return;
+      }
+
+      const stats = inlineCompletionProvider.getStats();
+
+      // 获取当前使用的模型
+      const completionService = inlineCompletionProvider.getCompletionService();
+      const currentModel = completionService?.getCurrentModel() || '未知';
+      const modelConfig = config.get<string>('inlineCompletionModel', 'auto');
+
+      const message = `📊 行内补全统计：
+
+🤖 当前模型: ${currentModel}
+⚙️  配置: ${modelConfig}
+
+✅ 总请求数: ${stats.totalRequests}
+✅ 成功补全: ${stats.successfulCompletions}
+⏭️  取消请求: ${stats.canceledRequests}
+❌ 错误数: ${stats.errors}
+
+💡 提示：在任意代码文件中输入，等待补全建议出现（灰色文本）。
+💡 可在设置中修改 "DeepV Code: Inline Completion Model" 以切换模型。`;
+
+      vscode.window.showInformationMessage(message, { modal: true });
+    }),
+
+    // 🎯 切换行内补全开关
+    vscode.commands.registerCommand('deepv.toggleInlineCompletion', async () => {
+      const config = vscode.workspace.getConfiguration('deepv');
+      const isEnabled = config.get<boolean>('enableInlineCompletion', true);
+      const newState = !isEnabled;
+
+      await config.update('enableInlineCompletion', newState, vscode.ConfigurationTarget.Global);
+
+      const status = newState ? '✅ 已启用' : '❌ 已禁用';
+      vscode.window.showInformationMessage(`行内补全功能${status}`);
+
+      logger.info(`Inline completion toggled: ${newState}`);
     })
   ];
 
   context.subscriptions.push(...commands);
   logger.info(`Registered ${commands.length} commands successfully`);
   console.log(`DeepV Code: Registered ${commands.length} commands`);
+}
+
+/**
+ * 初始化行内补全服务
+ */
+async function initializeInlineCompletion() {
+  try {
+    logger.info('Initializing inline completion service...');
+
+    // 🎯 从 SessionManager 获取默认 session 的 config 和 contentGenerator
+    const currentSession = sessionManager.getCurrentSession();
+    if (!currentSession) {
+      logger.warn('No current session available for inline completion');
+      return;
+    }
+
+    const aiService = sessionManager.getAIService(currentSession.info.id);
+    if (!aiService) {
+      logger.warn('No AI service available for inline completion');
+      return;
+    }
+
+    const config = aiService.getConfig();
+    const geminiClient = config?.getGeminiClient();
+
+    if (!config || !geminiClient) {
+      logger.warn('Config or GeminiClient not available for inline completion');
+      return;
+    }
+
+    // 🎯 创建 InlineCompletionService
+    const { InlineCompletionService } = await import('deepv-code-core');
+    const contentGenerator = geminiClient.getContentGenerator();
+    const completionService = new InlineCompletionService(config, contentGenerator);
+
+    // 🎯 应用用户配置的模型覆盖
+    const vsCodeConfig = vscode.workspace.getConfiguration('deepv');
+    const modelOverride = vsCodeConfig.get<string>('inlineCompletionModel', 'auto');
+    if (modelOverride && modelOverride !== 'auto') {
+      completionService.setModelOverride(modelOverride);
+      logger.info(`Inline completion model override: ${modelOverride}`);
+    }
+
+    // 🎯 将服务注入到 provider
+    inlineCompletionProvider.setCompletionService(completionService);
+
+    // 🎯 监听配置变化
+    extensionContext.subscriptions.push(
+      vscode.workspace.onDidChangeConfiguration(e => {
+        if (e.affectsConfiguration('deepv.inlineCompletionModel')) {
+          const newModel = vscode.workspace.getConfiguration('deepv').get<string>('inlineCompletionModel', 'auto');
+          if (newModel === 'auto') {
+            completionService.setModelOverride(undefined);
+            logger.info('Inline completion using auto model (from session)');
+          } else {
+            completionService.setModelOverride(newModel);
+            logger.info(`Inline completion model changed to: ${newModel}`);
+          }
+        }
+      })
+    );
+
+    logger.info('✅ Inline completion service initialized successfully');
+  } catch (error) {
+    logger.error('Failed to initialize inline completion service', error instanceof Error ? error : undefined);
+  }
 }
 
 async function startServices() {
@@ -1181,6 +1325,9 @@ async function startServices() {
       const currentSessionId = sessionManager.getCurrentSession()?.info.id || null;
       logger.info(`Sending ${sessions.length} sessions to frontend, current: ${currentSessionId}`);
       await communicationService.sendSessionListUpdate(sessions, currentSessionId);
+
+      // 🎯 初始化行内补全服务（依赖 SessionManager）
+      await initializeInlineCompletion();
     } catch (error) {
       logger.warn('SessionManager initialization failed, continuing with basic mode', error instanceof Error ? error : undefined);
     }
