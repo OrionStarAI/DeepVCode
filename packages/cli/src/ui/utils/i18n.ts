@@ -299,6 +299,9 @@ export const translations = {
     // Shell output
     'shell.output.truncated': '... (showing last {maxLines} lines, {totalLines} lines total)',
 
+    // Text Truncator
+    'text_truncator.omitted_lines': '[ ... {count} lines omitted, press ⌘ + C to copy full text ... ]',
+
 
     // IDE Connection
     'ide.connected': '● IDE Connected',
@@ -1142,6 +1145,9 @@ export const translations = {
 
     // Shell output
     'shell.output.truncated': '... (显示最新 {maxLines} 行，共 {totalLines} 行)',
+
+    // Text Truncator
+    'text_truncator.omitted_lines': '[ ... 已省略显示 {count} 行 ... ]',
 
 
     // IDE Connection

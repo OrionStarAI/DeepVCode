@@ -227,7 +227,7 @@ async function refineText(
   try {
     const { modelInfos } = await getAvailableModels(context.services.settings, config);
     // 查找 Haiku 4.5 模型（displayName 包含 "Haiku" 和 "4.5"）
-    const haikuModel = modelInfos.find(m => 
+    const haikuModel = modelInfos.find(m =>
       m.displayName.includes('Haiku') && m.displayName.includes('4.5')
     );
     if (haikuModel) {
@@ -276,6 +276,9 @@ async function refineText(
       throw new Error('模型未返回有效响应');
     }
 
+    // 后处理：清理可能的无关输出
+    responseText = cleanRefineOutput(responseText);
+
     // 检测语言
     const langDetected = detectLanguage(text);
     const langTarget = options.lang === 'auto' ? langDetected : options.lang;
@@ -296,6 +299,71 @@ async function refineText(
   } catch (error) {
     throw new Error(`润色失败: ${error instanceof Error ? error.message : String(error)}`);
   }
+}
+
+/**
+ * 清理润色输出中的无关内容
+ *
+ * AI 模型可能会输出以下无关内容（即使 prompt 已明确禁止）：
+ * - 元评论（"我理解了"、"根据要求"）
+ * - 格式化标记（"---"、"**结果:**"）
+ * - 诊断信息（"检测到"、"优化参数"）
+ */
+function cleanRefineOutput(text: string): string {
+  let cleaned = text;
+
+  // 1. 移除开头的常见无关模式
+  const unwantedPrefixes = [
+    // 中文模式
+    /^[\s\n]*(?:我理解了|明白了|好的|收到|了解)[^。！？\n]*[。！？\n]+/,
+    /^[\s\n]*(?:这是|以下是|根据|按照)[^：:]*[：:]\s*/,
+    /^[\s\n]*(?:优化结果|润色结果|修改后)[^：:]*[：:]\s*/,
+    /^[\s\n]*\*\*(?:结果|优化后|润色后)[^*]*\*\*\s*/,
+
+    // 英文模式
+    /^[\s\n]*(?:I understand|Got it|Here is|Based on)[^\n]*\n+/i,
+    /^[\s\n]*(?:The refined|Refined|Polished|Optimized)[^\n:]*[:\n]\s*/i,
+    /^[\s\n]*\*\*(?:Result|Output|Refined)[^*]*\*\*\s*/i,
+  ];
+
+  for (const pattern of unwantedPrefixes) {
+    cleaned = cleaned.replace(pattern, '');
+  }
+
+  // 2. 移除开头的分隔线和空行
+  cleaned = cleaned.replace(/^[\s\n]*(?:---|===|\*\*\*|___)+[\s\n]*/g, '');
+
+  // 3. 移除开头的 Emoji 标题行（如 "✅ 优化结果"）
+  cleaned = cleaned.replace(/^[\s\n]*[✅❌⚠️📊📝💡🔍✨]+\s*[^\n]*\n+/g, '');
+
+  // 4. 移除结尾的分隔线
+  cleaned = cleaned.replace(/[\s\n]*(?:---|===|\*\*\*|___)+[\s\n]*$/g, '');
+
+  // 5. 检测是否包含明显的"结果包装"结构
+  // 例如：
+  // ---
+  // **我理解了你的意思。**
+  //
+  // 这是一条功能验证指令...
+  // ---
+  //
+  // **如果你有实际的文本需要润色，请直接提供，我会：**
+  // ...
+
+  // 如果检测到这种结构，尝试提取中间的实际内容
+  const wrappedMatch = cleaned.match(/^[\s\S]*?(?:---|===)\s*([\s\S]+?)\s*(?:---|===)[\s\S]*$/);
+  if (wrappedMatch) {
+    // 检查提取的内容是否比原文更短且有实质内容
+    const extracted = wrappedMatch[1].trim();
+    if (extracted.length > 10 && extracted.length < cleaned.length * 0.8) {
+      cleaned = extracted;
+    }
+  }
+
+  // 6. 移除多余的空行（保留最多2个连续换行）
+  cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
+
+  return cleaned.trim();
 }
 
 /**
@@ -522,6 +590,14 @@ export const refineCommand: SlashCommand = {
           messageType: 'error',
           content: t('command.refine.error.no-input'),
         };
+      }
+
+      // 调试日志：确认输入文本已被正确还原（如果包含 PASTE 占位符）
+      if (inputText.includes('[ PASTE #')) {
+        console.warn('[refineCommand] ⚠️ WARNING: Input text contains PASTE placeholder! This should have been restored.');
+        console.warn('[refineCommand] Input text preview:', inputText.substring(0, 200));
+      } else {
+        console.log('[refineCommand] ✅ Input text received (length:', inputText.length, 'chars)');
       }
 
       // 执行润色
