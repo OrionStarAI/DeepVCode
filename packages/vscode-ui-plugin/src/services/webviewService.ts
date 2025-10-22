@@ -157,6 +157,7 @@ class DeepVWebviewViewProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.options = {
       enableScripts: true,
+      enableForms: true, // 🎯 启用表单和拖拽支持
       localResourceRoots: [
         vscode.Uri.joinPath(this.context.extensionUri, 'webview', 'build'),
         vscode.Uri.joinPath(this.context.extensionUri, 'assets')
