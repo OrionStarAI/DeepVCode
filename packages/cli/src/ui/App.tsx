@@ -38,6 +38,7 @@ import { HelpModeIndicator } from './components/HelpModeIndicator.js';
 import { PlanModeIndicator } from './components/PlanModeIndicator.js';
 import { InputPrompt } from './components/InputPrompt.js';
 import { Footer } from './components/Footer.js';
+import { truncateText, getDefaultMaxRows } from './utils/textTruncator.js';
 import { ThemeDialog } from './components/ThemeDialog.js';
 import { ModelDialog } from './components/ModelDialog.js';
 import { AuthDialog } from './components/AuthDialog.js';
@@ -373,8 +374,12 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
   const [openFiles, setOpenFiles] = useState<OpenFiles | undefined>();
   const [logoShows, setLogoShows] = useState<boolean>(true);
   const [refineResult, setRefineResult] = useState<{
-    original: string;
-    refined: string;
+    original: string; // 完整原文（用于再次润色）
+    refined: string; // 完整润色结果（用于发送给 AI）
+    displayOriginal: string; // 显示用原文（可能被截断）
+    displayRefined: string; // 显示用润色结果（可能被截断）
+    omittedPlaceholder?: string; // 省略提示的占位符
+    omittedLines?: number; // 省略的行数
     options: Record<string, any>;
   } | null>(null);
   const [refineLoading, setRefineLoading] = useState<boolean>(false);
@@ -383,6 +388,31 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
   useEffect(() => {
     console.log('[App] refineResult 状态变化:', refineResult ? '有值' : 'null', refineResult ? { originalLength: refineResult.original.length, refinedLength: refineResult.refined.length } : null);
   }, [refineResult]);
+
+  /**
+   * 渲染带有黄色省略提示的文本
+   * 只有省略提示部分显示为黄色，其他文字保持原色
+   */
+  const renderTextWithHighlightedOmission = (text: string, placeholder?: string, omittedLines?: number) => {
+    if (!placeholder || !text.includes(placeholder)) {
+      // 没有省略提示，直接渲染原文
+      return <Text wrap="wrap" italic>{text}</Text>;
+    }
+
+    // 分割文本，将占位符替换为实际的省略提示
+    const parts = text.split(placeholder);
+    const omittedNotice = tp('text_truncator.omitted_lines', {
+      count: omittedLines || 0,
+    });
+
+    return (
+      <Text wrap="wrap" italic>
+        {parts[0]}
+        <Text color={Colors.AccentYellow}>{omittedNotice}</Text>
+        {parts[1]}
+      </Text>
+    );
+  };
 
   // 监听Plan模式变化
   useEffect(() => {
@@ -792,7 +822,7 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
           if (isRefineCommand) {
             setRefineLoading(true);
           }
-          
+
           try {
             const slashCommandResult = await handleSlashCommand(trimmedValue);
             if (slashCommandResult !== false) {
@@ -818,9 +848,30 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
             } else if (slashCommandResult.type === 'refine_result') {
               // 润色结果，显示确认界面
               console.log('[App] 收到 refine_result，设置 refineResult 状态');
+
+              // 计算截断阈值
+              const maxRowsSent = getDefaultMaxRows('sent', terminalHeight);
+              const maxRowsRefined = getDefaultMaxRows('refined', terminalHeight);
+
+              // 截断原文（发送场景：更严格）
+              const truncatedOriginal = truncateText(slashCommandResult.original, {
+                maxRows: maxRowsSent,
+                terminalWidth: terminalWidth,
+              });
+
+              // 截断润色结果（Refine 场景：更宽松）
+              const truncatedRefined = truncateText(slashCommandResult.refined, {
+                maxRows: maxRowsRefined,
+                terminalWidth: terminalWidth,
+              });
+
               setRefineResult({
-                original: slashCommandResult.original,
-                refined: slashCommandResult.refined,
+                original: slashCommandResult.original, // 完整原文
+                refined: slashCommandResult.refined, // 完整润色结果
+                displayOriginal: truncatedOriginal.displayText, // 显示用原文
+                displayRefined: truncatedRefined.displayText, // 显示用润色结果
+                omittedPlaceholder: truncatedRefined.omittedPlaceholder, // 省略提示占位符
+                omittedLines: truncatedRefined.omittedLines, // 省略的行数
                 options: slashCommandResult.options,
               });
               return;
@@ -920,15 +971,35 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
         setRefineResult(null);
         buffer.setText('');
         setRefineLoading(true);
-        
+
         // 异步处理润色命令
         (async () => {
           try {
             const slashCommandResult = await handleSlashCommand(`/refine ${originalText}`);
             if (slashCommandResult !== false && slashCommandResult.type === 'refine_result') {
+              // 计算截断阈值
+              const maxRowsSent = getDefaultMaxRows('sent', terminalHeight);
+              const maxRowsRefined = getDefaultMaxRows('refined', terminalHeight);
+
+              // 截断原文（发送场景：更严格）
+              const truncatedOriginal = truncateText(slashCommandResult.original, {
+                maxRows: maxRowsSent,
+                terminalWidth: terminalWidth,
+              });
+
+              // 截断润色结果（Refine 场景：更宽松）
+              const truncatedRefined = truncateText(slashCommandResult.refined, {
+                maxRows: maxRowsRefined,
+                terminalWidth: terminalWidth,
+              });
+
               setRefineResult({
-                original: slashCommandResult.original,
-                refined: slashCommandResult.refined,
+                original: slashCommandResult.original, // 完整原文
+                refined: slashCommandResult.refined, // 完整润色结果
+                displayOriginal: truncatedOriginal.displayText, // 显示用原文
+                displayRefined: truncatedRefined.displayText, // 显示用润色结果
+                omittedPlaceholder: truncatedRefined.omittedPlaceholder, // 省略提示占位符
+                omittedLines: truncatedRefined.omittedLines, // 省略的行数
                 options: slashCommandResult.options,
               });
             }
@@ -1581,7 +1652,7 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
                     <Text bold color={Colors.AccentGreen}>{t('command.refine.confirm.title')}</Text>
                   </Box>
                   <Box marginBottom={1}>
-                    <Text wrap="wrap" color={Colors.Foreground}>{refineResult.refined}</Text>
+                    {renderTextWithHighlightedOmission(refineResult.displayRefined, refineResult.omittedPlaceholder, refineResult.omittedLines)}
                   </Box>
                   <Box>
                     <Text color={Colors.Gray}>{'─'.repeat(50)}</Text>
