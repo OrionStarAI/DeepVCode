@@ -38,6 +38,7 @@ import { HelpModeIndicator } from './components/HelpModeIndicator.js';
 import { PlanModeIndicator } from './components/PlanModeIndicator.js';
 import { InputPrompt } from './components/InputPrompt.js';
 import { Footer } from './components/Footer.js';
+import { truncateText, getDefaultMaxRows } from './utils/textTruncator.js';
 import { ThemeDialog } from './components/ThemeDialog.js';
 import { ModelDialog } from './components/ModelDialog.js';
 import { AuthDialog } from './components/AuthDialog.js';
@@ -372,6 +373,46 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
   const [userTier, setUserTier] = useState<UserTierId | undefined>(undefined);
   const [openFiles, setOpenFiles] = useState<OpenFiles | undefined>();
   const [logoShows, setLogoShows] = useState<boolean>(true);
+  const [refineResult, setRefineResult] = useState<{
+    original: string; // 完整原文（用于再次润色）
+    refined: string; // 完整润色结果（用于发送给 AI）
+    displayOriginal: string; // 显示用原文（可能被截断）
+    displayRefined: string; // 显示用润色结果（可能被截断）
+    omittedPlaceholder?: string; // 省略提示的占位符
+    omittedLines?: number; // 省略的行数
+    options: Record<string, any>;
+  } | null>(null);
+  const [refineLoading, setRefineLoading] = useState<boolean>(false);
+
+  // 调试：监听 refineResult 变化
+  useEffect(() => {
+    console.log('[App] refineResult 状态变化:', refineResult ? '有值' : 'null', refineResult ? { originalLength: refineResult.original.length, refinedLength: refineResult.refined.length } : null);
+  }, [refineResult]);
+
+  /**
+   * 渲染带有黄色省略提示的文本
+   * 只有省略提示部分显示为黄色，其他文字保持原色
+   */
+  const renderTextWithHighlightedOmission = (text: string, placeholder?: string, omittedLines?: number) => {
+    if (!placeholder || !text.includes(placeholder)) {
+      // 没有省略提示，直接渲染原文
+      return <Text wrap="wrap" italic>{text}</Text>;
+    }
+
+    // 分割文本，将占位符替换为实际的省略提示
+    const parts = text.split(placeholder);
+    const omittedNotice = tp('text_truncator.omitted_lines', {
+      count: omittedLines || 0,
+    });
+
+    return (
+      <Text wrap="wrap" italic>
+        {parts[0]}
+        <Text color={Colors.AccentYellow}>{omittedNotice}</Text>
+        {parts[1]}
+      </Text>
+    );
+  };
 
   // 监听Plan模式变化
   useEffect(() => {
@@ -776,13 +817,20 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
 
         // 首先检查是否是slash命令
         if (trimmedValue.startsWith('/')) {
-          const slashCommandResult = await handleSlashCommand(trimmedValue);
-          if (slashCommandResult !== false) {
-            // 检查是否是 /help-ask 命令，激活 help 模式
-            if (trimmedValue.trim() === '/help-ask') {
-              setHelpModeActive(true);
-              return;
-            }
+          // 如果是润色命令，显示 loading 状态
+          const isRefineCommand = trimmedValue.startsWith('/refine');
+          if (isRefineCommand) {
+            setRefineLoading(true);
+          }
+
+          try {
+            const slashCommandResult = await handleSlashCommand(trimmedValue);
+            if (slashCommandResult !== false) {
+              // 检查是否是 /help-ask 命令，激活 help 模式
+              if (trimmedValue.trim() === '/help-ask') {
+                setHelpModeActive(true);
+                return;
+              }
 
             if (slashCommandResult.type === 'handled') {
               // Slash命令已处理，不需要继续
@@ -797,6 +845,42 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
             } else if (slashCommandResult.type === 'schedule_tool') {
               // Slash命令要求执行工具，这里可以扩展处理
               return;
+            } else if (slashCommandResult.type === 'refine_result') {
+              // 润色结果，显示确认界面
+              console.log('[App] 收到 refine_result，设置 refineResult 状态');
+
+              // 计算截断阈值
+              const maxRowsSent = getDefaultMaxRows('sent', terminalHeight);
+              const maxRowsRefined = getDefaultMaxRows('refined', terminalHeight);
+
+              // 截断原文（发送场景：更严格）
+              const truncatedOriginal = truncateText(slashCommandResult.original, {
+                maxRows: maxRowsSent,
+                terminalWidth: terminalWidth,
+              });
+
+              // 截断润色结果（Refine 场景：更宽松）
+              const truncatedRefined = truncateText(slashCommandResult.refined, {
+                maxRows: maxRowsRefined,
+                terminalWidth: terminalWidth,
+              });
+
+              setRefineResult({
+                original: slashCommandResult.original, // 完整原文
+                refined: slashCommandResult.refined, // 完整润色结果
+                displayOriginal: truncatedOriginal.displayText, // 显示用原文
+                displayRefined: truncatedRefined.displayText, // 显示用润色结果
+                omittedPlaceholder: truncatedRefined.omittedPlaceholder, // 省略提示占位符
+                omittedLines: truncatedRefined.omittedLines, // 省略的行数
+                options: slashCommandResult.options,
+              });
+              return;
+            }
+            }
+          } finally {
+            // 润色完成，隐藏 loading 状态
+            if (isRefineCommand) {
+              setRefineLoading(false);
             }
           }
           // 如果slashCommandResult为false，说明不是有效的slash命令，继续正常处理
@@ -868,6 +952,71 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
     const isCancelKey = key.escape ||
                        (isIDEATerminal && key.ctrl && input === 'q') ||
                        (process.platform === 'darwin' && key.meta && input === 'q');
+
+    // 处理润色结果的确认
+    if (refineResult) {
+      console.log('[App useInput] refineResult存在，处理按键:', { input, return: key.return });
+      if (key.return) {
+        // 回车：发送润色后的文本给 AI
+        console.log('[App useInput] 按回车，发送润色后的文本给 AI');
+        const refinedText = refineResult.refined;
+        setRefineResult(null);
+        buffer.setText('');
+        setCumulativeCredits(0);
+        submitQuery(refinedText);
+        return;
+      } else if (input.toLowerCase() === 'r') {
+        // R：再次润色
+        const originalText = refineResult.original;
+        setRefineResult(null);
+        buffer.setText('');
+        setRefineLoading(true);
+
+        // 异步处理润色命令
+        (async () => {
+          try {
+            const slashCommandResult = await handleSlashCommand(`/refine ${originalText}`);
+            if (slashCommandResult !== false && slashCommandResult.type === 'refine_result') {
+              // 计算截断阈值
+              const maxRowsSent = getDefaultMaxRows('sent', terminalHeight);
+              const maxRowsRefined = getDefaultMaxRows('refined', terminalHeight);
+
+              // 截断原文（发送场景：更严格）
+              const truncatedOriginal = truncateText(slashCommandResult.original, {
+                maxRows: maxRowsSent,
+                terminalWidth: terminalWidth,
+              });
+
+              // 截断润色结果（Refine 场景：更宽松）
+              const truncatedRefined = truncateText(slashCommandResult.refined, {
+                maxRows: maxRowsRefined,
+                terminalWidth: terminalWidth,
+              });
+
+              setRefineResult({
+                original: slashCommandResult.original, // 完整原文
+                refined: slashCommandResult.refined, // 完整润色结果
+                displayOriginal: truncatedOriginal.displayText, // 显示用原文
+                displayRefined: truncatedRefined.displayText, // 显示用润色结果
+                omittedPlaceholder: truncatedRefined.omittedPlaceholder, // 省略提示占位符
+                omittedLines: truncatedRefined.omittedLines, // 省略的行数
+                options: slashCommandResult.options,
+              });
+            }
+          } catch (_error) {
+            // 错误已经由 handleSlashCommand 处理
+          } finally {
+            setRefineLoading(false);
+          }
+        })();
+        return;
+      } else if (isCancelKey) {
+        // Esc：取消润色
+        setRefineResult(null);
+        buffer.setText('');
+        return;
+      }
+    }
 
     // 处理取消键（主要用于非流响应状态下的取消操作）
     if (isCancelKey) {
@@ -1470,7 +1619,57 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
                 </Box>
               )}
 
-              {isInputActive && (
+              {/* 润色 Loading 界面 */}
+              {refineLoading && (
+                <Box
+                  flexDirection="column"
+                  borderStyle="round"
+                  borderColor={Colors.AccentBlue}
+                  paddingX={1}
+                  paddingY={1}
+                  marginY={1}
+                >
+                  <Box>
+                    <Text bold color={Colors.AccentBlue}>✨ {t('command.refine.loading.title')}</Text>
+                  </Box>
+                  <Box marginTop={1}>
+                    <Text color={Colors.Gray}>{t('command.refine.loading.message')}</Text>
+                  </Box>
+                </Box>
+              )}
+
+              {/* 润色结果确认界面 */}
+              {refineResult && !refineLoading && (
+                <Box
+                  flexDirection="column"
+                  borderStyle="round"
+                  borderColor={Colors.AccentGreen}
+                  paddingX={1}
+                  paddingY={1}
+                  marginY={1}
+                >
+                  <Box marginBottom={1}>
+                    <Text bold color={Colors.AccentGreen}>{t('command.refine.confirm.title')}</Text>
+                  </Box>
+                  <Box marginBottom={1}>
+                    {renderTextWithHighlightedOmission(refineResult.displayRefined, refineResult.omittedPlaceholder, refineResult.omittedLines)}
+                  </Box>
+                  <Box>
+                    <Text color={Colors.Gray}>{'─'.repeat(50)}</Text>
+                  </Box>
+                  <Box marginTop={1}>
+                    <Text>
+                      <Text bold color={Colors.AccentGreen}>{t('command.refine.confirm.hint.send')}</Text>
+                      <Text color={Colors.Gray}>   |   </Text>
+                      <Text bold color={Colors.AccentYellow}>{t('command.refine.confirm.hint.refine-again')}</Text>
+                      <Text color={Colors.Gray}>   |   </Text>
+                      <Text bold color={Colors.AccentRed}>{t('command.refine.confirm.hint.cancel')}</Text>
+                    </Text>
+                  </Box>
+                </Box>
+              )}
+
+              {isInputActive && !refineResult && (
                 <InputPrompt
                   buffer={buffer}
                   inputWidth={inputWidth}

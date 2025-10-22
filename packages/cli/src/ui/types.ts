@@ -230,6 +230,23 @@ export interface SubmitPromptResult {
 }
 
 /**
+ * Result type for refine command that shows result and waits for user confirmation.
+ */
+export interface RefineResult {
+  type: 'refine_result';
+  original: string;
+  refined: string;
+  options: {
+    tone: string;
+    level: string;
+    lang: string;
+    keepFormat: boolean;
+    keepCode: boolean;
+    [key: string]: any;
+  };
+}
+
+/**
  * Defines the result of the slash command processor for its consumer (useGeminiStream).
  */
 export type SlashCommandProcessorResult =
@@ -241,4 +258,5 @@ export type SlashCommandProcessorResult =
   | {
       type: 'handled'; // Indicates the command was processed and no further action is needed.
     }
-  | SubmitPromptResult;
+  | SubmitPromptResult
+  | RefineResult;

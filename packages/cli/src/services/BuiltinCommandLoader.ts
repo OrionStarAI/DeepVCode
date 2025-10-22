@@ -38,6 +38,7 @@ import { sessionCommand } from '../ui/commands/sessionCommand.js';
 import { mcpCommand } from '../ui/commands/mcpCommand.js';
 import { planCommand } from '../ui/commands/planCommand.js';
 import { accountCommand } from '../ui/commands/accountCommand.js';
+import { refineCommand } from '../ui/commands/refineCommand.js';
 
 /**
  * Loads the core, hard-coded slash commands that are an integral part
@@ -76,6 +77,7 @@ export class BuiltinCommandLoader implements ICommandLoader {
       mcpCommand, // 已删除
       planCommand,
       quitCommand,
+      refineCommand,
       restoreCommand(this.config),
       sessionCommand,
       statsCommand,

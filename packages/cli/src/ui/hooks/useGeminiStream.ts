@@ -535,6 +535,11 @@ export const useGeminiStream = (
             case 'handled': {
               return { queryToSend: null, shouldProceed: false };
             }
+            case 'refine_result': {
+              // 润色结果已经返回到 UI 层等待用户确认
+              // 不立即发送给 AI，等待用户操作（回车发送/R再润色/Esc取消）
+              return { queryToSend: null, shouldProceed: false };
+            }
             default: {
               const unreachable: never = slashCommandResult;
               throw new Error(

@@ -13,6 +13,7 @@ export interface Suggestion {
   value: string;
   description?: string;
   matchScore?: number; // 用于排序的匹配分数
+  willAutoExecute?: boolean; // 是否在选择后自动执行命令（用于 /model 等参数补全命令）
 }
 interface SuggestionsDisplayProps {
   suggestions: Suggestion[];
