@@ -100,32 +100,40 @@ export const ToolStatsDisplay: React.FC = () => {
     yellow: USER_AGREEMENT_RATE_MEDIUM,
   });
 
+  // 🎯 检测 VS Code 环境
+  const isVSCode = !!(
+    process.env.VSCODE_PID ||
+    process.env.TERM_PROGRAM === 'vscode'
+  );
+
   // 🎯 小窗口模式：精简单行格式
-  if (smallWindowConfig.sizeLevel === WindowSizeLevel.SMALL ||
-      smallWindowConfig.sizeLevel === WindowSizeLevel.TINY) {
+  // 注意：VS Code 中始终显示完整格式
+  if (!isVSCode &&
+      (smallWindowConfig.sizeLevel === WindowSizeLevel.SMALL ||
+       smallWindowConfig.sizeLevel === WindowSizeLevel.TINY)) {
     return (
       <Box flexDirection="column">
         <Text>
-          <Text color={Colors.AccentPurple} bold>Tool Stats</Text>
+          <Text color={Colors.AccentPurple} bold>{t('stats.compact.tool.stats')}</Text>
           {' '}
-          <Text color={Colors.LightBlue}>Total:</Text> <Text>{tools.totalCalls}</Text>
+          {t('stats.compact.tool.total')}: <Text>{tools.totalCalls}</Text>
           {' '}
-          <Text color={Colors.LightBlue}>Success:</Text> <Text color={Colors.AccentGreen}>{tools.totalSuccess}</Text>
+          {t('stats.compact.tool.success')}: <Text color={Colors.AccentGreen}>{tools.totalSuccess}</Text>
           {' '}
-          <Text color={Colors.LightBlue}>Fail:</Text> <Text color={Colors.AccentRed}>{tools.totalFail}</Text>
+          {t('stats.compact.tool.fail')}: <Text color={Colors.AccentRed}>{tools.totalFail}</Text>
           {totalReviewed > 0 && (
             <>
               {' '}
-              <Text color={Colors.LightBlue}>Agreement:</Text> <Text color={agreementColor}>{agreementRate.toFixed(1)}%</Text>
+              {t('stats.compact.tool.agreement')}: <Text color={agreementColor}>{agreementRate.toFixed(1)}%</Text>
               {' '}
-              <Text color={Colors.Gray}>({totalReviewed} reviewed)</Text>
+              <Text color={Colors.Gray}>({totalReviewed} {t('stats.compact.tool.reviewed')})</Text>
             </>
           )}
         </Text>
         {activeTools.map(([toolName, toolStats]) => {
           const successRate = toolStats.count > 0 ? (toolStats.success / toolStats.count) * 100 : 0;
           const avgDuration = toolStats.count > 0 ? toolStats.durationMs / toolStats.count : 0;
-          const totalResponseLength = toolStats.responseLength;
+          const totalResponseSize = toolStats.responseLength;
           const successColor = getStatusColor(successRate, {
             green: TOOL_SUCCESS_RATE_HIGH,
             yellow: TOOL_SUCCESS_RATE_MEDIUM,
@@ -135,14 +143,14 @@ export const ToolStatsDisplay: React.FC = () => {
             <Text key={toolName}>
               {' • '}
               <Text color={Colors.LightBlue}>{toolName}</Text>
-              {': '}
-              <Text>{toolStats.count}x</Text>
               {' '}
-              <Text color={successColor}>{successRate.toFixed(1)}%</Text>
+              {t('stats.compact.tool.calls')}: <Text>{toolStats.count}</Text>
               {' '}
-              <Text>{formatDuration(avgDuration)}</Text>
+              {t('stats.compact.tool.success.rate')}: <Text color={successColor}>{successRate.toFixed(1)}%</Text>
               {' '}
-              <Text>{formatContentLength(totalResponseLength)}</Text>
+              {t('stats.compact.tool.avg.time')}: <Text>{formatDuration(avgDuration)}</Text>
+              {' '}
+              {t('stats.compact.tool.total.response.size')}: <Text>{formatContentLength(totalResponseSize)}</Text>
             </Text>
           );
         })}

@@ -201,9 +201,17 @@ export const StatsDisplay: React.FC<StatsDisplayProps> = ({
     agreementThresholds,
   );
 
+  // 🎯 检测 VS Code 环境
+  const isVSCode = !!(
+    process.env.VSCODE_PID ||
+    process.env.TERM_PROGRAM === 'vscode'
+  );
+
   // 🎯 小窗口模式：精简单行格式
-  if (smallWindowConfig.sizeLevel === WindowSizeLevel.SMALL ||
-      smallWindowConfig.sizeLevel === WindowSizeLevel.TINY) {
+  // 注意：VS Code 中始终显示完整格式
+  if (!isVSCode &&
+      (smallWindowConfig.sizeLevel === WindowSizeLevel.SMALL ||
+       smallWindowConfig.sizeLevel === WindowSizeLevel.TINY)) {
     // 从所有模型中计算总计数据
     const totalInput = Object.values(models).reduce(
       (sum, model) => sum + model.tokens.prompt,
@@ -227,29 +235,29 @@ export const StatsDisplay: React.FC<StatsDisplayProps> = ({
     return (
       <Box flexDirection="column">
         <Text>
-          <Text color={Colors.AccentPurple} bold>Token Usage</Text>
+          <Text color={Colors.AccentPurple} bold>{t('stats.compact.token.usage')}</Text>
           {' '}
-          <Text color={Colors.LightBlue}>Input:</Text> <Text color={Colors.AccentYellow}>{totalInput.toLocaleString()}</Text>
+          {t('stats.compact.input')}: <Text color={Colors.AccentYellow}>{totalInput.toLocaleString()}</Text>
+          {totalCached > 0 && (
+            <>
+              {' '}
+              {t('stats.compact.cache.read')}: <Text color={Colors.AccentGreen}>{totalCached.toLocaleString()}</Text>
+            </>
+          )}
           {' '}
-          <Text color={Colors.LightBlue}>Output:</Text> <Text color={Colors.AccentYellow}>{totalOutput.toLocaleString()}</Text>
+          {t('stats.compact.output')}: <Text color={Colors.AccentYellow}>{totalOutput.toLocaleString()}</Text>
           {' '}
-          <Text color={Colors.LightBlue}>Total:</Text> <Text color={Colors.AccentYellow}>{totalTokens.toLocaleString()}</Text>
+          {t('stats.compact.total')}: <Text color={Colors.AccentYellow}>{totalTokens.toLocaleString()}</Text>
           {totalCredits > 0 && (
             <>
               {' '}
-              <Text color={Colors.LightBlue}>Credits:</Text> <Text color={Colors.AccentPurple}>{totalCredits.toLocaleString()}</Text>
+              {t('stats.compact.credits')}: <Text color={Colors.AccentPurple}>{totalCredits.toLocaleString()}</Text>
             </>
           )}
           {cacheEfficiency > 0 && (
             <>
               {' '}
-              <Text color={Colors.LightBlue}>Efficiency:</Text> <Text color={Colors.AccentGreen}>{cacheEfficiency.toFixed(1)}%</Text>
-            </>
-          )}
-          {totalCached > 0 && (
-            <>
-              {' '}
-              <Text color={Colors.LightBlue}>Cache Read:</Text> <Text color={Colors.AccentGreen}>{totalCached.toLocaleString()}</Text>
+              {t('stats.compact.cache.hit.rate')}: <Text color={Colors.AccentGreen}>{cacheEfficiency.toFixed(1)}%</Text>
             </>
           )}
         </Text>

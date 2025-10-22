@@ -228,6 +228,32 @@ export const translations = {
     'stats.session.stats': 'Session Stats',
     'stats.reviewed': 'reviewed',
 
+    // Compact Stats Display
+    'stats.compact.token.usage': 'Token Usage',
+    'stats.compact.input': 'Input',
+    'stats.compact.cache.read': 'Cache Read',
+    'stats.compact.output': 'Output',
+    'stats.compact.total': 'Total',
+    'stats.compact.credits': 'Credits',
+    'stats.compact.cache.hit.rate': 'Cache Hit Rate',
+
+    // Compact Model Stats Display
+    'stats.compact.model.requests': 'Reqs',
+    'stats.compact.model.errors': 'Errors',
+    'stats.compact.model.avg.latency': 'Avg Latency',
+
+    // Compact Tool Stats Display
+    'stats.compact.tool.stats': 'Tool Stats',
+    'stats.compact.tool.total': 'Total',
+    'stats.compact.tool.success': 'Success',
+    'stats.compact.tool.fail': 'Fail',
+    'stats.compact.tool.agreement': 'Agreement',
+    'stats.compact.tool.reviewed': 'reviewed',
+    'stats.compact.tool.calls': 'Calls',
+    'stats.compact.tool.success.rate': 'Success Rate',
+    'stats.compact.tool.avg.time': 'Avg Time',
+    'stats.compact.tool.total.response.size': 'Total Response Size',
+
     // SubAgent Display labels
     'subagent.tool.calls': 'Tool Calls:',
     'subagent.execution.time': 'Execution Time:',
@@ -1074,6 +1100,32 @@ export const translations = {
     'stats.tool.time': '工具时间:',
     'stats.session.stats': '会话统计',
     'stats.reviewed': '已审查',
+
+    // Compact Stats Display
+    'stats.compact.token.usage': 'Token 使用情况',
+    'stats.compact.input': '输入',
+    'stats.compact.cache.read': '缓存读取',
+    'stats.compact.output': '输出',
+    'stats.compact.total': '总计',
+    'stats.compact.credits': '积分',
+    'stats.compact.cache.hit.rate': '缓存命中率',
+
+    // Compact Model Stats Display
+    'stats.compact.model.requests': '请求',
+    'stats.compact.model.errors': '错误',
+    'stats.compact.model.avg.latency': '平均延迟',
+
+    // Compact Tool Stats Display
+    'stats.compact.tool.stats': '工具统计',
+    'stats.compact.tool.total': '总计',
+    'stats.compact.tool.success': '成功',
+    'stats.compact.tool.fail': '失败',
+    'stats.compact.tool.agreement': '接受率',
+    'stats.compact.tool.reviewed': '已审核',
+    'stats.compact.tool.calls': '调用',
+    'stats.compact.tool.success.rate': '成功率',
+    'stats.compact.tool.avg.time': '平均耗时',
+    'stats.compact.tool.total.response.size': '总响应大小',
 
     // SubAgent Display labels
     'subagent.tool.calls': '工具调用:',

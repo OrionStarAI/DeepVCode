@@ -15,6 +15,7 @@ import {
 } from '../utils/computeStats.js';
 import { useSessionStats, ModelMetrics } from '../contexts/SessionContext.js';
 import { useSmallWindowOptimization, WindowSizeLevel } from '../hooks/useSmallWindowOptimization.js';
+import { t } from '../utils/i18n.js';
 
 const METRIC_COL_WIDTH = 28;
 const MODEL_COL_WIDTH = 22;
@@ -68,9 +69,17 @@ export const ModelStatsDisplay: React.FC = () => {
     );
   }
 
+  // 🎯 检测 VS Code 环境
+  const isVSCode = !!(
+    process.env.VSCODE_PID ||
+    process.env.TERM_PROGRAM === 'vscode'
+  );
+
   // 🎯 小窗口模式：精简单行格式
-  if (smallWindowConfig.sizeLevel === WindowSizeLevel.SMALL ||
-      smallWindowConfig.sizeLevel === WindowSizeLevel.TINY) {
+  // 注意：VS Code 中始终显示完整格式
+  if (!isVSCode &&
+      (smallWindowConfig.sizeLevel === WindowSizeLevel.SMALL ||
+       smallWindowConfig.sizeLevel === WindowSizeLevel.TINY)) {
     return (
       <Box flexDirection="column">
         {activeModels.map(([modelName, metrics]) => {
@@ -83,27 +92,33 @@ export const ModelStatsDisplay: React.FC = () => {
               <Text>
                 <Text color={Colors.AccentPurple} bold>{modelName}</Text>
                 {' '}
-                <Text color={Colors.LightBlue}>Reqs:</Text> <Text>{metrics.api.totalRequests}</Text>
+                {t('stats.compact.model.requests')}: <Text>{metrics.api.totalRequests}</Text>
                 {' '}
-                <Text color={Colors.LightBlue}>Tokens:</Text> <Text color={Colors.AccentYellow}>{metrics.tokens.total.toLocaleString()}</Text>
-                {' '}
-                <Text color={Colors.LightBlue}>Input:</Text> <Text>{metrics.tokens.prompt.toLocaleString()}</Text>
-                {' '}
-                <Text color={Colors.LightBlue}>Output:</Text> <Text>{metrics.tokens.candidates.toLocaleString()}</Text>
+                {t('stats.compact.input')}: <Text color={Colors.AccentYellow}>{metrics.tokens.prompt.toLocaleString()}</Text>
                 {metrics.tokens.cached > 0 && (
                   <>
                     {' '}
-                    <Text color={Colors.LightBlue}>Cache:</Text> <Text color={Colors.AccentGreen}>{metrics.tokens.cached.toLocaleString()} ({cacheHitRate.toFixed(1)}%)</Text>
+                    {t('stats.compact.cache.read')}: <Text color={Colors.AccentGreen}>{metrics.tokens.cached.toLocaleString()}</Text>
+                  </>
+                )}
+                {' '}
+                {t('stats.compact.output')}: <Text color={Colors.AccentYellow}>{metrics.tokens.candidates.toLocaleString()}</Text>
+                {' '}
+                {t('stats.compact.total')}: <Text color={Colors.AccentYellow}>{metrics.tokens.total.toLocaleString()}</Text>
+                {metrics.tokens.cached > 0 && (
+                  <>
+                    {' '}
+                    {t('stats.compact.cache.hit.rate')}: <Text color={Colors.AccentGreen}>{cacheHitRate.toFixed(1)}%</Text>
                   </>
                 )}
                 {metrics.api.totalErrors > 0 && (
                   <>
                     {' '}
-                    <Text color={Colors.LightBlue}>Errors:</Text> <Text color={Colors.AccentRed}>{metrics.api.totalErrors} ({errorRate.toFixed(1)}%)</Text>
+                    {t('stats.compact.model.errors')}: <Text color={Colors.AccentRed}>{metrics.api.totalErrors} ({errorRate.toFixed(1)}%)</Text>
                   </>
                 )}
                 {' '}
-                <Text color={Colors.LightBlue}>Latency:</Text> <Text>{formatDuration(avgLatency)}</Text>
+                {t('stats.compact.model.avg.latency')}: <Text>{formatDuration(avgLatency)}</Text>
               </Text>
             </Box>
           );
