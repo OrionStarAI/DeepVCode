@@ -62,8 +62,9 @@ const StatRow: React.FC<{
 export const ToolStatsDisplay: React.FC = () => {
   const smallWindowConfig = useSmallWindowOptimization();
 
-  // 在小窗口下隐藏工具统计信息，节省垂直空间
-  if (smallWindowConfig.sizeLevel !== WindowSizeLevel.NORMAL) {
+  // 🔧 修复：仅在极小窗口（TINY）下隐藏，SMALL窗口仍显示工具统计
+  // 标准终端 80x24 不应被视为小窗口
+  if (smallWindowConfig.sizeLevel === WindowSizeLevel.TINY) {
     return null;
   }
 

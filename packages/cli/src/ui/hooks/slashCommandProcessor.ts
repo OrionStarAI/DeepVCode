@@ -201,6 +201,12 @@ export const useSlashCommandProcessor = (
   // 修复策略: 动态获取已加载的命令，只有真正的命令才会被处理
   // 影响范围: packages/cli/src/ui/hooks/slashCommandProcessor.ts
   const isValidSlashCommand = useCallback((input: string, commandList: readonly SlashCommand[]): boolean => {
+    // 🔧 修复：如果命令列表尚未加载完成（空数组），则先假定是有效命令
+    // 让后续的命令查找逻辑处理，避免在加载期间拒绝所有命令
+    if (commandList.length === 0) {
+      return true; // 命令列表未加载时，允许通过验证
+    }
+
     // 提取第一个词（命令名）
     const firstWord = input.substring(1).trim().split(/\s+/)[0];
 
