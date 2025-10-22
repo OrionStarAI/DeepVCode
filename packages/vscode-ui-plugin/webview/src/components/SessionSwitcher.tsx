@@ -184,14 +184,12 @@ export const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
 
   /**
    * 处理创建新Session
-   * 优化逻辑：先查找未使用的session（排除当前session），如果有则切换，否则创建新的
+   * 🎯 直接创建新session，不做智能检查
    * 🎯 立即响应优化：UI立即反馈，后台操作异步进行
-   * 🎯 修复：允许在当前空session基础上继续创建新session
    */
   const handleCreateSession = () => {
-    console.log('🔍 [+按钮] 开始处理创建Session请求');
+    console.log('🆕 [+按钮] 创建新Session');
     console.log('🔍 [+按钮] 当前sessions数量:', sessions.length);
-    console.log('🔍 [+按钮] 当前session ID:', currentSession?.id);
 
     // 🎯 立即滚动到开始位置，给用户即时反馈
     if (tabsContainerRef.current) {
@@ -201,25 +199,7 @@ export const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
       });
     }
 
-    // 如果提供了检查函数，先查找未使用的session（排除当前session）
-    if (isSessionUnused && currentSession) {
-      const unusedSessions = sessions.filter(session => 
-        isSessionUnused(session.id) && session.id !== currentSession.id
-      );
-      console.log('🔍 [+按钮] 找到未使用的非当前sessions:', unusedSessions.length, unusedSessions.map(s => ({ id: s.id, name: s.name })));
-
-      if (unusedSessions.length > 0) {
-        const unusedSession = unusedSessions[0];
-        console.log('✅ [+按钮] 切换到未使用的session:', unusedSession.id, unusedSession.name);
-        // 🎯 立即切换UI状态，然后异步通知后端
-        onSessionSwitch(unusedSession.id);
-        return;
-      }
-    }
-
-    // 没有其他未使用的session，创建新的（底层会处理数量限制和踢出逻辑）
-    console.log('🆕 [+按钮] 没有其他未使用session，创建新的');
-    // 🎯 异步创建，不阻塞UI
+    // 🎯 直接创建新session（底层会处理数量限制和踢出逻辑）
     setTimeout(() => {
       onCreateSession(SessionType.CHAT);
     }, 0);
