@@ -1230,6 +1230,56 @@ function registerCommands(context: vscode.ExtensionContext) {
       vscode.window.showInformationMessage(`行内补全功能${status}`);
 
       logger.info(`Inline completion toggled: ${newState}`);
+    }),
+
+    // 🎯 选择行内补全模型
+    vscode.commands.registerCommand('deepv.selectInlineCompletionModel', async () => {
+      const config = vscode.workspace.getConfiguration('deepv');
+      const currentModel = config.get<string>('inlineCompletionModel', 'auto');
+
+      interface ModelOption {
+        label: string;
+        description: string;
+        detail?: string;
+        value: string;
+      }
+
+      const modelOptions: ModelOption[] = [
+        {
+          label: '🤖 自动 (Auto) - 默认',
+          description: '跟随聊天会话模型',
+          detail: '与聊天界面使用相同模型，未来兼容性最好',
+          value: 'auto'
+        },
+        {
+          label: '⚡ Gemini 2.5 Flash',
+          description: '快速 & 经济（推荐）',
+          detail: '响应速度最快，成本最低，适合高频代码补全',
+          value: 'gemini-2.5-flash'
+        },
+        {
+          label: '⭐ Gemini 2.5 Pro',
+          description: '高质量 & 较慢',
+          detail: '更准确的补全，但响应较慢且成本较高',
+          value: 'gemini-2.5-pro'
+        }
+      ];
+
+      const selected = await vscode.window.showQuickPick(modelOptions, {
+        placeHolder: `当前: ${currentModel === 'gemini-2.5-flash' ? 'Gemini 2.5 Flash' : currentModel === 'gemini-2.5-pro' ? 'Gemini 2.5 Pro' : '自动（默认）'}`,
+        title: '💡 选择行内补全模型（综合考虑：性能、成本、速度、未来兼容性）',
+        matchOnDescription: true,
+        matchOnDetail: true
+      });
+
+      if (selected) {
+        await config.update('inlineCompletionModel', selected.value, vscode.ConfigurationTarget.Global);
+
+        const modelName = selected.label.replace(' - 默认', '').replace('（推荐）', '').split(' ').slice(1).join(' ');
+        vscode.window.showInformationMessage(`✅ 行内补全模型已切换到: ${modelName}`);
+
+        logger.info(`Inline completion model changed to: ${selected.value}`);
+      }
     })
   ];
 

@@ -153,6 +153,16 @@ export class InlineCompletionService {
     // 提取文件名
     const fileName = filePath.split('/').pop() || 'file';
 
+    // 🎯 检测特殊场景
+    const prefixTrimmed = prefix.trimEnd();
+    const lastLine = prefixTrimmed.split('\n').pop() || '';
+    const lastLineTrimmed = lastLine.trim();
+
+    // 场景检测
+    const isFunctionDefinition = /^(def|function|fn|func|class)\s+\w+.*:\s*$/.test(lastLineTrimmed);
+    const isDocstring = /'''|"""|\/\*\*/.test(lastLineTrimmed);
+    const isCommentIntent = /^(#|\/\/)\s*\w+/.test(lastLineTrimmed) && lastLineTrimmed.length > 5;
+
     return `You are an expert ${language} programmer. Your task is to provide a concise code completion for the current cursor position.
 
 **File:** ${fileName}
@@ -168,13 +178,20 @@ ${prefix}
 ${suffix}
 \`\`\`
 
+**Context Analysis:**
+${isFunctionDefinition ? '- Previous line is a function/class definition - provide the function body implementation' : ''}
+${isDocstring ? '- Previous line is a docstring - provide the function body implementation' : ''}
+${isCommentIntent ? '- Previous line is a comment describing intent - generate the complete code for that intent' : ''}
+
 **Instructions:**
 1. Provide ONLY the code that should be inserted at the cursor position
 2. Do NOT repeat the prefix or suffix
-3. Do NOT include explanations or comments unless necessary
-4. Keep the completion concise and focused (single line or small block)
-5. Ensure the completion is syntactically correct and idiomatic
-6. Match the existing code style and indentation
+3. If the cursor is after a function definition or docstring, provide the complete function body
+4. If the cursor is after a comment describing intent (e.g., "# 写一个冒泡排序"), generate the complete code
+5. Keep the completion concise but complete enough to be useful
+6. Ensure the completion is syntactically correct and idiomatic
+7. Match the existing code style and indentation
+8. For multi-line completions, use proper indentation
 
 **Completion (code only):**`;
   }

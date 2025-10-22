@@ -88,22 +88,43 @@ export class DeepVInlineCompletionProvider implements vscode.InlineCompletionIte
       if (context.triggerKind === vscode.InlineCompletionTriggerKind.Automatic ||
           context.triggerKind === vscode.InlineCompletionTriggerKind.Invoke) {
 
-        // 获取当前行内容（简单过滤）
+        // 获取当前行内容
         const line = document.lineAt(position.line);
         const lineText = line.text.substring(0, position.character);
-
-        // 跳过空行或只有空格的行
-        if (lineText.trim().length === 0) {
-          return null;
-        }
-
-        // 跳过注释行（简单判断）
         const trimmedLine = lineText.trim();
-        if (trimmedLine.startsWith('//') ||
-            trimmedLine.startsWith('#') ||
-            trimmedLine.startsWith('/*') ||
-            trimmedLine.startsWith('*')) {
-          return null;
+
+        // 🎯 智能过滤逻辑优化
+        // 1. 如果是显式调用（Ctrl/Cmd+Space），不过滤任何情况
+        if (context.triggerKind === vscode.InlineCompletionTriggerKind.Invoke) {
+          // 显式调用，允许所有场景
+        } else {
+          // 自动触发时的过滤规则
+
+          // 只跳过完全空行且前后都是空行的情况（真正无意义的空行）
+          if (trimmedLine.length === 0) {
+            // 检查上下行是否有内容
+            const hasPrevContent = position.line > 0 &&
+              document.lineAt(position.line - 1).text.trim().length > 0;
+            const hasNextContent = position.line < document.lineCount - 1 &&
+              document.lineAt(position.line + 1).text.trim().length > 0;
+
+            // 如果上一行有内容（如函数定义、注释等），则允许补全
+            if (!hasPrevContent && !hasNextContent) {
+              return null;
+            }
+          }
+
+          // 🎯 优化注释判断：只跳过单纯的注释行（不包含其他代码意图）
+          // 允许以下情况：
+          // - "# 写一个冒泡排序" - 这是代码意图描述，应该补全
+          // - "'''二分查找'''" - 这是 docstring 后的位置，应该补全函数体
+          // - "def func():" 后的空行 - 应该补全函数体
+
+          // 只跳过纯注释且没有特殊意图的情况
+          if (trimmedLine.startsWith('//') && trimmedLine.length < 5) {
+            // 短注释，可能无意义
+            return null;
+          }
         }
 
         // 构建请求参数

@@ -74,6 +74,11 @@
         "command": "deepv.toggleInlineCompletion",
         "title": "Toggle Inline Completion",
         "category": "DeepV Code"
+      },
+      {
+        "command": "deepv.selectInlineCompletionModel",
+        "title": "Select Inline Completion Model",
+        "category": "DeepV Code"
       }
     ],
     "viewsContainers": {
@@ -196,12 +201,11 @@
           "enum": [
             "auto",
             "gemini-2.5-flash",
-            "gemini-2.5-pro",
-            "claude-sonnet-4@20250514"
+            "gemini-2.5-pro"
           ],
           "default": "auto",
           "description": "Model to use for inline code completion",
-          "markdownDescription": "Choose which AI model to use for inline completions:\n- **auto**: Use the model from your current chat session\n- **gemini-2.5-flash**: Fast responses (recommended for completion)\n- **gemini-2.5-pro**: Higher quality but slower\n- **claude-sonnet-4**: Claude model for completion"
+          "markdownDescription": "Choose which AI model to use for inline completions:\n- **auto**: Use the model from your current chat session (default, future-proof)\n- **gemini-2.5-flash**: Fast & economical (recommended for speed)\n- **gemini-2.5-pro**: Higher quality but slower & more expensive"
         }
       }
     }
