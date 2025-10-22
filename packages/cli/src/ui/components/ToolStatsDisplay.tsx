@@ -62,12 +62,6 @@ const StatRow: React.FC<{
 export const ToolStatsDisplay: React.FC = () => {
   const smallWindowConfig = useSmallWindowOptimization();
 
-  // 🔧 修复：仅在极小窗口（TINY）下隐藏，SMALL窗口仍显示工具统计
-  // 标准终端 80x24 不应被视为小窗口
-  if (smallWindowConfig.sizeLevel === WindowSizeLevel.TINY) {
-    return null;
-  }
-
   const { stats } = useSessionStats();
   const { tools } = stats.metrics;
   const activeTools = Object.entries(tools.byName).filter(
@@ -106,6 +100,57 @@ export const ToolStatsDisplay: React.FC = () => {
     yellow: USER_AGREEMENT_RATE_MEDIUM,
   });
 
+  // 🎯 小窗口模式：精简单行格式
+  if (smallWindowConfig.sizeLevel === WindowSizeLevel.SMALL ||
+      smallWindowConfig.sizeLevel === WindowSizeLevel.TINY) {
+    return (
+      <Box flexDirection="column">
+        <Text>
+          <Text color={Colors.AccentPurple} bold>Tool Stats</Text>
+          {' '}
+          <Text color={Colors.LightBlue}>Total:</Text> <Text>{tools.totalCalls}</Text>
+          {' '}
+          <Text color={Colors.LightBlue}>Success:</Text> <Text color={Colors.AccentGreen}>{tools.totalSuccess}</Text>
+          {' '}
+          <Text color={Colors.LightBlue}>Fail:</Text> <Text color={Colors.AccentRed}>{tools.totalFail}</Text>
+          {totalReviewed > 0 && (
+            <>
+              {' '}
+              <Text color={Colors.LightBlue}>Agreement:</Text> <Text color={agreementColor}>{agreementRate.toFixed(1)}%</Text>
+              {' '}
+              <Text color={Colors.Gray}>({totalReviewed} reviewed)</Text>
+            </>
+          )}
+        </Text>
+        {activeTools.map(([toolName, toolStats]) => {
+          const successRate = toolStats.count > 0 ? (toolStats.success / toolStats.count) * 100 : 0;
+          const avgDuration = toolStats.count > 0 ? toolStats.durationMs / toolStats.count : 0;
+          const totalResponseLength = toolStats.responseLength;
+          const successColor = getStatusColor(successRate, {
+            green: TOOL_SUCCESS_RATE_HIGH,
+            yellow: TOOL_SUCCESS_RATE_MEDIUM,
+          });
+
+          return (
+            <Text key={toolName}>
+              {' • '}
+              <Text color={Colors.LightBlue}>{toolName}</Text>
+              {': '}
+              <Text>{toolStats.count}x</Text>
+              {' '}
+              <Text color={successColor}>{successRate.toFixed(1)}%</Text>
+              {' '}
+              <Text>{formatDuration(avgDuration)}</Text>
+              {' '}
+              <Text>{formatContentLength(totalResponseLength)}</Text>
+            </Text>
+          );
+        })}
+      </Box>
+    );
+  }
+
+  // 🎯 正常窗口模式：完整样式
   return (
     <Box
       borderStyle="round"

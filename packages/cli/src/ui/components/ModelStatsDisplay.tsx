@@ -49,12 +49,6 @@ const StatRow: React.FC<StatRowProps> = ({
 export const ModelStatsDisplay: React.FC = () => {
   const smallWindowConfig = useSmallWindowOptimization();
 
-  // 🔧 修复：仅在极小窗口（TINY）下隐藏，SMALL窗口仍显示模型统计
-  // 标准终端 80x24 不应被视为小窗口
-  if (smallWindowConfig.sizeLevel === WindowSizeLevel.TINY) {
-    return null;
-  }
-
   const { stats } = useSessionStats();
   const { models } = stats.metrics;
   const activeModels = Object.entries(models).filter(
@@ -74,6 +68,51 @@ export const ModelStatsDisplay: React.FC = () => {
     );
   }
 
+  // 🎯 小窗口模式：精简单行格式
+  if (smallWindowConfig.sizeLevel === WindowSizeLevel.SMALL ||
+      smallWindowConfig.sizeLevel === WindowSizeLevel.TINY) {
+    return (
+      <Box flexDirection="column">
+        {activeModels.map(([modelName, metrics]) => {
+          const errorRate = calculateErrorRate(metrics);
+          const avgLatency = calculateAverageLatency(metrics);
+          const cacheHitRate = calculateCacheHitRate(metrics);
+
+          return (
+            <Box key={modelName} flexDirection="column">
+              <Text>
+                <Text color={Colors.AccentPurple} bold>{modelName}</Text>
+                {' '}
+                <Text color={Colors.LightBlue}>Reqs:</Text> <Text>{metrics.api.totalRequests}</Text>
+                {' '}
+                <Text color={Colors.LightBlue}>Tokens:</Text> <Text color={Colors.AccentYellow}>{metrics.tokens.total.toLocaleString()}</Text>
+                {' '}
+                <Text color={Colors.LightBlue}>Input:</Text> <Text>{metrics.tokens.prompt.toLocaleString()}</Text>
+                {' '}
+                <Text color={Colors.LightBlue}>Output:</Text> <Text>{metrics.tokens.candidates.toLocaleString()}</Text>
+                {metrics.tokens.cached > 0 && (
+                  <>
+                    {' '}
+                    <Text color={Colors.LightBlue}>Cache:</Text> <Text color={Colors.AccentGreen}>{metrics.tokens.cached.toLocaleString()} ({cacheHitRate.toFixed(1)}%)</Text>
+                  </>
+                )}
+                {metrics.api.totalErrors > 0 && (
+                  <>
+                    {' '}
+                    <Text color={Colors.LightBlue}>Errors:</Text> <Text color={Colors.AccentRed}>{metrics.api.totalErrors} ({errorRate.toFixed(1)}%)</Text>
+                  </>
+                )}
+                {' '}
+                <Text color={Colors.LightBlue}>Latency:</Text> <Text>{formatDuration(avgLatency)}</Text>
+              </Text>
+            </Box>
+          );
+        })}
+      </Box>
+    );
+  }
+
+  // 🎯 正常窗口模式：完整样式
   const modelNames = activeModels.map(([name]) => name);
 
   const getModelValues = (

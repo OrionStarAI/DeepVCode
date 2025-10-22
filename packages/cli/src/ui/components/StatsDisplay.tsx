@@ -182,12 +182,6 @@ export const StatsDisplay: React.FC<StatsDisplayProps> = ({
 }) => {
   const smallWindowConfig = useSmallWindowOptimization();
 
-  // 🔧 修复：仅在极小窗口（TINY）下隐藏，SMALL窗口仍显示基础统计
-  // 标准终端 80x24 不应被视为小窗口
-  if (smallWindowConfig.sizeLevel === WindowSizeLevel.TINY) {
-    return null;
-  }
-
   const { stats } = useSessionStats();
   const { metrics } = stats;
   const { models, tools } = metrics;
@@ -207,6 +201,63 @@ export const StatsDisplay: React.FC<StatsDisplayProps> = ({
     agreementThresholds,
   );
 
+  // 🎯 小窗口模式：精简单行格式
+  if (smallWindowConfig.sizeLevel === WindowSizeLevel.SMALL ||
+      smallWindowConfig.sizeLevel === WindowSizeLevel.TINY) {
+    // 从所有模型中计算总计数据
+    const totalInput = Object.values(models).reduce(
+      (sum, model) => sum + model.tokens.prompt,
+      0
+    );
+    const totalOutput = Object.values(models).reduce(
+      (sum, model) => sum + model.tokens.candidates,
+      0
+    );
+    const totalTokens = totalInput + totalOutput;
+    const totalCached = Object.values(models).reduce(
+      (sum, model) => sum + (model.tokens.cacheRead || 0),
+      0
+    );
+    const totalCredits = Object.values(models).reduce(
+      (sum, model) => sum + model.credits.total,
+      0
+    );
+    const cacheEfficiency = computed.cacheEfficiency;
+
+    return (
+      <Box flexDirection="column">
+        <Text>
+          <Text color={Colors.AccentPurple} bold>Token Usage</Text>
+          {' '}
+          <Text color={Colors.LightBlue}>Input:</Text> <Text color={Colors.AccentYellow}>{totalInput.toLocaleString()}</Text>
+          {' '}
+          <Text color={Colors.LightBlue}>Output:</Text> <Text color={Colors.AccentYellow}>{totalOutput.toLocaleString()}</Text>
+          {' '}
+          <Text color={Colors.LightBlue}>Total:</Text> <Text color={Colors.AccentYellow}>{totalTokens.toLocaleString()}</Text>
+          {totalCredits > 0 && (
+            <>
+              {' '}
+              <Text color={Colors.LightBlue}>Credits:</Text> <Text color={Colors.AccentPurple}>{totalCredits.toLocaleString()}</Text>
+            </>
+          )}
+          {cacheEfficiency > 0 && (
+            <>
+              {' '}
+              <Text color={Colors.LightBlue}>Efficiency:</Text> <Text color={Colors.AccentGreen}>{cacheEfficiency.toFixed(1)}%</Text>
+            </>
+          )}
+          {totalCached > 0 && (
+            <>
+              {' '}
+              <Text color={Colors.LightBlue}>Cache Read:</Text> <Text color={Colors.AccentGreen}>{totalCached.toLocaleString()}</Text>
+            </>
+          )}
+        </Text>
+      </Box>
+    );
+  }
+
+  // 🎯 正常窗口模式：完整样式
   const renderTitle = () => {
     if (title) {
       return Colors.GradientColors && Colors.GradientColors.length > 0 ? (
