@@ -33,7 +33,7 @@ export const ShowMoreLines = ({ constrainHeight }: ShowMoreLinesProps) => {
   return (
     <Box>
       <Text color={Colors.Gray} wrap="truncate">
-        Press ctrl-s for paged view (PgUp/PgDown to navigate)
+        Press ctrl + s for paged view (PgUp/PgDown to navigate)
       </Text>
     </Box>
   );
