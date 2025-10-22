@@ -250,7 +250,15 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
       // 重构完整消息内容
       const contentToSubmit = reconstructFullMessage(submittedValue);
 
-
+      // 调试日志：追踪粘贴内容还原
+      if (pasteSegments.length > 0) {
+        console.log(`[InputPrompt] 📋 Paste content restored: ${pasteSegments.length} segment(s)`);
+        console.log(`[InputPrompt] Before restoration: ${submittedValue.length} chars`);
+        console.log(`[InputPrompt] After restoration: ${contentToSubmit.length} chars`);
+        if (submittedValue.includes('[ PASTE #')) {
+          console.log('[InputPrompt] ✅ PASTE placeholder detected and will be restored');
+        }
+      }
 
       // 清除所有粘贴片段状态
       setPasteSegments([]);
@@ -258,7 +266,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
       onSubmit(contentToSubmit);
       resetCompletionState();
     },
-    [onSubmit, buffer, resetCompletionState, shellModeActive, shellHistory, reconstructFullMessage, isModalOpen],
+    [onSubmit, buffer, resetCompletionState, shellModeActive, shellHistory, reconstructFullMessage, isModalOpen, pasteSegments],
   );
 
   const customSetTextAndResetCompletionSignal = useCallback(
