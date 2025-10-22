@@ -1160,47 +1160,6 @@ function registerCommands(context: vscode.ExtensionContext) {
       }
     }),
 
-    // 🎯 右键菜单命令：添加代码到新对话（只插入，不自动发送）
-    vscode.commands.registerCommand('deepv.addToNewChat', async () => {
-      logger.info('deepv.addToNewChat command executed');
-
-      try {
-        const editor = vscode.window.activeTextEditor;
-        if (!editor || editor.selection.isEmpty) {
-          vscode.window.showWarningMessage('请先选择要添加的代码');
-          return;
-        }
-
-        const selectedText = editor.document.getText(editor.selection);
-        const fileName = path.basename(editor.document.uri.fsPath);
-        const filePath = editor.document.uri.fsPath;
-        const startLine = editor.selection.start.line + 1;
-        const endLine = editor.selection.end.line + 1;
-
-        // 🎯 先聚焦侧边栏视图
-        await vscode.commands.executeCommand('deepv.aiAssistant.focus');
-
-        // 🎯 等待 webview 准备就绪
-        await communicationService.waitForReady(3000);
-
-        // 🎯 TODO: 创建新会话的逻辑
-        // 目前先插入到当前会话
-        communicationService.sendMessage({
-          type: 'insert_code_to_input',
-          payload: {
-            fileName,
-            filePath,
-            code: selectedText,
-            startLine,
-            endLine
-          }
-        });
-      } catch (error) {
-        logger.error('Failed to execute addToNewChat', error instanceof Error ? error : undefined);
-        vscode.window.showErrorMessage('无法添加代码到新对话');
-      }
-    }),
-
     // 🎯 旧的命令（保留兼容性）- 解释代码
     vscode.commands.registerCommand('deepv.explainCode', async () => {
       logger.info('deepv.explainCode command executed');
