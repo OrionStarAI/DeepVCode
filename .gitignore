@@ -15,7 +15,7 @@ node_modules
 bower_components
 
 vertex-server/
-
+.vs/
 # Editors
 .idea
 *.iml
