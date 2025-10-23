@@ -1,20 +1,32 @@
-# DeepV Code Companion
+# DeepV CLI Companion
 
-The DeepV Code Companion extension seamlessly integrates [DeepV Code](https://github.com/deepv-lab/deepv-code) into your VS Code environment. This integration enables DeepV Code to access active information like your open files.
+**DeepV CLI Companion** integrates [DeepV Code](https://github.com/OrionStarAI/DeepVCode) directly into your VS Code workspace. With this extension, DeepV Code gains real-time access to contextual information such as your open files and editor selections, enhancing its ability to understand and assist with your code.
 
-# Features
+---
 
-- Open Editor File Context: DeepV Code gains awareness of the files you have open in your editor, providing it with a richer understanding of your project's structure and content.
+## ✨ Features
 
-- Selection Context: DeepV Code can easily access your cursor's position and selected text within the editor, giving it valuable context directly from your current work.
+- **Open Editor Context**  
+  DeepV Code automatically detects which files are open in your editor, allowing for a deeper understanding of your project’s structure and content.
 
-# Requirements
+- **Selection Awareness**  
+  The extension provides DeepV Code with information about your current cursor position and selected text, giving it the precise context needed to deliver more relevant output.
 
-To use this extension, you'll need:
+---
 
-- VS Code version 1.101.0 or newer
-- DeepV Code (installed separately) running within the VS Code integrated terminal
+## ⚙️ Requirements
 
-# Terms of Service and Privacy Notice
+To use this extension, make sure you have:
 
-By installing this extension, you agree to the [Terms of Service](https://github.com/deepv-lab/deepv-code/blob/main/docs/tos-privacy.md).
+- **VSCode** version **1.101.0** or later  
+- **DeepV Code CLI**, installed separately and running `dvcode` inside the VS Code integrated terminal  
+
+---
+
+## 🚀 Usage
+
+1. Install the **DeepV CLI Companion** extension.  
+2. Open the VS Code integrated terminal.  
+3. Run the command:  
+   ```bash
+   dvcode

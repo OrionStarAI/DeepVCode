@@ -92,10 +92,6 @@ export class WebViewService {
       vscode.Uri.joinPath(this.context.extensionUri, 'webview', 'build', 'bundle.js')
     );
 
-    const styleUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.context.extensionUri, 'webview', 'build', 'styles.css')
-    );
-
     const nonce = this.generateNonce();
 
     return `<!DOCTYPE html>
@@ -104,7 +100,58 @@ export class WebViewService {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${webview.cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}'; connect-src ${webview.cspSource}; img-src 'self' data: blob: ${webview.cspSource}; object-src 'none'; media-src 'none';">
-    <link href="${styleUri}" rel="stylesheet">
+    <style>
+      html, body, #root {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        overflow: hidden;
+        background: var(--vscode-editor-background, #181818);
+        color: var(--vscode-editor-foreground, #cccccc);
+        font-family: var(--vscode-font-family, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif);
+      }
+
+      #root {
+        display: flex;
+        flex-direction: column;
+        box-sizing: border-box;
+      }
+
+      *::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+
+      *::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      *::-webkit-scrollbar-thumb {
+        background: var(--vscode-scrollbarSlider-background, rgba(121, 121, 121, 0.4));
+        border-radius: 3px;
+      }
+
+      *::-webkit-scrollbar-thumb:hover {
+        background: var(--vscode-scrollbarSlider-hoverBackground, rgba(100, 100, 100, 0.7));
+      }
+
+      * {
+        scrollbar-width: thin;
+        scrollbar-color: var(--vscode-scrollbarSlider-background) transparent;
+      }
+
+      .theme-light {
+        /* Light theme specific styling */
+      }
+
+      .theme-light .todo-display-container {
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      }
+
+      .theme-dark {
+        /* Dark theme specific styling */
+      }
+    </style>
     <title>DeepVCode</title>
 </head>
 <body>
