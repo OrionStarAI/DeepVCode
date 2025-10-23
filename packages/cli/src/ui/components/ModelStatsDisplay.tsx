@@ -15,6 +15,7 @@ import {
 } from '../utils/computeStats.js';
 import { useSessionStats, ModelMetrics } from '../contexts/SessionContext.js';
 import { useSmallWindowOptimization, WindowSizeLevel } from '../hooks/useSmallWindowOptimization.js';
+import { t } from '../utils/i18n.js';
 
 const METRIC_COL_WIDTH = 28;
 const MODEL_COL_WIDTH = 22;
@@ -48,11 +49,6 @@ const StatRow: React.FC<StatRowProps> = ({
 
 export const ModelStatsDisplay: React.FC = () => {
   const smallWindowConfig = useSmallWindowOptimization();
-  
-  // 在小窗口下隐藏模型统计信息，节省垂直空间
-  if (smallWindowConfig.sizeLevel !== WindowSizeLevel.NORMAL) {
-    return null;
-  }
 
   const { stats } = useSessionStats();
   const { models } = stats.metrics;
@@ -68,11 +64,70 @@ export const ModelStatsDisplay: React.FC = () => {
         paddingY={1}
         paddingX={2}
       >
-        <Text>本次会话中尚未进行API调用。</Text>
+        <Text>{t('model.stats.no.calls')}</Text>
       </Box>
     );
   }
 
+  // 🎯 检测 VS Code 环境
+  const isVSCode = !!(
+    process.env.VSCODE_PID ||
+    process.env.TERM_PROGRAM === 'vscode'
+  );
+
+  // 🎯 小窗口模式：精简单行格式
+  // 注意：VS Code 中始终显示完整格式
+  if (!isVSCode &&
+      (smallWindowConfig.sizeLevel === WindowSizeLevel.SMALL ||
+       smallWindowConfig.sizeLevel === WindowSizeLevel.TINY)) {
+    return (
+      <Box flexDirection="column">
+        {activeModels.map(([modelName, metrics]) => {
+          const errorRate = calculateErrorRate(metrics);
+          const avgLatency = calculateAverageLatency(metrics);
+          const cacheHitRate = calculateCacheHitRate(metrics);
+
+          return (
+            <Box key={modelName} flexDirection="column">
+              <Text>
+                <Text color={Colors.AccentPurple} bold>{modelName}</Text>
+                {' '}
+                {t('stats.compact.model.requests')}: <Text>{metrics.api.totalRequests}</Text>
+                {' '}
+                {t('stats.compact.input')}: <Text color={Colors.AccentYellow}>{metrics.tokens.prompt.toLocaleString()}</Text>
+                {metrics.tokens.cached > 0 && (
+                  <>
+                    {' '}
+                    {t('stats.compact.cache.read')}: <Text color={Colors.AccentGreen}>{metrics.tokens.cached.toLocaleString()}</Text>
+                  </>
+                )}
+                {' '}
+                {t('stats.compact.output')}: <Text color={Colors.AccentYellow}>{metrics.tokens.candidates.toLocaleString()}</Text>
+                {' '}
+                {t('stats.compact.total')}: <Text color={Colors.AccentYellow}>{metrics.tokens.total.toLocaleString()}</Text>
+                {metrics.tokens.cached > 0 && (
+                  <>
+                    {' '}
+                    {t('stats.compact.cache.hit.rate')}: <Text color={Colors.AccentGreen}>{cacheHitRate.toFixed(1)}%</Text>
+                  </>
+                )}
+                {metrics.api.totalErrors > 0 && (
+                  <>
+                    {' '}
+                    {t('stats.compact.model.errors')}: <Text color={Colors.AccentRed}>{metrics.api.totalErrors} ({errorRate.toFixed(1)}%)</Text>
+                  </>
+                )}
+                {' '}
+                {t('stats.compact.model.avg.latency')}: <Text>{formatDuration(avgLatency)}</Text>
+              </Text>
+            </Box>
+          );
+        })}
+      </Box>
+    );
+  }
+
+  // 🎯 正常窗口模式：完整样式
   const modelNames = activeModels.map(([name]) => name);
 
   const getModelValues = (
@@ -96,18 +151,18 @@ export const ModelStatsDisplay: React.FC = () => {
       paddingX={2}
     >
       <Text bold color={Colors.AccentPurple}>
-        Geek专用模型统计
+        {t('model.stats.title')}
       </Text>
       <Box height={1} />
 
       {/* Header */}
       <Box>
         <Box width={METRIC_COL_WIDTH}>
-          <Text bold>指标</Text>
+          <Text bold>{t('model.stats.header.metric')}</Text>
         </Box>
         {modelNames.map((name, index) => (
           <Box width={MODEL_COL_WIDTH} key={name}>
-            <Text bold>模型{index + 1}</Text>
+            <Text bold>{t('model.stats.header.model')}{index + 1}</Text>
           </Box>
         ))}
       </Box>
@@ -122,13 +177,13 @@ export const ModelStatsDisplay: React.FC = () => {
       />
 
       {/* API Section */}
-      <StatRow title="API" values={[]} isSection />
+      <StatRow title={t('model.stats.section.api')} values={[]} isSection />
       <StatRow
-        title="请求数"
+        title={t('model.stats.metric.requests')}
         values={getModelValues((m) => m.api.totalRequests.toLocaleString())}
       />
       <StatRow
-        title="错误数"
+        title={t('model.stats.metric.errors')}
         values={getModelValues((m) => {
           const errorRate = calculateErrorRate(m);
           return (
@@ -143,7 +198,7 @@ export const ModelStatsDisplay: React.FC = () => {
         })}
       />
       <StatRow
-        title="平均延迟"
+        title={t('model.stats.metric.avg.latency')}
         values={getModelValues((m) => {
           const avgLatency = calculateAverageLatency(m);
           return formatDuration(avgLatency);
@@ -153,9 +208,9 @@ export const ModelStatsDisplay: React.FC = () => {
       <Box height={1} />
 
       {/* Tokens Section */}
-      <StatRow title="令牌" values={[]} isSection />
+      <StatRow title={t('model.stats.section.tokens')} values={[]} isSection />
       <StatRow
-        title="总计"
+        title={t('model.stats.metric.total')}
         values={getModelValues((m) => (
           <Text color={Colors.AccentYellow}>
             {m.tokens.total.toLocaleString()}
@@ -163,13 +218,13 @@ export const ModelStatsDisplay: React.FC = () => {
         ))}
       />
       <StatRow
-        title="提示"
+        title={t('model.stats.metric.prompt')}
         isSubtle
         values={getModelValues((m) => m.tokens.prompt.toLocaleString())}
       />
       {hasCached && (
         <StatRow
-          title="缓存"
+          title={t('model.stats.metric.cache')}
           isSubtle
           values={getModelValues((m) => {
             const cacheHitRate = calculateCacheHitRate(m);
@@ -183,20 +238,20 @@ export const ModelStatsDisplay: React.FC = () => {
       )}
       {hasThoughts && (
         <StatRow
-          title="思考"
+          title={t('model.stats.metric.thoughts')}
           isSubtle
           values={getModelValues((m) => m.tokens.thoughts.toLocaleString())}
         />
       )}
       {hasTool && (
         <StatRow
-          title="工具"
+          title={t('model.stats.metric.tool')}
           isSubtle
           values={getModelValues((m) => m.tokens.tool.toLocaleString())}
         />
       )}
       <StatRow
-        title="输出"
+        title={t('model.stats.metric.output')}
         isSubtle
         values={getModelValues((m) => m.tokens.candidates.toLocaleString())}
       />

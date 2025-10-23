@@ -182,11 +182,6 @@ export const StatsDisplay: React.FC<StatsDisplayProps> = ({
 }) => {
   const smallWindowConfig = useSmallWindowOptimization();
 
-  // 在小窗口下隐藏详细统计信息，节省垂直空间
-  if (smallWindowConfig.sizeLevel !== WindowSizeLevel.NORMAL) {
-    return null;
-  }
-
   const { stats } = useSessionStats();
   const { metrics } = stats;
   const { models, tools } = metrics;
@@ -206,6 +201,71 @@ export const StatsDisplay: React.FC<StatsDisplayProps> = ({
     agreementThresholds,
   );
 
+  // 🎯 检测 VS Code 环境
+  const isVSCode = !!(
+    process.env.VSCODE_PID ||
+    process.env.TERM_PROGRAM === 'vscode'
+  );
+
+  // 🎯 小窗口模式：精简单行格式
+  // 注意：VS Code 中始终显示完整格式
+  if (!isVSCode &&
+      (smallWindowConfig.sizeLevel === WindowSizeLevel.SMALL ||
+       smallWindowConfig.sizeLevel === WindowSizeLevel.TINY)) {
+    // 从所有模型中计算总计数据
+    const totalInput = Object.values(models).reduce(
+      (sum, model) => sum + model.tokens.prompt,
+      0
+    );
+    const totalOutput = Object.values(models).reduce(
+      (sum, model) => sum + model.tokens.candidates,
+      0
+    );
+    const totalTokens = totalInput + totalOutput;
+    const totalCached = Object.values(models).reduce(
+      (sum, model) => sum + (model.tokens.cacheRead || 0),
+      0
+    );
+    const totalCredits = Object.values(models).reduce(
+      (sum, model) => sum + model.credits.total,
+      0
+    );
+    const cacheEfficiency = computed.cacheEfficiency;
+
+    return (
+      <Box flexDirection="column">
+        <Text>
+          <Text color={Colors.AccentPurple} bold>{t('stats.compact.token.usage')}</Text>
+          {' '}
+          {t('stats.compact.input')}: <Text color={Colors.AccentYellow}>{totalInput.toLocaleString()}</Text>
+          {totalCached > 0 && (
+            <>
+              {' '}
+              {t('stats.compact.cache.read')}: <Text color={Colors.AccentGreen}>{totalCached.toLocaleString()}</Text>
+            </>
+          )}
+          {' '}
+          {t('stats.compact.output')}: <Text color={Colors.AccentYellow}>{totalOutput.toLocaleString()}</Text>
+          {' '}
+          {t('stats.compact.total')}: <Text color={Colors.AccentYellow}>{totalTokens.toLocaleString()}</Text>
+          {totalCredits > 0 && (
+            <>
+              {' '}
+              {t('stats.compact.credits')}: <Text color={Colors.AccentPurple}>{totalCredits.toLocaleString()}</Text>
+            </>
+          )}
+          {cacheEfficiency > 0 && (
+            <>
+              {' '}
+              {t('stats.compact.cache.hit.rate')}: <Text color={Colors.AccentGreen}>{cacheEfficiency.toFixed(1)}%</Text>
+            </>
+          )}
+        </Text>
+      </Box>
+    );
+  }
+
+  // 🎯 正常窗口模式：完整样式
   const renderTitle = () => {
     if (title) {
       return Colors.GradientColors && Colors.GradientColors.length > 0 ? (
