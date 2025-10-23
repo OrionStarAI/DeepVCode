@@ -26,6 +26,7 @@ import { DragDropPlugin } from './MessageInput/plugins/DragDropPlugin';
 import { ClipboardPlugin } from './MessageInput/plugins/ClipboardPlugin';
 import { FileAutocompletePlugin } from './MessageInput/plugins/FileAutocompletePlugin';
 import { EditorRefPlugin } from './MessageInput/plugins/EditorRefPlugin';
+import { FileUploadButton } from './MessageInput/components/FileUploadButton';
 import { ImageReference, resetImageCounter } from './MessageInput/utils/imageProcessor';
 
 import './MessageInput/MessageInput.css';
@@ -367,6 +368,25 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           const spaceNode = $createTextNode(' ');
           imageReferenceNode.insertAfter(spaceNode);
         }
+      });
+    }
+  };
+
+  // 🎯 处理图片上传
+  const handleImageUploaded = (imageData: ImageReference) => {
+    insertImageReferenceNode(imageData);
+  };
+
+  // 🎯 在上传前聚焦编辑器
+  const handleBeforeUpload = () => {
+    if (editorRef.current) {
+      console.log('🖼️ 准备上传图片：聚焦编辑器');
+      editorRef.current.focus();
+
+      // 确保光标在末尾
+      editorRef.current.update(() => {
+        const root = $getRoot();
+        root.selectEnd();
       });
     }
   };
@@ -786,8 +806,15 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             )}
           </div>
 
-          {/* 右侧：发送按钮 */}
+          {/* 右侧：上传按钮和发送按钮 */}
           <div className="input-actions">
+            {/* 图片上传按钮 */}
+            <FileUploadButton
+              onImageSelected={handleImageUploaded}
+              onBeforeUpload={handleBeforeUpload}
+              disabled={isLoading || isProcessing}
+            />
+
             {/* 发送/保存按钮 - 与底部保持一致的样式 */}
             {isProcessing ? (
               <button

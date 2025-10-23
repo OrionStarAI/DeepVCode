@@ -40,6 +40,7 @@ export * from './code_assist/codeAssist.js';
 // OAuth2 module removed - only Cheeth OA authentication supported
 export * from './code_assist/server.js';
 export * from './code_assist/types.js';
+export * from './code_assist/inlineCompletion.js';
 
 // Export utilities
 export * from './utils/paths.js';

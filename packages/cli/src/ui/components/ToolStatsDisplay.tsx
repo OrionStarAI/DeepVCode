@@ -62,11 +62,6 @@ const StatRow: React.FC<{
 export const ToolStatsDisplay: React.FC = () => {
   const smallWindowConfig = useSmallWindowOptimization();
 
-  // 在小窗口下隐藏工具统计信息，节省垂直空间
-  if (smallWindowConfig.sizeLevel !== WindowSizeLevel.NORMAL) {
-    return null;
-  }
-
   const { stats } = useSessionStats();
   const { tools } = stats.metrics;
   const activeTools = Object.entries(tools.byName).filter(
@@ -105,6 +100,65 @@ export const ToolStatsDisplay: React.FC = () => {
     yellow: USER_AGREEMENT_RATE_MEDIUM,
   });
 
+  // 🎯 检测 VS Code 环境
+  const isVSCode = !!(
+    process.env.VSCODE_PID ||
+    process.env.TERM_PROGRAM === 'vscode'
+  );
+
+  // 🎯 小窗口模式：精简单行格式
+  // 注意：VS Code 中始终显示完整格式
+  if (!isVSCode &&
+      (smallWindowConfig.sizeLevel === WindowSizeLevel.SMALL ||
+       smallWindowConfig.sizeLevel === WindowSizeLevel.TINY)) {
+    return (
+      <Box flexDirection="column">
+        <Text>
+          <Text color={Colors.AccentPurple} bold>{t('stats.compact.tool.stats')}</Text>
+          {' '}
+          {t('stats.compact.tool.total')}: <Text>{tools.totalCalls}</Text>
+          {' '}
+          {t('stats.compact.tool.success')}: <Text color={Colors.AccentGreen}>{tools.totalSuccess}</Text>
+          {' '}
+          {t('stats.compact.tool.fail')}: <Text color={Colors.AccentRed}>{tools.totalFail}</Text>
+          {totalReviewed > 0 && (
+            <>
+              {' '}
+              {t('stats.compact.tool.agreement')}: <Text color={agreementColor}>{agreementRate.toFixed(1)}%</Text>
+              {' '}
+              <Text color={Colors.Gray}>({totalReviewed} {t('stats.compact.tool.reviewed')})</Text>
+            </>
+          )}
+        </Text>
+        {activeTools.map(([toolName, toolStats]) => {
+          const successRate = toolStats.count > 0 ? (toolStats.success / toolStats.count) * 100 : 0;
+          const avgDuration = toolStats.count > 0 ? toolStats.durationMs / toolStats.count : 0;
+          const totalResponseSize = toolStats.responseLength;
+          const successColor = getStatusColor(successRate, {
+            green: TOOL_SUCCESS_RATE_HIGH,
+            yellow: TOOL_SUCCESS_RATE_MEDIUM,
+          });
+
+          return (
+            <Text key={toolName}>
+              {' • '}
+              <Text color={Colors.LightBlue}>{toolName}</Text>
+              {' '}
+              {t('stats.compact.tool.calls')}: <Text>{toolStats.count}</Text>
+              {' '}
+              {t('stats.compact.tool.success.rate')}: <Text color={successColor}>{successRate.toFixed(1)}%</Text>
+              {' '}
+              {t('stats.compact.tool.avg.time')}: <Text>{formatDuration(avgDuration)}</Text>
+              {' '}
+              {t('stats.compact.tool.total.response.size')}: <Text>{formatContentLength(totalResponseSize)}</Text>
+            </Text>
+          );
+        })}
+      </Box>
+    );
+  }
+
+  // 🎯 正常窗口模式：完整样式
   return (
     <Box
       borderStyle="round"
@@ -115,26 +169,26 @@ export const ToolStatsDisplay: React.FC = () => {
       width={82}
     >
       <Text bold color={Colors.AccentPurple}>
-        Tool Stats For Nerds
+        {t('tool.stats.title')}
       </Text>
       <Box height={1} />
 
       {/* Header */}
       <Box>
         <Box width={TOOL_NAME_COL_WIDTH}>
-          <Text bold>工具名称</Text>
+          <Text bold>{t('tool.stats.header.tool.name')}</Text>
         </Box>
         <Box width={CALLS_COL_WIDTH} justifyContent="flex-end">
-          <Text bold>调用次数</Text>
+          <Text bold>{t('tool.stats.header.calls')}</Text>
         </Box>
         <Box width={SUCCESS_RATE_COL_WIDTH} justifyContent="flex-end">
-          <Text bold>成功率</Text>
+          <Text bold>{t('tool.stats.header.success.rate')}</Text>
         </Box>
         <Box width={AVG_DURATION_COL_WIDTH} justifyContent="flex-end">
-          <Text bold>平均耗时</Text>
+          <Text bold>{t('tool.stats.header.avg.time')}</Text>
         </Box>
         <Box width={AVG_RESPONSE_LENGTH_COL_WIDTH} justifyContent="flex-end">
-          <Text bold>响应大小</Text>
+          <Text bold>{t('tool.stats.header.response.size')}</Text>
         </Box>
       </Box>
 
@@ -156,12 +210,12 @@ export const ToolStatsDisplay: React.FC = () => {
       <Box height={1} />
 
       {/* User Decision Summary */}
-      <Text bold>用户决策摘要</Text>
+      <Text bold>{t('tool.stats.decision.summary')}</Text>
       <Box>
         <Box
           width={TOOL_NAME_COL_WIDTH + CALLS_COL_WIDTH + SUCCESS_RATE_COL_WIDTH + AVG_DURATION_COL_WIDTH}
         >
-          <Text color={Colors.LightBlue}>已审核建议总数:</Text>
+          <Text color={Colors.LightBlue}>{t('tool.stats.decision.reviewed.total')}</Text>
         </Box>
         <Box width={AVG_RESPONSE_LENGTH_COL_WIDTH} justifyContent="flex-end">
           <Text>{totalReviewed}</Text>
@@ -171,7 +225,7 @@ export const ToolStatsDisplay: React.FC = () => {
         <Box
           width={TOOL_NAME_COL_WIDTH + CALLS_COL_WIDTH + SUCCESS_RATE_COL_WIDTH + AVG_DURATION_COL_WIDTH}
         >
-          <Text> » 已接受:</Text>
+          <Text> » {t('tool.stats.decision.accepted')}</Text>
         </Box>
         <Box width={AVG_RESPONSE_LENGTH_COL_WIDTH} justifyContent="flex-end">
           <Text color={Colors.AccentGreen}>{totalDecisions.accept}</Text>
@@ -181,7 +235,7 @@ export const ToolStatsDisplay: React.FC = () => {
         <Box
           width={TOOL_NAME_COL_WIDTH + CALLS_COL_WIDTH + SUCCESS_RATE_COL_WIDTH + AVG_DURATION_COL_WIDTH}
         >
-          <Text> » 已拒绝:</Text>
+          <Text> » {t('tool.stats.decision.rejected')}</Text>
         </Box>
         <Box width={AVG_RESPONSE_LENGTH_COL_WIDTH} justifyContent="flex-end">
           <Text color={Colors.AccentRed}>{totalDecisions.reject}</Text>
@@ -191,7 +245,7 @@ export const ToolStatsDisplay: React.FC = () => {
         <Box
           width={TOOL_NAME_COL_WIDTH + CALLS_COL_WIDTH + SUCCESS_RATE_COL_WIDTH + AVG_DURATION_COL_WIDTH}
         >
-          <Text> » 已修改:</Text>
+          <Text> » {t('tool.stats.decision.modified')}</Text>
         </Box>
         <Box width={AVG_RESPONSE_LENGTH_COL_WIDTH} justifyContent="flex-end">
           <Text color={Colors.AccentYellow}>{totalDecisions.modify}</Text>
@@ -212,7 +266,7 @@ export const ToolStatsDisplay: React.FC = () => {
         <Box
           width={TOOL_NAME_COL_WIDTH + CALLS_COL_WIDTH + SUCCESS_RATE_COL_WIDTH + AVG_DURATION_COL_WIDTH}
         >
-          <Text> 总体接受率:</Text>
+          <Text> {t('tool.stats.decision.overall.rate')}</Text>
         </Box>
         <Box width={AVG_RESPONSE_LENGTH_COL_WIDTH} justifyContent="flex-end">
           <Text bold color={totalReviewed > 0 ? agreementColor : undefined}>
