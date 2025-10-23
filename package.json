@@ -58,6 +58,7 @@
     "pack:prod": "cross-env ENABLE_CHECKPOINTING=true npm run bundle:cross-platform:prod && cross-env BUILD_ENV=production ENABLE_CHECKPOINTING=true node scripts/newpack.js",
     "pack:full": "cross-env ENABLE_CHECKPOINTING=true npm run bundle:cross-platform:full && cross-env ENABLE_CHECKPOINTING=true node scripts/newpack.js",
     "pack:vscode": "npm run package --workspace=packages/vscode-ui-plugin && copy packages\\vscode-ui-plugin\\*.vsix .",
+    "vsix-remote": "node vsix_remote_build/remote_build.js",
     "test": "npm run test --workspaces",
     "test:ci": "npm run test:ci --workspaces --if-present && npm run test:scripts",
     "test:scripts": "vitest run --config ./scripts/tests/vitest.config.ts",
