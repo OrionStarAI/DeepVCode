@@ -314,20 +314,37 @@ def build_worker():
             # 从队列中获取任务
             task = build_state.queue.get()
             build_state.set_current_task(task)
-            logger.info(f"取出任务 {task.task_id}，开始处理分支 {task.branch}")
+            logger.info(f"取出任务 {task.task_id}，分支: {task.branch}，任务类型: {task.status}")
 
-            # 先拉取分支
-            success, message = fetch_branch(task.branch)
-            if not success:
-                task.status = "failed"
-                task.error_message = f"分支拉取失败: {message}"
-                task.end_time = datetime.now()
-                logger.error(f"任务 {task.task_id} 拉取分支失败: {message}")
-                build_state.set_current_task(None)
-                continue
+            # 检查任务类型
+            if task.status == "fetch_queued":
+                # 只拉取分支，不构建
+                task.status = "fetching"
+                success, message = fetch_branch(task.branch)
+                if not success:
+                    task.status = "failed"
+                    task.error_message = f"分支拉取失败: {message}"
+                    task.end_time = datetime.now()
+                    logger.error(f"任务 {task.task_id} 拉取分支失败: {message}")
+                else:
+                    task.status = "fetch_completed"
+                    task.end_time = datetime.now()
+                    logger.info(f"任务 {task.task_id} 分支拉取成功")
 
-            # 执行npm构建
-            success, message = execute_npm_commands(task)
+            elif task.status == "build_queued":
+                # 先拉取分支，再构建
+                task.status = "fetching"
+                success, message = fetch_branch(task.branch)
+                if not success:
+                    task.status = "failed"
+                    task.error_message = f"分支拉取失败: {message}"
+                    task.end_time = datetime.now()
+                    logger.error(f"任务 {task.task_id} 拉取分支失败: {message}")
+                    build_state.set_current_task(None)
+                    continue
+
+                # 执行npm构建
+                success, message = execute_npm_commands(task)
 
             build_state.set_current_task(None)
 
@@ -344,15 +361,25 @@ worker_thread.start()
 
 @app.post("/api/fetch-branch")
 async def api_fetch_branch(request: FetchBranchRequest) -> Dict[str, Any]:
-    """拉取分支接口"""
-    success, message = fetch_branch(request.branch)
-    if not success:
-        raise HTTPException(status_code=400, detail=message)
+    """
+    拉取分支接口 - 只负责排队，不立即切分支
+    返回任务ID和队列位置，Worker会在轮到时才真正拉取分支
+    """
+    # 创建新任务（只拉分支，不构建）
+    task_id = str(uuid.uuid4())
+    task = BuildTask(task_id, request.branch)
+    task.status = "fetch_queued"  # 标记为"等待拉取分支"的队列状态
+
+    # 加入队列
+    build_state.add_task(task)
+    queue_position = build_state.get_queue_position(task_id)
 
     return {
         "success": True,
-        "message": message,
+        "message": f"分支拉取任务已加入队列，排在第{queue_position}位",
+        "task_id": task_id,
         "branch": request.branch,
+        "queue_position": queue_position,
     }
 
 
@@ -362,9 +389,10 @@ async def api_build(request: BuildRequest) -> Dict[str, Any]:
     构建接口 - 将任务加入队列
     返回任务ID和队列位置
     """
-    # 创建新任务
+    # 创建新任务（包含拉取分支和构建）
     task_id = str(uuid.uuid4())
     task = BuildTask(task_id, request.branch)
+    task.status = "build_queued"  # 标记为"等待构建"的队列状态
 
     # 加入队列
     build_state.add_task(task)
@@ -372,7 +400,7 @@ async def api_build(request: BuildRequest) -> Dict[str, Any]:
 
     return {
         "success": True,
-        "message": "构建任务已加入队列",
+        "message": f"构建任务已加入队列，排在第{queue_position}位",
         "task_id": task_id,
         "queue_position": queue_position,
     }
@@ -394,10 +422,18 @@ async def api_build_status(task_id: str) -> Dict[str, Any]:
         "message": "",
     }
 
-    if task.status == "queued":
+    # 拉取分支相关状态
+    if task.status in ("fetch_queued", "build_queued"):
         queue_pos = build_state.get_queue_position(task_id)
         response["queue_position"] = queue_pos
-        response["message"] = f"排队中，当前排在第{queue_pos}位"
+        task_type = "拉取分支" if task.status == "fetch_queued" else "构建"
+        response["message"] = f"{task_type}排队中，当前排在第{queue_pos}位"
+
+    elif task.status == "fetching":
+        response["message"] = "正在拉取分支..."
+
+    elif task.status == "fetch_completed":
+        response["message"] = "分支拉取成功，等待用户提交构建任务"
 
     elif task.status == "building":
         current = build_state.get_current_task()

@@ -118,7 +118,7 @@ class BuildTrigger {
    */
   async fetchBranchFlow(branch) {
     UI.printInfo(`⚠️  请确保分支 "${branch}" 已推送到远程仓库`);
-    UI.printInfo(`正在从远程仓库拉取分支，将在远程构建机上执行...`);
+    UI.printInfo(`正在提交分支拉取任务到队列...`);
 
     const result = await this.api.fetchBranch(branch);
 
@@ -127,7 +127,20 @@ class BuildTrigger {
       return false;
     }
 
-    UI.printSuccess(result.data.message);
+    const { task_id, queue_position, message } = result.data;
+    UI.printSuccess(message);
+
+    // 等待分支拉取完成（排队+执行）
+    if (queue_position > 1) {
+      UI.printInfo(`排队中，当前排在第 ${queue_position} 位，等待轮到...`);
+    }
+
+    const fetchSuccess = await this.waitForFetchCompletion(task_id, branch);
+    if (!fetchSuccess) {
+      UI.printError('分支拉取失败，中止操作');
+      return false;
+    }
+
     return true;
   }
 
@@ -156,6 +169,65 @@ class BuildTrigger {
     }
 
     return task_id;
+  }
+
+  /**
+   * 等待分支拉取完成
+   */
+  async waitForFetchCompletion(taskId, branch) {
+    const startTime = Date.now();
+    const pollFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+    let frameIndex = 0;
+
+    return new Promise((resolve) => {
+      const pollInterval = setInterval(async () => {
+        const result = await this.api.getBuildStatus(taskId);
+
+        if (result.success) {
+          const { status, message, queue_position } = result.data;
+
+          // 显示轮询状态（带动画）
+          const spinner = pollFrames[frameIndex % pollFrames.length];
+          if (status === 'fetch_queued') {
+            process.stdout.write(
+              `\r${spinner} 分支拉取排队中，排在第 ${queue_position} 位...`.padEnd(60)
+            );
+          } else {
+            process.stdout.write(
+              `\r${spinner} ${message}`.padEnd(60)
+            );
+          }
+          frameIndex++;
+
+          // 分支拉取成功
+          if (status === 'fetch_completed') {
+            clearInterval(pollInterval);
+            process.stdout.write('\r' + ' '.repeat(80) + '\r');
+            UI.printSuccess('分支拉取已完成！');
+            resolve(true);
+          }
+          // 拉取失败
+          else if (status === 'failed') {
+            clearInterval(pollInterval);
+            process.stdout.write('\r' + ' '.repeat(80) + '\r');
+            UI.printError('分支拉取失败！');
+            resolve(false);
+          }
+          // 超时检查
+          else if (Date.now() - startTime > BUILD_TIMEOUT) {
+            clearInterval(pollInterval);
+            process.stdout.write('\r' + ' '.repeat(80) + '\r');
+            UI.printError('分支拉取超时');
+            resolve(false);
+          }
+        } else {
+          clearInterval(pollInterval);
+          process.stdout.write('\r' + ' '.repeat(80) + '\r');
+          UI.printError('无法获取分支拉取状态: ' + result.error);
+          resolve(false);
+        }
+      }, 100);
+    });
   }
 
   /**
@@ -222,7 +294,7 @@ class BuildTrigger {
           UI.printError('无法获取远程构建状态: ' + result.error);
           resolve(false);
         }
-      }, 500);
+      }, 100);
     });
   }
 
