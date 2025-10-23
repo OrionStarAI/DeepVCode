@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Optional, Dict, Any
 
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 import git
 
@@ -444,11 +445,15 @@ async def download_artifact(file_name: str):
     if not file_path.exists():
         raise HTTPException(status_code=404, detail="文件不存在")
 
-    return {
-        "success": True,
-        "file_path": str(file_path),
-        "message": "请通过HTTP直接下载此文件",
-    }
+    # 直接返回二进制文件，设置正确的响应头
+    return FileResponse(
+        path=file_path,
+        media_type="application/octet-stream",
+        filename=file_name,
+        headers={
+            "Content-Disposition": f"attachment; filename={file_name}",
+        }
+    )
 
 
 @app.get("/health")
