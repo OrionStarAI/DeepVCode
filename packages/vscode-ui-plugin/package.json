@@ -2,7 +2,7 @@
   "name": "deepv-code-vscode-ui-plugin",
   "displayName": "DeepV Code for VSCode",
   "description": "AI-powered programming assistant with visual interface for VS Code",
-  "version": "1.0.172",
+  "version": "1.0.179",
   "publisher": "DeepX",
   "icon": "assets/icon.png",
   "repository": {
@@ -73,6 +73,11 @@
       {
         "command": "deepv.toggleInlineCompletion",
         "title": "Toggle Inline Completion",
+        "category": "DeepV Code"
+      },
+      {
+        "command": "deepv.toggleInlineCompletionFromStatusBar",
+        "title": "Toggle Inline Completion from Status Bar",
         "category": "DeepV Code"
       },
       {
