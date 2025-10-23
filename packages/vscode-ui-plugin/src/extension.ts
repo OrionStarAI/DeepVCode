@@ -1199,13 +1199,19 @@ function registerCommands(context: vscode.ExtensionContext) {
 
       // 获取当前使用的模型
       const completionService = inlineCompletionProvider.getCompletionService();
-      const currentModel = completionService?.getCurrentModel() || '未知';
+      const actualModel = completionService?.getCurrentModel() || 'gemini-2.5-flash';
       const modelConfig = config.get<string>('inlineCompletionModel', 'auto');
+
+      // 🎯 根据配置显示友好的模型名称
+      let displayConfig = modelConfig;
+      if (modelConfig === 'auto') {
+        displayConfig = `Auto (${actualModel})`;
+      }
 
       const message = `📊 行内补全统计：
 
-🤖 当前模型: ${currentModel}
-⚙️  配置: ${modelConfig}
+🤖 当前使用模型: ${actualModel}
+⚙️  配置策略: ${displayConfig}
 
 ✅ 总请求数: ${stats.totalRequests}
 ✅ 成功补全: ${stats.successfulCompletions}
