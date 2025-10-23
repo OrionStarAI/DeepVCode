@@ -154,6 +154,46 @@
   line-height: 1;
 }
 
+/* 关闭按钮样式 */
+.session-switcher__tab-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 6px;
+  padding: 2px;
+  background: transparent;
+  border: none;
+  border-radius: 3px;
+  color: currentColor;
+  opacity: 0;
+  transition: all 0.15s ease;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+/* 鼠标悬停在tab上时显示关闭按钮 */
+.session-switcher__tab:hover .session-switcher__tab-close {
+  opacity: 0.6;
+}
+
+/* 鼠标悬停在关闭按钮上时高亮 */
+.session-switcher__tab-close:hover {
+  opacity: 1 !important;
+  background: var(--vscode-toolbar-hoverBackground, rgba(90, 93, 94, 0.31));
+  color: var(--vscode-icon-foreground, #c5c5c5);
+}
+
+/* 激活的tab总是显示关闭按钮 */
+.session-switcher__tab--active .session-switcher__tab-close {
+  opacity: 0.6;
+}
+
+/* 禁用状态 */
+.session-switcher__tab-close:disabled {
+  opacity: 0 !important;
+  cursor: not-allowed;
+}
+
 
 /* =============================================================================
  * 创建按钮样式

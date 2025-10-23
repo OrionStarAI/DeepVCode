@@ -1,13 +1,13 @@
 {
-  "name": "deepv-code-vscode-companion",
-  "displayName": "DeepV Code Companion",
-  "description": "Enable DeepV Code with direct access to your VS Code workspace.",
+  "name": "deepv-cli-companion",
+  "displayName": "DeepV CLI Companion",
+  "description": "Integrate DeepV Code CLI seamlessly with your VS Code workspace.",
   "version": "1.0.192",
   "publisher": "DeepX",
   "icon": "assets/icon.png",
   "repository": {
     "type": "git",
-    "url": "https://github.com/google-gemini/gemini-cli.git",
+    "url": "https://github.com/OrionStarAI/DeepVCode.git",
     "directory": "packages/vscode-ide-companion"
   },
   "engines": {

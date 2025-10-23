@@ -72,7 +72,9 @@ export function DragDropPlugin({ onFilesDrop }: DragDropPluginProps) {
     e.preventDefault();
     e.stopPropagation();
 
-    console.log('🎯 DragDropPlugin: DROP 事件触发！', e.target);
+    console.log('🎯 DragDropPlugin: DROP 事件触发！');
+    console.log('🎯 dataTransfer.types:', e.dataTransfer?.types);
+    console.log('🎯 dataTransfer.files.length:', e.dataTransfer?.files.length);
 
     // 🎯 立即重置拖拽状态
     dragCounterRef.current = 0;
@@ -83,37 +85,107 @@ export function DragDropPlugin({ onFilesDrop }: DragDropPluginProps) {
       const files: string[] = [];
 
       if (e.dataTransfer) {
-        // 🎯 优先处理 File 对象（直接拖拽文件）
-        const fileList = Array.from(e.dataTransfer.files);
-        if (fileList.length > 0) {
-          console.log('🎯 Processing dropped files:', fileList.length);
+        // 🎯 方法1: 尝试从 dataTransfer.items 获取（VSCode 文件树拖拽）
+        if (e.dataTransfer.items && e.dataTransfer.items.length > 0) {
+          console.log('🎯 Processing dataTransfer.items:', e.dataTransfer.items.length);
+          
+          for (let i = 0; i < e.dataTransfer.items.length; i++) {
+            const item = e.dataTransfer.items[i];
+            console.log(`🎯 Item ${i}: kind=${item.kind}, type=${item.type}`);
+            
+            // 尝试获取字符串数据
+            if (item.kind === 'string') {
+              try {
+                const data = await new Promise<string>((resolve) => {
+                  item.getAsString((str) => resolve(str));
+                });
+                console.log('🎯 String data:', data);
+                
+                // 处理 vscode-resource URI 或 file:// URI
+                if (data) {
+                  let filePath = data;
+                  
+                  // 移除各种 URI 前缀
+                  filePath = filePath
+                    .replace(/^vscode-resource:\/\//, '')
+                    .replace(/^vscode-file:\/\//, '')
+                    .replace(/^file:\/\//, '')
+                    .trim();
+                  
+                  // Windows: 修复路径格式 (如 /c:/path -> c:/path)
+                  if (filePath.match(/^\/[a-zA-Z]:\//)) {
+                    filePath = filePath.substring(1);
+                  }
+                  
+                  if (filePath && !files.includes(filePath)) {
+                    console.log('🎯 Adding file from item:', filePath);
+                    files.push(filePath);
+                  }
+                }
+              } catch (err) {
+                console.error('🎯 Error getting string from item:', err);
+              }
+            }
+            
+            // 尝试获取文件对象
+            if (item.kind === 'file') {
+              const file = item.getAsFile();
+              if (file) {
+                const filePath = (file as any).path || file.name;
+                if (filePath && !files.includes(filePath)) {
+                  console.log('🎯 Adding file from File object:', filePath);
+                  files.push(filePath);
+                }
+              }
+            }
+          }
+        }
 
+        // 🎯 方法2: 处理 File 对象（从 Finder/Explorer 拖拽）
+        if (files.length === 0 && e.dataTransfer.files.length > 0) {
+          console.log('🎯 Processing dataTransfer.files:', e.dataTransfer.files.length);
+          
+          const fileList = Array.from(e.dataTransfer.files);
           for (const file of fileList) {
-            // 🎯 在VSCode扩展环境中，尝试多种方式获取完整路径
-            let filePath =
-              (file as any).path ||                    // Electron/VSCode 环境
-              (file as any).webkitRelativePath ||      // WebKit 相对路径
-              (file as any).mozFullPath ||             // Firefox 完整路径
-              (file as any).fullPath ||                // 通用完整路径属性
-              file.name;                               // 降级到文件名
+            const filePath =
+              (file as any).path ||
+              (file as any).webkitRelativePath ||
+              (file as any).mozFullPath ||
+              (file as any).fullPath ||
+              file.name;
 
             if (filePath && !files.includes(filePath)) {
+              console.log('🎯 Adding file from files:', filePath);
               files.push(filePath);
             }
           }
         }
 
-        // 🎯 处理文本数据（从外部应用拖拽）
+        // 🎯 方法3: 处理文本数据
         if (files.length === 0) {
           const textData = e.dataTransfer.getData('text/plain');
           const uriListData = e.dataTransfer.getData('text/uri-list');
+
+          console.log('🎯 text/plain:', textData);
+          console.log('🎯 text/uri-list:', uriListData);
 
           // 处理 URI 列表
           if (uriListData) {
             const uris = uriListData.split('\n').filter(uri => uri.trim() && !uri.startsWith('#'));
             for (const uri of uris) {
-              const cleanedPath = uri.replace(/^file:\/\//, '').trim();
+              let cleanedPath = uri
+                .replace(/^vscode-resource:\/\//, '')
+                .replace(/^vscode-file:\/\//, '')
+                .replace(/^file:\/\//, '')
+                .trim();
+              
+              // Windows: 修复路径
+              if (cleanedPath.match(/^\/[a-zA-Z]:\//)) {
+                cleanedPath = cleanedPath.substring(1);
+              }
+              
               if (cleanedPath && !files.includes(cleanedPath)) {
+                console.log('🎯 Adding file from uri-list:', cleanedPath);
                 files.push(cleanedPath);
               }
             }
@@ -121,8 +193,19 @@ export function DragDropPlugin({ onFilesDrop }: DragDropPluginProps) {
 
           // 处理纯文本路径
           if (files.length === 0 && textData) {
-            const cleanedPath = textData.replace(/^file:\/\//, '').trim();
+            let cleanedPath = textData
+              .replace(/^vscode-resource:\/\//, '')
+              .replace(/^vscode-file:\/\//, '')
+              .replace(/^file:\/\//, '')
+              .trim();
+            
+            // Windows: 修复路径
+            if (cleanedPath.match(/^\/[a-zA-Z]:\//)) {
+              cleanedPath = cleanedPath.substring(1);
+            }
+            
             if (cleanedPath && (cleanedPath.startsWith('/') || cleanedPath.includes('\\') || cleanedPath.match(/^[A-Za-z]:/))) {
+              console.log('🎯 Adding file from text/plain:', cleanedPath);
               files.push(cleanedPath);
             }
           }
@@ -130,13 +213,10 @@ export function DragDropPlugin({ onFilesDrop }: DragDropPluginProps) {
       }
 
       if (files.length > 0) {
-        console.log('🎯 Drop files detected:', files);
-
-        // 🎯 简化处理逻辑：直接传递所有文件给回调
-        // 让上层组件处理路径解析
+        console.log('🎯 ✅ Drop files detected:', files);
         onFilesDrop(files);
       } else {
-        console.warn('🎯 No valid files detected in drop event');
+        console.warn('🎯 ❌ No valid files detected in drop event');
       }
     } catch (error) {
       console.error('🎯 Error processing dropped files:', error);
