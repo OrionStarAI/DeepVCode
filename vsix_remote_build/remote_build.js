@@ -211,7 +211,9 @@ class BuildTrigger {
             clearInterval(animationInterval);
             process.stdout.write('\r' + ' '.repeat(80) + '\r');
             UI.printSuccess('分支拉取已完成！');
-            resolve(true);
+            setTimeout(() => {
+              resolve(true);
+            }, 50);
           }
           // 拉取失败
           else if (status === 'failed') {
@@ -219,7 +221,9 @@ class BuildTrigger {
             clearInterval(animationInterval);
             process.stdout.write('\r' + ' '.repeat(80) + '\r');
             UI.printError('分支拉取失败！');
-            resolve(false);
+            setTimeout(() => {
+              resolve(false);
+            }, 50);
           }
           // 超时检查
           else if (Date.now() - startTime > BUILD_TIMEOUT) {
@@ -227,14 +231,18 @@ class BuildTrigger {
             clearInterval(animationInterval);
             process.stdout.write('\r' + ' '.repeat(80) + '\r');
             UI.printError('分支拉取超时');
-            resolve(false);
+            setTimeout(() => {
+              resolve(false);
+            }, 50);
           }
         } else {
           clearInterval(pollInterval);
           clearInterval(animationInterval);
           process.stdout.write('\r' + ' '.repeat(80) + '\r');
           UI.printError('无法获取分支拉取状态: ' + result.error);
-          resolve(false);
+          setTimeout(() => {
+            resolve(false);
+          }, 50);
         }
       }, POLL_INTERVAL);
     });
@@ -285,7 +293,11 @@ class BuildTrigger {
               UI.printBuildLogs(build_logs);
             }
 
-            resolve(true);
+            // 在 macOS 上需要延迟确保 stdout 缓冲被正确刷新
+            // 否则后续 inquirer 的终端初始化会清除待发送的输出
+            setTimeout(() => {
+              resolve(true);
+            }, 50);
           }
           // 构建失败
           else if (status === 'failed') {
@@ -302,7 +314,10 @@ class BuildTrigger {
               UI.printBuildLogs(build_logs);
             }
 
-            resolve(false);
+            // 在 macOS 上需要延迟确保 stdout 缓冲被正确刷新
+            setTimeout(() => {
+              resolve(false);
+            }, 50);
           }
           // 超时检查
           else if (Date.now() - startTime > BUILD_TIMEOUT) {
@@ -310,14 +325,18 @@ class BuildTrigger {
             clearInterval(animationInterval);
             process.stdout.write('\r' + ' '.repeat(80) + '\r');
             UI.printError('远程构建超时（5分钟）');
-            resolve(false);
+            setTimeout(() => {
+              resolve(false);
+            }, 50);
           }
         } else {
           clearInterval(pollInterval);
           clearInterval(animationInterval);
           process.stdout.write('\r' + ' '.repeat(80) + '\r');
           UI.printError('无法获取远程构建状态: ' + result.error);
-          resolve(false);
+          setTimeout(() => {
+            resolve(false);
+          }, 50);
         }
       }, POLL_INTERVAL);
     });
