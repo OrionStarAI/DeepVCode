@@ -2,11 +2,7 @@
   "name": "deepv-code-vscode-ui-plugin",
   "displayName": "DeepV Code for VSCode",
   "description": "AI-powered programming assistant with visual interface for VS Code",
-<<<<<<< HEAD
-  "version": "1.0.167",
-=======
   "version": "1.0.172",
->>>>>>> master
   "publisher": "DeepX",
   "icon": "assets/icon.png",
   "repository": {
@@ -60,10 +56,11 @@
         "category": "DeepV Code"
       },
       {
-<<<<<<< HEAD
         "command": "deepv.addToCurrentChat",
         "title": "Add Symbol to Current Chat",
-=======
+        "category": "DeepV Code"
+      },
+      {
         "command": "deepv.openLogFile",
         "title": "Open Log File",
         "category": "DeepV Code"
