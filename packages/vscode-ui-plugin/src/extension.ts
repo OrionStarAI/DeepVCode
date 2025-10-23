@@ -1297,19 +1297,23 @@ async function initializeInlineCompletion() {
 
     // 🎯 从 SessionManager 获取默认 session 的 config 和 contentGenerator
     const currentSession = sessionManager.getCurrentSession();
+    logger.info(`Current session check: ${currentSession ? currentSession.info.id : 'null'}`);
     if (!currentSession) {
       logger.warn('No current session available for inline completion');
       return;
     }
 
     const aiService = sessionManager.getAIService(currentSession.info.id);
+    logger.info(`AI service check: ${aiService ? 'available' : 'null'}`);
     if (!aiService) {
       logger.warn('No AI service available for inline completion');
       return;
     }
 
     const config = aiService.getConfig();
+    logger.info(`Config check: ${config ? 'available' : 'null'}`);
     const geminiClient = config?.getGeminiClient();
+    logger.info(`GeminiClient check: ${geminiClient ? 'available' : 'null'}`);
 
     if (!config || !geminiClient) {
       logger.warn('Config or GeminiClient not available for inline completion');
