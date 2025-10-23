@@ -143,13 +143,16 @@ def fetch_branch(branch: str) -> tuple[bool, str]:
             # 分支存在，强制更新为远程版本
             logger.info(f"分支 {branch} 已存在，切换并更新")
             repo.heads[branch].checkout()
+            # 设置跟踪关系
+            repo.heads[branch].set_tracking_branch(repo.remotes.origin.refs[branch])
             repo.remotes.origin.pull(branch, force=True)
             message = f"分支 {branch} 已强制更新到与远程保持一致"
         else:
-            # 分支不存在，创建并切换到远程分支
+            # 分支不存在，创建并切换到远程分支，同时设置跟踪
             logger.info(f"分支 {branch} 不存在，创建新分支")
-            repo.create_head(branch, repo.remotes.origin.refs[branch])
-            repo.heads[branch].checkout()
+            new_head = repo.create_head(branch, repo.remotes.origin.refs[branch])
+            new_head.set_tracking_branch(repo.remotes.origin.refs[branch])
+            new_head.checkout()
             message = f"分支 {branch} 已创建并切换"
 
         logger.info(message)
