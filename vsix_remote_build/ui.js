@@ -130,7 +130,7 @@ class UI {
     console.log(chalk.gray('ℹ️  版本号基于远程仓库版本自增构建'));
     console.log(chalk.cyan('产物文件:'), filename);
     console.log(chalk.cyan('下载链接:'));
-    console.log(chalk.underline.blue(url));
+    console.log(chalk.underline.cyanBright(url));
     console.log();
   }
 
