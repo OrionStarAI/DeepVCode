@@ -12,7 +12,7 @@ import {
   CommandKind,
 } from './types.js';
 import { uiTelemetryService } from 'deepv-code-core';
-import { t } from '../utils/i18n.js';
+import { t, tp } from '../utils/i18n.js';
 
 export const statsCommand: SlashCommand = {
   name: 'stats',
@@ -26,7 +26,7 @@ export const statsCommand: SlashCommand = {
       context.ui.addItem(
         {
           type: MessageType.ERROR,
-          text: 'Session start time is unavailable, cannot calculate stats.',
+          text: t('command.stats.error.noSessionStartTime'),
         },
         Date.now(),
       );
@@ -63,7 +63,7 @@ export const statsCommand: SlashCommand = {
             context.ui.addItem(
               {
                 type: MessageType.ERROR,
-                text: `模型 "${modelName}" 未找到统计数据。使用 /stats model 查看所有可用的模型。`,
+                text: tp('command.stats.error.modelNotFound', { modelName }),
               },
               Date.now(),
             );

@@ -228,6 +228,32 @@ export const translations = {
     'stats.session.stats': 'Session Stats',
     'stats.reviewed': 'reviewed',
 
+    // Compact Stats Display
+    'stats.compact.token.usage': 'Token Usage',
+    'stats.compact.input': 'Input',
+    'stats.compact.cache.read': 'Cache Read',
+    'stats.compact.output': 'Output',
+    'stats.compact.total': 'Total',
+    'stats.compact.credits': 'Credits',
+    'stats.compact.cache.hit.rate': 'Cache Hit Rate',
+
+    // Compact Model Stats Display
+    'stats.compact.model.requests': 'Reqs',
+    'stats.compact.model.errors': 'Errors',
+    'stats.compact.model.avg.latency': 'Avg Latency',
+
+    // Compact Tool Stats Display
+    'stats.compact.tool.stats': 'Tool Stats',
+    'stats.compact.tool.total': 'Total',
+    'stats.compact.tool.success': 'Success',
+    'stats.compact.tool.fail': 'Fail',
+    'stats.compact.tool.agreement': 'Agreement',
+    'stats.compact.tool.reviewed': 'reviewed',
+    'stats.compact.tool.calls': 'Calls',
+    'stats.compact.tool.success.rate': 'Success Rate',
+    'stats.compact.tool.avg.time': 'Avg Time',
+    'stats.compact.tool.total.response.size': 'Total Response Size',
+
     // SubAgent Display labels
     'subagent.tool.calls': 'Tool Calls:',
     'subagent.execution.time': 'Execution Time:',
@@ -751,6 +777,39 @@ export const translations = {
     'memory.refresh.noContent': 'Memory refreshed successfully. No memory content found.',
     'command.stats.model.description': 'Show model-specific usage statistics. Usage: /stats model [model name]',
     'command.stats.tools.description': 'Show tool-specific usage statistics',
+    'command.stats.error.noSessionStartTime': 'Session start time is unavailable, cannot calculate stats.',
+    'command.stats.error.modelNotFound': 'Model "{modelName}" not found in statistics. Use /stats model to see all available models.',
+
+    // Model Stats Display - Full Format
+    'model.stats.title': 'Geek Model Statistics',
+    'model.stats.no.calls': 'No API calls have been made in this session yet.',
+    'model.stats.header.metric': 'Metric',
+    'model.stats.header.model': 'Model',
+    'model.stats.section.api': 'API',
+    'model.stats.metric.requests': 'Requests',
+    'model.stats.metric.errors': 'Errors',
+    'model.stats.metric.avg.latency': 'Avg Latency',
+    'model.stats.section.tokens': 'Tokens',
+    'model.stats.metric.total': 'Total',
+    'model.stats.metric.prompt': 'Prompt',
+    'model.stats.metric.cache': 'Cache',
+    'model.stats.metric.thoughts': 'Thoughts',
+    'model.stats.metric.tool': 'Tool',
+    'model.stats.metric.output': 'Output',
+
+    // Tool Stats Display - Full Format
+    'tool.stats.title': 'Tool Stats For Nerds',
+    'tool.stats.header.tool.name': 'Tool Name',
+    'tool.stats.header.calls': 'Calls',
+    'tool.stats.header.success.rate': 'Success Rate',
+    'tool.stats.header.avg.time': 'Avg Time',
+    'tool.stats.header.response.size': 'Response Size',
+    'tool.stats.decision.summary': 'User Decision Summary',
+    'tool.stats.decision.reviewed.total': 'Total Reviewed Suggestions:',
+    'tool.stats.decision.accepted': 'Accepted:',
+    'tool.stats.decision.rejected': 'Rejected:',
+    'tool.stats.decision.modified': 'Modified:',
+    'tool.stats.decision.overall.rate': 'Overall Acceptance Rate:',
 
     // MCP Command Messages
     'mcp.wizard.title': '🔧 MCP Server Configuration Wizard',
@@ -1074,6 +1133,32 @@ export const translations = {
     'stats.tool.time': '工具时间:',
     'stats.session.stats': '会话统计',
     'stats.reviewed': '已审查',
+
+    // Compact Stats Display
+    'stats.compact.token.usage': 'Token 使用情况',
+    'stats.compact.input': '输入',
+    'stats.compact.cache.read': '缓存读取',
+    'stats.compact.output': '输出',
+    'stats.compact.total': '总计',
+    'stats.compact.credits': '积分',
+    'stats.compact.cache.hit.rate': '缓存命中率',
+
+    // Compact Model Stats Display
+    'stats.compact.model.requests': '请求',
+    'stats.compact.model.errors': '错误',
+    'stats.compact.model.avg.latency': '平均延迟',
+
+    // Compact Tool Stats Display
+    'stats.compact.tool.stats': '工具统计',
+    'stats.compact.tool.total': '总计',
+    'stats.compact.tool.success': '成功',
+    'stats.compact.tool.fail': '失败',
+    'stats.compact.tool.agreement': '接受率',
+    'stats.compact.tool.reviewed': '已审核',
+    'stats.compact.tool.calls': '调用',
+    'stats.compact.tool.success.rate': '成功率',
+    'stats.compact.tool.avg.time': '平均耗时',
+    'stats.compact.tool.total.response.size': '总响应大小',
 
     // SubAgent Display labels
     'subagent.tool.calls': '工具调用:',
@@ -1597,6 +1682,39 @@ export const translations = {
     'memory.refresh.noContent': '记忆刷新成功。未找到记忆内容。',
     'command.stats.model.description': '显示模型特定的使用统计。用法：/stats model [模型名]',
     'command.stats.tools.description': '显示工具特定的使用统计',
+    'command.stats.error.noSessionStartTime': '会话开始时间不可用，无法计算统计数据。',
+    'command.stats.error.modelNotFound': '模型 "{modelName}" 未找到统计数据。使用 /stats model 查看所有可用的模型。',
+
+    // Model Stats Display - Full Format
+    'model.stats.title': 'Geek专用模型统计',
+    'model.stats.no.calls': '本次会话中尚未进行API调用。',
+    'model.stats.header.metric': '指标',
+    'model.stats.header.model': '模型',
+    'model.stats.section.api': 'API',
+    'model.stats.metric.requests': '请求数',
+    'model.stats.metric.errors': '错误数',
+    'model.stats.metric.avg.latency': '平均延迟',
+    'model.stats.section.tokens': '令牌',
+    'model.stats.metric.total': '总计',
+    'model.stats.metric.prompt': '提示',
+    'model.stats.metric.cache': '缓存',
+    'model.stats.metric.thoughts': '思考',
+    'model.stats.metric.tool': '工具',
+    'model.stats.metric.output': '输出',
+
+    // Tool Stats Display - Full Format
+    'tool.stats.title': 'Tool Stats For Nerds',
+    'tool.stats.header.tool.name': '工具名称',
+    'tool.stats.header.calls': '调用次数',
+    'tool.stats.header.success.rate': '成功率',
+    'tool.stats.header.avg.time': '平均耗时',
+    'tool.stats.header.response.size': '响应大小',
+    'tool.stats.decision.summary': '用户决策摘要',
+    'tool.stats.decision.reviewed.total': '已审核建议总数:',
+    'tool.stats.decision.accepted': '已接受:',
+    'tool.stats.decision.rejected': '已拒绝:',
+    'tool.stats.decision.modified': '已修改:',
+    'tool.stats.decision.overall.rate': '总体接受率:',
 
     // MCP Command Messages
     'mcp.wizard.title': '🔧 MCP服务器配置向导',
