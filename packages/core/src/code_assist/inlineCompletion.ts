@@ -78,8 +78,9 @@ export class InlineCompletionService {
    * 获取当前使用的模型
    */
   getCurrentModel(): string {
-    // 优先级：手动覆盖 > Config 配置 > 默认 Flash 模型
-    return this.modelOverride || this.config.getModel() || 'gemini-2.5-flash';
+    // 优先级：手动覆盖 > 默认 Flash 模型 > Config 配置
+    // 代码补全优先使用快速模型以保证响应速度
+    return this.modelOverride || 'gemini-2.5-flash';
   }
 
   /**
