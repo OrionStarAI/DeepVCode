@@ -8,17 +8,21 @@ class UI {
   /**
    * 打印标题
    */
-  static printTitle() {
+  static printTitle(serviceUrl) {
     console.clear();
     console.log(
       chalk.cyan.bold(`
-╔════════════════════════════════════════════════════════╗
-║                                                        ║
-║      🚀 远程构建系统 (Remote Build Service)           ║
-║                                                        ║
-║         VSIX 构建触发服务 (Build Trigger CLI)         ║
-║                                                        ║
-╚════════════════════════════════════════════════════════╝
+════════════════════════════════════════════════════════════
+
+         🚀 VSIX远程构建系统 v1.2
+
+             构建机API：${serviceUrl}
+             构建机OS：Windows Server 2022
+
+        请确保在北京、西安CheetahMoblie办公网内访问本服务
+        珠海需要登录飞连。
+
+════════════════════════════════════════════════════════════
     `)
     );
   }
@@ -28,6 +32,7 @@ class UI {
    */
   static printError(message) {
     console.log(chalk.red.bold('✖ 错误:'), message);
+
   }
 
   /**
@@ -71,7 +76,7 @@ class UI {
         prefix: chalk.yellow('📦'),
         validate: (input) => {
           if (!input.trim()) {
-            return '分支名称不能为空';
+            return '分支名称不能为空, 请输入正确的分支名称';
           }
           return true;
         },
@@ -128,7 +133,7 @@ class UI {
   static printDownloadUrl(filename, url) {
     console.log(chalk.green.bold('\n✓ 构建成功！\n'));
     console.log(chalk.gray('ℹ️  版本号基于远程仓库版本自增构建'));
-    console.log(chalk.cyan('产物文件:'), filename);
+    console.log(chalk.cyan('VSIX文件:'), filename);
     console.log(chalk.cyan('下载链接:'));
     console.log(chalk.underline.cyanBright(url));
     console.log();
@@ -204,9 +209,10 @@ class UI {
    */
   static async showWaitingAnimation(message, durationSeconds) {
     const frames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
+
     let frameIndex = 0;
     const startTime = Date.now();
-    const endTime = startTime + durationSeconds * 1000;
+    const endTime = startTime + durationSeconds *400;
 
     return new Promise((resolve) => {
       const interval = setInterval(() => {

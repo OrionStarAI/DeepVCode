@@ -27,7 +27,7 @@ class BuildTrigger {
    * 主流程
    */
   async run() {
-    UI.printTitle();
+    UI.printTitle(BUILD_SERVICE_URL);
 
     // 检查服务连接
     UI.printInfo('正在检查网络连接...');
