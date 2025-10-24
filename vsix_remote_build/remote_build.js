@@ -11,6 +11,7 @@ import UI from './ui.js';
 // ==================== 配置 ====================
 
 const BUILD_SERVICE_URL = 'http://192.168.66.100:1234'; // 修改为实际的构建服务地址
+// const BUILD_SERVICE_URL = 'http://localhost:1234'; // 修改为实际的构建服务地址
 const POLL_INTERVAL = 2000; // 轮询间隔（毫秒） - 2秒
 const BUILD_TIMEOUT = 300000; // 构建超时（毫秒） - 5分钟
 const MAX_RETRIES = 5; // 最大重试次数
@@ -43,17 +44,8 @@ class BuildTrigger {
         const branch = await UI.askBranch();
         UI.printSeparator();
 
-        // 2. 拉取分支
-        if (!(await this.fetchBranchFlow(branch))) {
-          if (await UI.askRetry()) {
-            continue;
-          } else {
-            break;
-          }
-        }
-
-        // 3. 触发构建
-        const taskId = await this.triggerBuildFlow(branch);
+        // 2. 提交完整构建任务（全程排队）- 从这里开始就排队，直到任务完成
+        const taskId = await this.submitBuildTaskFlow(branch);
         if (!taskId) {
           if (await UI.askRetry()) {
             continue;
@@ -62,11 +54,11 @@ class BuildTrigger {
           }
         }
 
-        // 4. 等待构建完成
-        const success = await this.waitForBuildCompletion(taskId, branch);
+        // 3. 等待完整任务完成（包括拉分支和构建）
+        const success = await this.waitForFullTaskCompletion(taskId, branch);
 
         if (success) {
-          // 5. 获取产物URL
+          // 4. 获取产物URL
           await this.getArtifactFlow(branch);
 
           // 询问是否开始新的构建任务
@@ -77,7 +69,7 @@ class BuildTrigger {
             break;
           }
         } else {
-          // 构建失败，询问是否重试
+          // 任务失败，询问是否重试
           if (await UI.askRetry()) {
             continue;
           } else {
@@ -108,72 +100,39 @@ class BuildTrigger {
   }
 
   /**
-   * 分支拉取流程
+   * 提交完整构建任务（全程排队）
    */
-  async fetchBranchFlow(branch) {
+  async submitBuildTaskFlow(branch) {
     UI.printInfo(`⚠️  请确保分支 "${branch}" 已推送到远程仓库`);
-    UI.printInfo(`正在提交分支拉取任务到队列...`);
+    UI.printInfo(`正在提交完整构建任务到队列...`);
 
-    const result = await this.api.fetchBranch(branch);
-
-    if (!result.success) {
-      UI.printError(result.error);
-      return false;
-    }
-
-    const { task_id, queue_position, message } = result.data;
-    UI.printSuccess(message);
-
-    // 等待分支拉取完成（排队+执行）
-    if (queue_position > 1) {
-      UI.printInfo(`排队中，当前排在第 ${queue_position} 位，等待轮到...`);
-    }
-
-    const fetchSuccess = await this.waitForFetchCompletion(task_id, branch);
-    if (!fetchSuccess) {
-      UI.printError('分支拉取失败，中止操作');
-      return false;
-    }
-
-    return true;
-  }
-
-  /**
-   * 触发构建流程
-   */
-  async triggerBuildFlow(branch) {
-    UI.printInfo(`正在提交构建任务...`);
-
-    const result = await this.api.triggerBuild(branch);
+    const result = await this.api.submitBuildTask(branch);
 
     if (!result.success) {
       UI.printError(result.error);
       return null;
     }
 
-    const { task_id, queue_position } = result.data;
-    UI.printSuccess(
-      `构建任务已提交 (任务ID: ${task_id.substring(0, 8)}...)`
-    );
+    const { task_id, queue_position, message } = result.data;
+    UI.printSuccess(message);
 
     if (queue_position > 1) {
-      UI.printWarning(
-        `排队中，当前排在第 ${queue_position} 位，请稍候...`
-      );
+      UI.printInfo(`排队中，当前排在第 ${queue_position} 位，等待轮到...`);
     }
 
     return task_id;
   }
 
   /**
-   * 等待分支拉取完成
+   * 等待完整任务完成（包括排队、拉分支和构建）
    */
-  async waitForFetchCompletion(taskId, branch) {
-    const startTime = Date.now();
+  async waitForFullTaskCompletion(taskId, branch) {
     const pollFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
     let frameIndex = 0;
     let statusData = null;
     let lastRefreshTime = UI.getRefreshTimeStr();
+    let lastDisplayedStatus = '';
+    let buildStartTime = null; // 真正开始构建时的时间戳
 
     return new Promise((resolve) => {
       // 快速动画间隔（UI更新）
@@ -181,92 +140,21 @@ class BuildTrigger {
         if (statusData) {
           const spinner = pollFrames[frameIndex % pollFrames.length];
           const timeStr = `[${lastRefreshTime}]`;
-          if (statusData.status === 'fetch_queued') {
-            process.stdout.write(
-              `\r${spinner} 分支拉取排队中，排在第 ${statusData.queue_position} 位... ${timeStr}`.padEnd(80)
-            );
+          let displayText = '';
+
+          // 根据状态显示不同的提示
+          if (statusData.status === 'queued') {
+            displayText = `${spinner} 任务排队中，排在第 ${statusData.queue_position} 位... ${timeStr}`;
+          } else if (statusData.status === 'fetching') {
+            displayText = `${spinner} 正在拉取分支... ${timeStr}`;
+          } else if (statusData.status === 'building') {
+            displayText = `${spinner} 远程构建机正在进行: ${statusData.message} ${timeStr}`;
           } else {
-            process.stdout.write(
-              `\r${spinner} ${statusData.message} ${timeStr}`.padEnd(80)
-            );
+            displayText = `${spinner} ${statusData.message} ${timeStr}`;
           }
-          frameIndex++;
-        }
-      }, 100);
 
-      // 较慢的请求间隔
-      const pollInterval = setInterval(async () => {
-        // 更新刷新时间
-        lastRefreshTime = UI.getRefreshTimeStr();
-
-        const result = await this.api.getBuildStatus(taskId);
-
-        if (result.success) {
-          statusData = result.data;
-          const { status } = statusData;
-
-          // 分支拉取成功
-          if (status === 'fetch_completed') {
-            clearInterval(pollInterval);
-            clearInterval(animationInterval);
-            process.stdout.write('\r' + ' '.repeat(80) + '\r');
-            UI.printSuccess('分支拉取已完成！');
-            setTimeout(() => {
-              resolve(true);
-            }, 50);
-          }
-          // 拉取失败
-          else if (status === 'failed') {
-            clearInterval(pollInterval);
-            clearInterval(animationInterval);
-            process.stdout.write('\r' + ' '.repeat(80) + '\r');
-            UI.printError('分支拉取失败！');
-            setTimeout(() => {
-              resolve(false);
-            }, 50);
-          }
-          // 超时检查
-          else if (Date.now() - startTime > BUILD_TIMEOUT) {
-            clearInterval(pollInterval);
-            clearInterval(animationInterval);
-            process.stdout.write('\r' + ' '.repeat(80) + '\r');
-            UI.printError('分支拉取超时');
-            setTimeout(() => {
-              resolve(false);
-            }, 50);
-          }
-        } else {
-          clearInterval(pollInterval);
-          clearInterval(animationInterval);
-          process.stdout.write('\r' + ' '.repeat(80) + '\r');
-          UI.printError('无法获取分支拉取状态: ' + result.error);
-          setTimeout(() => {
-            resolve(false);
-          }, 50);
-        }
-      }, POLL_INTERVAL);
-    });
-  }
-
-  /**
-   * 等待构建完成
-   */
-  async waitForBuildCompletion(taskId, branch) {
-    const startTime = Date.now();
-    const pollFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
-    let frameIndex = 0;
-    let statusData = null;
-    let lastRefreshTime = UI.getRefreshTimeStr();
-
-    return new Promise((resolve) => {
-      // 快速动画间隔（UI更新）
-      const animationInterval = setInterval(() => {
-        if (statusData) {
-          const spinner = pollFrames[frameIndex % pollFrames.length];
-          const timeStr = `[${lastRefreshTime}]`;
-          process.stdout.write(
-            `\r${spinner} 远程构建机正在进行: ${statusData.message} ${timeStr}`.padEnd(90)
-          );
+          // 使用 \r 回到行首，padEnd 清空后续内容
+          process.stdout.write('\r' + displayText.padEnd(120));
           frameIndex++;
         }
       }, 100);
@@ -282,29 +170,32 @@ class BuildTrigger {
           statusData = result.data;
           const { status, build_logs, error_message } = statusData;
 
-          // 构建完成
+          // 当进入构建状态时，记录开始时间
+          if (status === 'building' && buildStartTime === null) {
+            buildStartTime = Date.now();
+          }
+
+          // 任务完成
           if (status === 'completed') {
             clearInterval(pollInterval);
             clearInterval(animationInterval);
-            process.stdout.write('\r' + ' '.repeat(80) + '\r');
-            UI.printSuccess('远程构建已完成！');
+            process.stdout.write('\r' + ' '.repeat(100) + '\r');
+            UI.printSuccess('任务已完成（拉分支 + 构建）！');
 
             if (build_logs) {
               UI.printBuildLogs(build_logs);
             }
 
-            // 在 macOS 上需要延迟确保 stdout 缓冲被正确刷新
-            // 否则后续 inquirer 的终端初始化会清除待发送的输出
             setTimeout(() => {
               resolve(true);
             }, 50);
           }
-          // 构建失败
+          // 任务失败
           else if (status === 'failed') {
             clearInterval(pollInterval);
             clearInterval(animationInterval);
-            process.stdout.write('\r' + ' '.repeat(80) + '\r');
-            UI.printError('远程构建失败！');
+            process.stdout.write('\r' + ' '.repeat(100) + '\r');
+            UI.printError('任务失败（拉分支或构建）！');
 
             if (error_message) {
               UI.printError(error_message);
@@ -314,17 +205,16 @@ class BuildTrigger {
               UI.printBuildLogs(build_logs);
             }
 
-            // 在 macOS 上需要延迟确保 stdout 缓冲被正确刷新
             setTimeout(() => {
               resolve(false);
             }, 50);
           }
-          // 超时检查
-          else if (Date.now() - startTime > BUILD_TIMEOUT) {
+          // 超时检查：仅在真正开始构建后计时
+          else if (buildStartTime !== null && Date.now() - buildStartTime > BUILD_TIMEOUT) {
             clearInterval(pollInterval);
             clearInterval(animationInterval);
-            process.stdout.write('\r' + ' '.repeat(80) + '\r');
-            UI.printError('远程构建超时（5分钟）');
+            process.stdout.write('\r' + ' '.repeat(100) + '\r');
+            UI.printError('构建超时（5分钟）');
             setTimeout(() => {
               resolve(false);
             }, 50);
@@ -332,8 +222,8 @@ class BuildTrigger {
         } else {
           clearInterval(pollInterval);
           clearInterval(animationInterval);
-          process.stdout.write('\r' + ' '.repeat(80) + '\r');
-          UI.printError('无法获取远程构建状态: ' + result.error);
+          process.stdout.write('\r' + ' '.repeat(100) + '\r');
+          UI.printError('无法获取任务状态: ' + result.error);
           setTimeout(() => {
             resolve(false);
           }, 50);

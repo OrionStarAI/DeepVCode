@@ -58,33 +58,18 @@ class ApiClient {
   }
 
   /**
-   * 拉取分支
+   * 提交完整构建任务（全程排队）
    */
-  async fetchBranch(branch) {
+  async submitBuildTask(branch) {
     return this.requestWithRetry(async () => {
-      const response = await this.client.post('/api/fetch-branch', {
+      const response = await this.client.post('/api/submit-build-task', {
         branch: branch,
       });
       return {
         success: true,
         data: response.data,
       };
-    }, 'fetchBranch');
-  }
-
-  /**
-   * 触发构建
-   */
-  async triggerBuild(branch) {
-    return this.requestWithRetry(async () => {
-      const response = await this.client.post('/api/build', {
-        branch: branch,
-      });
-      return {
-        success: true,
-        data: response.data,
-      };
-    }, 'triggerBuild');
+    }, 'submitBuildTask');
   }
 
   /**
