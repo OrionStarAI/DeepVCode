@@ -131,7 +131,7 @@ class BuildTrigger {
     let frameIndex = 0;
     let statusData = null;
     let lastRefreshTime = UI.getRefreshTimeStr();
-    let lastDisplayedStatus = '';
+    let lastDisplayedText = ''; // 缓存上次显示的文本，避免重复输出
     let buildStartTime = null; // 真正开始构建时的时间戳
 
     return new Promise((resolve) => {
@@ -153,8 +153,12 @@ class BuildTrigger {
             displayText = `${spinner} ${statusData.message} ${timeStr}`;
           }
 
-          // 使用 \r 回到行首，padEnd 清空后续内容
-          process.stdout.write('\r' + displayText.padEnd(120));
+          // 仅当文本内容改变时才输出（避免 Windows 下频繁闪屏）
+          if (displayText !== lastDisplayedText) {
+            // 使用 ANSI 清行码 + \r 确保跨平台兼容
+            process.stdout.write('\x1B[2K\r' + displayText);
+            lastDisplayedText = displayText;
+          }
           frameIndex++;
         }
       }, 100);
@@ -179,7 +183,7 @@ class BuildTrigger {
           if (status === 'completed') {
             clearInterval(pollInterval);
             clearInterval(animationInterval);
-            process.stdout.write('\r' + ' '.repeat(100) + '\r');
+            process.stdout.write('\x1B[2K\r');
             UI.printSuccess('任务已完成（拉分支 + 构建）！');
 
             if (build_logs) {
@@ -194,7 +198,7 @@ class BuildTrigger {
           else if (status === 'failed') {
             clearInterval(pollInterval);
             clearInterval(animationInterval);
-            process.stdout.write('\r' + ' '.repeat(100) + '\r');
+            process.stdout.write('\x1B[2K\r');
             UI.printError('任务失败（拉分支或构建）！');
 
             if (error_message) {
@@ -213,7 +217,7 @@ class BuildTrigger {
           else if (buildStartTime !== null && Date.now() - buildStartTime > BUILD_TIMEOUT) {
             clearInterval(pollInterval);
             clearInterval(animationInterval);
-            process.stdout.write('\r' + ' '.repeat(100) + '\r');
+            process.stdout.write('\x1B[2K\r');
             UI.printError('构建超时（5分钟）');
             setTimeout(() => {
               resolve(false);
@@ -222,7 +226,7 @@ class BuildTrigger {
         } else {
           clearInterval(pollInterval);
           clearInterval(animationInterval);
-          process.stdout.write('\r' + ' '.repeat(100) + '\r');
+          process.stdout.write('\x1B[2K\r');
           UI.printError('无法获取任务状态: ' + result.error);
           setTimeout(() => {
             resolve(false);
