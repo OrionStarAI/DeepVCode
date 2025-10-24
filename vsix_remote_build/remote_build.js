@@ -11,7 +11,7 @@ import UI from './ui.js';
 // ==================== 配置 ====================
 
 const BUILD_SERVICE_URL = 'http://192.168.66.100:1234'; // 修改为实际的构建服务地址
-const POLL_INTERVAL = 1000; // 轮询间隔（毫秒）
+const POLL_INTERVAL = 2000; // 轮询间隔（毫秒） - 2秒
 const BUILD_TIMEOUT = 300000; // 构建超时（毫秒） - 5分钟
 const MAX_RETRIES = 5; // 最大重试次数
 
@@ -52,13 +52,7 @@ class BuildTrigger {
           }
         }
 
-        // 3. 询问是否开始构建
-        const startBuild = await UI.askStartBuild();
-        if (!startBuild) {
-          break;
-        }
-
-        // 4. 触发构建
+        // 3. 触发构建
         const taskId = await this.triggerBuildFlow(branch);
         if (!taskId) {
           if (await UI.askRetry()) {
@@ -68,11 +62,11 @@ class BuildTrigger {
           }
         }
 
-        // 5. 等待构建完成
+        // 4. 等待构建完成
         const success = await this.waitForBuildCompletion(taskId, branch);
 
         if (success) {
-          // 6. 获取产物URL
+          // 5. 获取产物URL
           await this.getArtifactFlow(branch);
 
           // 询问是否开始新的构建任务
@@ -178,55 +172,79 @@ class BuildTrigger {
     const startTime = Date.now();
     const pollFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
     let frameIndex = 0;
+    let statusData = null;
+    let lastRefreshTime = UI.getRefreshTimeStr();
 
     return new Promise((resolve) => {
-      const pollInterval = setInterval(async () => {
-        const result = await this.api.getBuildStatus(taskId);
-
-        if (result.success) {
-          const { status, message, queue_position } = result.data;
-
-          // 显示轮询状态（带动画）
+      // 快速动画间隔（UI更新）
+      const animationInterval = setInterval(() => {
+        if (statusData) {
           const spinner = pollFrames[frameIndex % pollFrames.length];
-          if (status === 'fetch_queued') {
+          const timeStr = `[${lastRefreshTime}]`;
+          if (statusData.status === 'fetch_queued') {
             process.stdout.write(
-              `\r${spinner} 分支拉取排队中，排在第 ${queue_position} 位...`.padEnd(60)
+              `\r${spinner} 分支拉取排队中，排在第 ${statusData.queue_position} 位... ${timeStr}`.padEnd(80)
             );
           } else {
             process.stdout.write(
-              `\r${spinner} ${message}`.padEnd(60)
+              `\r${spinner} ${statusData.message} ${timeStr}`.padEnd(80)
             );
           }
           frameIndex++;
+        }
+      }, 100);
+
+      // 较慢的请求间隔
+      const pollInterval = setInterval(async () => {
+        // 更新刷新时间
+        lastRefreshTime = UI.getRefreshTimeStr();
+
+        const result = await this.api.getBuildStatus(taskId);
+
+        if (result.success) {
+          statusData = result.data;
+          const { status } = statusData;
 
           // 分支拉取成功
           if (status === 'fetch_completed') {
             clearInterval(pollInterval);
+            clearInterval(animationInterval);
             process.stdout.write('\r' + ' '.repeat(80) + '\r');
             UI.printSuccess('分支拉取已完成！');
-            resolve(true);
+            setTimeout(() => {
+              resolve(true);
+            }, 50);
           }
           // 拉取失败
           else if (status === 'failed') {
             clearInterval(pollInterval);
+            clearInterval(animationInterval);
             process.stdout.write('\r' + ' '.repeat(80) + '\r');
             UI.printError('分支拉取失败！');
-            resolve(false);
+            setTimeout(() => {
+              resolve(false);
+            }, 50);
           }
           // 超时检查
           else if (Date.now() - startTime > BUILD_TIMEOUT) {
             clearInterval(pollInterval);
+            clearInterval(animationInterval);
             process.stdout.write('\r' + ' '.repeat(80) + '\r');
             UI.printError('分支拉取超时');
-            resolve(false);
+            setTimeout(() => {
+              resolve(false);
+            }, 50);
           }
         } else {
           clearInterval(pollInterval);
+          clearInterval(animationInterval);
           process.stdout.write('\r' + ' '.repeat(80) + '\r');
           UI.printError('无法获取分支拉取状态: ' + result.error);
-          resolve(false);
+          setTimeout(() => {
+            resolve(false);
+          }, 50);
         }
-      }, 100);
+      }, POLL_INTERVAL);
     });
   }
 
@@ -237,25 +255,37 @@ class BuildTrigger {
     const startTime = Date.now();
     const pollFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
     let frameIndex = 0;
+    let statusData = null;
+    let lastRefreshTime = UI.getRefreshTimeStr();
 
     return new Promise((resolve) => {
+      // 快速动画间隔（UI更新）
+      const animationInterval = setInterval(() => {
+        if (statusData) {
+          const spinner = pollFrames[frameIndex % pollFrames.length];
+          const timeStr = `[${lastRefreshTime}]`;
+          process.stdout.write(
+            `\r${spinner} 远程构建机正在进行: ${statusData.message} ${timeStr}`.padEnd(90)
+          );
+          frameIndex++;
+        }
+      }, 100);
+
+      // 较慢的请求间隔
       const pollInterval = setInterval(async () => {
+        // 更新刷新时间
+        lastRefreshTime = UI.getRefreshTimeStr();
+
         const result = await this.api.getBuildStatus(taskId);
 
         if (result.success) {
-          const { status, message, build_logs, error_message, queue_position } =
-            result.data;
-
-          // 显示轮询状态（带动画）
-          const spinner = pollFrames[frameIndex % pollFrames.length];
-          process.stdout.write(
-            `\r${spinner} 远程构建机正在进行: ${message.padEnd(40)}`
-          );
-          frameIndex++;
+          statusData = result.data;
+          const { status, build_logs, error_message } = statusData;
 
           // 构建完成
           if (status === 'completed') {
             clearInterval(pollInterval);
+            clearInterval(animationInterval);
             process.stdout.write('\r' + ' '.repeat(80) + '\r');
             UI.printSuccess('远程构建已完成！');
 
@@ -263,11 +293,16 @@ class BuildTrigger {
               UI.printBuildLogs(build_logs);
             }
 
-            resolve(true);
+            // 在 macOS 上需要延迟确保 stdout 缓冲被正确刷新
+            // 否则后续 inquirer 的终端初始化会清除待发送的输出
+            setTimeout(() => {
+              resolve(true);
+            }, 50);
           }
           // 构建失败
           else if (status === 'failed') {
             clearInterval(pollInterval);
+            clearInterval(animationInterval);
             process.stdout.write('\r' + ' '.repeat(80) + '\r');
             UI.printError('远程构建失败！');
 
@@ -279,22 +314,31 @@ class BuildTrigger {
               UI.printBuildLogs(build_logs);
             }
 
-            resolve(false);
+            // 在 macOS 上需要延迟确保 stdout 缓冲被正确刷新
+            setTimeout(() => {
+              resolve(false);
+            }, 50);
           }
           // 超时检查
           else if (Date.now() - startTime > BUILD_TIMEOUT) {
             clearInterval(pollInterval);
+            clearInterval(animationInterval);
             process.stdout.write('\r' + ' '.repeat(80) + '\r');
             UI.printError('远程构建超时（5分钟）');
-            resolve(false);
+            setTimeout(() => {
+              resolve(false);
+            }, 50);
           }
         } else {
           clearInterval(pollInterval);
+          clearInterval(animationInterval);
           process.stdout.write('\r' + ' '.repeat(80) + '\r');
           UI.printError('无法获取远程构建状态: ' + result.error);
-          resolve(false);
+          setTimeout(() => {
+            resolve(false);
+          }, 50);
         }
-      }, 100);
+      }, POLL_INTERVAL);
     });
   }
 
