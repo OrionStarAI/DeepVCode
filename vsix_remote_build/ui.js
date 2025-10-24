@@ -14,7 +14,7 @@ class UI {
       chalk.cyan.bold(`
 ════════════════════════════════════════════════════════════
 
-         🚀 VSIX远程构建系统 v1.5
+         🚀 VSIX远程构建系统 v1.2
 
              构建机API：${serviceUrl}
              构建机OS：Windows Server 2022
@@ -229,18 +229,6 @@ class UI {
         }
       }, 50);
     });
-  }
-
-  /**
-   * 获取刷新时间字符串（HH:mm:ss 格式）
-   * 用于验证轮询周期是否正确
-   */
-  static getRefreshTimeStr() {
-    const now = new Date();
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    const seconds = String(now.getSeconds()).padStart(2, '0');
-    return `${hours}:${minutes}:${seconds}`;
   }
 }
 
