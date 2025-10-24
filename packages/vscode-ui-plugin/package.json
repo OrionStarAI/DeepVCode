@@ -76,6 +76,11 @@
         "category": "DeepV Code"
       },
       {
+        "command": "deepv.toggleInlineCompletionFromStatusBar",
+        "title": "Toggle Inline Completion from Status Bar",
+        "category": "DeepV Code"
+      },
+      {
         "command": "deepv.selectInlineCompletionModel",
         "title": "Select Inline Completion Model",
         "category": "DeepV Code"
