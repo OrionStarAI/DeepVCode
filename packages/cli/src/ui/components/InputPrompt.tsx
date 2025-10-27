@@ -47,6 +47,7 @@ export interface InputPromptProps {
   setHelpModeActive: (value: boolean) => void;
   vimHandleInput?: (key: Key) => boolean;
   isModalOpen?: boolean;
+  isExecutingTools?: boolean; // 🔧 新增：指示是否有工具正在执行（用于隐藏边框避免闪烁）
 }
 
 export const InputPrompt: React.FC<InputPromptProps> = ({
@@ -58,6 +59,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
   config,
   slashCommands,
   commandContext,
+  isExecutingTools = false,
   placeholder,
   focus = true,
   inputWidth,
@@ -1074,10 +1076,12 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
 
   return (
     <>
-      {/* Top border line */}
-      <Box>
-        <Text color={borderColor}>{topBorder}</Text>
-      </Box>
+      {/* Top border line - 🔧 工具执行时隐藏边框避免闪烁 */}
+      {!isExecutingTools && (
+        <Box>
+          <Text color={borderColor}>{topBorder}</Text>
+        </Box>
+      )}
 
       {/* Input content */}
       <Box paddingX={1} minHeight={dynamicInputHeight}>
@@ -1100,10 +1104,12 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
         </Box>
       </Box>
 
-      {/* Bottom border line */}
-      <Box>
-        <Text color={borderColor}>{bottomBorder}</Text>
-      </Box>
+      {/* Bottom border line - 🔧 工具执行时隐藏边框避免闪烁 */}
+      {!isExecutingTools && (
+        <Box>
+          <Text color={borderColor}>{bottomBorder}</Text>
+        </Box>
+      )}
 
       {/* 长文本粘贴提示 */}
       {pasteSegments.length > 0 && (

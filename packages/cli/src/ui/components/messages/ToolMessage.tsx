@@ -248,10 +248,22 @@ export const ToolMessage: React.FC<ToolMessageProps> = ({
               </Text>
             )}
             {typeof resultDisplay === 'string' && !renderOutputAsMarkdown && (
-              <Text wrap="wrap">
-                <Text color={Colors.Gray}>└ </Text>
-                {resultDisplay}
-              </Text>
+              availableHeight !== undefined ? (
+                // 🔧 修复闪屏：使用 MaxSizedBox 限制高度，避免超长输出撑破布局
+                <MaxSizedBox maxWidth={childWidth} maxHeight={availableHeight} overflowDirection="top">
+                  <Box>
+                    <Text wrap="wrap">
+                      <Text color={Colors.Gray}>└ </Text>
+                      {resultDisplay}
+                    </Text>
+                  </Box>
+                </MaxSizedBox>
+              ) : (
+                <Text wrap="wrap">
+                  <Text color={Colors.Gray}>└ </Text>
+                  {resultDisplay}
+                </Text>
+              )
             )}
             {typeof resultDisplay !== 'string' && (resultDisplay as any).type === 'todo_display' && (
               <Box flexDirection="row">

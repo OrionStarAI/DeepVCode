@@ -1689,6 +1689,7 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
                   vimHandleInput={vimHandleInput}
                   placeholder={placeholder}
                   isModalOpen={isModelDialogOpen || isAuthDialogOpen || isThemeDialogOpen || isEditorDialogOpen}
+                  isExecutingTools={isExecutingTools}
                 />
               )}
             </>
