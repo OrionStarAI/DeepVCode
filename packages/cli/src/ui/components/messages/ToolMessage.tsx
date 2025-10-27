@@ -248,8 +248,9 @@ export const ToolMessage: React.FC<ToolMessageProps> = ({
               </Text>
             )}
             {typeof resultDisplay === 'string' && !renderOutputAsMarkdown && (
-              availableHeight !== undefined ? (
-                // 🔧 修复闪屏：使用 MaxSizedBox 限制高度，避免超长输出撑破布局
+              // 🔧 修复闪屏：只在执行中（Executing）时限制高度，避免撑破布局
+              // 执行完成后显示完整内容，不再限制
+              availableHeight !== undefined && status === ToolCallStatus.Executing ? (
                 <MaxSizedBox maxWidth={childWidth} maxHeight={availableHeight} overflowDirection="top">
                   <Box>
                     <Text wrap="wrap">

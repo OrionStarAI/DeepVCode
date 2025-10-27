@@ -1179,7 +1179,23 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
 
   // Linus fix: 移动变量定义到useMemo之前，避免使用未定义变量的错误
   const mainAreaWidth = Math.floor(terminalWidth * 0.9);
-  const staticAreaMaxItemHeight = Math.max(terminalHeight * 4, 100);
+
+  // 🔧 优化：根据终端大小智能调整最大高度
+  // - 小窗口（≤30 行）：使用 60% 可用高度，避免撑破布局
+  // - 中窗口（31-50 行）：使用 80% 可用高度
+  // - 大窗口（>50 行）：使用 terminalHeight * 4（保持原逻辑）
+  const staticAreaMaxItemHeight = useMemo(() => {
+    if (terminalHeight <= 30) {
+      // 小窗口：保守策略，使用 60% 可用高度
+      return Math.max(Math.floor(availableTerminalHeight * 0.6), 10);
+    } else if (terminalHeight <= 50) {
+      // 中窗口：适度策略，使用 80% 可用高度
+      return Math.max(Math.floor(availableTerminalHeight * 0.8), 20);
+    } else {
+      // 大窗口：保持原逻辑，允许更多内容
+      return Math.max(terminalHeight * 4, 100);
+    }
+  }, [terminalHeight, availableTerminalHeight]);
 
   // Linus fix: 将useMemo移到组件顶层，避免在JSX属性中使用hooks导致的"fewer hooks"错误
   const staticItems = useMemo(() => {

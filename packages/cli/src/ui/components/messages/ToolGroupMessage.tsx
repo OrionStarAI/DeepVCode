@@ -79,14 +79,24 @@ export const ToolGroupMessage: React.FC<ToolGroupMessageProps> = ({
     }
   }
   const countOneLineToolCalls = toolCalls.length - countToolCallsWithResults;
+
+  // 🔧 优化：智能分配每个工具消息的高度
   const availableTerminalHeightPerToolMessage = availableTerminalHeight
-    ? Math.max(
-        Math.floor(
-          (availableTerminalHeight - staticHeight - countOneLineToolCalls) /
-            Math.max(1, countToolCallsWithResults),
-        ),
-        1,
-      )
+    ? (() => {
+        // 计算可分配的高度
+        const allocatableHeight = availableTerminalHeight - staticHeight - countOneLineToolCalls;
+
+        // 平均分配
+        const averageHeight = Math.floor(allocatableHeight / Math.max(1, countToolCallsWithResults));
+
+        // 🔧 关键优化：为 Shell 命令设置更合理的高度上限
+        // - Shell 命令通常是单个工具调用，避免分配过多高度导致内容稀疏
+        // - 限制最大高度为 20 行（对于大部分 shell 输出足够）
+        const maxHeightForSingleTool = isShellCommand ? 20 : Math.floor(availableTerminalHeight * 0.8);
+
+        // 返回最终高度：至少 1 行，最多 maxHeightForSingleTool
+        return Math.max(Math.min(averageHeight, maxHeightForSingleTool), 1);
+      })()
     : undefined;
 
   return (
