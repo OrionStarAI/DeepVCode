@@ -248,17 +248,30 @@ export const ToolMessage: React.FC<ToolMessageProps> = ({
               </Text>
             )}
             {typeof resultDisplay === 'string' && !renderOutputAsMarkdown && (
-              // 🔧 修复闪屏：只在执行中（Executing）时限制高度，避免撑破布局
-              // 执行完成后显示完整内容，不再限制
-              availableHeight !== undefined && status === ToolCallStatus.Executing ? (
-                <MaxSizedBox maxWidth={childWidth} maxHeight={availableHeight} overflowDirection="top">
-                  <Box>
-                    <Text wrap="wrap">
-                      <Text color={Colors.Gray}>└ </Text>
-                      {resultDisplay}
-                    </Text>
-                  </Box>
-                </MaxSizedBox>
+              // 🔧 修复闪屏：执行中限制高度，完成后扩大限制（兼容Windows）
+              // Windows平台对大文本写入更敏感，需要保留MaxSizedBox但放宽限制
+              availableHeight !== undefined ? (
+                status === ToolCallStatus.Executing ? (
+                  // 执行中：严格限制高度
+                  <MaxSizedBox maxWidth={childWidth} maxHeight={availableHeight} overflowDirection="top">
+                    <Box>
+                      <Text wrap="wrap">
+                        <Text color={Colors.Gray}>└ </Text>
+                        {resultDisplay}
+                      </Text>
+                    </Box>
+                  </MaxSizedBox>
+                ) : (
+                  // 执行完成：放宽高度限制（兼容Windows）
+                  <MaxSizedBox maxWidth={childWidth} maxHeight={availableHeight * 3} overflowDirection="top">
+                    <Box>
+                      <Text wrap="wrap">
+                        <Text color={Colors.Gray}>└ </Text>
+                        {resultDisplay}
+                      </Text>
+                    </Box>
+                  </MaxSizedBox>
+                )
               ) : (
                 <Text wrap="wrap">
                   <Text color={Colors.Gray}>└ </Text>
