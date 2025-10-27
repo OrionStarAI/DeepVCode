@@ -10,15 +10,27 @@ import {
   convertMessageContentToParts,
   ConversionResult
 } from '../utils/messageContentConverter.js';
+import { RuleService } from './ruleService.js';
+import { RuleMatchContext } from '../types/rules.js';
 
 export interface EnhancedContextResult {
   parts: PartListUnion;
   conversionSummary: ConversionResult['summary'];
   warnings: string[];
   contextInfo?: string | null;
+  customRules?: string | null;
 }
 
 export class ContextBuilder {
+  private static ruleService?: RuleService;
+
+  /**
+   * 设置规则服务实例
+   */
+  static setRuleService(ruleService: RuleService): void {
+    this.ruleService = ruleService;
+  }
+
   /**
    * 构建包含 VSCode 上下文的完整 PartListUnion
    */
@@ -35,10 +47,26 @@ export class ContextBuilder {
     // 🎯 构建 VSCode 上下文信息
     const contextInfo = this.buildVSCodeContextInfo(context);
 
+    // 🎯 获取自定义规则
+    const customRules = await this.buildCustomRulesContext(context);
+
     // 🎯 组合最终的 Part 数组
     const finalParts: PartListUnion = [];
 
-    // 如果有 VSCode 上下文，先添加上下文信息
+    // 如果有自定义规则，首先添加
+    if (customRules) {
+      finalParts.push({
+        text: `[Custom Rules and Guidelines]
+${customRules}
+
+[Rules Usage Instructions]
+Please follow the above custom rules and guidelines when processing user requests. These rules define project-specific conventions, coding standards, and best practices.
+
+`
+      });
+    }
+
+    // 如果有 VSCode 上下文，添加上下文信息
     if (contextInfo) {
       finalParts.push({
         text: `[VSCode Context]
@@ -69,8 +97,40 @@ You may use the above VSCode context information to answer user questions. If th
       parts: finalParts,
       conversionSummary: conversionResult.summary,
       warnings: conversionResult.warnings,
-      contextInfo
+      contextInfo,
+      customRules
     };
+  }
+
+  /**
+   * 构建自定义规则上下文
+   */
+  private static async buildCustomRulesContext(
+    context?: ContextInfo
+  ): Promise<string | null> {
+    if (!this.ruleService) {
+      return null;
+    }
+
+    // 构建规则匹配上下文
+    const matchContext: RuleMatchContext = {
+      activeFilePath: context?.activeFile,
+      workspaceRoot: context?.workspaceRoot,
+      language: context?.projectLanguage
+    };
+
+    // 如果有活动文件，提取文件扩展名
+    if (context?.activeFile) {
+      const ext = context.activeFile.split('.').pop();
+      if (ext) {
+        matchContext.fileExtension = `.${ext}`;
+      }
+    }
+
+    // 获取适用的规则
+    const result = await this.ruleService.getApplicableRules(matchContext);
+
+    return result.combinedText || null;
   }
 
   /**
@@ -103,7 +163,7 @@ You may use the above VSCode context information to answer user questions. If th
     if (context.cursorPosition) {
       contextParts.push(`Cursor position: Line ${context.cursorPosition.line + 1}, Column ${context.cursorPosition.character + 1}`);
     }
-    
+
     return contextParts;
   }
 

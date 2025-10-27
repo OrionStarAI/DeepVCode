@@ -213,6 +213,36 @@ export interface Translations {
     fileNotFound: string;
     operationCanceled: string;
   };
+
+  rules: {
+    title: string;
+    newRule: string;
+    noRules: string;
+    createHint: string;
+    ruleTitle: string;
+    ruleType: string;
+    rulePriority: string;
+    ruleDescription: string;
+    ruleContent: string;
+    fileExtensions: string;
+    pathPatterns: string;
+    languages: string;
+    descriptionPlaceholder: string;
+    contentPlaceholder: string;
+    typeAlwaysApply: string;
+    typeManualApply: string;
+    typeContextAware: string;
+    priorityHigh: string;
+    priorityMedium: string;
+    priorityLow: string;
+    disabled: string;
+    confirmDelete: string;
+    saveError: string;
+    deleteError: string;
+    newRuleTitle: string;
+    newRuleContent: string;
+    infoText: string;
+  };
 }
 
 export type SupportedLocale = 'zh-CN' | 'en-US';

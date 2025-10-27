@@ -214,7 +214,11 @@ export type WebViewToExtensionMessage =
   | { type: 'fix_suggestion_request'; payload: { sessionId: string; files?: string[]; errorTypes?: string[]; priority?: 'high' | 'medium' | 'low' } }
   // 🎯 升级提示相关（用于解决webview沙箱限制）
   | { type: 'open_external_url'; payload: { url: string } }
-  | { type: 'open_extension_marketplace'; payload: { extensionId: string } };
+  | { type: 'open_extension_marketplace'; payload: { extensionId: string } }
+  // 🎯 自定义规则管理
+  | { type: 'rules_list_request'; payload: {} }
+  | { type: 'rules_save'; payload: { rule: any } }
+  | { type: 'rules_delete'; payload: { ruleId: string } };
 
 // Message types from Extension to WebView
 export type ExtensionToWebViewMessage =
@@ -268,7 +272,11 @@ export type ExtensionToWebViewMessage =
   | { type: 'lint_suggestions'; payload: { suggestions: any[]; sessionId: string | null; timestamp: number } }
   | { type: 'tool_suggestion'; payload: { sessionId: string; toolName: string; params: any; timestamp: number } }
   // 🎯 模型配置相关
-  | { type: 'model_response'; payload: { requestId: string; success: boolean; models?: any[]; currentModel?: string; error?: string } };
+  | { type: 'model_response'; payload: { requestId: string; success: boolean; models?: any[]; currentModel?: string; error?: string } }
+  // 🎯 自定义规则管理
+  | { type: 'rules_list_response'; payload: { rules: any[] } }
+  | { type: 'rules_save_response'; payload: { success: boolean; error?: string } }
+  | { type: 'rules_delete_response'; payload: { success: boolean; error?: string } };
 
 export type Message = WebViewToExtensionMessage | ExtensionToWebViewMessage;
 

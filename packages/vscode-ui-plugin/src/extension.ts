@@ -13,6 +13,8 @@ import { SessionManager } from './services/sessionManager';
 import { FileSearchService } from './services/fileSearchService';
 import { FileRollbackService } from './services/fileRollbackService';
 import { DeepVInlineCompletionProvider } from './services/inlineCompletionProvider';
+import { RuleService } from './services/ruleService';
+import { ContextBuilder } from './services/contextBuilder';
 import { Logger } from './utils/logger';
 import { startupOptimizer } from './utils/startupOptimizer';
 import { EnvironmentOptimizer } from './utils/environmentOptimizer';
@@ -25,6 +27,7 @@ let sessionManager: SessionManager;
 let fileSearchService: FileSearchService;
 let fileRollbackService: FileRollbackService;
 let inlineCompletionProvider: DeepVInlineCompletionProvider;
+let ruleService: RuleService;
 let inlineCompletionStatusBar: vscode.StatusBarItem;
 let extensionContext: vscode.ExtensionContext;
 
@@ -90,6 +93,15 @@ export async function activate(context: vscode.ExtensionContext) {
     sessionManager = new SessionManager(logger, communicationService, context);
     fileSearchService = new FileSearchService(logger);
     fileRollbackService = FileRollbackService.getInstance(logger);
+
+    // 🎯 初始化规则服务
+    ruleService = new RuleService(logger);
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    await ruleService.initialize(workspaceRoot);
+    logger.info('RuleService initialized');
+
+    // 🎯 将规则服务设置到 ContextBuilder
+    ContextBuilder.setRuleService(ruleService);
 
     // 🎯 初始化行内补全提供者
     inlineCompletionProvider = new DeepVInlineCompletionProvider(logger);
@@ -1117,6 +1129,46 @@ function setupMultiSessionHandlers() {
       logger.error('Failed to process session UI history', error instanceof Error ? error : undefined);
     }
   });
+
+  // 🎯 处理规则列表请求
+  communicationService.onRulesListRequest(async () => {
+    try {
+      logger.info('Received rules_list_request');
+      const rules = ruleService.getAllRules();
+      await communicationService.sendRulesListResponse(rules);
+    } catch (error) {
+      logger.error('Failed to get rules list', error instanceof Error ? error : undefined);
+      await communicationService.sendRulesListResponse([]);
+    }
+  });
+
+  // 🎯 处理规则保存请求
+  communicationService.onRulesSave(async (payload) => {
+    try {
+      logger.info('Received rules_save request', { ruleId: payload.rule.id });
+      await ruleService.saveRule(payload.rule);
+      await communicationService.sendRulesSaveResponse(true);
+      logger.info('Rule saved successfully', { ruleId: payload.rule.id });
+    } catch (error) {
+      logger.error('Failed to save rule', error instanceof Error ? error : undefined);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      await communicationService.sendRulesSaveResponse(false, errorMessage);
+    }
+  });
+
+  // 🎯 处理规则删除请求
+  communicationService.onRulesDelete(async (payload) => {
+    try {
+      logger.info('Received rules_delete request', { ruleId: payload.ruleId });
+      await ruleService.deleteRule(payload.ruleId);
+      await communicationService.sendRulesDeleteResponse(true);
+      logger.info('Rule deleted successfully', { ruleId: payload.ruleId });
+    } catch (error) {
+      logger.error('Failed to delete rule', error instanceof Error ? error : undefined);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      await communicationService.sendRulesDeleteResponse(false, errorMessage);
+    }
+  });
 }
 
 function registerCommands(context: vscode.ExtensionContext) {
@@ -1142,6 +1194,21 @@ function registerCommands(context: vscode.ExtensionContext) {
       } catch (error) {
         logger.error('Failed to show webview', error instanceof Error ? error : undefined);
         vscode.window.showErrorMessage('Failed to open DeepV Code Assistant');
+      }
+    }),
+
+    // 🎯 打开自定义规则管理
+    vscode.commands.registerCommand('deepv.openRulesManagement', async () => {
+      logger.info('deepv.openRulesManagement command executed');
+      try {
+        // 通过 webview 消息通知前端打开规则管理对话框
+        await communicationService.sendMessage({
+          type: 'open_rules_management',
+          payload: {}
+        });
+      } catch (error) {
+        logger.error('Failed to open rules management', error instanceof Error ? error : undefined);
+        vscode.window.showErrorMessage('Failed to open Rules Management');
       }
     }),
 

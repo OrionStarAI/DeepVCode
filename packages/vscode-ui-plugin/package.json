@@ -84,6 +84,12 @@
         "command": "deepv.selectInlineCompletionModel",
         "title": "Select Inline Completion Model",
         "category": "DeepV Code"
+      },
+      {
+        "command": "deepv.openRulesManagement",
+        "title": "Manage Custom Rules",
+        "category": "DeepV Code",
+        "icon": "$(book)"
       }
     ],
     "viewsContainers": {
@@ -260,6 +266,8 @@
     "webpack-cli": "^6.0.1"
   },
   "dependencies": {
-    "@vscode/ripgrep": "^1.15.14"
+    "@vscode/ripgrep": "^1.15.14",
+    "js-yaml": "^4.1.0",
+    "minimatch": "^9.0.3"
   }
 }
