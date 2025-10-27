@@ -243,6 +243,6 @@ export const enUS: Translations = {
     deleteError: 'Failed to delete rule',
     newRuleTitle: 'New Rule',
     newRuleContent: '# New Rule\n\nEnter rule content here...',
-    infoText: 'Rules are saved in .deepvcode/rules/ directory, also supports AGENTS.md config file. DEEPV.md is not loaded as a rule and is dedicated to project documentation.',
+    infoText: 'Rules are saved in .deepvcode/rules/ directory, also supports DEEPV.md and AGENTS.md config files',
   },
 };

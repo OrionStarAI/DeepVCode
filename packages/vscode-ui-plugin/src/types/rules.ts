@@ -153,6 +153,8 @@ export const DEFAULT_RULE_FRONTMATTER: RuleFrontmatter = {
 export const RULE_FILE_LOCATIONS = {
   /** 规则目录 */
   RULES_DIR: '.deepvcode/rules',
+  /** 主配置文件（自动加载为规则） */
+  MAIN_CONFIG: 'DEEPV.md',
   /** 代理配置文件（自动加载为规则） */
   AGENTS_CONFIG: 'AGENTS.md'
 } as const;

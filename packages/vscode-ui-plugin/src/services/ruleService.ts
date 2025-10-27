@@ -68,13 +68,19 @@ export class RuleService {
       return result;
     }
 
-    // 1. 加载代理配置文件（DEEPV.md 被忽略，因为它是项目说明文件）
+    // 1. 加载主配置文件
+    await this.loadRuleFile(
+      path.join(this.workspaceRoot, RULE_FILE_LOCATIONS.MAIN_CONFIG),
+      result
+    );
+
+    // 2. 加载代理配置文件
     await this.loadRuleFile(
       path.join(this.workspaceRoot, RULE_FILE_LOCATIONS.AGENTS_CONFIG),
       result
     );
 
-    // 2. 加载规则目录中的所有文件
+    // 3. 加载规则目录中的所有文件
     const rulesDir = path.join(this.workspaceRoot, RULE_FILE_LOCATIONS.RULES_DIR);
     await this.loadRulesFromDirectory(rulesDir, result);
 
@@ -395,10 +401,10 @@ export class RuleService {
       return;
     }
 
-    // 监听规则文件变化（不再监听 DEEPV.md，因为它专用于项目说明）
+    // 监听规则文件变化
     const pattern = new vscode.RelativePattern(
       this.workspaceRoot,
-      `{${RULE_FILE_LOCATIONS.AGENTS_CONFIG},${RULE_FILE_LOCATIONS.RULES_DIR}/**/*.md}`
+      `{${RULE_FILE_LOCATIONS.MAIN_CONFIG},${RULE_FILE_LOCATIONS.AGENTS_CONFIG},${RULE_FILE_LOCATIONS.RULES_DIR}/**/*.md}`
     );
 
     this.fileWatcher = vscode.workspace.createFileSystemWatcher(pattern);
