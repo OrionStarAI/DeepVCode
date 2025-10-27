@@ -61,19 +61,30 @@ function FileReferenceComponent({
 export class FileReferenceNode extends DecoratorNode<JSX.Element> {
   __fileName: string;
   __filePath: string;
+  __fileContent?: string;      // ✨ 新增：保存文件完整内容
+  __language?: string;         // ✨ 新增：保存编程语言
 
   static getType(): string {
     return 'file-reference';
   }
 
   static clone(node: FileReferenceNode): FileReferenceNode {
-    return new FileReferenceNode(node.__fileName, node.__filePath, node.__key);
+    const cloned = new FileReferenceNode(node.__fileName, node.__filePath, node.__key);
+    cloned.__fileContent = node.__fileContent;
+    cloned.__language = node.__language;
+    return cloned;
   }
 
   constructor(fileName: string, filePath: string, key?: NodeKey) {
     super(key);
     this.__fileName = fileName;
     this.__filePath = filePath;
+  }
+
+  // ✨ 新增：设置文件内容和语言
+  setFileContent(content: string, language?: string): void {
+    this.__fileContent = content;
+    this.__language = language;
   }
 
   createDOM(): HTMLElement {
