@@ -68,19 +68,13 @@ export class RuleService {
       return result;
     }
 
-    // 1. 加载主配置文件
-    await this.loadRuleFile(
-      path.join(this.workspaceRoot, RULE_FILE_LOCATIONS.MAIN_CONFIG),
-      result
-    );
-
-    // 2. 加载代理配置文件
+    // 1. 加载代理配置文件（DEEPV.md 被忽略，因为它是项目说明文件）
     await this.loadRuleFile(
       path.join(this.workspaceRoot, RULE_FILE_LOCATIONS.AGENTS_CONFIG),
       result
     );
 
-    // 3. 加载规则目录中的所有文件
+    // 2. 加载规则目录中的所有文件
     const rulesDir = path.join(this.workspaceRoot, RULE_FILE_LOCATIONS.RULES_DIR);
     await this.loadRulesFromDirectory(rulesDir, result);
 
@@ -108,10 +102,10 @@ export class RuleService {
           await this.loadRuleFile(filePath, result);
         }
       }
-    } catch (error: any) {
+    } catch (error) {
       // 目录不存在是正常的
-      if (error.code !== 'ENOENT') {
-        this.logger.error(`Error loading rules from directory ${dirPath}:`, error);
+      if (error && typeof error === 'object' && 'code' in error && error.code !== 'ENOENT') {
+        this.logger.error(`Error loading rules from directory ${dirPath}:`, error instanceof Error ? error : undefined);
       }
     }
   }
@@ -160,7 +154,7 @@ export class RuleService {
         frontmatter = { ...frontmatter, ...parsedFrontmatter };
         markdownContent = frontmatterMatch[2].trim();
       } catch (error) {
-        this.logger.error(`Error parsing YAML frontmatter in ${filePath}:`, error);
+        this.logger.error(`Error parsing YAML frontmatter in ${filePath}:`, error instanceof Error ? error : undefined);
       }
     }
 
@@ -388,7 +382,7 @@ export class RuleService {
       this.rules.delete(id);
       this.logger.info(`Rule deleted: ${rule.frontmatter.title || id}`);
     } catch (error) {
-      this.logger.error(`Error deleting rule file ${filePath}:`, error);
+      this.logger.error(`Error deleting rule file ${filePath}:`, error instanceof Error ? error : undefined);
       throw error;
     }
   }
@@ -401,10 +395,10 @@ export class RuleService {
       return;
     }
 
-    // 监听规则文件变化
+    // 监听规则文件变化（不再监听 DEEPV.md，因为它专用于项目说明）
     const pattern = new vscode.RelativePattern(
       this.workspaceRoot,
-      `{${RULE_FILE_LOCATIONS.MAIN_CONFIG},${RULE_FILE_LOCATIONS.AGENTS_CONFIG},${RULE_FILE_LOCATIONS.RULES_DIR}/**/*.md}`
+      `{${RULE_FILE_LOCATIONS.AGENTS_CONFIG},${RULE_FILE_LOCATIONS.RULES_DIR}/**/*.md}`
     );
 
     this.fileWatcher = vscode.workspace.createFileSystemWatcher(pattern);

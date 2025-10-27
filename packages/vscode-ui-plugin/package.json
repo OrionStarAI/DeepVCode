@@ -2,7 +2,7 @@
   "name": "deepv-code-vscode-ui-plugin",
   "displayName": "DeepV Code for VSCode",
   "description": "AI-powered programming assistant with visual interface for VS Code",
-  "version": "1.0.172",
+  "version": "1.0.174",
   "publisher": "DeepX",
   "icon": "assets/icon.png",
   "repository": {
@@ -248,6 +248,7 @@
     "test:watch": "vitest"
   },
   "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "20.x",
     "@types/vscode": "^1.99.0",
     "@typescript-eslint/eslint-plugin": "^8.31.1",

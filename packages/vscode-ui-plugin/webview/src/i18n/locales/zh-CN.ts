@@ -243,6 +243,6 @@ export const zhCN: Translations = {
     deleteError: '删除规则失败',
     newRuleTitle: '新规则',
     newRuleContent: '# 新规则\n\n在此输入规则内容...',
-    infoText: '规则文件保存在项目的 .deepvcode/rules/ 目录中，也支持 DEEPV.md 和 AGENTS.md 配置文件',
+    infoText: '规则文件保存在项目的 .deepvcode/rules/ 目录中，也支持 AGENTS.md 配置文件。DEEPV.md 文件不会被作为规则加载，专门用于项目说明。',
   },
 };

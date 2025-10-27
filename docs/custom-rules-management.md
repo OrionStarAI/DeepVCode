@@ -4,6 +4,14 @@
 
 DeepV Code 支持自定义规则管理，允许您为项目定义特定的编码约定、风格指南和最佳实践。这些规则会自动注入到 AI 助手的上下文中，确保生成的代码符合您的项目标准。
 
+### 快速了解：哪些文件会被加载为规则？
+
+| 文件/目录 | 是否自动加载 | 用途 |
+|---------|-------------|------|
+| `AGENTS.md` | ✅ 是 | 全局规则、编码规范 |
+| `.deepvcode/rules/*.md` | ✅ 是 | 特定场景的规则文件 |
+| `DEEPV.md` | ❌ 否 | 项目说明、文档、架构信息 |
+
 ## 🎯 Features (功能特性)
 
 ### 1. 规则类型 (Rule Types)
@@ -26,20 +34,34 @@ DeepV Code 支持自定义规则管理，允许您为项目定义特定的编码
 
 ## 📁 File Structure (文件结构)
 
-### 规则文件位置
+### 自动加载的规则文件
 
-规则可以存储在以下位置：
+DeepV Code 会自动加载以下位置的文件作为规则：
 
 ```
 project-root/
-├── DEEPV.md              # 主配置文件（全局规则）
-├── AGENTS.md             # AI 代理配置文件
+├── AGENTS.md             # ✅ AI 代理配置文件（自动加载为规则）
 └── .deepvcode/
-    └── rules/            # 规则目录
+    └── rules/            # ✅ 规则目录（自动加载所有 .md 文件）
         ├── typescript.md
         ├── react.md
         └── testing.md
 ```
+
+### 项目说明文件（不作为规则）
+
+```
+project-root/
+└── DEEPV.md              # ❌ 项目说明文件（不会被作为规则加载）
+```
+
+**重要说明**:
+- ✅ **自动加载**: `AGENTS.md` 和 `.deepvcode/rules/` 目录中的所有 `.md` 文件
+- ❌ **不加载**: `DEEPV.md` 文件专门用于项目说明和上下文信息，不会被作为规则加载
+- 💡 **用途区分**:
+  - `DEEPV.md` → 项目文档、架构说明、背景信息
+  - `AGENTS.md` → 全局规则、编码规范
+  - `.deepvcode/rules/*.md` → 特定场景规则
 
 ### 文件格式
 
@@ -94,16 +116,9 @@ triggers:
 2. 输入 "DeepV: Manage Custom Rules"
 3. 在打开的对话框中管理规则
 
-### 方法 2: 直接编辑文件
+### 方法 2: 使用 AGENTS.md（推荐用于全局规则）
 
-1. 在项目根目录创建 `.deepvcode/rules/` 目录
-2. 创建 Markdown 文件（如 `typescript.md`）
-3. 添加 YAML frontmatter 和规则内容
-4. 保存文件，规则会自动重新加载
-
-### 方法 3: 使用 DEEPV.md
-
-在项目根目录创建 `DEEPV.md` 文件：
+在项目根目录创建 `AGENTS.md` 文件，定义项目级别的全局规则：
 
 ```markdown
 ---
@@ -119,6 +134,38 @@ priority: high
 2. 组件文件使用 PascalCase 命名
 3. 工具函数使用 camelCase 命名
 ```
+
+**✅ 自动加载**: `AGENTS.md` 会被自动加载为规则
+
+### 方法 3: 使用 .deepvcode/rules/ 目录（推荐用于特定规则）
+
+1. 在项目根目录创建 `.deepvcode/rules/` 目录
+2. 创建 Markdown 文件（如 `typescript.md`、`react.md`）
+3. 添加 YAML frontmatter 和规则内容
+4. 保存文件，规则会自动重新加载
+
+**✅ 自动加载**: 该目录中的所有 `.md` 文件都会被自动加载为规则
+
+### 📌 DEEPV.md 的用途
+
+如果您想要记录项目说明、架构信息、技术栈等上下文信息，请使用 `DEEPV.md` 文件：
+
+```markdown
+# 项目说明
+
+## 技术栈
+- React 18
+- TypeScript 5.0
+- Vite
+
+## 项目架构
+[项目架构说明...]
+
+## 开发规范
+[开发规范文档...]
+```
+
+**❌ 不会作为规则加载**: `DEEPV.md` 专门用于项目文档，不会被自动加载到 AI 规则系统中
 
 ## 💡 Examples (示例)
 

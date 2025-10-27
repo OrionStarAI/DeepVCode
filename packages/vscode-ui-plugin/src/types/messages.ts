@@ -276,7 +276,8 @@ export type ExtensionToWebViewMessage =
   // 🎯 自定义规则管理
   | { type: 'rules_list_response'; payload: { rules: any[] } }
   | { type: 'rules_save_response'; payload: { success: boolean; error?: string } }
-  | { type: 'rules_delete_response'; payload: { success: boolean; error?: string } };
+  | { type: 'rules_delete_response'; payload: { success: boolean; error?: string } }
+  | { type: 'open_rules_management'; payload: {} };
 
 export type Message = WebViewToExtensionMessage | ExtensionToWebViewMessage;
 

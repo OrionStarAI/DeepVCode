@@ -56,7 +56,12 @@ interface MultiSessionMessageFromExtension {
        // 🎯 服务初始化状态
        'service_initialization_status' |
        // 🎯 模型配置相关
-       'model_response';
+       'model_response' |
+       // 🎯 自定义规则管理
+       'open_rules_management' |
+       'rules_list_response' |
+       'rules_save_response' |
+       'rules_delete_response';
   payload: Record<string, unknown> & {
     sessionId?: string; // 大部分消息都包含sessionId
   };
@@ -98,6 +103,11 @@ export interface MultiSessionMessageToExtension {
        // 🎯 模型配置相关
        'get_available_models' |
        'set_current_model' |
+       'get_current_model' |
+       // 🎯 自定义规则管理
+       'rules_list_request' |
+       'rules_save' |
+       'rules_delete' |
        'get_current_model';
   payload: Record<string, unknown> & {
     sessionId?: string; // 大部分消息都包含sessionId
@@ -693,6 +703,64 @@ export class MultiSessionMessageService {
    */
   onServiceInitializationStatus(callback: (data: { status: string; message: string; timestamp: number }) => void) {
     this.addMessageHandler('service_initialization_status', callback);
+  }
+
+  /**
+   * 🎯 监听打开规则管理对话框
+   */
+  onOpenRulesManagement(callback: () => void) {
+    this.addMessageHandler('open_rules_management', callback);
+  }
+
+  /**
+   * 🎯 监听规则列表响应
+   */
+  onRulesListResponse(callback: (data: { rules: any[] }) => void) {
+    this.addMessageHandler('rules_list_response', callback);
+  }
+
+  /**
+   * 🎯 监听规则保存响应
+   */
+  onRulesSaveResponse(callback: (data: { success: boolean; error?: string }) => void) {
+    this.addMessageHandler('rules_save_response', callback);
+  }
+
+  /**
+   * 🎯 监听规则删除响应
+   */
+  onRulesDeleteResponse(callback: (data: { success: boolean; error?: string }) => void) {
+    this.addMessageHandler('rules_delete_response', callback);
+  }
+
+  /**
+   * 🎯 请求规则列表
+   */
+  requestRulesList() {
+    this.sendMessage({
+      type: 'rules_list_request',
+      payload: {}
+    });
+  }
+
+  /**
+   * 🎯 保存规则
+   */
+  saveRule(rule: any) {
+    this.sendMessage({
+      type: 'rules_save',
+      payload: { rule }
+    });
+  }
+
+  /**
+   * 🎯 删除规则
+   */
+  deleteRule(ruleId: string) {
+    this.sendMessage({
+      type: 'rules_delete',
+      payload: { ruleId }
+    });
   }
 
   // =============================================================================
