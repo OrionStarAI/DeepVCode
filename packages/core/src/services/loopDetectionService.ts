@@ -14,9 +14,9 @@ import { SchemaUnion, Type } from '@google/genai';
 
 
 const TOOL_CALL_LOOP_THRESHOLD = 10;
-const CONTENT_LOOP_THRESHOLD = 10;
-const CONTENT_CHUNK_SIZE = 50;
-const MAX_HISTORY_LENGTH = 1000;
+const CONTENT_LOOP_THRESHOLD = 20;
+const CONTENT_CHUNK_SIZE = 500;
+const MAX_HISTORY_LENGTH = 10000;
 
 /**
  * The number of recent conversation turns to include in the history when asking the LLM to check for a loop.
@@ -390,15 +390,15 @@ export class LoopDetectionService {
     const averageDistance = totalDistance / (CONTENT_LOOP_THRESHOLD - 1);
 
     // Use adaptive distance threshold based on chunk type
-    let maxAllowedDistance = CONTENT_CHUNK_SIZE * 3;
+    let maxAllowedDistance = CONTENT_CHUNK_SIZE * 1.5;
 
     if (this.isTableContent(chunk)) {
       // Table content has even more natural repetition due to row structure
       // Require much larger distance to avoid false positives
-      maxAllowedDistance = CONTENT_CHUNK_SIZE * 10;
+      maxAllowedDistance = CONTENT_CHUNK_SIZE * 6;
     } else if (this.isCommonPattern(chunk)) {
       // Common patterns require larger distance to avoid false positives
-      maxAllowedDistance = CONTENT_CHUNK_SIZE * 5;
+      maxAllowedDistance = CONTENT_CHUNK_SIZE * 3;
     }
 
     return averageDistance <= maxAllowedDistance;

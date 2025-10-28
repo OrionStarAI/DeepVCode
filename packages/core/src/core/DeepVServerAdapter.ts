@@ -22,7 +22,7 @@ import { logger } from '../utils/enhancedLogger.js';
 import { getDefaultAuthHandler } from '../auth/authNavigator.js';
 import { UnauthorizedError } from '../utils/errors.js';
 import { SceneType, SceneManager } from './sceneManager.js';
-import { getModelConfig } from './modelConfig.js';
+
 import { realTimeTokenEventManager } from '../events/realTimeTokenEvents.js';
 import { MESSAGE_ROLES } from '../config/messageRoles.js';
 import { getGlobalDispatcher } from 'undici';
@@ -299,7 +299,10 @@ export class DeepVServerAdapter implements ContentGenerator {
       return this._generateContent(request, scene);
     }
 
-    // 非云模式下，Claude模型使用SSE流式传输
+    // 🔍 Model-specific SSE streaming support check (not model selection)
+    // This detects which API features are available for the requested model
+    // Actual model selection is done by the server based on 'auto' requests
+    // These hardcoded checks are for API capability detection only
     if (request.model === 'claude-sonnet-4@20250514' ||
         request.model === 'claude-sonnet-4-5@20250929' ||
         request.model === 'claude-haiku-4-5@20251001') {

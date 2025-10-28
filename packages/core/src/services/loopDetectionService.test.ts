@@ -22,8 +22,8 @@ vi.mock('../telemetry/loggers.js', () => ({
 }));
 
 const TOOL_CALL_LOOP_THRESHOLD = 10;
-const CONTENT_LOOP_THRESHOLD = 10;
-const CONTENT_CHUNK_SIZE = 50;
+const CONTENT_LOOP_THRESHOLD = 20;
+const CONTENT_CHUNK_SIZE = 500;
 
 describe('LoopDetectionService', () => {
   let service: LoopDetectionService;
