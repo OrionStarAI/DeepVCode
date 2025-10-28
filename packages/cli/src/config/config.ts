@@ -68,6 +68,7 @@ export interface CliArgs {
   cloudMode: boolean | undefined;
   cloudServer: string | undefined;
   testAudio: boolean | undefined;
+  workdir: string | undefined;
 }
 
 export async function parseArguments(): Promise<CliArgs> {
@@ -241,6 +242,10 @@ export async function parseArguments(): Promise<CliArgs> {
       description: 'Test audio notification sounds and exit',
       default: false,
     })
+    .option('workdir', {
+      type: 'string',
+      description: 'Specify the working directory (supports both Windows and Unix paths)',
+    })
     .version(await getCliVersion()) // This will enable the --version flag based on package.json
     .alias('v', 'version')
     .help()
@@ -296,18 +301,18 @@ export async function loadCliConfig(
 ): Promise<Config> {
   // Check if in non-interactive mode (-p flag) for silent operation
   // Also check environment variable set by start.js
-  const isNonInteractiveMode = !!(argv.prompt && !argv.promptInteractive) || 
+  const isNonInteractiveMode = !!(argv.prompt && !argv.promptInteractive) ||
                                process.env.DEEPV_SILENT_MODE === 'true';
-  
+
   const debugMode = false; // 默认关闭调试模式，只保留必要的用户信息输出
 
   // 修改IDE模式逻辑：在VSCode环境中且没有沙盒时自动启用IDE模式
   // 除非用户明确通过 --no-ide-mode 禁用
-  const shouldTryIdeConnection = 
-    process.env.TERM_PROGRAM === 'vscode' && 
+  const shouldTryIdeConnection =
+    process.env.TERM_PROGRAM === 'vscode' &&
     !process.env.SANDBOX;
 
-  const ideMode = shouldTryIdeConnection && 
+  const ideMode = shouldTryIdeConnection &&
     (argv.ideMode !== false); // 只有明确设置 --no-ide-mode 才禁用
 
   // 创建IDE连接（如果满足条件）
