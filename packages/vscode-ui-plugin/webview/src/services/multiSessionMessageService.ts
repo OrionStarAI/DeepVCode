@@ -715,22 +715,22 @@ export class MultiSessionMessageService {
   /**
    * 🎯 监听规则列表响应
    */
-  onRulesListResponse(callback: (data: { rules: any[] }) => void) {
-    this.addMessageHandler('rules_list_response', callback);
+  onRulesListResponse(callback: (data: { rules: any[] }) => void): () => void {
+    return this.addMessageHandler('rules_list_response', callback);
   }
 
   /**
    * 🎯 监听规则保存响应
    */
-  onRulesSaveResponse(callback: (data: { success: boolean; error?: string }) => void) {
-    this.addMessageHandler('rules_save_response', callback);
+  onRulesSaveResponse(callback: (data: { success: boolean; error?: string }) => void): () => void {
+    return this.addMessageHandler('rules_save_response', callback);
   }
 
   /**
    * 🎯 监听规则删除响应
    */
-  onRulesDeleteResponse(callback: (data: { success: boolean; error?: string }) => void) {
-    this.addMessageHandler('rules_delete_response', callback);
+  onRulesDeleteResponse(callback: (data: { success: boolean; error?: string }) => void): () => void {
+    return this.addMessageHandler('rules_delete_response', callback);
   }
 
   /**
@@ -769,12 +769,24 @@ export class MultiSessionMessageService {
 
   /**
    * 添加消息处理器 - 公共接口
+   * @returns 取消订阅的函数
    */
-  addMessageHandler(type: string, handler: Function) {
+  addMessageHandler(type: string, handler: Function): () => void {
     if (!this.listeners.has(type)) {
       this.listeners.set(type, []);
     }
     this.listeners.get(type)!.push(handler);
+
+    // 返回取消订阅函数
+    return () => {
+      const handlers = this.listeners.get(type);
+      if (handlers) {
+        const index = handlers.indexOf(handler);
+        if (index > -1) {
+          handlers.splice(index, 1);
+        }
+      }
+    };
   }
 
   // =============================================================================

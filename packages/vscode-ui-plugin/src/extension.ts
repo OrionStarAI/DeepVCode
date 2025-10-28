@@ -100,6 +100,17 @@ export async function activate(context: vscode.ExtensionContext) {
     await ruleService.initialize(workspaceRoot);
     logger.info('RuleService initialized');
 
+    // 🎯 设置规则变化回调，通知前端刷新规则列表
+    ruleService.onRulesChanged(async () => {
+      logger.info('Rules changed, notifying webview...');
+      try {
+        const rules = ruleService.getAllRules();
+        await communicationService.sendRulesListResponse(rules);
+      } catch (error) {
+        logger.error('Failed to send rules update to webview', error instanceof Error ? error : undefined);
+      }
+    });
+
     // 🎯 将规则服务设置到 ContextBuilder
     ContextBuilder.setRuleService(ruleService);
 
@@ -194,7 +205,7 @@ function setupServiceCommunication() {
   // Context changes
   contextService.onContextChange(() => {
     // TODO: 需要通知所有session的context更新
-    logger.info('Context changed, need to notify all sessions');
+    // Note: 日志已禁用，避免过多输出影响调试
   });
 
   // 🎯 设置基础消息处理器（通过SessionManager分发到对应session）

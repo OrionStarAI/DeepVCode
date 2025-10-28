@@ -8,6 +8,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useTranslation } from '../hooks/useTranslation';
+import { getGlobalMessageService } from '../services/globalMessageService';
 import './RulesManagementDialog.css';
 
 interface CustomRule {
@@ -33,53 +34,68 @@ interface CustomRule {
 interface RulesManagementDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  vscode: any;
 }
 
 export const RulesManagementDialog: React.FC<RulesManagementDialogProps> = ({
   isOpen,
-  onClose,
-  vscode
+  onClose
 }) => {
   const { t } = useTranslation();
+  const messageService = getGlobalMessageService();
   const [rules, setRules] = useState<CustomRule[]>([]);
   const [selectedRule, setSelectedRule] = useState<CustomRule | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editingRule, setEditingRule] = useState<CustomRule | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{ show: boolean; ruleId: string | null }>({
+    show: false,
+    ruleId: null
+  });
 
   useEffect(() => {
     if (isOpen) {
       loadRules();
     }
 
-    const handleMessage = (event: MessageEvent) => {
-      const message = event.data;
-      if (message.type === 'rules_list_response') {
-        setRules(message.payload.rules);
-      } else if (message.type === 'rules_save_response') {
-        if (message.payload.success) {
-          loadRules();
-          setIsEditing(false);
-          setEditingRule(null);
-        } else {
-          alert(t('rules.saveError') + ': ' + (message.payload.error || 'Unknown error'));
-        }
-      } else if (message.type === 'rules_delete_response') {
-        if (message.payload.success) {
-          loadRules();
-          setSelectedRule(null);
-        } else {
-          alert(t('rules.deleteError') + ': ' + (message.payload.error || 'Unknown error'));
-        }
-      }
-    };
+    // 注册消息处理器
+    const unsubscribeList = messageService.onRulesListResponse((data) => {
+      setRules(data.rules);
+    });
 
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [isOpen, t]);
+    const unsubscribeSave = messageService.onRulesSaveResponse((data) => {
+      if (data.success) {
+        // 使用 setTimeout 延迟刷新，避免与文件监听器冲突导致重复
+        setTimeout(() => {
+          loadRules();
+        }, 100);
+        setIsEditing(false);
+        setEditingRule(null);
+      } else {
+        alert(t('rules.saveError') + ': ' + (data.error || 'Unknown error'));
+      }
+    });
+
+    const unsubscribeDelete = messageService.onRulesDeleteResponse((data) => {
+      if (data.success) {
+        // 使用 setTimeout 延迟刷新，避免与文件监听器冲突导致重复
+        setTimeout(() => {
+          loadRules();
+        }, 100);
+        setSelectedRule(null);
+      } else {
+        alert(t('rules.deleteError') + ': ' + (data.error || 'Unknown error'));
+      }
+    });
+
+    // 清理函数
+    return () => {
+      unsubscribeList();
+      unsubscribeSave();
+      unsubscribeDelete();
+    };
+  }, [isOpen, t, messageService]);
 
   const loadRules = () => {
-    vscode.postMessage({ type: 'rules_list_request', payload: {} });
+    messageService.requestRulesList();
   };
 
   const handleNewRule = () => {
@@ -105,13 +121,31 @@ export const RulesManagementDialog: React.FC<RulesManagementDialogProps> = ({
 
   const handleSaveRule = () => {
     if (!editingRule) return;
-    vscode.postMessage({ type: 'rules_save', payload: { rule: editingRule } });
+    console.log('[RulesManagement] Saving rule:', editingRule.id);
+    messageService.saveRule(editingRule);
   };
 
   const handleDeleteRule = (ruleId: string) => {
-    if (confirm(t('rules.confirmDelete'))) {
-      vscode.postMessage({ type: 'rules_delete', payload: { ruleId } });
+    console.log('[RulesManagement] Delete button clicked, ruleId:', ruleId);
+    setDeleteConfirm({ show: true, ruleId });
+  };
+
+  const handleConfirmDelete = () => {
+    if (deleteConfirm.ruleId) {
+      console.log('[RulesManagement] Calling messageService.deleteRule...');
+      try {
+        messageService.deleteRule(deleteConfirm.ruleId);
+        console.log('[RulesManagement] deleteRule called successfully');
+      } catch (error) {
+        console.error('[RulesManagement] Error calling deleteRule:', error);
+      }
     }
+    setDeleteConfirm({ show: false, ruleId: null });
+  };
+
+  const handleCancelDelete = () => {
+    console.log('[RulesManagement] User cancelled deletion');
+    setDeleteConfirm({ show: false, ruleId: null });
   };
 
   const handleCancelEdit = () => {
@@ -122,8 +156,9 @@ export const RulesManagementDialog: React.FC<RulesManagementDialogProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="rules-dialog-overlay" onClick={onClose}>
-      <div className="rules-dialog-container" onClick={(e) => e.stopPropagation()}>
+    <>
+      <div className="rules-dialog-overlay" onClick={onClose}>
+        <div className="rules-dialog-container" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="rules-dialog-header">
           <h2>{t('rules.title')}</h2>
@@ -370,7 +405,30 @@ export const RulesManagementDialog: React.FC<RulesManagementDialogProps> = ({
         <div className="rules-dialog-footer">
           <p className="rules-info-text">{t('rules.infoText')}</p>
         </div>
+        </div>
       </div>
-    </div>
+
+      {/* Delete Confirmation Dialog */}
+      {deleteConfirm.show && (
+        <div className="rules-dialog-overlay" style={{ zIndex: 10001 }}>
+          <div className="rules-confirm-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="rules-confirm-header">
+              <h3>{t('rules.confirmDeleteTitle')}</h3>
+            </div>
+            <div className="rules-confirm-content">
+              <p>{t('rules.confirmDelete')}</p>
+            </div>
+            <div className="rules-confirm-actions">
+              <button className="button-danger" onClick={handleConfirmDelete}>
+                {t('common.delete')}
+              </button>
+              <button className="button-secondary" onClick={handleCancelDelete}>
+                {t('common.cancel')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };

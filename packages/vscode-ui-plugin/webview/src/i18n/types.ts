@@ -237,6 +237,7 @@ export interface Translations {
     priorityLow: string;
     disabled: string;
     confirmDelete: string;
+    confirmDeleteTitle: string;
     saveError: string;
     deleteError: string;
     newRuleTitle: string;

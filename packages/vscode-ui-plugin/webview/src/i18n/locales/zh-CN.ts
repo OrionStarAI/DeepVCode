@@ -239,6 +239,7 @@ export const zhCN: Translations = {
     priorityLow: '低',
     disabled: '已禁用',
     confirmDelete: '确定要删除这个规则吗？此操作无法撤销。',
+    confirmDeleteTitle: '确认删除',
     saveError: '保存规则失败',
     deleteError: '删除规则失败',
     newRuleTitle: '新规则',

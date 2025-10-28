@@ -315,3 +315,44 @@
   color: var(--vscode-descriptionForeground);
   text-align: center;
 }
+
+/* Confirm Dialog */
+.rules-confirm-dialog {
+  background-color: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 8px;
+  width: 90%;
+  max-width: 400px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.rules-confirm-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.rules-confirm-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.rules-confirm-content {
+  padding: 20px;
+}
+
+.rules-confirm-content p {
+  margin: 0;
+  font-size: 14px;
+  color: var(--vscode-foreground);
+  line-height: 1.5;
+}
+
+.rules-confirm-actions {
+  display: flex;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--vscode-panel-border);
+  justify-content: flex-end;
+}

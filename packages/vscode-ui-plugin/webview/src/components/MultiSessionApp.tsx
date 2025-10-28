@@ -1037,7 +1037,6 @@ export const MultiSessionApp: React.FC = () => {
         <RulesManagementDialog
           isOpen={isRulesManagementOpen}
           onClose={() => setIsRulesManagementOpen(false)}
-          vscode={window.vscode}
         />
       )}
 

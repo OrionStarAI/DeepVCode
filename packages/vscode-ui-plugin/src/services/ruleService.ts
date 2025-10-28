@@ -29,9 +29,17 @@ export class RuleService {
   private logger: Logger;
   private workspaceRoot?: string;
   private fileWatcher?: vscode.FileSystemWatcher;
+  private onRulesChangedCallback?: () => void;
 
   constructor(logger: Logger) {
     this.logger = logger;
+  }
+
+  /**
+   * 设置规则变化时的回调函数
+   */
+  onRulesChanged(callback: () => void): void {
+    this.onRulesChangedCallback = callback;
   }
 
   /**
@@ -68,6 +76,9 @@ export class RuleService {
       return result;
     }
 
+    // 清空现有规则，重新加载（确保删除的文件被正确移除）
+    this.rules.clear();
+
     // 1. 加载主配置文件
     await this.loadRuleFile(
       path.join(this.workspaceRoot, RULE_FILE_LOCATIONS.MAIN_CONFIG),
@@ -85,6 +96,7 @@ export class RuleService {
     await this.loadRulesFromDirectory(rulesDir, result);
 
     result.success = result.errors.length === 0;
+    this.logger.info(`Loaded ${this.rules.size} rules`);
     return result;
   }
 
@@ -184,11 +196,13 @@ export class RuleService {
   }
 
   /**
-   * 生成规则 ID
+   * 生成规则 ID（基于文件路径，保持稳定）
    */
   private generateRuleId(filePath: string): string {
     const relativePath = this.getRelativePath(filePath);
-    return relativePath.replace(/[^a-zA-Z0-9]/g, '_');
+    // 使用完整相对路径生成稳定的 ID，支持中文路径
+    // 只移除文件系统不允许的特殊字符
+    return relativePath.replace(/[/\\:*?"<>|]/g, '_').replace(/\.md$/, '');
   }
 
   /**
@@ -334,10 +348,30 @@ export class RuleService {
       const rulesDir = path.join(this.workspaceRoot, RULE_FILE_LOCATIONS.RULES_DIR);
       await fs.mkdir(rulesDir, { recursive: true });
 
-      const fileName = `${rule.frontmatter.title?.replace(/[^a-zA-Z0-9]/g, '_') || rule.id}.md`;
+      // 生成安全的文件名：支持中文，移除特殊字符
+      let fileName = rule.frontmatter.title || rule.id;
+      // 移除文件系统不允许的特殊字符：/ \ : * ? " < > |
+      fileName = fileName.replace(/[/\\:*?"<>|]/g, '_');
+      // 如果文件名为空或全是下划线，使用 rule.id
+      if (!fileName || /^_+$/.test(fileName)) {
+        fileName = rule.id;
+      }
+      fileName = `${fileName}.md`;
+
       filePath = path.join(rulesDir, fileName);
       rule.filePath = this.getRelativePath(filePath);
     }
+
+    // 根据文件路径重新生成规则 ID，确保 ID 与文件路径一致
+    const newId = this.generateRuleId(filePath);
+
+    // 如果 ID 发生变化（新建规则时），删除旧的 ID
+    if (rule.id !== newId && this.rules.has(rule.id)) {
+      this.rules.delete(rule.id);
+    }
+
+    rule.id = newId;
+    rule.filePath = this.getRelativePath(filePath);
 
     // 生成文件内容
     const content = this.serializeRule(rule);
@@ -349,7 +383,7 @@ export class RuleService {
     rule.updatedAt = Date.now();
     this.rules.set(rule.id, rule);
 
-    this.logger.info(`Rule saved: ${rule.frontmatter.title || rule.id}`);
+    this.logger.info(`Rule saved: ${rule.frontmatter.title || rule.id} (ID: ${rule.id})`);
   }
 
   /**
@@ -410,15 +444,21 @@ export class RuleService {
     this.fileWatcher = vscode.workspace.createFileSystemWatcher(pattern);
 
     this.fileWatcher.onDidCreate(async () => {
+      this.logger.info('Rule file created, reloading rules...');
       await this.loadAllRules();
+      this.onRulesChangedCallback?.();
     });
 
     this.fileWatcher.onDidChange(async () => {
+      this.logger.info('Rule file changed, reloading rules...');
       await this.loadAllRules();
+      this.onRulesChangedCallback?.();
     });
 
     this.fileWatcher.onDidDelete(async () => {
+      this.logger.info('Rule file deleted, reloading rules...');
       await this.loadAllRules();
+      this.onRulesChangedCallback?.();
     });
   }
 

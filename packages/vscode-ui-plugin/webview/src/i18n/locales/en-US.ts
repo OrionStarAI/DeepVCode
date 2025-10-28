@@ -239,6 +239,7 @@ export const enUS: Translations = {
     priorityLow: 'Low',
     disabled: 'Disabled',
     confirmDelete: 'Are you sure you want to delete this rule? This action cannot be undone.',
+    confirmDeleteTitle: 'Confirm Delete',
     saveError: 'Failed to save rule',
     deleteError: 'Failed to delete rule',
     newRuleTitle: 'New Rule',
