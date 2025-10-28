@@ -29,6 +29,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
   const [copySuccess, setCopySuccess] = React.useState(false);
   // 🎯 Like/Dislike 状态管理
   const [feedbackState, setFeedbackState] = React.useState<'none' | 'like' | 'dislike'>('none');
+  // 🎯 代码块复制状态管理（使用Map来追踪每个代码块的复制状态）
+  const [codeCopyStates, setCodeCopyStates] = React.useState<Map<number, boolean>>(new Map());
 
   const formatTime = (timestamp: number) => {
     return new Date(timestamp).toLocaleTimeString('en-US', {
@@ -99,21 +101,106 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
             components={{
               // 代码块美化 - 配合 rehype-highlight 使用
               pre({node, children, ...props}: any) {
+                // 为每个代码块生成唯一ID
+                const blockId = React.useMemo(() => Math.random(), []);
+                const [isCopied, setIsCopied] = React.useState(false);
+
+                console.log('🚀 [PRE Element Debug]');
+                console.log('   node:', node);
+                console.log('   children:', children);
+                console.log('   children type:', typeof children);
+                console.log('   children array:', React.Children.toArray(children));
+
                 // 提取代码内容用于复制
                 const codeElement = React.Children.toArray(children).find(
                   (child: any) => child?.type === 'code'
                 ) as any;
 
-                const codeString = codeElement?.props?.children?.[0] || '';
+                console.log('   codeElement found:', !!codeElement);
+                if (codeElement) {
+                  console.log('   codeElement.type:', codeElement.type);
+                  console.log('   codeElement.props:', codeElement.props);
+                }
+
+                // 深度递归提取所有文本内容的函数
+                const extractTextFromNode = (nodeOrContent: any): string => {
+                  if (!nodeOrContent) return '';
+                  
+                  // 如果是字符串，直接返回
+                  if (typeof nodeOrContent === 'string') {
+                    return nodeOrContent;
+                  }
+                  
+                  // 如果是数字，转换为字符串
+                  if (typeof nodeOrContent === 'number') {
+                    return String(nodeOrContent);
+                  }
+                  
+                  // 如果是数组，递归处理每个元素
+                  if (Array.isArray(nodeOrContent)) {
+                    return nodeOrContent.map(extractTextFromNode).join('');
+                  }
+                  
+                  // 如果是 React 元素或有 props.children
+                  if (nodeOrContent?.props?.children) {
+                    return extractTextFromNode(nodeOrContent.props.children);
+                  }
+                  
+                  return '';
+                };
+
+                // 多种方式尝试提取代码内容
+                let codeString = '';
+                
+                // 方式1: 从 codeElement.props.children 提取
+                if (codeElement?.props?.children) {
+                  codeString = extractTextFromNode(codeElement.props.children);
+                  console.log('✅ Method 1 (codeElement.props.children):', codeString.length, 'chars');
+                }
+                
+                // 方式2: 如果方式1失败，直接从 children 提取
+                if (!codeString && children) {
+                  codeString = extractTextFromNode(children);
+                  console.log('✅ Method 2 (direct children):', codeString.length, 'chars');
+                }
+                
+                // 方式3: 如果还是失败，尝试从 node 提取
+                if (!codeString && node) {
+                  codeString = extractTextFromNode(node);
+                  console.log('✅ Method 3 (node):', codeString.length, 'chars');
+                }
+                
+                console.log('🔍 [Final Extract Result]');
+                console.log('   Total length:', codeString.length);
+                console.log('   Preview:', codeString.substring(0, 150));
+                
                 const className = codeElement?.props?.className || '';
                 const match = /language-(\w+)/.exec(className);
                 const language = match ? match[1] : 'text';
+                
+                console.log('🎯 [Code Block Info] Language:', language, '| Content length:', codeString.length);
 
                 const copyToClipboard = async (text: string) => {
+                  console.log('📋 [Copy Attempt] Text length:', text?.length || 0);
                   try {
+                    if (!text || text.trim() === '') {
+                      console.error('⚠️ No code content to copy - text is empty!');
+                      console.error('   Text value:', text);
+                      console.error('   Text type:', typeof text);
+                      return;
+                    }
                     await navigator.clipboard.writeText(String(text));
+                    console.log('✅ Code copied to clipboard successfully:');
+                    console.log('   Length:', text.length, 'characters');
+                    console.log('   Preview:', text.substring(0, 100) + (text.length > 100 ? '...' : ''));
+                    setIsCopied(true);
+                    setTimeout(() => setIsCopied(false), 2000);
                   } catch (error) {
-                    console.error('Failed to copy code:', error);
+                    console.error('❌ Failed to copy code:', error);
+                    if (error instanceof Error) {
+                      console.error('   Error name:', error.name);
+                      console.error('   Error message:', error.message);
+                    }
                   }
                 };
 
@@ -122,11 +209,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
                     <div className="code-header">
                       <span className="code-language">{language}</span>
                       <button
-                        className="code-copy-btn"
+                        className={`code-copy-btn ${isCopied ? 'copy-success' : ''}`}
                         onClick={() => copyToClipboard(codeString)}
-                        title="复制代码"
+                        title={isCopied ? "已复制!" : "复制代码"}
                       >
-                        <Copy size={14} />
+                        {isCopied ? <Check size={14} /> : <Copy size={14} />}
                       </button>
                     </div>
                     <pre className="code-block" {...props}>
