@@ -159,6 +159,7 @@ export type ServerGeminiFinishedEvent = {
 
 export type ServerGeminiLoopDetectedEvent = {
   type: GeminiEventType.LoopDetected;
+  value?: string; // Optional loop type: 'consecutive_identical_tool_calls', 'chanting_identical_sentences', 'llm_detected_loop'
 };
 
 export type ServerGeminiTokenUsageEvent = {

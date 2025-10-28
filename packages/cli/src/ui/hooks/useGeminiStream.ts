@@ -6,7 +6,7 @@
 
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useInput } from 'ink';
-import { t, tp } from '../utils/i18n.js';
+import { t, tp, isChineseLocale } from '../utils/i18n.js';
 import {
   Config,
   GeminiClient,
@@ -313,6 +313,7 @@ export const useGeminiStream = (
   );
 
   const loopDetectedRef = useRef(false);
+  const loopTypeRef = useRef<string | undefined>(undefined);
 
   const onExec = useCallback(async (done: Promise<void>) => {
     processingRef.current = true; // 🛡️ 设置同步标志位
@@ -887,11 +888,43 @@ export const useGeminiStream = (
     [addItem, config],
   );
 
-  const handleLoopDetectedEvent = useCallback(() => {
+  const handleLoopDetectedEvent = useCallback((loopType?: string) => {
+    let title = '';
+    let description = '';
+    let action = '';
+
+    // Get localized messages based on loop type
+    const locale = isChineseLocale() ? 'zh' : 'en';
+
+    switch (loopType) {
+      case 'consecutive_identical_tool_calls':
+        title = t('loop.consecutive.tool.calls.title');
+        description = t('loop.consecutive.tool.calls.description');
+        action = t('loop.consecutive.tool.calls.action');
+        break;
+      case 'chanting_identical_sentences':
+        title = t('loop.chanting.identical.sentences.title');
+        description = t('loop.chanting.identical.sentences.description');
+        action = t('loop.chanting.identical.sentences.action');
+        break;
+      case 'llm_detected_loop':
+        title = t('loop.llm.detected.title');
+        description = t('loop.llm.detected.description');
+        action = t('loop.llm.detected.action');
+        break;
+      default:
+        // Fallback for unknown or missing loop type
+        title = '🔄 Loop Detected';
+        description = 'The AI model may be stuck in a repetitive pattern.';
+        action = 'Please try:\n• Refining your request\n• Providing additional context\n• Starting a new session with /session new';
+    }
+
+    const messageText = `${title}\n${description}\n\n${action}`;
+
     addItem(
       {
         type: 'info',
-        text: `A potential loop was detected. This can happen due to repetitive tool calls or other model behavior. The request has been halted.`,
+        text: messageText,
       },
       Date.now(),
     );
@@ -958,6 +991,7 @@ export const useGeminiStream = (
             // handle later because we want to move pending history to history
             // before we add loop detected message to history
             loopDetectedRef.current = true;
+            loopTypeRef.current = (event as any).value;
             break;
           case ServerGeminiEventType.TokenUsage:
             // Token usage events are handled at the client level for compression decisions
@@ -1167,7 +1201,8 @@ User question: ${typeof query === 'string' ? query : JSON.stringify(query)}`;
         }
         if (loopDetectedRef.current) {
           loopDetectedRef.current = false;
-          handleLoopDetectedEvent();
+          handleLoopDetectedEvent(loopTypeRef.current);
+          loopTypeRef.current = undefined;
         }
       } catch (error: unknown) {
         // 451错误特殊处理 - 直接模拟ESC键终止会话
