@@ -368,18 +368,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
           !message.isStreaming &&
           !(message.isProcessingTools && !message.toolsCompleted);
         
-        // 🎯 调试：记录不显示的原因
-        if (message.type === 'assistant' && !shouldShow) {
-          console.log('🔍 消息按钮不显示:', {
-            id: message.id,
-            isStreaming: message.isStreaming,
-            isProcessingTools: message.isProcessingTools,
-            toolsCompleted: message.toolsCompleted,
-            reason: message.isStreaming ? 'streaming' : 
-                   (message.isProcessingTools && !message.toolsCompleted) ? 'processing-tools' : 'unknown'
-          });
-        }
-        
         return shouldShow && (
           <div className="message-actions">
           <button

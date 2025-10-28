@@ -229,19 +229,17 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   // 🎯 处理重新生成消息
   const handleRegenerate = (messageId: string) => {
-    console.log('🎯 重新生成消息:', { messageId });
-    
     // 找到要重新生成的消息
     const message = messages.find(msg => msg.id === messageId);
     if (!message || message.type !== 'assistant') {
-      console.warn('🎯 只能重新生成助手消息');
+      console.error('无法重新生成：消息类型错误');
       return;
     }
 
-    // 找到该消息之前的用户消息
+    // 找到该消息的索引
     const messageIndex = messages.findIndex(msg => msg.id === messageId);
-    if (messageIndex <= 0) {
-      console.warn('🎯 无法找到对应的用户消息');
+    if (messageIndex < 0) {
+      console.error('无法重新生成：未找到消息');
       return;
     }
 
@@ -257,15 +255,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
 
     if (!userMessage || userMessageIndex === -1) {
-      console.warn('🎯 未找到对应的用户消息');
+      console.error('无法重新生成：未找到对应的用户消息');
       return;
     }
-
-    console.log('🎯 找到用户消息，准备重新生成:', { 
-      userMessage, 
-      userMessageIndex, 
-      assistantMessageIndex: messageIndex 
-    });
 
     // 🎯 保留原用户消息，只删除助手回答及之后的所有消息
     // 这样用户消息保持不变（ID和内容都不变）
@@ -277,18 +269,15 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     }
 
     // 🎯 使用消息服务直接发送聊天请求，不通过onSendMessage（避免重复创建用户消息）
-    // 我们直接使用现有的用户消息ID
     const messageService = getGlobalMessageService();
     if (sessionId && messageService) {
       // 延迟发送，确保消息列表已更新
       setTimeout(() => {
         messageService.sendChatMessage(sessionId, userMessage.content, userMessage.id);
-        
-        // 滚动到底部
         forceScrollToBottom();
       }, 50);
     } else {
-      console.error('🎯 无法获取sessionId或messageService');
+      console.error('无法重新生成：缺少sessionId或messageService');
     }
   };
 
