@@ -131,10 +131,11 @@ export class GeminiClient {
     }
 
     const proxyServerUrl = getActiveProxyServerUrl();
-    const googleCloudLocation = process.env.GOOGLE_CLOUD_LOCATION || 'us-east5';
-    const googleCloudProject = process.env.GOOGLE_CLOUD_PROJECT || 'cmcm-cd';
+    // NOTE: googleCloudLocation and googleCloudProject are legacy parameters, no longer used after switching to proxy-based architecture
+    const googleCloudLocation = process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
+    const googleCloudProject = process.env.GOOGLE_CLOUD_PROJECT || 'default-project';
 
-    return new DeepVServerAdapter(googleCloudLocation, googleCloudProject, proxyServerUrl);
+    return new DeepVServerAdapter(googleCloudLocation, googleCloudProject, proxyServerUrl, this.config);
   }
 
   /**

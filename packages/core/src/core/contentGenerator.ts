@@ -58,7 +58,7 @@ export function createContentGeneratorConfig(
   // 修复策略: 直接使用配置的模型或默认模型（现在默认就是Claude）
   // ✅ 移除默认模型依赖 - 服务端内部决定模型
   const effectiveModel = config.getModel() || 'auto'; // 使用auto让服务端决定
-  
+
   const contentGeneratorConfig: ContentGeneratorConfig = {
     //model: effectiveModel,
     authType,
@@ -88,7 +88,7 @@ export async function createContentGenerator(
 
   // 🎯 统一DeepV Server处理：所有模型都使用DeepVServerAdapter，但路由逻辑会自动选择正确的API端点
   const isDeepVServer = true; // 现在所有模型都通过DeepV Server，适配器内部会根据模型类型选择正确路径
-  
+
   if (isDeepVServer) {
 
     // 确保有可用的代理服务器
@@ -103,10 +103,11 @@ export async function createContentGenerator(
     console.log(`[DeepX] Connecting to DeepV Code server: ${proxyServerUrl}`);
 
     // 🔧 Linus式修复：统一使用DeepVServerAdapter，内部会根据模型类型自动路由
-    const googleCloudLocation = process.env.GOOGLE_CLOUD_LOCATION || 'us-east5';
-    const googleCloudProject = process.env.GOOGLE_CLOUD_PROJECT || 'cmcm-cd';
-    
-    return new DeepVServerAdapter(googleCloudLocation, googleCloudProject, proxyServerUrl);
+    // NOTE: googleCloudLocation and googleCloudProject are legacy parameters, no longer used after switching to proxy-based architecture
+    const googleCloudLocation = process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
+    const googleCloudProject = process.env.GOOGLE_CLOUD_PROJECT || 'default-project';
+
+    return new DeepVServerAdapter(googleCloudLocation, googleCloudProject, proxyServerUrl, gcConfig);
   }
 
   // For other auth types (should only be USE_CHEETH_OA now), fall through to error
