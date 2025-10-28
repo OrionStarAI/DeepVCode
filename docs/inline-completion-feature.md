@@ -81,7 +81,6 @@ DeepV Code 现已支持 **AI 驱动的行内代码补全**功能，类似于 Git
 ### 触发方式
 
 - **自动触发**：在编辑代码时自动触发（默认延迟 300ms）
-- **手动触发**：按 `Ctrl+Space`（Windows/Linux）或 `Cmd+Space`（macOS）
 
 ## 配置选项
 

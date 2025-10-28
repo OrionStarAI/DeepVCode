@@ -31,6 +31,9 @@ let ruleService: RuleService;
 let inlineCompletionStatusBar: vscode.StatusBarItem;
 let extensionContext: vscode.ExtensionContext;
 
+// 🎯 服务初始化状态标志，避免重复初始化
+let servicesInitialized = false;
+
 export async function activate(context: vscode.ExtensionContext) {
   console.log('=== DeepV Code AI Assistant: Starting activation ===');
 
@@ -151,6 +154,16 @@ export async function activate(context: vscode.ExtensionContext) {
 
     startupOptimizer.startPhase('Background Services Startup');
 
+    // 🎯 自动初始化核心服务（SessionManager + InlineCompletion）
+    // 这样即使前端没有发送 start_services 请求（例如切换项目后），服务也能正常工作
+    try {
+      logger.info('Auto-initializing core services during activation...');
+      await startServices();
+      logger.info('Core services auto-initialized successfully');
+    } catch (error) {
+      logger.warn('Core services auto-initialization failed, will retry when requested', error instanceof Error ? error : undefined);
+    }
+
     logger.info('DeepV Code AI Assistant activated successfully');
     console.log('=== DeepV Code AI Assistant: Activation completed ===');
     vscode.window.showInformationMessage('DeepV Code AI Assistant activated successfully!');
@@ -177,6 +190,9 @@ export async function deactivate(): Promise<void> {
   logger?.info('DeepV Code AI Assistant is deactivating...');
 
   try {
+    // 🎯 重置服务初始化标志，允许重新激活时重新初始化
+    servicesInitialized = false;
+
     if (inlineCompletionStatusBar) {
       inlineCompletionStatusBar.dispose();
     }
@@ -1512,6 +1528,12 @@ async function initializeInlineCompletion() {
 }
 
 async function startServices() {
+  // 🎯 避免重复初始化
+  if (servicesInitialized) {
+    logger.info('Services already initialized, skipping...');
+    return;
+  }
+
   try {
     logger.info('Starting remaining services initialization...');
 
@@ -1535,12 +1557,34 @@ async function startServices() {
 
       // 🎯 初始化行内补全服务（依赖 SessionManager）
       await initializeInlineCompletion();
+
+      // 🎯 监听 session 切换和删除事件，重新初始化行内补全服务
+      sessionManager.on('switched', async () => {
+        logger.info('Session switched, reinitializing inline completion...');
+        await initializeInlineCompletion();
+      });
+
+      sessionManager.on('deleted', async () => {
+        logger.info('Session deleted, reinitializing inline completion...');
+        await initializeInlineCompletion();
+      });
+
+      sessionManager.on('created', async () => {
+        logger.info('Session created, reinitializing inline completion...');
+        await initializeInlineCompletion();
+      });
+
     } catch (error) {
       logger.warn('SessionManager initialization failed, continuing with basic mode', error instanceof Error ? error : undefined);
     }
 
+    // 🎯 标记服务已初始化
+    servicesInitialized = true;
+    logger.info('✅ All core services initialized successfully');
+
   } catch (error) {
     logger.error('Failed to initialize core services', error instanceof Error ? error : undefined);
+    servicesInitialized = false; // 初始化失败，重置标志
     throw error;
   }
 }
