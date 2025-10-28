@@ -167,7 +167,9 @@ export class ModelService {
         source: 'server'
       };
     } catch (error) {
-      // 完全降级到硬编码模型
+      // 降级到'auto'模式让服务端决定
+      this.logger.warn('Failed to fetch models from server, falling back to auto mode');
+      this.logger.warn('Fallback reason:', error instanceof Error ? error.message : String(error));
       return {
         models: [AUTO_MODE_CONFIG, ...FALLBACK_MODELS],
         source: 'fallback'

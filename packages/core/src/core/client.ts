@@ -603,14 +603,16 @@ Use Glob and ReadFile tools to explore specific files during our conversation.
 
     const loopDetected = await this.loopDetector.turnStarted(signal);
     if (loopDetected) {
-      yield { type: GeminiEventType.LoopDetected };
+      const loopType = this.loopDetector.getDetectedLoopType();
+      yield { type: GeminiEventType.LoopDetected, value: loopType ? loopType.toString() : undefined };
       return turn;
     }
 
     const resultStream = turn.run(request, signal);
     for await (const event of resultStream) {
       if (this.loopDetector.addAndCheck(event)) {
-        yield { type: GeminiEventType.LoopDetected };
+        const loopType = this.loopDetector.getDetectedLoopType();
+        yield { type: GeminiEventType.LoopDetected, value: loopType ? loopType.toString() : undefined };
         return turn;
       }
 

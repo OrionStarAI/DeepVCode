@@ -4,6 +4,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/**
+ * @deprecated
+ * 此文件已不再使用。费用显示功能已从CLI中移除。
+ * 相关模型配置位于 modelConfig.ts，同样已被标记为废弃。
+ */
+
 import { ModelMetrics } from '../contexts/SessionContext.js';
 import { getModelConfig, getSupportedModelNames } from 'deepv-code-core';
 
@@ -30,7 +36,7 @@ export function calculateModelCost(modelName: string, modelMetrics: ModelMetrics
   if (!config) {
     return null;
   }
-  
+
   const pricing = config.pricing;
 
   // 获取主会话token数量
