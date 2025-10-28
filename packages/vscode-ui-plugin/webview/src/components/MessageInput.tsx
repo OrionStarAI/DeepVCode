@@ -26,8 +26,9 @@ import { DragDropPlugin } from './MessageInput/plugins/DragDropPlugin';
 import { ClipboardPlugin } from './MessageInput/plugins/ClipboardPlugin';
 import { FileAutocompletePlugin } from './MessageInput/plugins/FileAutocompletePlugin';
 import { EditorRefPlugin } from './MessageInput/plugins/EditorRefPlugin';
-import { FileUploadButton } from './MessageInput/components/FileUploadButton';
+import { UnifiedFileUploadButton } from './MessageInput/components/UnifiedFileUploadButton';
 import { ImageReference, resetImageCounter } from './MessageInput/utils/imageProcessor';
+import { FileUploadResult, FileType } from './MessageInput/utils/fileTypes';
 
 import './MessageInput/MessageInput.css';
 
@@ -125,7 +126,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
   // 🎯 自动扩展配置
   const MIN_HEIGHT = 140; // 🎯 编辑模式和撰写模式使用相同高度
-  const MAX_HEIGHT = 400; // 🎯 编辑模式和撰写模式使用相同最大高度
+  const MAX_HEIGHT = 400; // 🎯 最大高度限制（约16-17行文本）
   const LINE_HEIGHT = 24; // 大约每行的高度
 
   // 🎯 Lexical 初始化配置
@@ -171,14 +172,21 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     });
 
     setTextContent(newTextContent);
-
-    // 🎯 只在内容变化时检查自动扩展
-    if (contentChanged) {
-      requestAnimationFrame(() => {
-        checkAndAutoExpand();
-      });
-    }
   };
+
+  // 🎯 监听文本内容变化，自动调整高度
+  useEffect(() => {
+    // 延迟执行以确保DOM已更新
+    const timer = setTimeout(() => {
+      if (isEditMode) {
+        checkAndAutoExpandForEdit();
+      } else {
+        checkAndAutoExpand();
+      }
+    }, 50);
+
+    return () => clearTimeout(timer);
+  }, [textContent, isEditMode]);
 
   // 🎯 编辑模式专用的高度检查和调整
   const checkAndAutoExpandForEdit = () => {
@@ -216,25 +224,38 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     }
   };
 
-  // 🎯 检查并自动扩展容器高度
+  // 🎯 检查并自动扩展容器高度（撰写模式）
   const checkAndAutoExpand = () => {
-    if (isResizing) return;
+    console.log('🔍 checkAndAutoExpand 被调用');
+
+    if (isResizing) {
+      console.log('⏸️ 正在调整大小，跳过');
+      return;
+    }
 
     // 🎯 通过查找DOM元素来获取内容编辑器
     const contentEditable = containerRef.current?.querySelector('.lexical-content-editable') as HTMLElement;
-    if (!contentEditable) return;
+    if (!contentEditable) {
+      console.log('❌ 找不到内容编辑器元素');
+      return;
+    }
 
     const scrollHeight = contentEditable.scrollHeight;
-    const currentHeight = contentEditable.clientHeight;
-
-    // 🎯 只有当内容实际溢出时才需要扩展
-    const isOverflowing = scrollHeight > currentHeight + 5; // 5px 容错
+    const clientHeight = contentEditable.clientHeight;
     const hasContent = textContent.trim().length > 0;
 
+    console.log('📏 当前状态:', {
+      scrollHeight,
+      clientHeight,
+      textLength: textContent.length,
+      hasContent,
+      currentContainerHeight: containerHeight
+    });
+
     // 🎯 计算需要的容器高度（内容高度 + padding + 其他元素空间）
-    const padding = 24; // 12px top + 12px bottom padding
+    const padding = 24; // top + bottom padding (根据实际CSS的10px * 2 = 20，留些余量)
     const toolbarHeight = 40; // 底部工具栏高度（包括边距和边框）
-    const handleHeight = 8; // 拖拽手柄高度
+    const handleHeight = 16; // 拖拽手柄高度（8px + margins）
     const extraSpace = padding + toolbarHeight + handleHeight + 8; // 额外的8px缓冲
 
     let neededContainerHeight;
@@ -242,18 +263,26 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     if (!hasContent) {
       // 🎯 没有内容时，重置为最小高度
       neededContainerHeight = MIN_HEIGHT;
-    } else if (isOverflowing) {
-      // 🎯 只有在内容溢出时才增加高度
-      neededContainerHeight = Math.min(MAX_HEIGHT, scrollHeight + extraSpace);
     } else {
-      // 🎯 内容没有溢出，保持当前高度
-      return;
+      // 🎯 直接根据内容scrollHeight计算需要的高度，不等待溢出
+      neededContainerHeight = Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, scrollHeight + extraSpace));
     }
 
-    // 🎯 如果需要的高度与当前高度不同
-    if (Math.abs(neededContainerHeight - containerHeight) > 10) {
+    console.log('💡 计算结果:', {
+      neededHeight: neededContainerHeight,
+      currentHeight: containerHeight,
+      diff: Math.abs(neededContainerHeight - containerHeight),
+      MIN_HEIGHT,
+      MAX_HEIGHT
+    });
+
+    // 🎯 如果需要的高度与当前高度差异超过5px才调整
+    if (Math.abs(neededContainerHeight - containerHeight) > 5) {
+      console.log('✅ 开始调整高度:', containerHeight, '→', neededContainerHeight);
       setContainerHeight(neededContainerHeight);
       setIsAutoExpanded(neededContainerHeight > MIN_HEIGHT);
+    } else {
+      console.log('⏭️ 高度差异小于5px，不调整');
     }
   };
 
@@ -372,9 +401,53 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     }
   };
 
-  // 🎯 处理图片上传
-  const handleImageUploaded = (imageData: ImageReference) => {
-    insertImageReferenceNode(imageData);
+  // 🎯 处理统一的文件上传（图片、代码、Markdown）
+  const handleFileSelected = (result: FileUploadResult) => {
+    if (!editorRef.current) {
+      console.error('编辑器引用不可用');
+      return;
+    }
+
+    if (result.type === FileType.IMAGE && result.imageData) {
+      // 处理图片文件
+      const imageRef: ImageReference = {
+        id: result.id,
+        fileName: result.fileName,
+        data: result.imageData.data,
+        mimeType: result.imageData.mimeType,
+        originalSize: result.imageData.originalSize,
+        compressedSize: result.imageData.compressedSize,
+        width: result.imageData.width,
+        height: result.imageData.height,
+      };
+      insertImageReferenceNode(imageRef);
+    } else if (result.type === FileType.TEXT && result.textData) {
+      // 处理文本文件（代码 + Markdown）
+      const textData = result.textData;
+      editorRef.current.update(() => {
+        const selection = $getSelection();
+        if ($isRangeSelection(selection)) {
+          // 插入文件引用节点
+          const fileReferenceNode = $createFileReferenceNode(
+            result.fileName,
+            result.fileName // 对于文本文件，使用文件名作为路径的标识
+          );
+
+          // ✨ 新增：保存完整的文件内容和语言到节点中
+          if (fileReferenceNode instanceof Object && 'setFileContent' in fileReferenceNode) {
+            (fileReferenceNode as any).setFileContent(textData.content, textData.language);
+          }
+
+          selection.insertNodes([fileReferenceNode]);
+
+          // 在文件引用后添加空格
+          const spaceNode = $createTextNode(' ');
+          fileReferenceNode.insertAfter(spaceNode);
+
+          console.log(`✅ 文本文件已插入: ${result.fileName}${textData.language ? ` (${textData.language})` : ''}`);
+        }
+      });
+    }
   };
 
   // 🎯 在上传前聚焦编辑器
@@ -561,13 +634,28 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       const collectRawStructure = (node: any) => {
         if ($isFileReferenceNode(node)) {
           // 文件引用节点 - 直接处理，不递归子节点
-          rawContent.push({
-            type: 'file_reference',
-            value: {
-              fileName: node.__fileName,
-              filePath: node.__filePath
-            }
-          });
+          // ✨ 新增：检查是否有嵌入的文件内容
+          if (node.__fileContent) {
+            // 有完整内容（来自文本文件上传）
+            rawContent.push({
+              type: 'text_file_content',
+              value: {
+                fileName: node.__fileName,
+                content: node.__fileContent,
+                language: node.__language,
+                size: node.__fileContent.length
+              }
+            });
+          } else {
+            // 无内容（来自项目文件引用）
+            rawContent.push({
+              type: 'file_reference',
+              value: {
+                fileName: node.__fileName,
+                filePath: node.__filePath
+              }
+            });
+          }
         } else if ($isImageReferenceNode(node)) {
           // 图片引用节点 - 直接处理，不递归子节点
           rawContent.push({
@@ -602,7 +690,8 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     const hasContent = rawContent.some(part =>
       (part.type === 'text' && part.value.trim()) ||
       part.type === 'file_reference' ||
-      part.type === 'image_reference'
+      part.type === 'image_reference' ||
+      part.type === 'text_file_content'  // ✨ 新增：包含文本文件内容
     );
 
     if (hasContent && !isLoading && !isProcessing) {
@@ -808,9 +897,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
           {/* 右侧：上传按钮和发送按钮 */}
           <div className="input-actions">
-            {/* 图片上传按钮 */}
-            <FileUploadButton
-              onImageSelected={handleImageUploaded}
+            {/* 统一文件上传按钮（图片、代码、Markdown） */}
+            <UnifiedFileUploadButton
+              onFileSelected={handleFileSelected}
               onBeforeUpload={handleBeforeUpload}
               disabled={isLoading || isProcessing}
             />

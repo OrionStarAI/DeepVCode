@@ -3,7 +3,8 @@
 .message-input-container {
   border-top: 1px solid var(--vscode-panel-border);
   background-color: var(--vscode-editor-background);
-  padding: 12px 12px 0; /* 🎯 移除底部padding，直接贴底 */
+  padding: 12px 8px 0; /* 🎯 减少左右padding，提供更多输入空间 */
+  width: 100%; /* 🎯 确保占据全宽 */
   max-width: 100%;
   position: relative;
   height: 140px; /* 🎯 固定高度约3行 */
@@ -11,6 +12,7 @@
   flex-shrink: 0;
   /* 🎯 平滑的高度变化动画 */
   transition: height 0.2s ease-out;
+  box-sizing: border-box; /* 🎯 确保padding包含在宽度内 */
 }
 
 /* 🎯 编辑模式的特殊样式 */
@@ -27,11 +29,6 @@
 .message-input-container.edit-mode.compact {
   /* 紧凑模式样式 - 与底部输入框保持一致的高度 */
   margin: 4px 0;
-}
-
-/* 🎯 撰写模式保持原样 */
-.message-input-container.compose-mode {
-  /* 保持原有样式 */
 }
 
 /* 🎯 当正在调整大小时禁用动画，避免拖拽时的延迟 */
@@ -101,7 +98,7 @@
   color: var(--vscode-input-foreground);
   border: 1px solid var(--vscode-input-border);
   border-radius: 6px;
-  padding: 12px 16px; /* 🎯 移除右侧和底部的额外padding，让文本区域填充满 */
+  padding: 10px 12px; /* 🎯 进一步减少padding，提供更多文本编辑空间 */
   font-family: var(--vscode-font-family);
   font-size: 14px;
   line-height: 1.5;
@@ -112,6 +109,7 @@
   overflow-x: hidden !important;
   overflow-y: auto !important;
   word-wrap: break-word;
+  word-break: break-word; /* 🎯 确保长单词也能换行 */
   cursor: text;
   resize: none;
   /* 🎯 确保编辑器能够响应容器高度变化 */
@@ -181,8 +179,8 @@
   font-family: var(--vscode-font-family);
   font-size: 14px;
   position: absolute;
-  top: 12px; /* 匹配新的padding */
-  left: 16px;
+  top: 10px; /* 🎯 匹配新的padding */
+  left: 12px; /* 🎯 匹配新的padding */
   pointer-events: none;
   user-select: none;
   line-height: 1.5;
@@ -571,7 +569,7 @@
   box-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
 
-/* 🎯 美化滚动条样式 */
+/* 🎯 美化滚动条样式 - message-input */
 .message-input::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -591,6 +589,31 @@
 }
 
 .message-input::-webkit-scrollbar-thumb:active {
+  background-color: var(--vscode-scrollbarSlider-activeBackground);
+}
+
+/* 🎯 美化滚动条样式 - lexical-content-editable */
+.lexical-content-editable::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.lexical-content-editable::-webkit-scrollbar-track {
+  background: var(--vscode-input-background);
+  border-radius: 4px;
+}
+
+.lexical-content-editable::-webkit-scrollbar-thumb {
+  background-color: var(--vscode-scrollbarSlider-background);
+  border-radius: 4px;
+  border: 2px solid var(--vscode-input-background);
+}
+
+.lexical-content-editable::-webkit-scrollbar-thumb:hover {
+  background-color: var(--vscode-scrollbarSlider-hoverBackground);
+}
+
+.lexical-content-editable::-webkit-scrollbar-thumb:active {
   background-color: var(--vscode-scrollbarSlider-activeBackground);
 }
 

@@ -43,6 +43,8 @@ export async function convertMessageContentToParts(
         return `@[${item.value.fileName}]`;
       case 'image_reference':
         return `[IMAGE:${item.value.fileName}]`;
+      case 'text_file_content':  // ✨ 新增
+        return `@[${item.value.fileName}]`;
       default:
         return '';
     }
@@ -66,6 +68,12 @@ export async function convertMessageContentToParts(
           allParts.push(...result.parts);
           fileParts++;
         }
+      } else if (item.type === 'text_file_content') {  // ✨ 新增：直接嵌入的文本文件内容
+        // 直接使用嵌入的内容，不需要文件系统访问
+        const fileInfo = `--- File: ${item.value.fileName}${item.value.language ? ` (${item.value.language})` : ''} ---`;
+        allParts.push({ text: fileInfo });
+        allParts.push({ text: item.value.content });
+        fileParts++;
       } else if (item.type === 'image_reference') {
         const part = processImageToPart(item.value);
         allParts.push(part);
@@ -123,6 +131,8 @@ export function messageContentToString(content: any): string {
         return `@[${part.value.fileName}]`;
       case 'image_reference':
         return `[IMAGE:${part.value.fileName}]`;
+      case 'text_file_content':  // ✨ 新增
+        return `@[${part.value.fileName}]`;
       default:
         return '';
     }

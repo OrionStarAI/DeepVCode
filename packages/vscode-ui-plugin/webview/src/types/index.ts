@@ -36,7 +36,8 @@ export interface ToolExecutionResult {
 export type MessageContentPart =
   | { type: 'text'; value: string }
   | { type: 'file_reference'; value: { fileName: string; filePath: string } }
-  | { type: 'image_reference'; value: { id: string; fileName: string; data: string; mimeType: string; originalSize: number; compressedSize: number; width?: number; height?: number } };
+  | { type: 'image_reference'; value: { id: string; fileName: string; data: string; mimeType: string; originalSize: number; compressedSize: number; width?: number; height?: number } }
+  | { type: 'text_file_content'; value: { fileName: string; content: string; language?: string; size: number } };  // 上传的文本文件内容
 
 export type MessageContent = MessageContentPart[];
 
