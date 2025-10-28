@@ -9,7 +9,7 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import rehypeHighlight from 'rehype-highlight';
 import rehypeRaw from 'rehype-raw';
-import { Copy, Check, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Copy, Check, ThumbsUp, ThumbsDown, Undo2 } from 'lucide-react';
 import { ChatMessage } from '../types';
 
 import { ToolCallList } from './ToolCallList';
@@ -19,13 +19,28 @@ import './MessageMarkdown.css';
 import 'highlight.js/styles/vs2015.css'; // 代码高亮主题
 import 'katex/dist/katex.min.css'; // 数学公式样式
 
+// VSCode API
+declare const window: Window & {
+  vscode: {
+    postMessage: (message: any) => void;
+  };
+};
+
 interface MessageBubbleProps {
   message: ChatMessage;
   onToolConfirm?: (toolCallId: string, confirmed: boolean, userInput?: string) => void;
   onStartEdit?: (messageId: string) => void; // 🎯 新增：开始编辑回调
+  canRevert?: boolean; // 🎯 新增：是否可以回退到此消息
+  sessionId?: string;  // 🎯 新增：会话ID
 }
 
-export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolConfirm, onStartEdit }) => {
+export const MessageBubble: React.FC<MessageBubbleProps> = ({
+  message,
+  onToolConfirm,
+  onStartEdit,
+  canRevert = false,
+  sessionId
+}) => {
   const [copySuccess, setCopySuccess] = React.useState(false);
   // 🎯 Like/Dislike 状态管理
   const [feedbackState, setFeedbackState] = React.useState<'none' | 'like' | 'dislike'>('none');
@@ -62,6 +77,19 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
   // 🎯 处理 Dislike 点击
   const handleDislike = () => {
     setFeedbackState(current => current === 'dislike' ? 'none' : 'dislike');
+  };
+
+  // 🎯 处理回退到此消息
+  const handleRevertToMessage = () => {
+    if (!sessionId) return;
+
+    window.vscode.postMessage({
+      type: 'revert_to_message',
+      payload: {
+        sessionId,
+        messageId: message.id
+      }
+    });
   };
 
   return (
@@ -221,10 +249,43 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
         )}
       </div>
 
-      {/* 🎯 时间显示移到气泡下方 - 只在用户消息显示 */}
+      {/* 🎯 时间显示移到气泡下方 - 只在用户消息显示，回退按钮也显示在这里 */}
       {message.type === 'user' && (
-        <div className="message-footer">
+        <div className="message-footer" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span className="message-time">{formatTime(message.timestamp)}</span>
+          {/* 🎯 回退按钮 - 显示在用户消息后面 */}
+          {canRevert && (
+            <button
+              className="message-revert-btn"
+              onClick={handleRevertToMessage}
+              title="回退到此版本"
+              style={{
+                padding: '2px 8px',
+                background: 'transparent',
+                border: '1px solid var(--vscode-button-border, rgba(255,255,255,0.2))',
+                borderRadius: '4px',
+                color: 'var(--vscode-descriptionForeground)',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '4px',
+                fontSize: '11px',
+                opacity: 0.6,
+                transition: 'all 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.opacity = '1';
+                e.currentTarget.style.background = 'var(--vscode-button-secondaryHoverBackground)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.opacity = '0.6';
+                e.currentTarget.style.background = 'transparent';
+              }}
+            >
+              <Undo2 size={12} />
+              <span>回退</span>
+            </button>
+          )}
         </div>
       )}
 
