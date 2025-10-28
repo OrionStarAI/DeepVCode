@@ -822,10 +822,23 @@ export const useMultiSessionState = () => {
           return { ...prev, sessions: newSessions };
         }
 
+        // 🎯 清理历史消息的临时状态字段
+        const cleanedMessages = messages.map(msg => {
+          if (msg.type === 'assistant') {
+            return {
+              ...msg,
+              isStreaming: false,  // 清除流式状态
+              isProcessingTools: false,  // 清除工具处理状态
+              toolsCompleted: true  // 标记工具已完成
+            };
+          }
+          return msg;
+        });
+
         const newSessions = new Map(prev.sessions);
         const updatedSessionData = {
           ...sessionData,
-          messages: messages,
+          messages: cleanedMessages,  // 使用清理后的消息
           // 🎯 Session恢复时，设置lastAcceptedMessageId为最后一条消息，确保diff状态为空
           lastAcceptedMessageId: messages.length > 0 ? messages[messages.length - 1].id : null,
           isLoading: false, // 🎯 恢复消息完成后重置loading状态
