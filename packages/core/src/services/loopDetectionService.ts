@@ -78,7 +78,7 @@ async function callGeminiLoopDetectionAPI(
   }, 'json_generation');
 
   console.log(`[LoopDetection] Loop detection completed successfully`);
-  
+
   return response;
 }
 
@@ -99,6 +99,7 @@ export class LoopDetectionService {
   private contentStats = new Map<string, number[]>();
   private lastContentIndex = 0;
   private loopDetected = false;
+  private detectedLoopType: LoopType | null = null; // Track which type of loop was detected
 
   // LLM loop track tracking
   private turnsInCurrentPrompt = 0;
@@ -174,6 +175,7 @@ export class LoopDetectionService {
       this.toolCallRepetitionCount = 1;
     }
     if (this.toolCallRepetitionCount >= TOOL_CALL_LOOP_THRESHOLD) {
+      this.detectedLoopType = LoopType.CONSECUTIVE_IDENTICAL_TOOL_CALLS;
       logLoopDetected(
         this.config,
         new LoopDetectedEvent(
@@ -254,6 +256,7 @@ export class LoopDetectionService {
       const chunkHash = createHash('sha256').update(currentChunk).digest('hex');
 
       if (this.isLoopDetectedForChunk(currentChunk, chunkHash)) {
+        this.detectedLoopType = LoopType.CHANTING_IDENTICAL_SENTENCES;
         logLoopDetected(
           this.config,
           new LoopDetectedEvent(
@@ -279,6 +282,50 @@ export class LoopDetectionService {
   }
 
   /**
+   * Checks if a chunk contains meaningful content.
+   * Filters out pure whitespace, symbols, and formatting-only chunks.
+   */
+  private hasSignificantContent(chunk: string): boolean {
+    const trimmed = chunk.trim();
+
+    if (trimmed.length < 15) {
+      return false;
+    }
+
+    if (/^[\s\-=*_+|#.`]+$/.test(chunk)) {
+      return false;
+    }
+
+    if (/^[\s\t\n\r]*$/.test(chunk)) {
+      return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Identifies common patterns that are likely to repeat naturally:
+   * - List items
+   * - Variable/function definitions
+   * - Common phrases
+   * - Code comments
+   * - JSON fields
+   */
+  private isCommonPattern(chunk: string): boolean {
+    const commonPatterns = [
+      /^[\s]*[-•*]\s+/,
+      /^[\s]*(const|let|var|function|def|class|if|else|for|while)\s+/i,
+      /^(Let me|I'll|I can|Here's|To |Please|Thanks|Note|import|from)\s+/i,
+      /^[\s]*\/\//,
+      /^[\s]*#/,
+      /^[\s]*"(id|name|email|status|type|value|key|data|message|error|result|code)"\s*:/i,
+      /^\s*\|\s+/,
+    ];
+
+    return commonPatterns.some((p) => p.test(chunk));
+  }
+
+  /**
    * Determines if a content chunk indicates a loop pattern.
    *
    * Loop detection logic:
@@ -289,6 +336,11 @@ export class LoopDetectionService {
    *    within a small average distance (≤ 1.5 * chunk size)
    */
   private isLoopDetectedForChunk(chunk: string, hash: string): boolean {
+    // Filter out chunks with no meaningful content
+    if (!this.hasSignificantContent(chunk)) {
+      return false;
+    }
+
     const existingIndices = this.contentStats.get(hash);
 
     if (!existingIndices) {
@@ -311,7 +363,14 @@ export class LoopDetectionService {
     const totalDistance =
       recentIndices[recentIndices.length - 1] - recentIndices[0];
     const averageDistance = totalDistance / (CONTENT_LOOP_THRESHOLD - 1);
-    const maxAllowedDistance = CONTENT_CHUNK_SIZE * 1.5;
+
+    // Use adaptive distance threshold based on chunk type
+    let maxAllowedDistance = CONTENT_CHUNK_SIZE * 3;
+
+    if (this.isCommonPattern(chunk)) {
+      // Common patterns require larger distance to avoid false positives
+      maxAllowedDistance = CONTENT_CHUNK_SIZE * 5;
+    }
 
     return averageDistance <= maxAllowedDistance;
   }
@@ -383,6 +442,7 @@ Please analyze the conversation history to determine the possibility that the co
         if (typeof result.reasoning === 'string' && result.reasoning) {
           console.warn(result.reasoning);
         }
+        this.detectedLoopType = LoopType.LLM_DETECTED_LOOP;
         logLoopDetected(
           this.config,
           new LoopDetectedEvent(LoopType.LLM_DETECTED_LOOP, this.promptId),
@@ -408,6 +468,7 @@ Please analyze the conversation history to determine the possibility that the co
     this.resetContentTracking();
     this.resetLlmCheckTracking();
     this.loopDetected = false;
+    this.detectedLoopType = null;
   }
 
   private resetToolCallCount(): void {
@@ -427,5 +488,12 @@ Please analyze the conversation history to determine the possibility that the co
     this.turnsInCurrentPrompt = 0;
     this.llmCheckInterval = DEFAULT_LLM_CHECK_INTERVAL;
     this.lastCheckTurn = 0;
+  }
+
+  /**
+   * Returns the type of loop detected, if any.
+   */
+  getDetectedLoopType(): LoopType | null {
+    return this.detectedLoopType;
   }
 }
