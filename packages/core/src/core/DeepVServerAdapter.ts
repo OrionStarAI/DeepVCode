@@ -15,6 +15,7 @@ import {
 } from '@google/genai';
 import { stripUIFieldsFromArray } from '../types/extendedContent.js';
 import { ContentGenerator } from './contentGenerator.js';
+import { Config } from '../config/config.js';
 import { UserTierId } from '../code_assist/types.js';
 import { proxyAuthManager } from './proxyAuth.js';
 import { getActiveProxyServerUrl } from '../config/proxyConfig.js';
@@ -35,8 +36,13 @@ import { getGlobalDispatcher } from 'undici';
 export class DeepVServerAdapter implements ContentGenerator {
   public userTier?: UserTierId;
   private authHandler: (() => Promise<void>) | null = null;
+  private config?: Config;
 
-  constructor(region: string, projectId: string, proxyServerUrl?: string) {
+  constructor(region: string, projectId: string, proxyServerUrl?: string, config?: Config) {
+    // 保存 Config 引用用于模型回退
+    this.config = config;
+
+    // NOTE: region and projectId parameters are legacy, no longer used after switching to proxy-based architecture
     // 使用硬编码的代理服务器URL，用户无需配置
     const finalProxyUrl = proxyServerUrl || getActiveProxyServerUrl();
     proxyAuthManager.configure({ proxyServerUrl: finalProxyUrl });
@@ -94,7 +100,22 @@ export class DeepVServerAdapter implements ContentGenerator {
     try {
       // 1. 构建统一的GenAI格式请求
       const sceneModel = SceneManager.getModelForScene(scene);
-      const modelToUse = request.model || sceneModel || 'auto';
+      const userModel = this.config?.getModel();
+
+      // 模型解析优先级：request.model > sceneModel > userModel > 'auto'
+      // 这样固定值场景（如 'gemini-2.5-flash'）会优先，'auto' 场景会回退到用户模型
+      const modelToUse = request.model || sceneModel || userModel || 'auto';
+
+      // 详细的模型决策日志 - 帮助验证改动是否正向
+      console.log(`[🎯 Model Resolution] Scene: ${scene}`);
+      console.log(`   1️⃣  request.model: ${request.model || '(not set)'}`);
+      console.log(`   2️⃣  sceneModel: ${sceneModel}`);
+      console.log(`   3️⃣  userModel: ${userModel || '(not set)'}`);
+      console.log(`   ➡️  Final model: ${modelToUse}`);
+
+      if (modelToUse !== sceneModel) {
+        console.log(`   ✅ Using ${modelToUse} instead of scene default ${sceneModel}`);
+      }
 
       const unifiedRequest = {
         model: modelToUse,
@@ -116,7 +137,13 @@ export class DeepVServerAdapter implements ContentGenerator {
       logger.info('[DeepV Server] Calling unified chat API', {
         model: modelToUse,
         scene,
-        endpoint: '/v1/chat/messages'
+        endpoint: '/v1/chat/messages',
+        modelDecision: {
+          requestModel: request.model,
+          sceneModel,
+          userModel,
+          selectedModel: modelToUse
+        }
       });
 
       // 2. 统一API调用 - 服务端处理所有模型差异
@@ -295,6 +322,7 @@ export class DeepVServerAdapter implements ContentGenerator {
     const isCloudMode = process.env.DEEPV_CLOUD_MODE === 'true';
 
     if (isCloudMode) {
+      console.log(`[📡 Streaming Decision] Cloud mode: Using non-stream API for ${scene}`);
       logger.info('[DeepV Server] 云模式下禁用SSE流式传输，使用非流式API', { model: request.model });
       return this._generateContent(request, scene);
     }
@@ -306,9 +334,11 @@ export class DeepVServerAdapter implements ContentGenerator {
     if (request.model === 'claude-sonnet-4@20250514' ||
         request.model === 'claude-sonnet-4-5@20250929' ||
         request.model === 'claude-haiku-4-5@20251001') {
+      console.log(`[📡 Streaming Decision] Model ${request.model} supports SSE streaming for ${scene}`);
       return this._generateContentStream(request, scene);
     } else {
       // 其他模型将非流式响应包装为流式格式
+      console.log(`[📡 Streaming Decision] Model ${request.model || '(auto)'} does not support SSE streaming, wrapping non-stream response for ${scene}`);
       return this._generateContent(request, scene);
     }
   }
@@ -328,7 +358,22 @@ export class DeepVServerAdapter implements ContentGenerator {
     try {
       // 构建流式请求
       const sceneModel = SceneManager.getModelForScene(scene);
-      const modelToUse = request.model || sceneModel || 'auto';
+      const userModel = this.config?.getModel();
+
+      // 模型解析优先级：request.model > sceneModel > userModel > 'auto'
+      // 这样固定值场景（如 'gemini-2.5-flash'）会优先，'auto' 场景会回退到用户模型
+      const modelToUse = request.model || sceneModel || userModel || 'auto';
+
+      // 详细的模型决策日志 - 帮助验证改动是否正向
+      console.log(`[🎯 Model Resolution (Stream)] Scene: ${scene}`);
+      console.log(`   1️⃣  request.model: ${request.model || '(not set)'}`);
+      console.log(`   2️⃣  sceneModel: ${sceneModel}`);
+      console.log(`   3️⃣  userModel: ${userModel || '(not set)'}`);
+      console.log(`   ➡️  Final model: ${modelToUse}`);
+
+      if (modelToUse !== sceneModel) {
+        console.log(`   ✅ Using ${modelToUse} instead of scene default ${sceneModel}`);
+      }
 
       const streamRequest = {
         model: modelToUse,
@@ -351,7 +396,13 @@ export class DeepVServerAdapter implements ContentGenerator {
       logger.info('[DeepV Server] Starting stream request', {
         model: streamRequest.model,
         scene,
-        endpoint: '/v1/chat/stream'
+        endpoint: '/v1/chat/stream',
+        modelDecision: {
+          requestModel: request.model,
+          sceneModel,
+          userModel,
+          selectedModel: modelToUse
+        }
       });
 
       // 调用流式API（错误处理已在callStreamAPI中统一处理）

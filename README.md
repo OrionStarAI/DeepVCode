@@ -65,6 +65,13 @@ npm run package          # 打包为 .vsix 文件
 - 🧩 **使用 dvcode 自我开发，效果最佳，因为项目内有DEEPV.md为模型约定了开发规范。由 dvcode的斜杠命令 /init 生成，可定义重新执行。推荐用Haiku4.5模型生成。
 ---
 
+## 📄 白皮书
+
+深入了解 DeepV Code 的架构设计、核心能力和技术创新：
+- 📖 **[DeepV Code 白皮书](./DeepV_Code_Whitepaper.md)** - 完整的产品和技术文档
+
+---
+
 ## 🤝 一起构建未来
 
 💬 **DeepV Code** 相信：
