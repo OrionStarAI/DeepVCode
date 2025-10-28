@@ -434,9 +434,10 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           );
 
           // ✨ 新增：保存完整的文件内容和语言到节点中
-          if (fileReferenceNode instanceof Object && 'setFileContent' in fileReferenceNode) {
-            (fileReferenceNode as any).setFileContent(textData.content, textData.language);
-          }
+          fileReferenceNode.setFileContent(textData.content, textData.language);
+
+          console.log(`🔍 [DEBUG] 设置文件内容: ${result.fileName}, contentLength: ${textData.content.length}, language: ${textData.language}`);
+          console.log(`🔍 [DEBUG] 节点内容验证: ${fileReferenceNode.__fileContent?.length || 0} chars`);
 
           selection.insertNodes([fileReferenceNode]);
 
@@ -635,8 +636,11 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         if ($isFileReferenceNode(node)) {
           // 文件引用节点 - 直接处理，不递归子节点
           // ✨ 新增：检查是否有嵌入的文件内容
+          console.log(`🔍 [DEBUG] FileReferenceNode: ${node.__fileName}, hasContent: ${!!node.__fileContent}, contentLength: ${node.__fileContent?.length || 0}`);
+
           if (node.__fileContent) {
             // 有完整内容（来自文本文件上传）
+            console.log(`✅ [DEBUG] 使用 text_file_content 类型: ${node.__fileName}`);
             rawContent.push({
               type: 'text_file_content',
               value: {
@@ -648,6 +652,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             });
           } else {
             // 无内容（来自项目文件引用）
+            console.log(`⚠️ [DEBUG] 使用 file_reference 类型: ${node.__fileName}`);
             rawContent.push({
               type: 'file_reference',
               value: {
