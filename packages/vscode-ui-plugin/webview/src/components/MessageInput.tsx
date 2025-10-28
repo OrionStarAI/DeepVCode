@@ -26,8 +26,9 @@ import { DragDropPlugin } from './MessageInput/plugins/DragDropPlugin';
 import { ClipboardPlugin } from './MessageInput/plugins/ClipboardPlugin';
 import { FileAutocompletePlugin } from './MessageInput/plugins/FileAutocompletePlugin';
 import { EditorRefPlugin } from './MessageInput/plugins/EditorRefPlugin';
-import { FileUploadButton } from './MessageInput/components/FileUploadButton';
+import { UnifiedFileUploadButton } from './MessageInput/components/UnifiedFileUploadButton';
 import { ImageReference, resetImageCounter } from './MessageInput/utils/imageProcessor';
+import { FileUploadResult, FileType } from './MessageInput/utils/fileTypes';
 
 import './MessageInput/MessageInput.css';
 
@@ -226,7 +227,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   // 🎯 检查并自动扩展容器高度（撰写模式）
   const checkAndAutoExpand = () => {
     console.log('🔍 checkAndAutoExpand 被调用');
-    
+
     if (isResizing) {
       console.log('⏸️ 正在调整大小，跳过');
       return;
@@ -400,9 +401,53 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     }
   };
 
-  // 🎯 处理图片上传
-  const handleImageUploaded = (imageData: ImageReference) => {
-    insertImageReferenceNode(imageData);
+  // 🎯 处理统一的文件上传（图片、代码、Markdown）
+  const handleFileSelected = (result: FileUploadResult) => {
+    if (!editorRef.current) {
+      console.error('编辑器引用不可用');
+      return;
+    }
+
+    if (result.type === FileType.IMAGE && result.imageData) {
+      // 处理图片文件
+      const imageRef: ImageReference = {
+        id: result.id,
+        fileName: result.fileName,
+        data: result.imageData.data,
+        mimeType: result.imageData.mimeType,
+        originalSize: result.imageData.originalSize,
+        compressedSize: result.imageData.compressedSize,
+        width: result.imageData.width,
+        height: result.imageData.height,
+      };
+      insertImageReferenceNode(imageRef);
+    } else if (result.type === FileType.TEXT && result.textData) {
+      // 处理文本文件（代码 + Markdown）
+      const textData = result.textData;
+      editorRef.current.update(() => {
+        const selection = $getSelection();
+        if ($isRangeSelection(selection)) {
+          // 插入文件引用节点
+          const fileReferenceNode = $createFileReferenceNode(
+            result.fileName,
+            result.fileName // 对于文本文件，使用文件名作为路径的标识
+          );
+
+          // ✨ 新增：保存完整的文件内容和语言到节点中
+          if (fileReferenceNode instanceof Object && 'setFileContent' in fileReferenceNode) {
+            (fileReferenceNode as any).setFileContent(textData.content, textData.language);
+          }
+
+          selection.insertNodes([fileReferenceNode]);
+
+          // 在文件引用后添加空格
+          const spaceNode = $createTextNode(' ');
+          fileReferenceNode.insertAfter(spaceNode);
+
+          console.log(`✅ 文本文件已插入: ${result.fileName}${textData.language ? ` (${textData.language})` : ''}`);
+        }
+      });
+    }
   };
 
   // 🎯 在上传前聚焦编辑器
@@ -589,13 +634,28 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       const collectRawStructure = (node: any) => {
         if ($isFileReferenceNode(node)) {
           // 文件引用节点 - 直接处理，不递归子节点
-          rawContent.push({
-            type: 'file_reference',
-            value: {
-              fileName: node.__fileName,
-              filePath: node.__filePath
-            }
-          });
+          // ✨ 新增：检查是否有嵌入的文件内容
+          if (node.__fileContent) {
+            // 有完整内容（来自文本文件上传）
+            rawContent.push({
+              type: 'text_file_content',
+              value: {
+                fileName: node.__fileName,
+                content: node.__fileContent,
+                language: node.__language,
+                size: node.__fileContent.length
+              }
+            });
+          } else {
+            // 无内容（来自项目文件引用）
+            rawContent.push({
+              type: 'file_reference',
+              value: {
+                fileName: node.__fileName,
+                filePath: node.__filePath
+              }
+            });
+          }
         } else if ($isImageReferenceNode(node)) {
           // 图片引用节点 - 直接处理，不递归子节点
           rawContent.push({
@@ -630,7 +690,8 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     const hasContent = rawContent.some(part =>
       (part.type === 'text' && part.value.trim()) ||
       part.type === 'file_reference' ||
-      part.type === 'image_reference'
+      part.type === 'image_reference' ||
+      part.type === 'text_file_content'  // ✨ 新增：包含文本文件内容
     );
 
     if (hasContent && !isLoading && !isProcessing) {
@@ -836,9 +897,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
           {/* 右侧：上传按钮和发送按钮 */}
           <div className="input-actions">
-            {/* 图片上传按钮 */}
-            <FileUploadButton
-              onImageSelected={handleImageUploaded}
+            {/* 统一文件上传按钮（图片、代码、Markdown） */}
+            <UnifiedFileUploadButton
+              onFileSelected={handleFileSelected}
               onBeforeUpload={handleBeforeUpload}
               disabled={isLoading || isProcessing}
             />

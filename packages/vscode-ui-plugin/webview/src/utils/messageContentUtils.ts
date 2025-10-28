@@ -36,6 +36,8 @@ export function assembleForDisplay(content: MessageContent): string {
         return `@[${part.value.fileName}]`;
       case 'image_reference':
         return `[IMAGE:${part.value.fileName}]`;
+      case 'text_file_content':  // ✨ 新增：显示上传的文本文件
+        return `@[${part.value.fileName}]`;
       default:
         return '';
     }
@@ -71,6 +73,9 @@ export function assembleForLLM(content: MessageContent): {
       case 'image_reference':
         textParts.push(`[IMAGE:${part.value.fileName}]`);
         images.push(part.value);
+        break;
+      case 'text_file_content':  // ✨ 新增：处理上传的文本文件
+        textParts.push(`@[${part.value.fileName}]`);
         break;
     }
   });
