@@ -70,6 +70,7 @@ export async function convertMessageContentToParts(
         }
       } else if (item.type === 'text_file_content') {  // ✨ 新增：直接嵌入的文本文件内容
         // 直接使用嵌入的内容，不需要文件系统访问
+        console.log(`✅ [Extension] 处理 text_file_content: ${item.value.fileName}, contentLength: ${item.value.content?.length || 0}`);
         const fileInfo = `--- File: ${item.value.fileName}${item.value.language ? ` (${item.value.language})` : ''} ---`;
         allParts.push({ text: fileInfo });
         allParts.push({ text: item.value.content });
