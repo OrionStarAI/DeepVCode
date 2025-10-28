@@ -284,6 +284,7 @@ export class LoopDetectionService {
   /**
    * Checks if a chunk contains meaningful content.
    * Filters out pure whitespace, symbols, and formatting-only chunks.
+   * Handles both ASCII and Unicode symbols (including Chinese box-drawing characters).
    */
   private hasSignificantContent(chunk: string): boolean {
     const trimmed = chunk.trim();
@@ -292,11 +293,19 @@ export class LoopDetectionService {
       return false;
     }
 
-    if (/^[\s\-=*_+|#.`]+$/.test(chunk)) {
+    // Filter pure whitespace/newlines
+    if (/^[\s\t\n\r]*$/.test(chunk)) {
       return false;
     }
 
-    if (/^[\s\t\n\r]*$/.test(chunk)) {
+    // Filter ASCII symbols and common formatting characters
+    if (/^[\s\-=*_+|#.`\/\\~]+$/.test(chunk)) {
+      return false;
+    }
+
+    // Filter Unicode box-drawing and border characters (Chinese/Japanese style)
+    // Includes: ─ ═ ━ │ ║ ┌ ┐ └ ┘ ├ ┤ ┬ ┴ ┼ etc.
+    if (/^[\s\u2500-\u257F┌┐└┘├┤┬┴┼]+$/.test(chunk)) {
       return false;
     }
 
@@ -310,6 +319,7 @@ export class LoopDetectionService {
    * - Common phrases
    * - Code comments
    * - JSON fields
+   * - Table structures (pipes, dashes, etc.)
    */
   private isCommonPattern(chunk: string): boolean {
     const commonPatterns = [
@@ -320,9 +330,24 @@ export class LoopDetectionService {
       /^[\s]*#/,
       /^[\s]*"(id|name|email|status|type|value|key|data|message|error|result|code)"\s*:/i,
       /^\s*\|\s+/,
+      /\|\s*---\s*\|/,
+      /\|\s*\d+[\d,.]*/,
+      /\|\s*[一-龥]+\s*\|/,
     ];
 
     return commonPatterns.some((p) => p.test(chunk));
+  }
+
+  /**
+   * Detects if a chunk is part of a table structure.
+   * Table rows have multiple pipe characters and often contain numbers or aligned text.
+   */
+  private isTableContent(chunk: string): boolean {
+    const pipeCount = (chunk.match(/\|/g) || []).length;
+    const hasTableStructure =
+      pipeCount >= 2 || /\|\s*---+\s*\|/.test(chunk) || /\|\s*\d+[\d,.]*\s*\|/.test(chunk);
+
+    return hasTableStructure;
   }
 
   /**
@@ -367,7 +392,11 @@ export class LoopDetectionService {
     // Use adaptive distance threshold based on chunk type
     let maxAllowedDistance = CONTENT_CHUNK_SIZE * 3;
 
-    if (this.isCommonPattern(chunk)) {
+    if (this.isTableContent(chunk)) {
+      // Table content has even more natural repetition due to row structure
+      // Require much larger distance to avoid false positives
+      maxAllowedDistance = CONTENT_CHUNK_SIZE * 10;
+    } else if (this.isCommonPattern(chunk)) {
       // Common patterns require larger distance to avoid false positives
       maxAllowedDistance = CONTENT_CHUNK_SIZE * 5;
     }
