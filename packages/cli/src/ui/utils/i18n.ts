@@ -475,7 +475,7 @@ export const translations = {
     'auth.deepvlab.browser.url': 'If the browser doesn\'t open automatically, please visit: {url}',
     'auth.deepvlab.cancel.hint': 'Press ESC to cancel authentication',
     'auth.deepvlab.cancelled': 'Authentication cancelled',
-    'auth.option.deepvlab': 'DeepVlab Unified Login',
+    'auth.option.deepvlab': 'Press Enter to sign in to DeepV Code',
 
     // Welcome and Dialog Messages
     'welcome.title': '🎉 Welcome to DeepV Code! ✨',
@@ -1393,7 +1393,7 @@ export const translations = {
     'auth.deepvlab.server.error': '❌ DeepVlab认证启动失败：{error}',
     'auth.deepvlab.page.title': 'DeepVlab认证成功',
     'auth.deepvlab.page.success': '✅ DeepVlab认证成功！',
-    'auth.option.deepvlab': 'DeepVlab统一登录',
+    'auth.option.deepvlab': '按回车键，以便登录DeepV Code',
     'welcome.title': '🎉 欢迎使用 DeepV Code！✨',
     'welcome.subtitle': '🚀 开启您的智能编程之旅 💻',
     'welcome.daily.tip.title': '每日技巧',
