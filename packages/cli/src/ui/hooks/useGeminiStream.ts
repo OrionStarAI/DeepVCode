@@ -64,7 +64,183 @@ import {
   TrackedCancelledToolCall,
 } from './useReactToolScheduler.js';
 import { useSessionStats } from '../contexts/SessionContext.js';
+import { SceneType } from 'deepv-code-core';
 // TaskStateManager 已移除，直接基于现有状态判断
+
+/**
+ * 格式化工具调用信息为可读文本
+ * @param toolCalls 工具调用数组
+ * @returns 格式化后的文本
+ */
+function formatToolCallsForSummary(toolCalls: TrackedToolCall[]): string {
+  const successCalls = toolCalls.filter(tc => tc.status === 'success');
+
+  if (successCalls.length === 0) {
+    return '执行了代码编辑操作';
+  }
+
+  // 按操作类型分组
+  const replaces: string[] = [];
+  const creates: string[] = [];
+  const deletes: string[] = [];
+  const others: string[] = [];
+
+  for (const call of successCalls) {
+    const toolName = call.request?.name || ('tool' in call ? call.tool?.name : '') || '未知工具';
+    const args = call.request?.args || {};
+    const filePath = args.file_path as string || '';
+    const fileName = filePath.split(/[/\\]/).pop() || '';
+
+    // 根据工具类型分类
+    if (toolName === 'replace') {
+      replaces.push(fileName);
+    } else if (toolName === 'write_file') {
+      creates.push(fileName);
+    } else if (toolName === 'delete_file') {
+      deletes.push(fileName);
+    } else {
+      others.push(toolName);
+    }
+  }
+
+  // 获取文件类型描述
+  const getFileType = (name: string): string => {
+    const ext = name.split('.').pop()?.toLowerCase() || '';
+    const typeMap: Record<string, string> = {
+      'ts': 'TS', 'tsx': 'TSX', 'js': 'JS', 'jsx': 'JSX',
+      'py': 'Python', 'java': 'Java', 'cpp': 'C++', 'c': 'C',
+      'go': 'Go', 'rs': 'Rust', 'md': 'MD', 'json': 'JSON',
+      'yaml': 'YAML', 'yml': 'YAML', 'html': 'HTML',
+      'css': 'CSS', 'scss': 'SCSS', 'sql': 'SQL',
+    };
+    return typeMap[ext] || ext.toUpperCase();
+  };
+
+  const parts: string[] = [];
+
+  // 修改文件
+  if (replaces.length > 0) {
+    if (replaces.length === 1) {
+      parts.push(`修改${getFileType(replaces[0])}文件${replaces[0]}`);
+    } else {
+      const fileList = replaces.map(n => `${n}`).join(',');
+      parts.push(`修改${replaces.length}个文件(${fileList})`);
+    }
+  }
+
+  // 创建文件
+  if (creates.length > 0) {
+    if (creates.length === 1) {
+      parts.push(`创建${getFileType(creates[0])}文件${creates[0]}`);
+    } else {
+      const fileList = creates.map(n => `${n}`).join(',');
+      parts.push(`创建${creates.length}个文件(${fileList})`);
+    }
+  }
+
+  // 删除文件
+  if (deletes.length > 0) {
+    if (deletes.length === 1) {
+      parts.push(`删除${deletes[0]}`);
+    } else {
+      parts.push(`删除${deletes.length}个文件(${deletes.join(',')})`);
+    }
+  }
+
+  // 其他操作
+  if (others.length > 0) {
+    parts.push(`执行${others.join(',')}`);
+  }
+
+  return parts.join('，');
+}
+
+/**
+ * 生成 Checkpoint 摘要
+ * 使用 Flash 模型生成 10 字摘要
+ * @param geminiClient GeminiClient 实例
+ * @param summarySource AI 文本回复或工具调用信息
+ * @returns 10字内的摘要，失败返回空字符串
+ */
+async function generateCheckpointSummary(
+  geminiClient: GeminiClient,
+  summarySource: string
+): Promise<string> {
+  const summaryPrompt = `分析以下内容，提取具体做了什么事情，必须包含项目或功能的具体名称，用专业研发术语说明(不超过10字)：
+
+示例：
+输入："我来为你创建一个完整的小蜜蜂单机游戏"
+输出：创建小蜜蜂游戏
+
+输入："好的，实现吧。我来优化登录模块的性能"
+输出：优化登录模块性能
+
+现在请总结：
+"${summarySource}"
+
+只返回总结，不要解释。`;
+
+  // 使用 Flash 模型（快速且成本低）
+  const models = ['gemini-2.5-flash'];
+
+  for (const model of models) {
+    try {
+      console.log(`[Checkpoint] Trying model: ${model}`);
+
+      // 5秒超时保护
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error('Summary generation timeout')), 5000);
+      });
+
+      const summaryPromise = (async () => {
+        const chat = await geminiClient.createTemporaryChat(
+          SceneType.CONTENT_SUMMARY,
+          model
+        );
+
+        const response = await chat.sendMessage(
+          { message: summaryPrompt },
+          `checkpoint-summary-${Date.now()}`,
+          SceneType.CONTENT_SUMMARY
+        );
+
+        // 从 response 中提取文本
+        // response.text 可能不存在，需要从 candidates 中获取
+        let summaryText = '';
+        if (response.text) {
+          summaryText = response.text;
+        } else if (response.candidates && response.candidates[0]?.content?.parts?.[0]?.text) {
+          summaryText = response.candidates[0].content.parts[0].text;
+        }
+
+        let summary = summaryText.trim();
+
+        // 限制 10 字
+        if (summary.length > 10) {
+          summary = summary.substring(0, 10);
+        }
+
+        return summary;
+      })();
+
+      // 等待摘要或超时
+      const summary = await Promise.race([summaryPromise, timeoutPromise]);
+
+      if (summary && summary.length > 0) {
+        console.log(`[Checkpoint] Summary successfully generated: "${summary}"`);
+        return summary;
+      }
+
+    } catch (error) {
+      console.error(`[Checkpoint] Model ${model} failed for summary generation:`, error);
+      // 继续尝试下一个模型
+    }
+  }
+
+  // 所有模型都失败
+  console.warn('[Checkpoint] All models failed, returning empty summary');
+  return '';
+}
 
 export function mergePartListUnions(list: PartListUnion[]): PartListUnion {
   const resultParts: PartListUnion = [];
@@ -132,6 +308,8 @@ export const useGeminiStream = (
   const checkpointCreationFailed = useRef(false);
   // 🎯 用于保存当前用户输入，供 checkpoint 创建时使用
   const currentUserQueryRef = useRef<string>('');
+  // 🎯 用于保存 AI 在调用工具前的文本回复，供 checkpoint 摘要使用
+  const aiTextBeforeToolsRef = useRef<string>('');
   const { startNewPrompt, getPromptCount } = useSessionStats();
   const logger = useLogger();
   const [gitService, setGitService] = useState<GitService | undefined>();
@@ -156,7 +334,140 @@ export const useGeminiStream = (
 
   // 简化：直接基于现有状态判断，无需中央状态管理
 
+  /**
+   * 在工具执行完成后创建 Checkpoint
+   */
+  const createCheckpointAfterTools = useCallback(async (completedToolCalls: TrackedToolCall[]) => {
+    if (!sessionManager || !gitService) return;
 
+    // 检查是否有文件修改工具
+    const fileModifyingToolNames = ['replace', 'write_file', 'delete_file'];
+    const hasFileModifyingTools = completedToolCalls.some(tc => {
+      const toolName = tc.request?.name || ('tool' in tc ? tc.tool?.name : '') || '';
+      return fileModifyingToolNames.includes(toolName);
+    });
+
+    if (!hasFileModifyingTools) {
+      return; // 没有文件修改工具，不创建 Checkpoint
+    }
+
+    // 避免同一次对话创建多个 Checkpoint
+    if (conversationCheckpointCreated.current || checkpointCreationFailed.current) {
+      return;
+    }
+
+    try {
+      // Check if Git service is available and not disabled
+      if (gitService.isGitDisabled()) {
+        console.log(`跳过 auto checkpoint: Git 服务不可用${gitService.getDisabledReason ? ` (${gitService.getDisabledReason()})` : ''}`);
+        return;
+      }
+
+      // 标记本次对话已创建 Checkpoint
+      conversationCheckpointCreated.current = true;
+      setIsCreatingCheckpoint(true);
+      onDebugMessage(t('checkpoint.creating'));
+
+      const now = Date.now();
+
+      // 创建 Git 快照
+      const createCommitWithTimeout = async () => {
+        return new Promise(async (resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error('Git commit 操作超时 (15秒)'));
+          }, 15000);
+
+          try {
+            const result = await gitService.createFileSnapshot(
+              `Checkpoint ${new Date(now).toLocaleString()} for session ${config.getSessionId()}`,
+            );
+            clearTimeout(timeout);
+            resolve(result);
+          } catch (error) {
+            clearTimeout(timeout);
+            reject(error);
+          }
+        });
+      };
+
+      let commitHash = await createCommitWithTimeout();
+
+      if (!commitHash) {
+        commitHash = await gitService.getCurrentCommitHash();
+      }
+
+      if (!commitHash) return;
+
+      // 获取用户最后一句话（保留用于显示）
+      let lastUserMessage = '初始会话';
+      if (currentUserQueryRef.current && currentUserQueryRef.current.trim().length > 0) {
+        lastUserMessage = currentUserQueryRef.current.trim();
+      } else if (history && history.length > 0) {
+        const recentUserMessage = [...history].reverse().find(msg =>
+          msg.type === 'user' && msg.text && msg.text.trim().length > 0
+        );
+        if (recentUserMessage && recentUserMessage.text) {
+          lastUserMessage = recentUserMessage.text.trim();
+        }
+      }
+
+      // 🎯 从 AI 文本回复生成摘要（优先），如果没有则从工具调用生成
+      let summarySource = aiTextBeforeToolsRef.current.trim();
+
+      // 如果 AI 没有文本回复，降级到工具调用信息
+      if (!summarySource || summarySource.length < 5) {
+        summarySource = formatToolCallsForSummary(completedToolCalls);
+      } else {
+        // 限制 AI 文本长度（前 200 字符）
+        summarySource = summarySource.substring(0, 200);
+      }
+
+      let summary = '';
+      try {
+        console.log('[Checkpoint] Starting summary generation from:', summarySource.substring(0, 50));
+        summary = await generateCheckpointSummary(geminiClient, summarySource);
+        console.log('[Checkpoint] Summary generated:', summary);
+      } catch (error) {
+        console.error('[Checkpoint] Failed to generate summary, continuing without it:', error);
+        summary = '';
+      }
+
+      const checkpointData = {
+        id: `checkpoint-${now}`,
+        timestamp: now,
+        timeString: new Date(now).toLocaleString('zh-CN', {
+          year: 'numeric', month: '2-digit', day: '2-digit',
+          hour: '2-digit', minute: '2-digit', second: '2-digit'
+        }),
+        lastUserMessage,
+        summary,
+        commitHash,
+        sessionId: config.getSessionId(),
+      };
+
+      await sessionManager.saveSessionCheckpoint(config.getSessionId(), checkpointData);
+
+      // 打印 Checkpoint 成功消息
+      addItem(
+        {
+          type: MessageType.INFO,
+          text: `\x1b[32m✅ ${tp('checkpoint.created.success', { checkpointId: checkpointData.id })}\x1b[0m`,
+        },
+        Date.now(),
+      );
+
+      onDebugMessage(
+        `✅ Checkpoint 创建完成: ${checkpointData.timeString} - "${summary || summarySource.substring(0, 30)}"`,
+      );
+    } catch (error) {
+      checkpointCreationFailed.current = true;
+      onDebugMessage(`❌ ${tp('checkpoint.created.failed', { error: getErrorMessage(error) })}`);
+      onDebugMessage(t('checkpoint.creation.skipped'));
+    } finally {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setIsCreatingCheckpoint(false);
+    }
+  }, [sessionManager, gitService, config, geminiClient, currentUserQueryRef, history, addItem, onDebugMessage]);
 
   const [toolCalls, originalScheduleToolCalls, markToolsAsSubmitted, handleConfirmationResponse] =
     useReactToolScheduler(
@@ -175,130 +486,14 @@ export const useGeminiStream = (
           await handleCompletedTools(
             completedToolCallsFromScheduler as TrackedToolCall[],
           );
+
+          // 🎯 在工具完成后创建 Checkpoint
+          await createCheckpointAfterTools(completedToolCallsFromScheduler as TrackedToolCall[]);
         }
       },
       config,
       setPendingHistoryItem,
       getPreferredEditor,
-              // 🎯 整批工具执行前统一回调 - 避免并发创建checkpoint
-        async (toolCall: {
-          callId: string;
-          tool: Tool;
-          args: Record<string, unknown>;
-        }) => {
-          if (!sessionManager) return;
-
-          // 🔍 外围判断：检查所有工具中是否有文件修改工具
-          const fileModifyingToolNames = ['replace', 'write_file', 'delete_file'];
-          const hasFileModifyingTools = fileModifyingToolNames.includes(toolCall.tool.name);
-
-          if (!hasFileModifyingTools) {
-            return; // 监听者决定：没有文件修改工具，不处理
-          }
-
-          // 🔍 避免同一次对话创建多个checkpoint或失败后重试
-          if (conversationCheckpointCreated.current || checkpointCreationFailed.current) {
-            return; // 本次对话已经创建过checkpoint或之前创建失败
-          }
-          try {
-            // Check if Git service is available and not disabled
-            if (!gitService || gitService.isGitDisabled()) {
-              console.log(`跳过 auto checkpoint: Git 服务不可用${gitService && gitService.getDisabledReason ? ` (${gitService.getDisabledReason()})` : ''}`);
-              return;
-            }
-            // 🔥 标记本次对话已创建checkpoint
-            conversationCheckpointCreated.current = true;
-            // 🎯 显示checkpoint创建提示
-            setIsCreatingCheckpoint(true);
-            onDebugMessage(t('checkpoint.creating'));
-
-            const now = Date.now();
-
-            // 添加超时机制 - 5秒超时
-            const createCommitWithTimeout = async () => {
-              return new Promise(async (resolve, reject) => {
-                const timeout = setTimeout(() => {
-                  reject(new Error('Git commit 操作超时 (15秒)'));
-                }, 15000);
-
-                try {
-                  const result = await gitService.createFileSnapshot(
-                    `Checkpoint ${new Date(now).toLocaleString()} for session ${config.getSessionId()}`,
-                  );
-                  clearTimeout(timeout);
-                  resolve(result);
-                } catch (error) {
-                  clearTimeout(timeout);
-                  reject(error);
-                }
-              });
-            };
-
-            let commitHash = await createCommitWithTimeout();
-
-            if (!commitHash) {
-              commitHash = await gitService.getCurrentCommitHash();
-            }
-
-            if (!commitHash) return;
-
-            // 🎯 获取用户最后一句话 - 优先使用当前正在处理的用户输入
-            let lastUserMessage = '初始会话';
-
-            // 优先使用当前正在处理的用户输入
-            if (currentUserQueryRef.current && currentUserQueryRef.current.trim().length > 0) {
-              lastUserMessage = currentUserQueryRef.current.trim();
-            } else if (history && history.length > 0) {
-              // 如果当前输入为空，则从历史记录中获取
-              const recentUserMessage = [...history].reverse().find(msg =>
-                msg.type === 'user' && msg.text && msg.text.trim().length > 0
-              );
-              if (recentUserMessage && recentUserMessage.text) {
-                lastUserMessage = recentUserMessage.text.trim();
-              }
-            }
-
-            const checkpointData = {
-              id: `checkpoint-${now}`,
-              timestamp: now,
-              timeString: new Date(now).toLocaleString('zh-CN', {
-                year: 'numeric', month: '2-digit', day: '2-digit',
-                hour: '2-digit', minute: '2-digit', second: '2-digit'
-              }),
-              lastUserMessage,
-              commitHash,
-              sessionId: config.getSessionId(),
-            };
-
-            await sessionManager.saveSessionCheckpoint(config.getSessionId(), checkpointData);
-
-            // 🎯 永久打印checkpoint成功消息到聊天记录
-            addItem(
-              {
-                type: MessageType.INFO,
-                text: `\x1b[32m✅ ${tp('checkpoint.created.success', { checkpointId: checkpointData.id })}\x1b[0m`,
-              },
-              Date.now(),
-            );
-
-            // 由于现在是单个工具调用，简化统计逻辑
-            const isFileModifyingTool = fileModifyingToolNames.includes(toolCall.tool.name);
-
-            onDebugMessage(
-              `✅ Checkpoint 创建完成 (${isFileModifyingTool ? '1' : '0'}/1 file-modifying tools): ${checkpointData.timeString} - "${lastUserMessage.substring(0, 50)}${lastUserMessage.length > 50 ? '...' : ''}"`,
-            );
-          } catch (error) {
-            // ⚠️ 创建失败时标记失败状态，本次对话不再重试
-            checkpointCreationFailed.current = true;
-            onDebugMessage(`❌ ${tp('checkpoint.created.failed', { error: getErrorMessage(error) })}`);
-            onDebugMessage(t('checkpoint.creation.skipped'));
-          } finally {
-
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            // 🎯 无论成功失败都要隐藏提示
-            setIsCreatingCheckpoint(false);
-          }
-        },
     );
 
   // Use the original scheduleToolCalls directly
@@ -650,6 +845,10 @@ export const useGeminiStream = (
         // Prevents additional output after a user initiated cancel.
         return '';
       }
+
+      // 🎯 累积 AI 的文本回复，用于 Checkpoint 摘要
+      aiTextBeforeToolsRef.current += eventValue;
+
       let newGeminiMessageBuffer = currentGeminiMessageBuffer + eventValue;
       if (
         pendingHistoryItemRef.current?.type !== 'gemini' &&
@@ -1083,6 +1282,8 @@ User question: ${typeof query === 'string' ? query : JSON.stringify(query)}`;
         checkpointCreationFailed.current = false;
         // 🔄 清除上一次的用户输入记录
         currentUserQueryRef.current = '';
+        // 🔄 清除上一次的 AI 文本回复记录
+        aiTextBeforeToolsRef.current = '';
       }
 
       abortControllerRef.current = new AbortController();
