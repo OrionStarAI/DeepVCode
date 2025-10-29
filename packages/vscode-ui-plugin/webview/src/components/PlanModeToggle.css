@@ -1,0 +1,82 @@
+/**
+ * Plan Mode Toggle Switch Styles
+ * 简洁的toggle switch，类似VSCode按钮
+ */
+
+/* Toggle Switch Button */
+.plan-mode-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 4px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background-color: transparent;
+  color: var(--vscode-foreground, #cccccc);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.plan-mode-toggle:hover:not(:disabled) {
+  background-color: var(--vscode-button-hoverBackground, rgba(255, 255, 255, 0.1));
+  border-color: var(--vscode-focusBorder, #007acc);
+}
+
+.plan-mode-toggle:active:not(:disabled) {
+  transform: scale(0.95);
+}
+
+.plan-mode-toggle:focus {
+  outline: none;
+  border-color: var(--vscode-focusBorder, #007acc);
+  background-color: var(--vscode-button-hoverBackground, rgba(255, 255, 255, 0.1));
+}
+
+.plan-mode-toggle:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Toggle Icon */
+.plan-mode-toggle .toggle-icon {
+  flex-shrink: 0;
+  transition: all 0.2s ease;
+  width: 16px;
+  height: 16px;
+}
+
+/* Active state - Plan mode enabled */
+.plan-mode-toggle.active {
+  background-color: rgba(78, 201, 176, 0.2);
+  border-color: #4ec9b0;
+}
+
+.plan-mode-toggle.active:hover:not(:disabled) {
+  background-color: rgba(78, 201, 176, 0.3);
+  border-color: #5fd9c3;
+}
+
+.plan-mode-toggle.active .toggle-icon {
+  color: #4ec9b0;
+}
+
+.plan-mode-toggle:not(.active) .toggle-icon {
+  color: var(--vscode-foreground, #cccccc);
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .plan-mode-toggle {
+    width: 28px;
+    height: 28px;
+  }
+
+  .plan-mode-toggle .toggle-icon {
+    width: 14px;
+    height: 14px;
+  }
+}

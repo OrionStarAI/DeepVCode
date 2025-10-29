@@ -21,6 +21,7 @@ import { LoginPage } from './LoginPage';
 import { LoadingScreen } from './LoadingScreen';
 import { UpdatePrompt } from './UpdatePrompt';
 import { MessageInputHandle } from './MessageInput';
+import { PlanModeNotification } from './PlanModeNotification';
 import { SessionType } from '../../../src/constants/sessionConstants';
 import { SessionInfo } from '../../../src/types/sessionTypes';
 import { MessageContent } from '../types/index';
@@ -41,7 +42,7 @@ import './MultiSessionApp.css';
 export const MultiSessionApp: React.FC = () => {
   const { t } = useTranslation();
   const [isInitialized, setIsInitialized] = useState(false);
-  
+
   // 🎯 MessageInput 的 ref，用于插入代码引用
   const messageInputRef = useRef<MessageInputHandle>(null);
 
@@ -63,6 +64,12 @@ export const MultiSessionApp: React.FC = () => {
   // 🎯 规则管理对话框状态
   const [isRulesManagementOpen, setIsRulesManagementOpen] = useState(false);
 
+  // 🎯 Plan模式通知状态
+  const [planModeNotification, setPlanModeNotification] = useState<{
+    visible: boolean;
+    blockedTools: string[];
+  }>({ visible: false, blockedTools: [] });
+
   const {
     state,
     createSession,
@@ -80,6 +87,7 @@ export const MultiSessionApp: React.FC = () => {
     updateMessageToolCalls,
     updateToolLiveOutput,
     abortCurrentProcess,
+    togglePlanMode, // 🎯 新增：Plan模式切换
     updateGlobalContext,
     updateSessionContext,
     setSessionLoading,
@@ -269,7 +277,7 @@ export const MultiSessionApp: React.FC = () => {
     // 🎯 监听插入代码到输入框（只插入，不自动发送）
     messageService.onInsertCodeToInput(({ fileName, filePath, code, startLine, endLine }) => {
       console.log('📝 [INSERT CODE] Received code to insert:', fileName, startLine, '-', endLine);
-      
+
       // 🎯 调用 MessageInput 的方法插入代码引用
       if (messageInputRef.current) {
         messageInputRef.current.insertCodeReference({
@@ -417,10 +425,67 @@ export const MultiSessionApp: React.FC = () => {
       // 🎯 优先使用明确关联的messageId，否则回退到当前处理中的消息
       // 使用ref获取最新状态，避免闭包问题
       const currentGetSession = getSessionRef.current;
-      const targetMessageId = associatedMessageId || currentGetSession(sessionId)?.currentProcessingMessageId;
+      const currentSession = currentGetSession(sessionId);
+      const targetMessageId = associatedMessageId || currentSession?.currentProcessingMessageId;
 
       if (targetMessageId) {
-        updateMessageToolCalls(sessionId, targetMessageId, toolCalls);
+        // 🎯 Plan模式下过滤工具 - 只允许只读工具执行
+        let filteredToolCalls = toolCalls;
+
+        if (currentSession?.isPlanMode) {
+          const readOnlyTools = new Set([
+            // 文件系统读取
+            'read_file',           // 读取文件
+            'read_many_files',     // 批量读取文件
+            'list_directory',      // 列出目录
+
+            // 搜索和分析
+            'search_file_content', // 搜索文件内容 (grep)
+            'glob',               // 文件查找
+            'read_lints',         // 读取linter信息
+
+            // 网络获取
+            'web_fetch',          // 获取网页内容
+            'google_web_search',  // 网页搜索
+
+            // 分析和规划工具
+            'task',               // 代码分析工具
+            'todo_write',         // 任务规划和管理 (内存操作，不修改文件)
+            'save_memory'         // 保存规划信息到AI记忆 (内存操作)
+          ]);
+
+          // 分离只读工具和修改性工具
+          const allowedToolCalls = toolCalls.filter(t => readOnlyTools.has(t.toolName));
+          const blockedToolCalls = toolCalls.filter(t => !readOnlyTools.has(t.toolName));
+
+          // 如果有被阻止的工具，标记为错误状态并显示通知
+          if (blockedToolCalls.length > 0) {
+            const blockedToolNames = blockedToolCalls.map(t => t.toolName);
+            console.warn(`🚫 [PLAN MODE] Blocked tools: ${blockedToolNames.join(', ')}`);
+
+            // 标记被阻止的工具为错误状态
+            blockedToolCalls.forEach(tool => {
+              tool.status = ToolCallStatus.Error;
+              tool.result = {
+                success: false,
+                error: `🚫 Plan mode has disabled this tool. Use /plan off to exit Plan mode and enable all tools.`,
+                executionTime: 0,
+                toolName: tool.toolName
+              };
+            });
+
+            // 🎯 显示通知而不是添加系统消息
+            setPlanModeNotification({
+              visible: true,
+              blockedTools: blockedToolNames
+            });
+          }
+
+          // 只处理允许的工具
+          filteredToolCalls = [...allowedToolCalls, ...blockedToolCalls];
+        }
+
+        updateMessageToolCalls(sessionId, targetMessageId, filteredToolCalls);
       } else {
         console.warn('⚠️ No target message found for tool calls update');
       }
@@ -630,8 +695,26 @@ export const MultiSessionApp: React.FC = () => {
     addMessage(sessionId, userMessage);
     setSessionLoading(sessionId, true);
 
+    // 🎯 Plan模式：添加AI提示注入
+    let messageContentToSend = content;
+    if (currentSession.isPlanMode) {
+      // 将消息内容转换为字符串以便添加提示
+      const contentStr = messageContentToString(content);
+      const planPrompt = `[PLAN MODE ACTIVE]
+The user is currently in Plan mode, focusing on requirements discussion and solution design. Please:
+1. You may use analytical tools: read_file, read_many_files, list_directory, search_file_content, glob, web_fetch, task, etc.
+2. Do NOT use modification tools: write_file, delete_file, replace, run_shell_command, lint_fix, etc.
+3. Focus on understanding requirements, discussing solutions, and designing architecture
+4. Provide detailed planning and recommendations, but do not perform modification operations
+5. If modification operations are needed, remind the user to first exit Plan mode
+
+User question: ${contentStr}`;
+
+      messageContentToSend = createTextMessageContent(planPrompt);
+    }
+
     // 发送到Extension
-    getGlobalMessageService().sendChatMessage(sessionId, content, userMessage.id);
+    getGlobalMessageService().sendChatMessage(sessionId, messageContentToSend, userMessage.id);
   };
 
 
@@ -1027,6 +1110,12 @@ export const MultiSessionApp: React.FC = () => {
               }}
               tokenUsage={currentSession.info.tokenUsage}     // 🎯 传入Token使用情况
               rollbackableMessageIds={currentSession.rollbackableMessageIds} // 🎯 传入可回滚消息ID列表
+              isPlanMode={currentSession.isPlanMode}          // 🎯 传入Plan模式状态
+              onTogglePlanMode={(enabled) => {                // 🎯 传入Plan模式切换回调
+                if (state.currentSessionId) {
+                  togglePlanMode(state.currentSessionId, enabled);
+                }
+              }}
             />
           ) : (
             <div className="multi-session-app__no-session">
@@ -1081,6 +1170,13 @@ export const MultiSessionApp: React.FC = () => {
           onCancel={() => hideConfirmationDialog()}
         />
       )} */}
+
+      {/* 🎯 Plan模式通知 */}
+      <PlanModeNotification
+        visible={planModeNotification.visible}
+        blockedTools={planModeNotification.blockedTools}
+        onDismiss={() => setPlanModeNotification({ visible: false, blockedTools: [] })}
+      />
 
       {/* 🎯 全局拖拽测试组件 - 恢复启用但非干扰模式 */}
       <DragDropGlobalTest enabled={false} />

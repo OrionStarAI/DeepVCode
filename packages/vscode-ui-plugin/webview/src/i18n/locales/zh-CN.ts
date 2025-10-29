@@ -75,6 +75,22 @@ export const zhCN: Translations = {
     editPlaceholder: '编辑你的消息...',
   },
 
+  plan: {
+    mode: {
+      label: '规划',
+      off: '关闭',
+      activeTooltip: '规划模式已激活 - 退出以修改代码',
+      inactiveTooltip: '启用规划模式 - 只读分析',
+      indicator: '规划模式 - 只读',
+      blockedToolsMessage: '🚫 规划模式 - 已禁用文件修改工具',
+      focusOnDesign: '当前专注于需求讨论和解决方案设计',
+      availableToolsInfo: '可用工具：文件读取、搜索分析、任务规划、网络获取',
+      useHintPrefix: '使用 ',
+      useHintCommand: '/plan off',
+      useHintSuffix: ' 来退出规划模式并启用所有工具',
+    },
+  },
+
   messages: {
     user: '用户',
     assistant: 'AI助手',

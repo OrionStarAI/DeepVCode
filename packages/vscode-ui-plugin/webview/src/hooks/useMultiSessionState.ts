@@ -81,6 +81,9 @@ interface SessionData {
 
   /** 加载状态 */
   isLoading: boolean;
+
+  /** 🎯 Plan模式 - 只讨论不改代码 */
+  isPlanMode: boolean;  // 是否在Plan模式（只读分析模式）
 }
 
 const initialState: MultiSessionAppState = {
@@ -159,6 +162,7 @@ export const useMultiSessionState = () => {
       currentProcessingMessageId: null,  // 🎯 无正在处理的消息
       canAbort: false,  // 🎯 初始不可中断
       isLoading: false,
+      isPlanMode: false,  // 🎯 初始不在Plan模式
     };
 
     updateState(prev => {
@@ -390,6 +394,7 @@ export const useMultiSessionState = () => {
         isProcessing: false,  // 🎯 重置处理状态
         currentProcessingMessageId: null,  // 🎯 清除正在处理的消息
         canAbort: false,  // 🎯 重置中断标志
+        isPlanMode: false,  // 🎯 重置Plan模式
         info: {
           ...sessionData.info,
           messageCount: 0,
@@ -927,6 +932,25 @@ export const useMultiSessionState = () => {
     updateMessageToolCalls,
     updateToolLiveOutput,
     abortCurrentProcess,
+
+    // 🎯 Plan模式管理
+    togglePlanMode: useCallback((sessionId: string, enabled: boolean) => {
+      updateState(prev => {
+        const sessionData = prev.sessions.get(sessionId);
+        if (!sessionData) return prev;
+
+        const newSessions = new Map(prev.sessions);
+        const updatedSessionData = {
+          ...sessionData,
+          isPlanMode: enabled,
+          info: { ...sessionData.info, lastActivity: Date.now() }
+        };
+        newSessions.set(sessionId, updatedSessionData);
+
+        console.log(`🎯 [PLAN-MODE] Session ${sessionId} Plan mode toggled to: ${enabled}`);
+        return { ...prev, sessions: newSessions };
+      });
+    }, [updateState]),
 
     // 上下文管理
     updateGlobalContext,
