@@ -43,6 +43,7 @@ export function UnifiedFileUploadButton({
         // 检查文件是否支持
         if (!isSupportedFile(file.name)) {
           console.warn(`⏭️  跳过不支持的文件: ${file.name}`);
+          alert(`⏭️ 跳过不支持的文件类型：${file.name}`);
           continue;
         }
 
@@ -54,11 +55,16 @@ export function UnifiedFileUploadButton({
           await new Promise(resolve => setTimeout(resolve, 100));
         } catch (error) {
           console.error(`❌ 处理失败: ${file.name}`, error);
+          // 🎯 显示友好的错误消息给用户
+          const errorMessage = error instanceof Error ? error.message : '未知错误';
+          alert(errorMessage);
           // 继续处理下一个文件，不中断流程
         }
       }
     } catch (error) {
       console.error('文件处理失败:', error);
+      const errorMessage = error instanceof Error ? error.message : '文件处理失败';
+      alert(`文件上传失败：${errorMessage}`);
     } finally {
       setIsProcessing(false);
       // 清空 input，允许重复选择相同文件
