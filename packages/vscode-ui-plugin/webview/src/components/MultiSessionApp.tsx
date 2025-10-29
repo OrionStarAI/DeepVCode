@@ -70,6 +70,9 @@ export const MultiSessionApp: React.FC = () => {
     blockedTools: string[];
   }>({ visible: false, blockedTools: [] });
 
+  // 🎯 BUG FIX: 保存加载超时ID，以便清理
+  const loadingTimeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+
   const {
     state,
     createSession,
@@ -128,6 +131,18 @@ export const MultiSessionApp: React.FC = () => {
     stateRef.current = state;
     getSessionRef.current = getSession;
   });
+
+  // 🎯 BUG FIX: 清理超时 - 当组件卸载时清除所有待处理的超时
+  useEffect(() => {
+    return () => {
+      // 清理所有待处理的加载超时
+      for (const timeoutId of loadingTimeoutsRef.current.values()) {
+        clearTimeout(timeoutId);
+      }
+      loadingTimeoutsRef.current.clear();
+      console.log('🧹 [CLEANUP] Cleared all loading timeouts');
+    };
+  }, []);
 
   /**
    * 🎯 处理session切换 - 合并所有切换逻辑
@@ -340,6 +355,13 @@ export const MultiSessionApp: React.FC = () => {
       // 🎯 重置加载状态 - AI开始响应时，用户的"发送中"状态应该结束
       setSessionLoading(sessionId, false);
 
+      // 🎯 BUG FIX: 清理超时，因为后端已经响应了
+      const timeout = loadingTimeoutsRef.current.get(sessionId);
+      if (timeout) {
+        clearTimeout(timeout);
+        loadingTimeoutsRef.current.delete(sessionId);
+      }
+
       // 创建一个新的AI消息占位符
       const streamingMessage: ChatMessage = {
         id: messageId,
@@ -390,6 +412,13 @@ export const MultiSessionApp: React.FC = () => {
       }
 
       setSessionLoading(sessionId, false);
+
+      // 🎯 BUG FIX: 清理超时
+      const timeout = loadingTimeoutsRef.current.get(sessionId);
+      if (timeout) {
+        clearTimeout(timeout);
+        loadingTimeoutsRef.current.delete(sessionId);
+      }
     });
 
     // 🚨 REMOVED: onChatResponse 监听器已移除
@@ -411,6 +440,13 @@ export const MultiSessionApp: React.FC = () => {
 
       addMessage(sessionId, errorMessage);
       setSessionLoading(sessionId, false);
+
+      // 🎯 BUG FIX: 清理超时
+      const timeout = loadingTimeoutsRef.current.get(sessionId);
+      if (timeout) {
+        clearTimeout(timeout);
+        loadingTimeoutsRef.current.delete(sessionId);
+      }
 
       // 清理可能存在的流式消息状态
       for (const [messageId, streamingMsg] of streamingMessages.current.entries()) {
@@ -694,6 +730,23 @@ export const MultiSessionApp: React.FC = () => {
 
     addMessage(sessionId, userMessage);
     setSessionLoading(sessionId, true);
+
+    // 🎯 BUG FIX: 添加超时保护，防止isLoading永远卡住
+    // 清除该session的任何已存在的超时
+    const existingTimeout = loadingTimeoutsRef.current.get(sessionId);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+    }
+
+    // 如果后端在5秒内没有响应，自动重置loading状态
+    const loadingTimeoutId = setTimeout(() => {
+      console.warn(`⏰ [TIMEOUT] Session ${sessionId} loading timeout after 5000ms, auto-resetting`);
+      setSessionLoading(sessionId, false);
+      loadingTimeoutsRef.current.delete(sessionId);
+    }, 5000);
+
+    // 🎯 BUG FIX: 保存超时ID以便后续清理
+    loadingTimeoutsRef.current.set(sessionId, loadingTimeoutId);
 
     // 🎯 Plan模式：添加AI提示注入
     let messageContentToSend = content;

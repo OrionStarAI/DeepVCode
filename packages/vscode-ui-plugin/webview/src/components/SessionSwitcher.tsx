@@ -232,13 +232,13 @@ export const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
    */
   const handleCloseSession = (e: React.MouseEvent, sessionId: string) => {
     e.stopPropagation(); // 阻止事件冒泡，避免触发tab切换
-    
+
     // 如果只剩一个session，不允许删除
     if (sessions.length <= 1) {
       console.warn('Cannot delete the last session');
       return;
     }
-    
+
     onSessionAction('delete', sessionId);
   };
 
@@ -301,19 +301,19 @@ export const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
               <span className="session-switcher__tab-title">
                 {getSessionDisplayTitle(session)}
               </span>
-              
+
               {/* 关闭按钮 */}
               {sessions.length > 1 && (
                 <button
                   className="session-switcher__tab-close"
                   onClick={(e) => handleCloseSession(e, session.id)}
                   title="关闭此会话"
-                  disabled={disabled}
+                  disabled={false}
                 >
                   <X size={12} stroke="currentColor" />
                 </button>
               )}
-              
+
               {/* 未使用session的视觉标识 */}
               {isSessionUnused && isSessionUnused(session.id) && (
                 <span className="session-switcher__tab-indicator">●</span>
