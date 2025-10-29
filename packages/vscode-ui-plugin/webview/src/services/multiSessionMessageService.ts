@@ -62,7 +62,7 @@ interface MultiSessionMessageFromExtension {
        // 🎯 插入代码到输入框（只插入，不自动发送）
        'insert_code_to_input' |
        // 🎯 剪贴板缓存响应
-       'clipboard_cache_response'
+       'clipboard_cache_response' |
        // 🎯 自定义规则管理
        'open_rules_management' |
        'rules_list_response' |
@@ -111,12 +111,11 @@ export interface MultiSessionMessageToExtension {
        'set_current_model' |
        'get_current_model' |
        // 🎯 剪贴板缓存请求（用于智能粘贴代码引用）
-       'request_clipboard_cache'
+       'request_clipboard_cache' |
        // 🎯 自定义规则管理
        'rules_list_request' |
        'rules_save' |
-       'rules_delete' |
-       'get_current_model';
+       'rules_delete';
   payload: Record<string, unknown> & {
     sessionId?: string; // 大部分消息都包含sessionId
   };
