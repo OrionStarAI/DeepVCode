@@ -113,12 +113,16 @@ export async function processFileToPartsList(
 ): Promise<FileProcessingResult> {
   const { fileName, filePath } = fileItem;
 
+  console.log(`🔍 [FileProcessor] 开始处理文件: ${fileName}, 路径: ${filePath}`);
+
   try {
     // 使用本地的文件类型检测
     const fileType = detectFileType(filePath);
+    console.log(`🔍 [FileProcessor] 文件类型: ${fileType}`);
 
     // 二进制文件直接跳过，不传给 LLM
     if (fileType === 'binary') {
+      console.warn(`⚠️ [FileProcessor] 二进制文件跳过: ${fileName}`);
       return {
         parts: [],
         skipped: true,
@@ -131,6 +135,7 @@ export async function processFileToPartsList(
     const result = await processSingleFileContent(filePath);
 
     if (result.error) {
+      console.error(`❌ [FileProcessor] 读取文件失败: ${fileName} - ${result.error}`);
       return {
         parts: [],
         skipped: true,
@@ -139,6 +144,8 @@ export async function processFileToPartsList(
       };
     }
 
+    console.log(`✅ [FileProcessor] 文件内容读取成功: ${fileName}, 长度: ${result.content.length} 字符`);
+
     const parts: Part[] = [];
 
     // 第一个 Part：文件信息说明
@@ -146,14 +153,17 @@ export async function processFileToPartsList(
       ? path.relative(workspaceRoot, filePath).replace(/\\/g, '/')
       : filePath;
 
+    const fileInfoText = `--- File: ${relativePath} ---\n\nThe following content is from the file "${fileName}" located at "${filePath}" (type: ${fileType}):`;
     parts.push({
-      text: `--- File: ${relativePath} ---\n\nThe following content is from the file "${fileName}" located at "${filePath}" (type: ${fileType}):`
+      text: fileInfoText
     });
 
     // 第二个 Part：文件内容
     parts.push({
       text: result.content
     });
+
+    console.log(`✅ [FileProcessor] 生成 ${parts.length} 个 parts，准备发送给 AI`);
 
     return {
       parts,
@@ -164,10 +174,12 @@ export async function processFileToPartsList(
     };
 
   } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
+    console.error(`❌ [FileProcessor] 处理文件时异常: ${fileName} - ${errorMsg}`);
     return {
       parts: [],
       skipped: true,
-      skipReason: error instanceof Error ? error.message : String(error),
+      skipReason: errorMsg,
       fileType: 'unknown'
     };
   }

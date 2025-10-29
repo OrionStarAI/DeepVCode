@@ -34,6 +34,12 @@ export async function convertMessageContentToParts(
   let imageParts = 0;
   let skippedFiles = 0;
 
+  // 🎯 调试：打印完整的 content 结构
+  console.log(`🔍 [MessageConverter] 开始转换消息内容，共 ${content.length} 个部分:`);
+  content.forEach((item, index) => {
+    console.log(`  [${index}] type: ${item.type}`, item.value);
+  });
+
   // 🎯 第一步：生成完整的拼装文本（用户意图的完整表达）
   const assembledText = content.map(item => {
     switch (item.type) {
@@ -50,6 +56,8 @@ export async function convertMessageContentToParts(
     }
   }).join('');
 
+  console.log(`🔍 [MessageConverter] 拼装后的文本: ${assembledText.substring(0, 200)}${assembledText.length > 200 ? '...' : ''}`);
+
   // 🎯 添加拼装后的完整文本作为第一个part
   if (assembledText.trim()) {
     allParts.push({ text: assembledText });
@@ -60,22 +68,26 @@ export async function convertMessageContentToParts(
   for (const item of content) {
     try {
       if (item.type === 'file_reference') {
+        console.log(`🔍 [MessageConverter] 处理 file_reference: ${item.value.fileName}, filePath: ${item.value.filePath}`);
         const result = await processFileToPartsList(item.value, workspaceRoot);
         if (result.skipped) {
+          console.warn(`⚠️ [MessageConverter] 文件跳过: ${item.value.fileName} - ${result.skipReason}`);
           warnings.push(`File skipped: ${item.value.fileName} - ${result.skipReason}`);
           skippedFiles++;
         } else {
+          console.log(`✅ [MessageConverter] 文件内容已添加: ${item.value.fileName}, ${result.parts.length} parts`);
           allParts.push(...result.parts);
           fileParts++;
         }
       } else if (item.type === 'text_file_content') {  // ✨ 新增：直接嵌入的文本文件内容
         // 直接使用嵌入的内容，不需要文件系统访问
-        console.log(`✅ [Extension] 处理 text_file_content: ${item.value.fileName}, contentLength: ${item.value.content?.length || 0}`);
+        console.log(`✅ [MessageConverter] 处理 text_file_content: ${item.value.fileName}, contentLength: ${item.value.content?.length || 0}`);
         const fileInfo = `--- File: ${item.value.fileName}${item.value.language ? ` (${item.value.language})` : ''} ---`;
         allParts.push({ text: fileInfo });
         allParts.push({ text: item.value.content });
         fileParts++;
       } else if (item.type === 'image_reference') {
+        console.log(`🔍 [MessageConverter] 处理 image_reference: ${item.value.fileName}`);
         const part = processImageToPart(item.value);
         allParts.push(part);
         imageParts++;
@@ -83,9 +95,12 @@ export async function convertMessageContentToParts(
       // text类型已经在第一步处理了，这里跳过
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`❌ [MessageConverter] 处理 ${item.type} 时出错:`, errorMessage);
       warnings.push(`Error processing ${item.type}: ${errorMessage}`);
     }
   }
+
+  console.log(`🔍 [MessageConverter] 转换完成: ${allParts.length} parts (text: ${textParts}, file: ${fileParts}, image: ${imageParts}, skipped: ${skippedFiles})`);
 
   return {
     parts: allParts,
