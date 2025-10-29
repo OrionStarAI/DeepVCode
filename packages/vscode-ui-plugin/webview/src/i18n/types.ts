@@ -73,6 +73,22 @@ export interface Translations {
     editPlaceholder: string;
   };
 
+  plan: {
+    mode: {
+      label: string;
+      off: string;
+      activeTooltip: string;
+      inactiveTooltip: string;
+      indicator: string;
+      blockedToolsMessage: string;
+      focusOnDesign: string;
+      availableToolsInfo: string;
+      useHintPrefix: string;
+      useHintCommand: string;
+      useHintSuffix: string;
+    };
+  };
+
   messages: {
     user: string;
     assistant: string;

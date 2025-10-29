@@ -49,6 +49,9 @@ interface ChatInterfaceProps {
   };
   // 🎯 新增：MessageInput ref（用于插入代码引用）
   messageInputRef?: React.RefObject<any>;
+  // 🎯 新增：Plan模式
+  isPlanMode?: boolean;         // 是否在Plan模式
+  onTogglePlanMode?: (enabled: boolean) => void;  // Plan模式切换回调
 }
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({
@@ -67,7 +70,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   onUpdateMessages,
   tokenUsage,
   rollbackableMessageIds = [],
-  messageInputRef
+  messageInputRef,
+  isPlanMode = false,
+  onTogglePlanMode
 }) => {
   const { t } = useTranslation();
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
@@ -265,7 +270,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     // 🎯 保留原用户消息，只删除助手回答及之后的所有消息
     // 这样用户消息保持不变（ID和内容都不变）
     const newMessages = messages.slice(0, userMessageIndex + 1); // 保留到用户消息（包含）
-    
+
     // 更新消息列表
     if (onUpdateMessages) {
       onUpdateMessages(newMessages);
@@ -510,7 +515,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
               return messages.map((message, index) => {
                 // 🎯 判断是否是最后一条助手消息
                 const isLastAssistantMessage = index === lastAssistantMessageIndex;
-                
+
                 return (
                 <div key={message.id} data-message-id={message.id}>
                   {/* 🎯 如果是正在编辑的用户消息，显示编辑器 */}
@@ -534,6 +539,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                         compact={true}
                         className="message-editor"
                         placeholder="编辑你的消息..."
+                        isPlanMode={isPlanMode}
+                        onTogglePlanMode={onTogglePlanMode}
                       />
                     </div>
                   ) : (
@@ -672,6 +679,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         onModelChange={onModelChange}
         sessionId={sessionId}
         tokenUsage={tokenUsage}
+        isPlanMode={isPlanMode}
+        onTogglePlanMode={onTogglePlanMode}
       />
     </div>
   );

@@ -30,6 +30,7 @@ import { EditorRefPlugin } from './MessageInput/plugins/EditorRefPlugin';
 import { UnifiedFileUploadButton } from './MessageInput/components/UnifiedFileUploadButton';
 import { ImageReference, resetImageCounter } from './MessageInput/utils/imageProcessor';
 import { FileUploadResult, FileType } from './MessageInput/utils/fileTypes';
+import { PlanModeToggle } from './PlanModeToggle';
 
 import './MessageInput/MessageInput.css';
 
@@ -67,6 +68,10 @@ interface MessageInputProps {
   showTokenUsage?: boolean;                    // 是否显示Token使用情况
   placeholder?: string;                        // 自定义占位符
   compact?: boolean;                          // 紧凑模式（编辑时可能需要）
+
+  // 🎯 新增：Plan模式
+  isPlanMode?: boolean;                        // 是否在Plan模式
+  onTogglePlanMode?: (enabled: boolean) => void;  // Plan模式切换回调
 }
 
 // Lexical 错误边界组件
@@ -110,7 +115,11 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
     showModelSelector = true,
     showTokenUsage = true,
     placeholder,
-    compact = false
+    compact = false,
+
+    // 🎯 Plan模式
+    isPlanMode = false,
+    onTogglePlanMode
   } = props;
   const { t } = useTranslation();
   const [editorState, setEditorState] = useState<EditorState | null>(null);
@@ -980,8 +989,15 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
             )}
           </div>
 
-          {/* 右侧：上传按钮和发送按钮 */}
+          {/* 右侧：Plan Mode开关、上传按钮和发送按钮 */}
           <div className="input-actions">
+            {/* 🎯 Plan Mode切换开关 - 放在上传按钮左边 */}
+            <PlanModeToggle
+              isPlanMode={isPlanMode}
+              onToggle={onTogglePlanMode || (() => {})}
+              disabled={isLoading || isProcessing}
+            />
+
             {/* 统一文件上传按钮（图片、代码、Markdown） */}
             <UnifiedFileUploadButton
               onFileSelected={handleFileSelected}

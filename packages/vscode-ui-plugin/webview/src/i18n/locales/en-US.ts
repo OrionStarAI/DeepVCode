@@ -75,6 +75,22 @@ export const enUS: Translations = {
     editPlaceholder: 'Edit your message...',
   },
 
+  plan: {
+    mode: {
+      label: 'Plan',
+      off: 'Off',
+      activeTooltip: 'Plan mode active - exit to modify code',
+      inactiveTooltip: 'Enable plan mode - read-only analysis',
+      indicator: 'Plan Mode - Read Only',
+      blockedToolsMessage: '🚫 Plan mode - modification tools disabled',
+      focusOnDesign: 'Currently focused on requirements discussion and solution design',
+      availableToolsInfo: 'Available tools: file reading, search analysis, task planning, network fetch',
+      useHintPrefix: 'Use ',
+      useHintCommand: '/plan off',
+      useHintSuffix: ' to exit Plan mode and enable modification operations',
+    },
+  },
+
   messages: {
     user: 'User',
     assistant: 'AI Assistant',
