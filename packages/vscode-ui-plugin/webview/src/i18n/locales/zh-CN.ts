@@ -69,6 +69,10 @@ export const zhCN: Translations = {
     sendMessage: '发送消息',
     clearInput: '清空输入',
     scrollToBottom: '滚动到底部',
+    stopProcessing: '⏸️ 停止AI处理',
+    cannotStop: '⚠️ 处理中，无法停止',
+    sending: '⏳ 发送中...',
+    editPlaceholder: '编辑你的消息...',
   },
 
   messages: {

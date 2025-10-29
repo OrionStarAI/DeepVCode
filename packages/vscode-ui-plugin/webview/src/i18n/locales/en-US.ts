@@ -69,6 +69,10 @@ export const enUS: Translations = {
     sendMessage: 'Send message',
     clearInput: 'Clear input',
     scrollToBottom: 'Scroll to bottom',
+    stopProcessing: '⏸️ Stop AI processing',
+    cannotStop: '⚠️ Processing, cannot stop',
+    sending: '⏳ Sending...',
+    editPlaceholder: 'Edit your message...',
   },
 
   messages: {
