@@ -217,7 +217,11 @@ export type WebViewToExtensionMessage =
   | { type: 'open_external_url'; payload: { url: string } }
   | { type: 'open_extension_marketplace'; payload: { extensionId: string } }
   // 🎯 剪贴板缓存请求（用于智能粘贴代码引用）
-  | { type: 'request_clipboard_cache'; payload: { code: string } };
+  | { type: 'request_clipboard_cache'; payload: { code: string } }
+  // 🎯 自定义规则管理
+  | { type: 'rules_list_request'; payload: {} }
+  | { type: 'rules_save'; payload: { rule: any } }
+  | { type: 'rules_delete'; payload: { ruleId: string } };
 
 // Message types from Extension to WebView
 export type ExtensionToWebViewMessage =
@@ -277,7 +281,13 @@ export type ExtensionToWebViewMessage =
   // 🎯 插入代码到输入框（只插入，不自动发送）
   | { type: 'insert_code_to_input'; payload: { fileName: string; filePath: string; code: string; startLine?: number; endLine?: number } }
   // 🎯 剪贴板缓存响应（用于智能粘贴代码引用）
-  | { type: 'clipboard_cache_response'; payload: { found: boolean; fileName?: string; filePath?: string; code?: string; startLine?: number; endLine?: number } };
+  | { type: 'clipboard_cache_response'; payload: { found: boolean; fileName?: string; filePath?: string; code?: string; startLine?: number; endLine?: number } }
+  // 🎯 自定义规则管理
+  | { type: 'rules_list_response'; payload: { rules: any[] } }
+  | { type: 'rules_save_response'; payload: { success: boolean; error?: string } }
+  | { type: 'rules_delete_response'; payload: { success: boolean; error?: string } }
+  | { type: 'open_rules_management'; payload: {} };
+
 
 export type Message = WebViewToExtensionMessage | ExtensionToWebViewMessage;
 

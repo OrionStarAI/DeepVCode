@@ -15,6 +15,7 @@ import { useTranslation } from '../hooks/useTranslation';
 import { SessionSwitcher } from './SessionSwitcher';
 import { SessionManagerDialog } from './SessionManagerDialog';
 import { ProjectSettingsDialog } from './ProjectSettingsDialog';
+import { RulesManagementDialog } from './RulesManagementDialog';
 import { ChatInterface } from './ChatInterface';
 import { LoginPage } from './LoginPage';
 import { LoadingScreen } from './LoadingScreen';
@@ -58,6 +59,9 @@ export const MultiSessionApp: React.FC = () => {
   // 🎯 模型选择状态管理
   // 🛡️ 改为 'auto' 让服务端决定成本最优的模型
   const [selectedModelId, setSelectedModelId] = useState('auto');
+
+  // 🎯 规则管理对话框状态
+  const [isRulesManagementOpen, setIsRulesManagementOpen] = useState(false);
 
   const {
     state,
@@ -489,6 +493,16 @@ export const MultiSessionApp: React.FC = () => {
       // 重置Session状态
       setProcessingState(sessionId, false, null, false);
     });
+
+    // =============================================================================
+    // 🎯 自定义规则管理监听器
+    // =============================================================================
+
+    messageService.onOpenRulesManagement(() => {
+      console.log('📋 Opening rules management dialog');
+      setIsRulesManagementOpen(true);
+    });
+
     return () => {
     };
 
@@ -1048,6 +1062,14 @@ export const MultiSessionApp: React.FC = () => {
         isOpen={state.ui.showProjectSettings}
         onClose={() => toggleProjectSettings(false)}
       />
+
+      {/* 自定义规则管理对话框 */}
+      {isRulesManagementOpen && (
+        <RulesManagementDialog
+          isOpen={isRulesManagementOpen}
+          onClose={() => setIsRulesManagementOpen(false)}
+        />
+      )}
 
       {/* 工具确认对话框 - 暂时禁用 */}
       {/* {state.ui.showConfirmationDialog && state.ui.currentConfirmationTool && (

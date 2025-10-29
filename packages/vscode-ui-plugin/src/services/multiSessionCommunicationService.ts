@@ -505,6 +505,19 @@ export class MultiSessionCommunicationService {
     return this.addMessageHandler('open_extension_marketplace', handler);
   }
 
+  // 🎯 自定义规则管理监听器
+  onRulesListRequest(handler: () => void): vscode.Disposable {
+    return this.addMessageHandler('rules_list_request', handler);
+  }
+
+  onRulesSave(handler: (data: { rule: any }) => void): vscode.Disposable {
+    return this.addMessageHandler('rules_save', handler);
+  }
+
+  onRulesDelete(handler: (data: { ruleId: string }) => void): vscode.Disposable {
+    return this.addMessageHandler('rules_delete', handler);
+  }
+
   // 🎯 发送项目设置响应
   async sendProjectSettingsResponse(settings: { yoloMode: boolean }) {
     await this.sendMessage({
@@ -518,6 +531,30 @@ export class MultiSessionCommunicationService {
     await this.sendMessage({
       type: 'service_initialization_done',
       payload: {}
+    });
+  }
+
+  // 🎯 发送规则列表响应
+  async sendRulesListResponse(rules: any[]) {
+    await this.sendMessage({
+      type: 'rules_list_response',
+      payload: { rules }
+    });
+  }
+
+  // 🎯 发送规则保存响应
+  async sendRulesSaveResponse(success: boolean, error?: string) {
+    await this.sendMessage({
+      type: 'rules_save_response',
+      payload: { success, error }
+    });
+  }
+
+  // 🎯 发送规则删除响应
+  async sendRulesDeleteResponse(success: boolean, error?: string) {
+    await this.sendMessage({
+      type: 'rules_delete_response',
+      payload: { success, error }
     });
   }
 

@@ -128,11 +128,11 @@ export class SessionManager extends EventEmitter {
           this.logger.info(`📦 Restored ${persistedSessions.length} persisted sessions`);
         } else {
           // 没有持久化会话，创建默认会话
-          // await this.createDefaultSession();
+          await this.createDefaultSession();
         }
       } catch (error) {
         this.logger.warn('⚠️ Failed to load persisted sessions, creating default session', error instanceof Error ? error : undefined);
-      //  await this.createDefaultSession();
+        await this.createDefaultSession();
       }
 
       // 🎯 移除初始化时的备份创建
@@ -972,15 +972,15 @@ export class SessionManager extends EventEmitter {
   /**
    * 创建默认会话
    */
-  // private async createDefaultSession(): Promise<void> {
-  //   const defaultRequest: CreateSessionRequest = {
-  //     name: SESSION_CONSTANTS.DEFAULT_SESSION_NAME,
-  //     type: SessionType.CHAT,
-  //     fromTemplate: true
-  //   };
+  private async createDefaultSession(): Promise<void> {
+    const defaultRequest: CreateSessionRequest = {
+      name: SESSION_CONSTANTS.DEFAULT_SESSION_NAME,
+      type: SessionType.CHAT,
+      fromTemplate: true
+    };
 
-  //   await this.createSession(defaultRequest);
-  // }
+    await this.createSession(defaultRequest);
+  }
 
   /**
    * 恢复持久化的会话
