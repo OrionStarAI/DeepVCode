@@ -47,6 +47,8 @@ interface ChatInterfaceProps {
     cacheReadInputTokens?: number;
     creditsUsage?: number;
   };
+  // 🎯 新增：MessageInput ref（用于插入代码引用）
+  messageInputRef?: React.RefObject<any>;
 }
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({
@@ -64,7 +66,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   sessionId,
   onUpdateMessages,
   tokenUsage,
-  rollbackableMessageIds = []
+  rollbackableMessageIds = [],
+  messageInputRef
 }) => {
   const { t } = useTranslation();
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
@@ -659,6 +662,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
       {/* Input Area */}
       <MessageInput
+        ref={messageInputRef}
         isLoading={isLoading}
         isProcessing={isProcessing}
         canAbort={canAbort}

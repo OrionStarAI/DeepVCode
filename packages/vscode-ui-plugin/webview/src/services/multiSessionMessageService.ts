@@ -56,7 +56,13 @@ interface MultiSessionMessageFromExtension {
        // 🎯 服务初始化状态
        'service_initialization_status' |
        // 🎯 模型配置相关
-       'model_response';
+       'model_response' |
+       // 🎯 消息预填充（自动发送）
+       'prefill_message' |
+       // 🎯 插入代码到输入框（只插入，不自动发送）
+       'insert_code_to_input' |
+       // 🎯 剪贴板缓存响应
+       'clipboard_cache_response';
   payload: Record<string, unknown> & {
     sessionId?: string; // 大部分消息都包含sessionId
   };
@@ -98,7 +104,9 @@ export interface MultiSessionMessageToExtension {
        // 🎯 模型配置相关
        'get_available_models' |
        'set_current_model' |
-       'get_current_model';
+       'get_current_model' |
+       // 🎯 剪贴板缓存请求（用于智能粘贴代码引用）
+       'request_clipboard_cache';
   payload: Record<string, unknown> & {
     sessionId?: string; // 大部分消息都包含sessionId
   };
@@ -145,6 +153,7 @@ export class MultiSessionMessageService {
   private listeners = new Map<string, Function[]>();
   private messageQueue: MultiSessionMessageToExtension[] = [];
   private isReady = false;
+  private retryTimer: NodeJS.Timeout | null = null;  // 🎯 防止重复创建 setTimeout
 
   constructor() {
     this.setupMessageListener();
@@ -201,6 +210,26 @@ export class MultiSessionMessageService {
    * 发送消息到Extension
    */
   private sendMessage(message: MultiSessionMessageToExtension) {
+    // 🎯 检查VSCode API是否可用
+    if (typeof window.vscode === 'undefined' || !window.vscode) {
+      console.log('VSCode API not ready, queueing message:', message.type);
+      this.messageQueue.push(message);
+      
+      // 🎯 防止重复创建 setTimeout：只在没有定时器时创建
+      if (!this.retryTimer) {
+        this.retryTimer = setTimeout(() => {
+          this.retryTimer = null;  // 清除定时器标记
+          if (typeof window.vscode !== 'undefined' && window.vscode && this.messageQueue.length > 0) {
+            console.log('VSCode API now ready, flushing queue');
+            const queue = [...this.messageQueue];
+            this.messageQueue = [];
+            queue.forEach(msg => this.sendMessage(msg));
+          }
+        }, 500);
+      }
+      return;
+    }
+
     // 🎯 这些消息必须立即发送，不受ready状态限制
     const immediateMessages = ['ready', 'login_check_status', 'login_start'];
 
@@ -695,6 +724,44 @@ export class MultiSessionMessageService {
     this.addMessageHandler('service_initialization_status', callback);
   }
 
+  /**
+   * 🎯 监听消息预填充（用于右键菜单快捷操作 - 自动发送）
+   */
+  onPrefillMessage(callback: (data: { message: string }) => void) {
+    this.addMessageHandler('prefill_message', callback);
+  }
+
+  /**
+   * 🎯 监听插入代码到输入框（只插入，不自动发送）
+   */
+  onInsertCodeToInput(callback: (data: { fileName: string; filePath: string; code: string; startLine?: number; endLine?: number }) => void) {
+    this.addMessageHandler('insert_code_to_input', callback);
+  }
+
+  /**
+   * 🎯 请求剪贴板缓存（用于智能粘贴代码引用）
+   */
+  requestClipboardCache(code: string): void {
+    this.sendMessage({
+      type: 'request_clipboard_cache',
+      payload: { code }
+    });
+  }
+
+  /**
+   * 🎯 监听剪贴板缓存响应
+   */
+  onClipboardCacheResponse(callback: (data: {
+    found: boolean;
+    fileName?: string;
+    filePath?: string;
+    code?: string;
+    startLine?: number;
+    endLine?: number;
+  }) => void) {
+    this.addMessageHandler('clipboard_cache_response', callback);
+  }
+
   // =============================================================================
   // 公共方法
   // =============================================================================
@@ -735,6 +802,11 @@ export class MultiSessionMessageService {
    * 清理所有监听器
    */
   dispose() {
+    // 🎯 清理定时器，防止内存泄漏
+    if (this.retryTimer) {
+      clearTimeout(this.retryTimer);
+      this.retryTimer = null;
+    }
     this.listeners.clear();
     this.messageQueue = [];
     this.isReady = false;

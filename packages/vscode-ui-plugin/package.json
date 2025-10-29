@@ -56,6 +56,11 @@
         "category": "DeepV Code"
       },
       {
+        "command": "deepv.addToCurrentChat",
+        "title": "Add Symbol to Current Chat",
+        "category": "DeepV Code"
+      },
+      {
         "command": "deepv.openLogFile",
         "title": "Open Log File",
         "category": "DeepV Code"
@@ -108,19 +113,24 @@
     "menus": {
       "editor/context": [
         {
-          "command": "deepv.explainCode",
+          "command": "deepv.addToCurrentChat",
           "when": "editorHasSelection",
           "group": "deepv@1"
         },
         {
-          "command": "deepv.optimizeCode",
+          "command": "deepv.explainCode",
           "when": "editorHasSelection",
           "group": "deepv@2"
         },
         {
-          "command": "deepv.generateTests",
+          "command": "deepv.optimizeCode",
           "when": "editorHasSelection",
           "group": "deepv@3"
+        },
+        {
+          "command": "deepv.generateTests",
+          "when": "editorHasSelection",
+          "group": "deepv@4"
         }
       ],
       "commandPalette": [
