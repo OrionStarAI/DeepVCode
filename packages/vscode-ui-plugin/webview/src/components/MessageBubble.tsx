@@ -97,25 +97,77 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       <div className="message-content">
         {message.type === 'user' ? (
           <div
-            className="user-content"
-            onClick={() => onStartEdit?.(message.id)}
+            className="user-message-wrapper"
             style={{
-              cursor: onStartEdit ? 'pointer' : 'default',
-              transition: 'background-color 0.2s ease'
-            }}
-            title={onStartEdit ? '点击编辑消息' : undefined}
-            onMouseEnter={(e) => {
-              if (onStartEdit) {
-                e.currentTarget.style.backgroundColor = 'var(--vscode-list-hoverBackground)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (onStartEdit) {
-                e.currentTarget.style.backgroundColor = 'transparent';
-              }
+              display: 'flex',
+              flexDirection: 'column',
+              position: 'relative'
             }}
           >
-            {messageContentToString(message.content)}
+            <div
+              className="user-content"
+              onClick={() => onStartEdit?.(message.id)}
+              style={{
+                cursor: onStartEdit ? 'pointer' : 'default',
+                transition: 'background-color 0.2s ease',
+                position: 'relative',
+                paddingRight: canRevert ? '36px' : '0'
+              }}
+              title={onStartEdit ? '点击编辑消息' : undefined}
+              onMouseEnter={(e) => {
+                if (onStartEdit) {
+                  e.currentTarget.style.backgroundColor = 'var(--vscode-list-hoverBackground)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (onStartEdit) {
+                  e.currentTarget.style.backgroundColor = 'transparent';
+                }
+              }}
+            >
+              {messageContentToString(message.content)}
+              {/* 🎯 回退按钮 - 显示在用户消息气泡右下角 */}
+              {canRevert && (
+                <button
+                  className="message-revert-btn"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRevertToMessage();
+                  }}
+                  title="回退到此版本"
+                  style={{
+                    position: 'absolute',
+                    bottom: '2px',
+                    right: '4px',
+                    padding: '2px 6px',
+                    background: 'transparent',
+                    border: '1px solid rgba(255,255,255,0.3)',
+                    borderRadius: '3px',
+                    color: 'rgba(255,255,255,0.7)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '2px',
+                    fontSize: '11px',
+                    transition: 'all 0.2s ease',
+                    whiteSpace: 'nowrap'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = 'rgba(255,255,255,0.1)';
+                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.5)';
+                    e.currentTarget.style.color = 'rgba(255,255,255,0.9)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'transparent';
+                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)';
+                    e.currentTarget.style.color = 'rgba(255,255,255,0.7)';
+                  }}
+                >
+                  <Undo2 size={11} />
+                  <span>回退</span>
+                </button>
+              )}
+            </div>
           </div>
         ) : message.type === 'tool' ? (
           // 🎯 工具消息直接显示，不使用Markdown渲染
@@ -249,43 +301,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         )}
       </div>
 
-      {/* 🎯 时间显示移到气泡下方 - 只在用户消息显示，回退按钮也显示在这里 */}
+      {/* 🎯 时间显示移到气泡下方 - 只在用户消息显示 */}
       {message.type === 'user' && (
-        <div className="message-footer" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div className="message-footer">
           <span className="message-time">{formatTime(message.timestamp)}</span>
-          {/* 🎯 回退按钮 - 显示在用户消息后面 */}
-          {canRevert && (
-            <button
-              className="message-revert-btn"
-              onClick={handleRevertToMessage}
-              title="回退到此版本"
-              style={{
-                padding: '2px 8px',
-                background: 'transparent',
-                border: '1px solid var(--vscode-button-border, rgba(255,255,255,0.2))',
-                borderRadius: '4px',
-                color: 'var(--vscode-descriptionForeground)',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '4px',
-                fontSize: '11px',
-                opacity: 0.6,
-                transition: 'all 0.2s ease'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.opacity = '1';
-                e.currentTarget.style.background = 'var(--vscode-button-secondaryHoverBackground)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.opacity = '0.6';
-                e.currentTarget.style.background = 'transparent';
-              }}
-            >
-              <Undo2 size={12} />
-              <span>回退</span>
-            </button>
-          )}
         </div>
       )}
 
