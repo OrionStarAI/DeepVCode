@@ -13,7 +13,8 @@ import { appEvents, AppEvent } from '../../utils/events.js';
 import { Suggestion } from '../components/SuggestionsDisplay.js';
 
 // 降级模型列表（当服务端不可用时使用）
-const FALLBACK_MODELS = ['claude-sonnet-4@20250514', 'gemini-2.5-flash'];
+// 🛡️ 优先使用'auto'让服务端决定成本最优的模型，避免客户端硬编码高费用模型
+const FALLBACK_MODELS: string[] = [];
 
 // auto模式的默认配置
 const AUTO_MODE_CONFIG = {
@@ -283,7 +284,9 @@ export async function getAvailableModels(settings?: any, config?: Config): Promi
       };
     }
 
-    // 其他错误，降级到硬编码模型
+    // 其他错误，降级到'auto'模式让服务端决定
+    console.warn('[ModelCommand] Failed to fetch cloud models from server, falling back to auto mode');
+    console.warn('[ModelCommand] Fallback reason:', error instanceof Error ? error.message : String(error));
     return {
       modelNames: ['auto', ...FALLBACK_MODELS],
       modelInfos: [],
@@ -462,7 +465,8 @@ export const modelCommand: SlashCommand = {
         return [];
       }
 
-      // 其他错误，降级到硬编码模型列表
+      // 其他错误，降级到'auto'模式让服务端决定
+      console.warn('[ModelCommand] Model autocomplete: Failed to fetch models from server, falling back to auto mode');
       const fallbackModels = ['auto', ...FALLBACK_MODELS];
       const matchedModels = fallbackModels.filter((model: string) =>
         model.toLowerCase().includes(lowerPartial)

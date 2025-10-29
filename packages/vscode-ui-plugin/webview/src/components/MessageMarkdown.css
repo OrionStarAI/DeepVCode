@@ -57,6 +57,12 @@
   min-height: 32px;
 }
 
+.code-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
 .code-language {
   color: var(--vscode-descriptionForeground);
   font-weight: 600;
@@ -72,17 +78,173 @@
   cursor: pointer;
   padding: 4px 6px;
   border-radius: 3px;
-  transition: all 0.15s ease;
+  transition: all 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0.7;
+  opacity: 0.6;
 }
 
 .code-copy-btn:hover {
   background-color: var(--vscode-toolbar-hoverBackground);
   color: var(--vscode-foreground);
   opacity: 1;
+}
+
+.code-copy-btn:focus {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 2px;
+}
+
+/* 复制成功状态 */
+.code-copy-btn.copy-success {
+  color: var(--vscode-charts-green);
+  opacity: 1;
+  animation: copySuccessPulse 0.3s ease;
+}
+
+@keyframes copySuccessPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+
+/* 折叠/展开按钮 */
+.code-toggle-btn {
+  background: none;
+  border: none;
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 3px;
+  transition: all 0.2s ease;
+  font-size: 10px;
+  opacity: 0.6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.code-toggle-btn:hover {
+  background-color: var(--vscode-toolbar-hoverBackground);
+  color: var(--vscode-foreground);
+  opacity: 1;
+}
+
+.code-toggle-btn:focus {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 2px;
+}
+
+/* 代码内容区域 */
+.code-content {
+  position: relative;
+  overflow: hidden;
+}
+
+.code-content.collapsed {
+  max-height: 280px;
+  position: relative;
+}
+
+.code-content.expanded {
+  max-height: none;
+}
+
+/* 展开遮罩层（折叠状态） */
+.code-expand-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 120px;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(0, 0, 0, 0.05) 30%,
+    var(--vscode-textBlockQuote-background) 80%
+  );
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 16px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.code-expand-overlay:hover {
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    rgba(0, 0, 0, 0.08) 30%,
+    var(--vscode-textBlockQuote-background) 80%
+  );
+}
+
+/* 展开按钮 */
+.code-expand-btn {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: none;
+  padding: 8px 20px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.code-expand-btn:hover {
+  background: var(--vscode-button-hoverBackground);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.code-expand-btn:active {
+  transform: translateY(0);
+}
+
+/* 代码底部区域（展开状态） */
+.code-footer {
+  display: flex;
+  justify-content: center;
+  padding: 12px;
+  background-color: var(--vscode-editorGroupHeader-tabsBackground);
+  border-top: 1px solid var(--vscode-panel-border);
+}
+
+/* 底部折叠按钮 */
+.code-footer-collapse-btn {
+  background: none;
+  border: 1px solid var(--vscode-panel-border);
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+  padding: 6px 16px;
+  border-radius: 4px;
+  font-size: 12px;
+  transition: all 0.2s ease;
+  opacity: 0.7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.code-footer-collapse-btn:hover {
+  background-color: var(--vscode-toolbar-hoverBackground);
+  color: var(--vscode-foreground);
+  opacity: 1;
+  border-color: var(--vscode-focusBorder);
+}
+
+.code-footer-collapse-btn:active {
+  transform: scale(0.95);
 }
 
 /* 代码块本身 */

@@ -27,7 +27,8 @@ import os from 'os';
 import fs from 'fs';
 import stripAnsi from 'strip-ansi';
 
-const OUTPUT_UPDATE_INTERVAL_MS = 1000;
+// 🔧 提高节流间隔到2秒，减少高频输出（如ping）导致的UI重绘，缓解闪屏问题
+const OUTPUT_UPDATE_INTERVAL_MS = 2000;
 const MAX_OUTPUT_LENGTH = 10000;
 
 /**
@@ -36,6 +37,7 @@ const MAX_OUTPUT_LENGTH = 10000;
  * 1. 保持换行符处理
  * 2. 添加温和的控制字符过滤，只移除可能破坏界面显示的字符
  * 3. 处理异常超长单行输出，防止CLI渲染卡死
+ * 4. 🔧 增强\r处理，修复闪屏问题
  */
 function sanitizeShellOutput(text: string): string {
   if (!text) return text;
@@ -48,11 +50,13 @@ function sanitizeShellOutput(text: string): string {
   cleaned = cleaned.replace(/\x1b\([0-9;]*[a-zA-Z]/g, '');  // 其他ESC序列
   cleaned = cleaned.replace(/\x1b\][0-9;]*[a-zA-Z]/g, '');  // OSC序列
 
-  // 3. 核心修复：将\r转换为\n
+  // 3. 🔧 增强的\r处理 - 修复ping等命令导致的闪屏问题
   // 先处理\r\n组合（Windows标准换行）
   cleaned = cleaned.replace(/\r\n/g, '\n');
-  // 然后将单独的\r转换为\n
-  cleaned = cleaned.replace(/\r/g, '\n');
+  // 处理连续的\r（如ping命令的覆盖式输出）
+  cleaned = cleaned.replace(/\r+/g, '\n');
+  // 移除行首的\r残留
+  cleaned = cleaned.replace(/^\r/gm, '');
 
   // 4. 移除可能破坏界面的控制字符
   cleaned = cleaned.replace(/[\x00\x07\x08\x7F]/g, '');

@@ -18,6 +18,7 @@ import { ContextBuilder } from './services/contextBuilder';
 import { Logger } from './utils/logger';
 import { startupOptimizer } from './utils/startupOptimizer';
 import { EnvironmentOptimizer } from './utils/environmentOptimizer';
+import { ClipboardCacheService } from './services/clipboardCacheService';
 
 let logger: Logger;
 let webviewService: WebViewService;
@@ -30,6 +31,7 @@ let inlineCompletionProvider: DeepVInlineCompletionProvider;
 let ruleService: RuleService;
 let inlineCompletionStatusBar: vscode.StatusBarItem;
 let extensionContext: vscode.ExtensionContext;
+let clipboardCache: ClipboardCacheService;
 
 // 🎯 服务初始化状态标志，避免重复初始化
 let servicesInitialized = false;
@@ -96,6 +98,7 @@ export async function activate(context: vscode.ExtensionContext) {
     sessionManager = new SessionManager(logger, communicationService, context);
     fileSearchService = new FileSearchService(logger);
     fileRollbackService = FileRollbackService.getInstance(logger);
+    clipboardCache = new ClipboardCacheService(logger);
 
     // 🎯 初始化规则服务
     ruleService = new RuleService(logger);
@@ -141,6 +144,9 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // Setup communication between services
     setupServiceCommunication();
+
+    // 🎯 监听文本选择变化 + 剪贴板监听（用于缓存复制的代码信息）
+    setupClipboardMonitoring(context);
 
     // 🎯 立即初始化WebView服务，这样用户点击时就能看到loading界面
     try {
@@ -1224,6 +1230,144 @@ function registerCommands(context: vscode.ExtensionContext) {
       }
     }),
 
+    // 🎯 右键菜单命令：添加代码到当前对话（只插入，不自动发送）
+    vscode.commands.registerCommand('deepv.addToCurrentChat', async () => {
+      logger.info('deepv.addToCurrentChat command executed');
+
+      try {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor || editor.selection.isEmpty) {
+          vscode.window.showWarningMessage('请先选择要添加的代码');
+          return;
+        }
+
+        const selectedText = editor.document.getText(editor.selection);
+        const fileName = path.basename(editor.document.uri.fsPath);
+        const filePath = editor.document.uri.fsPath;
+        const startLine = editor.selection.start.line + 1;
+        const endLine = editor.selection.end.line + 1;
+
+        // 🎯 先聚焦侧边栏视图
+        await vscode.commands.executeCommand('deepv.aiAssistant.focus');
+
+        // 🎯 等待 webview 准备就绪
+        await communicationService.waitForReady(3000);
+
+        // 🎯 发送插入代码消息（只插入到输入框，不自动发送）
+        communicationService.sendMessage({
+          type: 'insert_code_to_input',
+          payload: {
+            fileName,
+            filePath,
+            code: selectedText,
+            startLine,
+            endLine
+          }
+        });
+      } catch (error) {
+        logger.error('Failed to execute addToCurrentChat', error instanceof Error ? error : undefined);
+        vscode.window.showErrorMessage('无法添加代码到对话');
+      }
+    }),
+
+    // 🎯 旧的命令（保留兼容性）- 解释代码
+    vscode.commands.registerCommand('deepv.explainCode', async () => {
+      logger.info('deepv.explainCode command executed');
+
+      try {
+        const selectedText = getSelectedText();
+        if (!selectedText) {
+          vscode.window.showWarningMessage('请先选择要解释的代码');
+          return;
+        }
+
+        // 🎯 先聚焦侧边栏视图（如果已打开就聚焦，如果没打开就打开）
+        await vscode.commands.executeCommand('deepv.aiAssistant.focus');
+
+        // 🎯 等待 webview 准备就绪（最多等待 3 秒）
+        await communicationService.waitForReady(3000);
+
+        // 发送预填充消息到webview
+        const editor = vscode.window.activeTextEditor;
+        const fileName = editor?.document.fileName || 'selected code';
+        const message = `请解释以下代码:\n\n\`\`\`\n${selectedText}\n\`\`\`\n\n来自文件: ${fileName}`;
+
+        // 🎯 发送消息（webview 已 ready 或进入队列）
+        communicationService.sendMessage({
+          type: 'prefill_message',
+          payload: { message }
+        });
+      } catch (error) {
+        logger.error('Failed to execute explainCode', error instanceof Error ? error : undefined);
+        vscode.window.showErrorMessage('无法执行代码解释功能');
+      }
+    }),
+
+    // 🎯 右键菜单命令：优化代码
+    vscode.commands.registerCommand('deepv.optimizeCode', async () => {
+      logger.info('deepv.optimizeCode command executed');
+
+      try {
+        const selectedText = getSelectedText();
+        if (!selectedText) {
+          vscode.window.showWarningMessage('请先选择要优化的代码');
+          return;
+        }
+
+        // 🎯 先聚焦侧边栏视图（如果已打开就聚焦，如果没打开就打开）
+        await vscode.commands.executeCommand('deepv.aiAssistant.focus');
+
+        // 🎯 等待 webview 准备就绪（最多等待 3 秒）
+        await communicationService.waitForReady(3000);
+
+        // 发送预填充消息到webview
+        const editor = vscode.window.activeTextEditor;
+        const fileName = editor?.document.fileName || 'selected code';
+        const message = `请优化以下代码，提高性能和可读性:\n\n\`\`\`\n${selectedText}\n\`\`\`\n\n来自文件: ${fileName}`;
+
+        // 🎯 发送消息（webview 已 ready 或进入队列）
+        communicationService.sendMessage({
+          type: 'prefill_message',
+          payload: { message }
+        });
+      } catch (error) {
+        logger.error('Failed to execute optimizeCode', error instanceof Error ? error : undefined);
+        vscode.window.showErrorMessage('无法执行代码优化功能');
+      }
+    }),
+
+    // 🎯 右键菜单命令：生成测试
+    vscode.commands.registerCommand('deepv.generateTests', async () => {
+      logger.info('deepv.generateTests command executed');
+
+      try {
+        const selectedText = getSelectedText();
+        if (!selectedText) {
+          vscode.window.showWarningMessage('请先选择要生成测试的代码');
+          return;
+        }
+
+        // 🎯 先聚焦侧边栏视图（如果已打开就聚焦，如果没打开就打开）
+        await vscode.commands.executeCommand('deepv.aiAssistant.focus');
+
+        // 🎯 等待 webview 准备就绪（最多等待 3 秒）
+        await communicationService.waitForReady(3000);
+
+        // 发送预填充消息到webview
+        const editor = vscode.window.activeTextEditor;
+        const fileName = editor?.document.fileName || 'selected code';
+        const message = `请为以下代码生成单元测试:\n\n\`\`\`\n${selectedText}\n\`\`\`\n\n来自文件: ${fileName}`;
+
+        // 🎯 发送消息（webview 已 ready 或进入队列）
+        communicationService.sendMessage({
+          type: 'prefill_message',
+          payload: { message }
+        });
+      } catch (error) {
+        logger.error('Failed to execute generateTests', error instanceof Error ? error : undefined);
+        vscode.window.showErrorMessage('无法执行生成测试功能');
+      }
+    }),
     // 🎯 打开自定义规则管理
     vscode.commands.registerCommand('deepv.openRulesManagement', async () => {
       logger.info('deepv.openRulesManagement command executed');
@@ -1238,7 +1382,6 @@ function registerCommands(context: vscode.ExtensionContext) {
         vscode.window.showErrorMessage('Failed to open Rules Management');
       }
     }),
-
     // 🎯 添加日志查看命令
     vscode.commands.registerCommand('deepv.openLogFile', async () => {
       try {
@@ -1733,4 +1876,144 @@ async function openDeletedFileContent(
     logger.error('Failed to open deleted file content', error instanceof Error ? error : undefined);
     throw error;
   }
+}
+
+/**
+ * 设置剪贴板监听
+ *
+ * 监听文本编辑器的选择变化和剪贴板变化，
+ * 当用户复制代码时，缓存文件信息以供粘贴时使用
+ */
+function setupClipboardMonitoring(context: vscode.ExtensionContext) {
+  let lastClipboardContent: string = '';
+  let lastSelection: { editor: vscode.TextEditor; selection: vscode.Selection } | null = null;
+
+  // 🎯 监听文本选择变化
+  context.subscriptions.push(
+    vscode.window.onDidChangeTextEditorSelection((event) => {
+      if (!event.selections || event.selections.length === 0) {
+        return;
+      }
+
+      const selection = event.selections[0];
+      if (selection.isEmpty) {
+        return;
+      }
+
+      // 记录最后的选择
+      lastSelection = {
+        editor: event.textEditor,
+        selection
+      };
+
+      // 🎯 启动短期剪贴板检查（仅 3 秒）
+      startClipboardCheck();
+    })
+  );
+
+  // 🎯 优化：仅在文本选择变化后的短时间内检查剪贴板（避免持续轮询）
+  let clipboardCheckInterval: NodeJS.Timeout | null = null;
+  let clipboardCheckCount = 0;
+  const MAX_CLIPBOARD_CHECKS = 6; // 最多检查 6 次（3 秒）
+
+  const startClipboardCheck = () => {
+    // 清除旧的定时器
+    if (clipboardCheckInterval) {
+      clearInterval(clipboardCheckInterval);
+    }
+
+    clipboardCheckCount = 0;
+
+    // 🎯 只在选择后的 3 秒内检查剪贴板
+    clipboardCheckInterval = setInterval(async () => {
+      clipboardCheckCount++;
+
+      // 🎯 3 秒后停止检查
+      if (clipboardCheckCount >= MAX_CLIPBOARD_CHECKS) {
+        if (clipboardCheckInterval) {
+          clearInterval(clipboardCheckInterval);
+          clipboardCheckInterval = null;
+        }
+        return;
+      }
+
+      try {
+        const currentClipboard = await vscode.env.clipboard.readText();
+
+        // 如果剪贴板内容没有变化，跳过
+        if (currentClipboard === lastClipboardContent || !currentClipboard.trim()) {
+          return;
+        }
+
+        lastClipboardContent = currentClipboard;
+
+        // 如果有最近的选择
+        if (lastSelection) {
+          const { editor, selection } = lastSelection;
+          const selectedText = editor.document.getText(selection);
+
+        // 如果剪贴板内容和选择的文本匹配
+        if (selectedText.trim() === currentClipboard.trim()) {
+          // 🎯 缓存文件信息
+          clipboardCache.cache({
+            fileName: path.basename(editor.document.uri.fsPath),
+            filePath: editor.document.uri.fsPath,
+            code: selectedText,
+            startLine: selection.start.line + 1,
+            endLine: selection.end.line + 1
+          });
+
+          // 🎯 成功缓存后立即停止检查
+          if (clipboardCheckInterval) {
+            clearInterval(clipboardCheckInterval);
+            clipboardCheckInterval = null;
+          }
+        }
+        }
+      } catch (error) {
+        // 忽略剪贴板读取错误（可能是权限问题）
+      }
+    }, 500);
+  };
+
+  // 清理定时器
+  context.subscriptions.push({
+    dispose: () => {
+      if (clipboardCheckInterval) {
+        clearInterval(clipboardCheckInterval);
+        clipboardCheckInterval = null;
+      }
+    }
+  });
+
+  // 🎯 添加消息处理器：响应 webview 的剪贴板缓存请求
+  communicationService.addMessageHandler('request_clipboard_cache', (payload: any) => {
+    const pastedCode = payload?.code;
+
+    if (typeof pastedCode === 'string') {
+      const cachedInfo = clipboardCache.get(pastedCode);
+      if (cachedInfo) {
+        // 有缓存信息
+        communicationService.sendMessage({
+          type: 'clipboard_cache_response',
+          payload: {
+            found: true,
+            fileName: cachedInfo.fileName,
+            filePath: cachedInfo.filePath,
+            code: cachedInfo.code,
+            startLine: cachedInfo.startLine,
+            endLine: cachedInfo.endLine
+          }
+        });
+      } else {
+        // 无缓存信息
+        communicationService.sendMessage({
+          type: 'clipboard_cache_response',
+          payload: { found: false }
+        });
+      }
+    }
+  });
+
+  logger.info('📋 Clipboard monitoring enabled');
 }

@@ -18,7 +18,7 @@ import {
 import { parseAndFormatApiError } from '../ui/utils/errorParsing.js';
 import { remoteLogger } from './remoteLogger.js';
 import { getMCPDiscoveryState, MCPDiscoveryState, getMCPServerStatus, MCPServerStatus } from 'deepv-code-core';
-import { t } from '../ui/utils/i18n.js';
+import { t, isChineseLocale } from '../ui/utils/i18n.js';
 
 /**
  * 格式化时间戳为 yyyy-mm-dd HH:mm:ss 格式
@@ -584,8 +584,27 @@ export class RemoteSession {
 
       case GeminiEventType.LoopDetected:
         // 检测到循环
-        remoteLogger.warn('RemoteSession', `检测到对话循环: ${this.sessionId}`);
-        this.sendMessage(MessageFactory.createStatus('idle', '检测到重复循环，对话已停止'));
+        const loopType = (event as any).value;
+        let loopMessage = '';
+
+        switch (loopType) {
+          case 'consecutive_identical_tool_calls':
+            loopMessage = `${t('loop.consecutive.tool.calls.title')}\n${t('loop.consecutive.tool.calls.description')}\n${t('loop.consecutive.tool.calls.action')}`;
+            break;
+          case 'chanting_identical_sentences':
+            loopMessage = `${t('loop.chanting.identical.sentences.title')}\n${t('loop.chanting.identical.sentences.description')}\n${t('loop.chanting.identical.sentences.action')}`;
+            break;
+          case 'llm_detected_loop':
+            loopMessage = `${t('loop.llm.detected.title')}\n${t('loop.llm.detected.description')}\n${t('loop.llm.detected.action')}`;
+            break;
+          default:
+            loopMessage = isChineseLocale()
+              ? '检测到重复循环，对话已停止'
+              : 'Repetitive loop detected, conversation stopped';
+        }
+
+        remoteLogger.warn('RemoteSession', `检测到对话循环: ${this.sessionId} (type: ${loopType || 'unknown'})`);
+        this.sendMessage(MessageFactory.createStatus('idle', loopMessage));
         break;
 
       case GeminiEventType.Thought:

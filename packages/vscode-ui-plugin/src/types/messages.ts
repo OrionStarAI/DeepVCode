@@ -34,8 +34,9 @@ export interface ToolExecutionResult {
 // 🎯 新的原始消息内容格式 - 保持编辑器的原始结构
 export type MessageContentPart =
   | { type: 'text'; value: string }  // 原始文本片段
-  | { type: 'file_reference'; value: { fileName: string; filePath: string } }  // 文件引用
-  | { type: 'image_reference'; value: { fileName: string; data: string; mimeType: string; originalSize: number; compressedSize: number; width?: number; height?: number } };  // 图片引用
+  | { type: 'file_reference'; value: { fileName: string; filePath: string } }  // 文件引用（项目中的文件）
+  | { type: 'image_reference'; value: { fileName: string; data: string; mimeType: string; originalSize: number; compressedSize: number; width?: number; height?: number } }  // 图片引用
+  | { type: 'text_file_content'; value: { fileName: string; content: string; language?: string; size: number } };  // 文本文件内容（直接嵌入，不依赖文件路径）
 
 export type MessageContent = MessageContentPart[];  // 现在存储原始结构，不是拼装后的内容
 
@@ -215,6 +216,8 @@ export type WebViewToExtensionMessage =
   // 🎯 升级提示相关（用于解决webview沙箱限制）
   | { type: 'open_external_url'; payload: { url: string } }
   | { type: 'open_extension_marketplace'; payload: { extensionId: string } }
+  // 🎯 剪贴板缓存请求（用于智能粘贴代码引用）
+  | { type: 'request_clipboard_cache'; payload: { code: string } }
   // 🎯 自定义规则管理
   | { type: 'rules_list_request'; payload: {} }
   | { type: 'rules_save'; payload: { rule: any } }
@@ -273,11 +276,18 @@ export type ExtensionToWebViewMessage =
   | { type: 'tool_suggestion'; payload: { sessionId: string; toolName: string; params: any; timestamp: number } }
   // 🎯 模型配置相关
   | { type: 'model_response'; payload: { requestId: string; success: boolean; models?: any[]; currentModel?: string; error?: string } }
+  // 🎯 预填充消息（用于右键菜单命令 - 自动发送）
+  | { type: 'prefill_message'; payload: { message: string } }
+  // 🎯 插入代码到输入框（只插入，不自动发送）
+  | { type: 'insert_code_to_input'; payload: { fileName: string; filePath: string; code: string; startLine?: number; endLine?: number } }
+  // 🎯 剪贴板缓存响应（用于智能粘贴代码引用）
+  | { type: 'clipboard_cache_response'; payload: { found: boolean; fileName?: string; filePath?: string; code?: string; startLine?: number; endLine?: number } }
   // 🎯 自定义规则管理
   | { type: 'rules_list_response'; payload: { rules: any[] } }
   | { type: 'rules_save_response'; payload: { success: boolean; error?: string } }
   | { type: 'rules_delete_response'; payload: { success: boolean; error?: string } }
   | { type: 'open_rules_management'; payload: {} };
+
 
 export type Message = WebViewToExtensionMessage | ExtensionToWebViewMessage;
 

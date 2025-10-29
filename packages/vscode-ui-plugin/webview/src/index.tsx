@@ -10,6 +10,19 @@ import { ProjectSettingsProvider } from './hooks/useProjectSettings';
 import { getGlobalMessageService } from './services/globalMessageService';
 import { applyThemeClass, watchThemeChange } from './utils/themeUtils';
 
+// 🎯 关键：初始化 VSCode API
+declare function acquireVsCodeApi(): any;
+
+// 🎯 必须：获取 VSCode API（这是 webview 与扩展通信的桥梁）
+try {
+  if (!window.vscode) {
+    window.vscode = acquireVsCodeApi();
+    console.log('✅ VSCode API acquired successfully');
+  }
+} catch (error) {
+  console.error('❌ Failed to acquire VSCode API:', error);
+}
+
 // 添加全局样式以确保webview容器正确设置
 const globalStyles = `
   html, body, #root {
