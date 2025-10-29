@@ -44,6 +44,8 @@ export function assembleForDisplay(content: MessageContent): string {
           ? `${part.value.startLine}`
           : '';
         return `📄 ${part.value.fileName}${lineInfo ? ` (${lineInfo})` : ''}`;
+      case 'text_file_content':  // ✨ 新增：显示上传的文本文件
+        return `@[${part.value.fileName}]`;
       default:
         return '';
     }
@@ -86,6 +88,9 @@ export function assembleForLLM(content: MessageContent): {
           ? ` (lines ${part.value.startLine}-${part.value.endLine})`
           : '';
         textParts.push(`\n\nFrom ${part.value.fileName}${lineInfo}:\n\`\`\`\n${part.value.code}\n\`\`\`\n`);
+        break;
+      case 'text_file_content':  // ✨ 新增：处理上传的文本文件
+        textParts.push(`@[${part.value.fileName}]`);
         break;
     }
   });

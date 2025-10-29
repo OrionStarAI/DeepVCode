@@ -34,8 +34,9 @@ export interface ToolExecutionResult {
 // 🎯 新的原始消息内容格式 - 保持编辑器的原始结构
 export type MessageContentPart =
   | { type: 'text'; value: string }  // 原始文本片段
-  | { type: 'file_reference'; value: { fileName: string; filePath: string } }  // 文件引用
-  | { type: 'image_reference'; value: { fileName: string; data: string; mimeType: string; originalSize: number; compressedSize: number; width?: number; height?: number } };  // 图片引用
+  | { type: 'file_reference'; value: { fileName: string; filePath: string } }  // 文件引用（项目中的文件）
+  | { type: 'image_reference'; value: { fileName: string; data: string; mimeType: string; originalSize: number; compressedSize: number; width?: number; height?: number } }  // 图片引用
+  | { type: 'text_file_content'; value: { fileName: string; content: string; language?: string; size: number } };  // 文本文件内容（直接嵌入，不依赖文件路径）
 
 export type MessageContent = MessageContentPart[];  // 现在存储原始结构，不是拼装后的内容
 

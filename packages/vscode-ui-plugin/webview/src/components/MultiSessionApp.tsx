@@ -56,7 +56,8 @@ export const MultiSessionApp: React.FC = () => {
   const [forceUpdate, setForceUpdate] = useState(false);
 
   // 🎯 模型选择状态管理
-  const [selectedModelId, setSelectedModelId] = useState('claude-sonnet-4@20250514');
+  // 🛡️ 改为 'auto' 让服务端决定成本最优的模型
+  const [selectedModelId, setSelectedModelId] = useState('auto');
 
   const {
     state,

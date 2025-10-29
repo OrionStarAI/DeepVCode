@@ -11,49 +11,50 @@
 export enum SceneType {
   /** 主聊天对话场景 */
   CHAT_CONVERSATION = 'chat_conversation',
-  
+
   /** Web内容获取场景 */
   WEB_FETCH = 'web_fetch',
-  
+
   /** Web搜索场景 */
   WEB_SEARCH = 'web_search',
-  
+
   /** 内容摘要场景 */
   CONTENT_SUMMARY = 'content_summary',
-  
+
   /** JSON生成场景 */
   JSON_GENERATION = 'json_generation',
-  
+
   /** 对话压缩场景 */
   COMPRESSION = 'compression',
-  
+
   /** SubAgent子代理场景 */
   SUB_AGENT = 'sub_agent',
-  
+
   /** 代码助手场景 */
   CODE_ASSIST = 'code_assist',
-  
+
   /** 编辑校正场景 */
   EDIT_CORRECTION = 'edit_correction',
 }
 
 /**
  * 场景到模型的映射配置
- * 不同场景使用不同的最适合的模型
- * claude-sonnet-4@20250514
- * gemini-2.5-flash
- * gemini-2.5-pro
+ * 🛡️ 所有高费用模型已改为 'auto' 让服务端决定成本最优的模型
+ *
+ * 修改历史：
+ * - claude-sonnet-4@20250514 场景 → 改为 'auto'（降低账单风险）
+ * - gemini-2.5-flash 场景 → 保持不变（已是低费用模型）
  */
 export const SCENE_MODEL_MAPPING: Record<SceneType, string> = {
-  [SceneType.CHAT_CONVERSATION]: 'claude-sonnet-4@20250514',  // 高质量对话
-  [SceneType.WEB_FETCH]: 'gemini-2.5-flash',                  // 快速内容理解
-  [SceneType.WEB_SEARCH]: 'gemini-2.5-flash',                 // 搜索结果处理
-  [SceneType.CODE_ASSIST]: 'claude-sonnet-4@20250514',      // 代码分析
-  [SceneType.CONTENT_SUMMARY]: 'gemini-2.5-flash',            // 快速摘要
-  [SceneType.EDIT_CORRECTION]: 'claude-sonnet-4@20250514',     // 轻量编辑
-  [SceneType.JSON_GENERATION]: 'gemini-2.5-flash',             // 结构化输出
-  [SceneType.COMPRESSION]: 'gemini-2.5-flash',               // 对话压缩
-  [SceneType.SUB_AGENT]: 'claude-sonnet-4@20250514',       // SubAgent子代理
+  [SceneType.CHAT_CONVERSATION]: 'auto',          // 原: claude-sonnet-4@20250514 → 现: auto
+  [SceneType.WEB_FETCH]: 'gemini-2.5-flash',      // 保持不变
+  [SceneType.WEB_SEARCH]: 'gemini-2.5-flash',     // 保持不变
+  [SceneType.CODE_ASSIST]: 'auto',                // 原: claude-sonnet-4@20250514 → 现: auto
+  [SceneType.CONTENT_SUMMARY]: 'gemini-2.5-flash', // 保持不变
+  [SceneType.EDIT_CORRECTION]: 'auto',            // 原: claude-sonnet-4@20250514 → 现: auto
+  [SceneType.JSON_GENERATION]: 'gemini-2.5-flash', // 保持不变
+  [SceneType.COMPRESSION]: 'gemini-2.5-flash',    // 保持不变
+  [SceneType.SUB_AGENT]: 'auto',                  // 原: claude-sonnet-4@20250514 → 现: auto
 };
 
 /**
@@ -100,7 +101,7 @@ export class SceneManager {
       [SceneType.COMPRESSION]: '对话压缩',
       [SceneType.SUB_AGENT]: 'SubAgent子代理',
     };
-    
+
     return displayNames[scene] || scene;
   }
 

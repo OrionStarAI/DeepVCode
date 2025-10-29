@@ -17,6 +17,7 @@ ARTIFACTS_DIR = os.path.join(PROJECT_PATH)
 
 # 构建配置
 BUILD_TIMEOUT = 300  # 5分钟超时（秒）
+GIT_TIMEOUT = 60  # Git操作超时（秒）
 BUILD_SERVICE_URL = "http://0.0.0.0:1234"  # 客户端访问时需要替换为实际IP
 
 # npm命令

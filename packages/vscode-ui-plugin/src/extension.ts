@@ -26,6 +26,7 @@ let sessionManager: SessionManager;
 let fileSearchService: FileSearchService;
 let fileRollbackService: FileRollbackService;
 let inlineCompletionProvider: DeepVInlineCompletionProvider;
+let inlineCompletionStatusBar: vscode.StatusBarItem;
 let extensionContext: vscode.ExtensionContext;
 let clipboardCache: ClipboardCacheService;
 
@@ -104,6 +105,17 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(completionProviderDisposable);
     logger.info('InlineCompletionProvider registered for all file types');
 
+    // 🎯 创建状态栏项，用于控制代码补全开关
+    inlineCompletionStatusBar = vscode.window.createStatusBarItem(
+      vscode.StatusBarAlignment.Right,
+      100 // 优先级，越大越靠右
+    );
+    updateInlineCompletionStatusBar();
+    inlineCompletionStatusBar.command = 'deepv.toggleInlineCompletionFromStatusBar';
+    inlineCompletionStatusBar.show();
+    context.subscriptions.push(inlineCompletionStatusBar);
+    logger.info('Inline completion status bar created');
+
     // Setup communication between services
     setupServiceCommunication();
     
@@ -148,6 +160,9 @@ export async function deactivate(): Promise<void> {
   logger?.info('DeepV Code AI Assistant is deactivating...');
 
   try {
+    if (inlineCompletionStatusBar) {
+      inlineCompletionStatusBar.dispose();
+    }
     if (inlineCompletionProvider) {
       inlineCompletionProvider.dispose();
     }
@@ -1381,6 +1396,27 @@ function registerCommands(context: vscode.ExtensionContext) {
       vscode.window.showInformationMessage(`行内补全功能${status}`);
 
       logger.info(`Inline completion toggled: ${newState}`);
+
+      // 更新状态栏显示
+      updateInlineCompletionStatusBar();
+    }),
+
+    // 🎯 从状态栏切换行内补全开关
+    vscode.commands.registerCommand('deepv.toggleInlineCompletionFromStatusBar', async () => {
+      const config = vscode.workspace.getConfiguration('deepv');
+      const isEnabled = config.get<boolean>('enableInlineCompletion', true);
+      const newState = !isEnabled;
+
+      await config.update('enableInlineCompletion', newState, vscode.ConfigurationTarget.Global);
+
+      logger.info(`Inline completion toggled from status bar: ${newState}`);
+
+      // 更新状态栏显示（tooltip会显示新状态，无需额外提示）
+      updateInlineCompletionStatusBar();
+
+      // 🎯 使用状态栏消息代替弹窗提示，更轻量级，5秒后自动消失
+      const statusMessage = newState ? 'DeepV 代码补全已启用' : 'DeepV 代码补全已禁用';
+      vscode.window.setStatusBarMessage(statusMessage, 3000);
     }),
 
     // 🎯 选择行内补全模型
@@ -1437,6 +1473,32 @@ function registerCommands(context: vscode.ExtensionContext) {
   context.subscriptions.push(...commands);
   logger.info(`Registered ${commands.length} commands successfully`);
   console.log(`DeepV Code: Registered ${commands.length} commands`);
+}
+
+/**
+ * 更新状态栏显示
+ */
+function updateInlineCompletionStatusBar() {
+  if (!inlineCompletionStatusBar) {
+    return;
+  }
+
+  const config = vscode.workspace.getConfiguration('deepv');
+  const isEnabled = config.get<boolean>('enableInlineCompletion', true);
+
+  if (isEnabled) {
+    // 开启状态：使用DeepV品牌标识 - "D" + check图标代表DeepV
+    inlineCompletionStatusBar.text = 'D$(check)';
+    inlineCompletionStatusBar.tooltip = 'DeepV 代码补全：已启用（点击关闭）';
+    inlineCompletionStatusBar.backgroundColor = undefined;
+    inlineCompletionStatusBar.color = undefined;
+  } else {
+    // 关闭状态：使用D + X表示禁用
+    inlineCompletionStatusBar.text = 'D$(x)';
+    inlineCompletionStatusBar.tooltip = 'DeepV 代码补全：已禁用（点击启用）';
+    inlineCompletionStatusBar.backgroundColor = undefined;
+    inlineCompletionStatusBar.color = new vscode.ThemeColor('statusBarItem.warningForeground');
+  }
 }
 
 /**
@@ -1499,6 +1561,13 @@ async function initializeInlineCompletion() {
             completionService.setModelOverride(newModel);
             logger.info(`Inline completion model changed to: ${newModel}`);
           }
+        }
+
+        // 🎯 监听代码补全开关变化，更新状态栏
+        if (e.affectsConfiguration('deepv.enableInlineCompletion')) {
+          updateInlineCompletionStatusBar();
+          const isEnabled = vscode.workspace.getConfiguration('deepv').get<boolean>('enableInlineCompletion', true);
+          logger.info(`Inline completion status bar updated: ${isEnabled ? 'enabled' : 'disabled'}`);
         }
       })
     );
