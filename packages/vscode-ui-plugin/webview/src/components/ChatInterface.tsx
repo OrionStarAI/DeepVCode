@@ -470,6 +470,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                     message={message}
                     onToolConfirm={onToolConfirm}
                     onStartEdit={message.type === 'user' && rollbackableMessageIds.includes(message.id) ? handleStartEdit : undefined}
+                    canRevert={message.type === 'user' && rollbackableMessageIds.includes(message.id)}
+                    sessionId={sessionId}
                   />
                 )}
               </div>
