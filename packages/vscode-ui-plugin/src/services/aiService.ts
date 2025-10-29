@@ -1129,15 +1129,14 @@ export class AIService {
 
       this.notifyToolsUpdate();
 
-      // 🎯 直接调用CoreToolScheduler
-      this.coreToolScheduler.schedule(toolCallRequests, signal)
-        .then(() => {
-          this.logger.info(`✅ Core scheduler execution completed`);
-        })
-        .catch(error => {
-          this.logger.error('❌ Core scheduler execution failed', error instanceof Error ? error : undefined);
-          this.handleToolSchedulingError(toolCallRequests, error);
-        });
+      // 🎯 直接调用CoreToolScheduler - 🔥 关键修复：添加 await 以确保所有异步工具执行完成
+      try {
+        await this.coreToolScheduler.schedule(toolCallRequests, signal);
+        this.logger.info(`✅ Core scheduler execution completed`);
+      } catch (error) {
+        this.logger.error('❌ Core scheduler execution failed', error instanceof Error ? error : undefined);
+        this.handleToolSchedulingError(toolCallRequests, error);
+      }
 
         } catch (error) {
       this.logger.error('❌ Failed to schedule tools', error instanceof Error ? error : undefined);

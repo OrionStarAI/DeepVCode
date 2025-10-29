@@ -67,6 +67,10 @@ export interface Translations {
     sendMessage: string;
     clearInput: string;
     scrollToBottom: string;
+    stopProcessing: string;
+    cannotStop: string;
+    sending: string;
+    editPlaceholder: string;
   };
 
   messages: {

@@ -146,7 +146,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
 
       editorRef.current.update(() => {
         const selection = $getSelection();
-        
+
         if ($isRangeSelection(selection)) {
           // 🎯 创建代码引用节点
           const codeNode = $createCodeReferenceNode(
@@ -156,11 +156,11 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
             codeRef.endLine,
             codeRef.code
           );
-          
+
           // 🎯 插入节点和一个空格
           const spaceNode = $createTextNode(' ');
           selection.insertNodes([codeNode, spaceNode]);
-          
+
           // 🎯 将光标移到空格后面
           spaceNode.selectNext();
         }
@@ -995,7 +995,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
                 className="send-button processing"
                 onClick={onAbortProcess}
                 disabled={!canAbort}
-                title={canAbort ? "Stop AI processing" : "Cannot stop"}
+                title={canAbort ? t('chat.stopProcessing', {}, 'Stop AI processing') : t('chat.cannotStop', {}, 'Processing cannot be stopped')}
               >
                 <Square size={16} stroke="currentColor" />
               </button>
@@ -1004,7 +1004,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
                 className="send-button"
                 onClick={handleSend}
                 disabled={!textContent.trim() || isLoading || isProcessing}
-                title={isLoading ? 'Sending...' : 'Send message'}
+                title={isLoading ? t('chat.sending', {}, 'Sending...') : t('chat.sendMessage', {}, 'Send message')}
               >
                 {isLoading ? (
                   <div className="button-spinner" />

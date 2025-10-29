@@ -753,17 +753,41 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
-/* 🎯 处理中的停止按钮样式 */
+/* 🎯 处理中的停止按钮样式 - 增强的视觉反馈 */
 .send-button.processing {
-  background: #3c1618 !important; /* 🎯 暗红色背景，参考截图 */
-  color: #ff6b6b !important; /* 🎯 红色图标 */
-  border-color: #5c2629 !important; /* 🎯 稍亮的边框 */
-  /* 🎯 移除所有动画效果 */
+  background: linear-gradient(135deg, #5c2629 0%, #3c1618 100%) !important;
+  color: #ff6b6b !important;
+  border: 2px solid #ff6b6b !important;
+  border-color: #ff6b6b !important;
+  font-weight: 600;
+  box-shadow: 0 0 8px rgba(255, 107, 107, 0.3) !important;
+  /* 🎯 添加脉冲动画吸引用户注意 */
+  animation: stopButtonPulse 2s ease-in-out infinite;
 }
 
 .send-button.processing:hover:not(:disabled) {
-  background: #4a1d20 !important; /* 🎯 悬停时稍亮的暗红色 */
-  color: #ff8787 !important; /* 🎯 悬停时稍亮的红色图标 */
+  background: linear-gradient(135deg, #ff6b6b 0%, #ff5252 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 12px rgba(255, 107, 107, 0.5) !important;
+  transform: scale(1.05);
+  animation: none;
+}
+
+.send-button.processing:active:not(:disabled) {
+  transform: scale(0.98);
+  box-shadow: 0 0 6px rgba(255, 107, 107, 0.3) !important;
+}
+
+/* 🎯 停止按钮脉冲动画 - 在处理中时吸引注意力 */
+@keyframes stopButtonPulse {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(255, 107, 107, 0.3);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(255, 107, 107, 0.6);
+    transform: scale(1.02);
+  }
 }
 
 /* 移除编辑模式的特殊按钮样式，与底部保持一致 */
