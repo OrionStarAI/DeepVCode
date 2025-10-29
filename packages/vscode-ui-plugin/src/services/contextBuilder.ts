@@ -51,22 +51,10 @@ export class ContextBuilder {
     const customRules = await this.buildCustomRulesContext(context);
 
     // 🎯 组合最终的 Part 数组
+    // 优先级：VSCode 上下文 > 自定义规则 > 用户消息
     const finalParts: PartListUnion = [];
 
-    // 如果有自定义规则，首先添加
-    if (customRules) {
-      finalParts.push({
-        text: `[Custom Rules and Guidelines]
-${customRules}
-
-[Rules Usage Instructions]
-Please follow the above custom rules and guidelines when processing user requests. These rules define project-specific conventions, coding standards, and best practices.
-
-`
-      });
-    }
-
-    // 如果有 VSCode 上下文，添加上下文信息
+    // 1️⃣ 如果有 VSCode 上下文，首先添加（最高优先级）
     if (contextInfo) {
       finalParts.push({
         text: `[VSCode Context]
@@ -75,7 +63,25 @@ ${contextInfo}
 [Context Usage Instructions]
 You may use the above VSCode context information to answer user questions. If the user's question is unrelated to the provided context, you may ignore the context information and answer the question directly.
 
+`
+      });
+    }
+
+    // 2️⃣ 如果有自定义规则，其次添加
+    if (customRules) {
+      finalParts.push({
+        text: `[Custom Rules and Guidelines]
+${customRules}
+
+[Rules Usage Instructions]
+Please follow the above custom rules and guidelines when processing user requests. These rules define project-specific conventions, coding standards, and best practices.
+
 [User Request]`
+      });
+    } else if (contextInfo) {
+      // 如果有上下文但没有规则，添加用户请求标记
+      finalParts.push({
+        text: `[User Request]`
       });
     }
 
