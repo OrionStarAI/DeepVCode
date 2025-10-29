@@ -110,8 +110,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               style={{
                 cursor: onStartEdit ? 'pointer' : 'default',
                 transition: 'background-color 0.2s ease',
-                position: 'relative',
-                paddingRight: canRevert ? '36px' : '0'
+                position: 'relative'
               }}
               title={onStartEdit ? '点击编辑消息' : undefined}
               onMouseEnter={(e) => {
@@ -126,48 +125,50 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               }}
             >
               {messageContentToString(message.content)}
-              {/* 🎯 回退按钮 - 显示在用户消息气泡右下角 */}
-              {canRevert && (
-                <button
-                  className="message-revert-btn"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleRevertToMessage();
-                  }}
-                  title="回退到此版本"
-                  style={{
-                    position: 'absolute',
-                    bottom: '2px',
-                    right: '4px',
-                    padding: '2px 6px',
-                    background: 'transparent',
-                    border: '1px solid rgba(255,255,255,0.3)',
-                    borderRadius: '3px',
-                    color: 'rgba(255,255,255,0.7)',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '2px',
-                    fontSize: '11px',
-                    transition: 'all 0.2s ease',
-                    whiteSpace: 'nowrap'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.background = 'rgba(255,255,255,0.1)';
-                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.5)';
-                    e.currentTarget.style.color = 'rgba(255,255,255,0.9)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = 'transparent';
-                    e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)';
-                    e.currentTarget.style.color = 'rgba(255,255,255,0.7)';
-                  }}
-                >
-                  <Undo2 size={11} />
-                  <span>回退</span>
-                </button>
-              )}
             </div>
+            {/* 🎯 回退按钮 - 显示在用户消息气泡右上角 */}
+            {canRevert && (
+              <button
+                className="message-revert-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRevertToMessage();
+                }}
+                title="回退到此版本"
+                style={{
+                  position: 'absolute',
+                  top: '0px',
+                  right: '0px',
+                  padding: '6px 8px',
+                  background: 'transparent',
+                  border: '1px solid rgba(255,255,255,0.3)',
+                  borderRadius: '4px',
+                  color: 'rgba(255,255,255,0.7)',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '4px',
+                  fontSize: '12px',
+                  transition: 'all 0.2s ease',
+                  whiteSpace: 'nowrap',
+                  minWidth: '32px',
+                  minHeight: '32px'
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'rgba(255,255,255,0.15)';
+                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.5)';
+                  e.currentTarget.style.color = 'rgba(255,255,255,0.95)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)';
+                  e.currentTarget.style.color = 'rgba(255,255,255,0.7)';
+                }}
+              >
+                <Undo2 size={14} />
+              </button>
+            )}
           </div>
         ) : message.type === 'tool' ? (
           // 🎯 工具消息直接显示，不使用Markdown渲染
