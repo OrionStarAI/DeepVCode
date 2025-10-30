@@ -1213,17 +1213,9 @@ function registerCommands(context: vscode.ExtensionContext) {
       logger.info('deepv.openAIAssistant command executed');
       console.log('DeepV Code: openAIAssistant command executed');
 
-      // 🎯 确保WebView立即显示，即使服务还没完全初始化
+      // 🎯 显示侧边栏视图
       try {
-        if (webviewService) {
-          webviewService.show();
-        } else {
-          // 如果webviewService还没初始化，立即创建一个临时的
-          const tempWebviewService = new WebViewService(context, communicationService, logger);
-          await tempWebviewService.initialize();
-          tempWebviewService.show();
-          // 当正式的webviewService初始化完成后会接管
-        }
+        await webviewService?.show();
       } catch (error) {
         logger.error('Failed to show webview', error instanceof Error ? error : undefined);
         vscode.window.showErrorMessage('Failed to open DeepV Code Assistant');

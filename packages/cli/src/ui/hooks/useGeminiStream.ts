@@ -32,6 +32,7 @@ import {
   type SessionData,
   MESSAGE_ROLES,
 } from 'deepv-code-core';
+import { updateWindowTitleWithSummary } from '../../gemini.js';
 import { type Part, type PartListUnion, FinishReason } from '@google/genai';
 import {
   StreamingState,
@@ -166,19 +167,18 @@ async function generateCheckpointSummary(
   geminiClient: GeminiClient,
   summarySource: string
 ): Promise<string> {
-  const summaryPrompt = `分析以下内容，提取具体做了什么事情，必须包含项目或功能的具体名称，用专业研发术语说明(不超过10字)：
+  const summaryPrompt = `用"动词+名词"格式提取核心任务，必须包含具体项目/功能名称，不超过10字：
 
 示例：
-输入："我来为你创建一个完整的小蜜蜂单机游戏"
-输出：创建小蜜蜂游戏
+- 创建小蜜蜂游戏
+- 优化登录性能
+- 修复注册Bug
+- 重构支付模块
 
-输入："好的，实现吧。我来优化登录模块的性能"
-输出：优化登录模块性能
-
-现在请总结：
+现在总结：
 "${summarySource}"
 
-只返回总结，不要解释。`;
+只返回摘要。`;
 
   // 使用 Flash 模型（快速且成本低）
   const models = ['gemini-2.5-flash'];
@@ -427,6 +427,12 @@ export const useGeminiStream = (
         console.log('[Checkpoint] Starting summary generation from:', summarySource.substring(0, 50));
         summary = await generateCheckpointSummary(geminiClient, summarySource);
         console.log('[Checkpoint] Summary generated:', summary);
+
+        // 🎯 新增：更新窗口标题（包含工作目录名）
+        if (summary && summary.length > 0 && settings) {
+          const workspaceName = path.basename(config.getProjectRoot());
+          updateWindowTitleWithSummary(summary, settings, workspaceName);
+        }
       } catch (error) {
         console.error('[Checkpoint] Failed to generate summary, continuing without it:', error);
         summary = '';
