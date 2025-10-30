@@ -7,6 +7,9 @@
   display: inline-block;
   min-width: 240px;
   max-width: 320px;
+  z-index: 100;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .model-selector.disabled {
@@ -29,6 +32,8 @@
   cursor: pointer;
   transition: all 0.2s ease;
   outline: none;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .model-selector-trigger:hover:not(:disabled) {
@@ -67,6 +72,7 @@
   align-items: center;
   gap: 6px;
   min-width: 0;
+  flex: 1;
 }
 
 .model-name {
@@ -84,6 +90,7 @@
   opacity: 0.8;
   white-space: nowrap;
   flex-shrink: 0;
+  margin-left: auto;
 }
 
 /* 下拉箭头 */
@@ -107,13 +114,14 @@
   border-bottom: none;
   border-radius: 6px 6px 0 0;
   box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.15);
-  z-index: 1000;
+  z-index: 10000;
   max-height: 320px;
   overflow-y: auto;
   animation: slideUp 0.15s ease-out;
-  min-width: 300px;
   width: max-content;
-  max-width: 400px;
+  max-width: 280px;
+  pointer-events: auto;
+  min-width: 200px;
 }
 
 @keyframes slideUp {
@@ -271,6 +279,8 @@
     display: none; /* 在小屏幕上隐藏描述 */
   }
 }
+
+
 
 /* 深色主题优化 */
 @media (prefers-color-scheme: dark) {
