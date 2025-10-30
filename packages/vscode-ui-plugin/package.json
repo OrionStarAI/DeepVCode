@@ -2,7 +2,7 @@
   "name": "deepv-code-vscode-ui-plugin",
   "displayName": "DeepV Code for VSCode",
   "description": "AI-powered programming assistant with visual interface for VS Code",
-  "version": "1.0.173",
+  "version": "1.0.178",
   "publisher": "DeepX",
   "icon": "assets/icon.png",
   "repository": {
@@ -26,6 +26,7 @@
     "automation"
   ],
   "activationEvents": [
+    "onStartupFinished",
     "onCommand:deepv.openAIAssistant",
     "onCommand:deepv.explainCode",
     "onCommand:deepv.optimizeCode",
@@ -111,7 +112,7 @@
         {
           "type": "webview",
           "id": "deepv.aiAssistant",
-          "name": "AI Assistant",
+          "name": "DeepV Code",
           "when": "true"
         }
       ]
