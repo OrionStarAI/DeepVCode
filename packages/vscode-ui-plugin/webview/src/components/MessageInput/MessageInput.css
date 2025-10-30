@@ -181,9 +181,14 @@
   position: absolute;
   top: 10px; /* 🎯 匹配新的padding */
   left: 12px; /* 🎯 匹配新的padding */
+  right: 12px; /* 🎯 新增：给右侧也设定边界 */
   pointer-events: none;
   user-select: none;
   line-height: 1.5;
+  /* 🎯 新增：强制单行，超出显示省略号 */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .placeholder-hint {
@@ -708,11 +713,6 @@
   background-color: var(--vscode-scrollbarSlider-activeBackground);
 }
 
-.input-actions {
-  display: flex;
-  gap: 4px;
-}
-
 .send-button {
   background-color: var(--vscode-button-background);
   color: var(--vscode-button-foreground);
@@ -813,8 +813,13 @@
 .input-actions {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
   gap: 8px;
-  margin-top: 8px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  margin-left: auto; /* 🎯 新增：推向右侧 */
+  position: relative;
+  z-index: 50;
 }
 
 /* 🎯 输入工具栏 - 底部工具栏容器 */
@@ -823,9 +828,13 @@
   justify-content: space-between;
   align-items: center;
   margin-top: 8px;
-  padding: 8px 0 12px 0; /* 🎯 保持顶部和底部间距，确保贴底显示 */
+  padding: 8px 0 12px 0;
   border-top: 1px solid var(--vscode-panel-border);
   background: transparent;
+  min-width: 0;
+  gap: 8px;
+  flex-wrap: nowrap;
+  overflow: visible;
 }
 
 .input-footer {
@@ -833,35 +842,42 @@
   justify-content: flex-start;
   align-items: center;
   gap: 12px;
+  flex: 0 1 auto; /* 🎯 修复：只占据必要空间，不强制占据剩余空间 */
+  min-width: 0; /* 🎯 允许内部元素压缩 */
+  overflow: visible; /* 🎯 确保内容不被裁剪 */
 }
 
-/* 🎯 MessageInput 中的模型选择器特殊样式 */
+/* 🎯 MessageInput 中的模型选择器特殊样式 - 渐进式压缩 */
 .message-input-model-selector {
-  min-width: 200px;
-  max-width: 280px;
+  min-width: 80px;
+  max-width: 320px;
+  flex: 1 1 auto;
 }
 
 .message-input-model-selector .model-selector-trigger {
-  font-size: 11px;
+  font-size: 12px;
   padding: 6px 8px;
-  height: 28px;
+  height: 32px;
   border-radius: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .message-input-model-selector .model-name {
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .message-input-model-selector .model-tier,
 .message-input-model-selector .model-credits {
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .message-input-model-selector .model-icon {
   font-size: 12px;
 }
 
-/* 上下文剩余量指示器 */
+/* 上下文剩余量指示器 - 平滑流体布局，随窗口连续压缩 */
 .context-indicator {
   display: flex;
   align-items: center;
@@ -869,6 +885,11 @@
   background-color: var(--vscode-badge-background);
   border-radius: 3px;
   border: 1px solid var(--vscode-widget-border);
+  min-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 0 1 auto;
+  white-space: nowrap;
 }
 
 .context-percentage {
@@ -876,6 +897,29 @@
   font-weight: 500;
   color: var(--vscode-badge-foreground);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 🎯 当窗口 < 450px 时，完全隐藏 Context 指示器（不要留下空框） */
+@media (max-width: 449px) {
+  .context-indicator {
+    display: none;
+  }
+}
+
+/* 🎯 当模型选择框隐藏时（< 200px），隐藏 Context 指示器 */
+@media (max-width: 199px) {
+  .message-input-model-selector {
+    display: none !important;
+    visibility: hidden;
+    width: 0;
+    height: 0;
+  }
+
+  .context-indicator {
+    display: none;
+  }
 }
 
 
@@ -1134,3 +1178,6 @@
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
+
+/* 🎯 保持统一简洁的样式，不做响应式压缩 */
+/* 使用内容自适应宽度和文字省略号处理溢出 */
