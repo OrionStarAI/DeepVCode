@@ -99,9 +99,12 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
           <div
             style={{
               position: 'relative',
-              display: 'inline-block',
-              maxWidth: '80%',
-              alignSelf: 'flex-end'
+              display: 'flex',
+              alignItems: 'flex-start',
+              gap: '8px',
+              paddingRight: canRevert ? '32px' : '0px',
+              wordBreak: 'break-word',
+              maxWidth: '100%'
             }}
           >
             <div
@@ -109,7 +112,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               onClick={() => onStartEdit?.(message.id)}
               style={{
                 cursor: onStartEdit ? 'pointer' : 'default',
-                transition: 'background-color 0.2s ease'
+                transition: 'background-color 0.2s ease',
+                flex: 1,
+                minWidth: 0  // 🎯 允许 flex 容器内的文本换行
               }}
               title={onStartEdit ? '点击编辑消息' : undefined}
               onMouseEnter={(e) => {
@@ -125,7 +130,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             >
               {messageContentToString(message.content)}
             </div>
-            {/* 🎯 回退按钮 - 显示在消息气泡右上角 */}
+            {/* 🎯 回退按钮 - 显示在消息气泡右边，固定宽度 */}
             {canRevert && (
               <button
                 className="message-revert-btn-inline"
@@ -135,12 +140,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                 }}
                 title="回退"
                 style={{
-                  position: 'absolute',
-                  top: '4px',
-                  right: '-32px',
+                  flexShrink: 0,  // 🎯 不缩小，保持固定大小
                   width: '28px',
                   height: '28px',
                   padding: '4px',
+                  minWidth: '28px',  // 🎯 设置最小宽度
                   background: 'transparent',
                   border: 'none',
                   borderRadius: '4px',
@@ -150,7 +154,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
                   alignItems: 'center',
                   justifyContent: 'center',
                   opacity: 0.6,
-                  transition: 'all 0.2s ease'
+                  transition: 'all 0.2s ease',
+                  marginTop: '2px'  // 🎯 轻微调整，与文字顶部对齐
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.opacity = '1';
