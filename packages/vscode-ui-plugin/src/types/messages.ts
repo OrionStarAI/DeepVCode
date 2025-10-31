@@ -214,7 +214,11 @@ export type WebViewToExtensionMessage =
   | { type: 'fix_suggestion_request'; payload: { sessionId: string; files?: string[]; errorTypes?: string[]; priority?: 'high' | 'medium' | 'low' } }
   // 🎯 升级提示相关（用于解决webview沙箱限制）
   | { type: 'open_external_url'; payload: { url: string } }
-  | { type: 'open_extension_marketplace'; payload: { extensionId: string } };
+  | { type: 'open_extension_marketplace'; payload: { extensionId: string } }
+  // 🎯 版本控制相关
+  | { type: 'revert_to_message'; payload: { sessionId: string; messageId: string } }
+  | { type: 'version_timeline_request'; payload: { sessionId: string } }
+  | { type: 'version_revert_previous'; payload: { sessionId: string } };
 
 // Message types from Extension to WebView
 export type ExtensionToWebViewMessage =

@@ -12,6 +12,9 @@ import { MultiSessionCommunicationService } from './services/multiSessionCommuni
 import { SessionManager } from './services/sessionManager';
 import { FileSearchService } from './services/fileSearchService';
 import { FileRollbackService } from './services/fileRollbackService';
+import { VersionControlManager } from './services/versionControlManager';
+import { SimpleRevertService } from './services/simpleRevertService';
+import { CursorStyleRevertService } from './services/cursorStyleRevertService';
 import { DeepVInlineCompletionProvider } from './services/inlineCompletionProvider';
 import { Logger } from './utils/logger';
 import { startupOptimizer } from './utils/startupOptimizer';
@@ -24,6 +27,9 @@ let communicationService: MultiSessionCommunicationService;
 let sessionManager: SessionManager;
 let fileSearchService: FileSearchService;
 let fileRollbackService: FileRollbackService;
+let versionControlManager: VersionControlManager;
+let simpleRevertService: SimpleRevertService;
+let cursorStyleRevertService: CursorStyleRevertService;
 let inlineCompletionProvider: DeepVInlineCompletionProvider;
 let extensionContext: vscode.ExtensionContext;
 
@@ -89,6 +95,16 @@ export async function activate(context: vscode.ExtensionContext) {
     sessionManager = new SessionManager(logger, communicationService, context);
     fileSearchService = new FileSearchService(logger);
     fileRollbackService = FileRollbackService.getInstance(logger);
+    versionControlManager = new VersionControlManager(logger, context);
+
+    // 🎯 初始化简单回退服务
+    simpleRevertService = new SimpleRevertService(logger);
+
+    // 🎯 初始化Cursor风格回退服务
+    cursorStyleRevertService = new CursorStyleRevertService(logger);
+
+    // 🎯 设置版本控制管理器到SessionManager
+    sessionManager.setVersionControlManager(versionControlManager);
 
     // 🎯 初始化行内补全提供者
     inlineCompletionProvider = new DeepVInlineCompletionProvider(logger);
@@ -182,6 +198,18 @@ function setupBasicMessageHandlers() {
   communicationService.onChatMessage(async (message) => {
     try {
       logger.info(`Received chat message for session: ${message.sessionId}`);
+
+      // 🎯 在处理消息前创建备份（Cursor风格）
+      try {
+        await cursorStyleRevertService.backupBeforeAI(message.id);
+        logger.debug(`💾 Created backup for message: ${message.id}`);
+
+        // 所有用户消息都可以回退
+        const revertableIds = cursorStyleRevertService.getAllRevertableMessageIds();
+        await communicationService.sendRollbackableIdsUpdate(message.sessionId, revertableIds);
+      } catch (error) {
+        logger.warn('Failed to create backup', error instanceof Error ? error : undefined);
+      }
 
       // 🎯 使用延迟初始化的AIService，只在真正需要AI功能时才初始化
       const aiService = await sessionManager.getInitializedAIService(message.sessionId);
@@ -329,6 +357,141 @@ function setupBasicMessageHandlers() {
 
   // 处理取消所有工具
   communicationService.onToolCancelAll(async () => {
+  });
+
+
+  // 🎯 处理回退到指定消息
+  communicationService.onRevertToMessage(async (payload) => {
+    try {
+      const { sessionId, messageId } = payload;
+      logger.info(`🔄 Reverting to message: ${messageId} in session: ${sessionId}`);
+
+      // 🎯 首先尝试使用版本控制管理器进行版本回退
+      let result = await versionControlManager.revertToTurn(sessionId, messageId);
+
+      if (result.success) {
+        vscode.window.showInformationMessage(
+          `✅ 已回退到指定消息 (${result.revertedFiles.length} 个文件)`
+        );
+        logger.info('✅ Revert completed successfully', result);
+      } else {
+        // 如果版本控制回退失败，尝试降级方案：使用Cursor风格回退服务（文件备份）
+        logger.warn(`⚠️ Version control revert failed, attempting fallback... Error: ${result.error}`);
+        const fallbackResult = await cursorStyleRevertService.revertToMessage(messageId);
+
+        if (fallbackResult.success) {
+          vscode.window.showInformationMessage(`✅ ${fallbackResult.message}`);
+          logger.info('✅ Revert completed using fallback', fallbackResult);
+        } else {
+          // 提供更有帮助的错误信息
+          const helpMessage = result.error?.includes('not found')
+            ? '\n\n💡 提示：这可能是因为没有记录该消息的版本节点。请检查日志中是否有 "Recording changes for turn" 的信息。运行 "deepv.debugVersionNodes" 命令可以查看当前版本状态。'
+            : '';
+
+          vscode.window.showErrorMessage(
+            `回退失败: ${fallbackResult.message || result.error}${helpMessage}`
+          );
+          logger.error('❌ Both revert methods failed', new Error(`Version: ${result.error}, Fallback: ${fallbackResult.message}`));
+        }
+      }
+
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      vscode.window.showErrorMessage(`⚠️ 回退失败: ${errorMsg}。请运行 "deepv.debugVersionNodes" 命令诊断问题。`);
+      logger.error('❌ Error reverting to message', error instanceof Error ? error : undefined);
+    }
+  });
+
+  // 🎯 处理版本时间线请求
+  communicationService.onVersionTimelineRequest(async (payload) => {
+    try {
+      const { sessionId } = payload;
+      logger.info(`📋 Showing version timeline for session: ${sessionId}`);
+
+      const timeline = versionControlManager.getTimeline(sessionId);
+
+      if (timeline.length === 0) {
+        vscode.window.showInformationMessage('当前会话没有版本历史');
+        return;
+      }
+
+      // 创建QuickPick选择器
+      const items = timeline.map(item => ({
+        label: item.isCurrent ? `$(check) ${item.title}` : item.title,
+        description: item.description,
+        detail: `${new Date(item.timestamp).toLocaleString()} • +${item.stats.linesAdded} -${item.stats.linesRemoved}`,
+        nodeId: item.nodeId
+      }));
+
+      const selected = await vscode.window.showQuickPick(items, {
+        placeHolder: '选择要回退到的版本',
+        title: '📋 版本历史时间线',
+        matchOnDescription: true,
+        matchOnDetail: true
+      });
+
+      if (selected) {
+        const action = await vscode.window.showWarningMessage(
+          `确定要回退到版本 "${selected.label}" 吗？`,
+          { modal: true },
+          '回退',
+          '取消'
+        );
+
+        if (action === '回退') {
+          const result = await versionControlManager.revertTo(sessionId, selected.nodeId);
+
+          if (result.success) {
+            vscode.window.showInformationMessage(
+              `✅ 已回退到选定版本 (${result.revertedFiles.length} 个文件)`
+            );
+          } else {
+            vscode.window.showErrorMessage(`回退失败: ${result.error || '未知错误'}`);
+          }
+        }
+      }
+
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      vscode.window.showErrorMessage(`显示版本历史失败: ${errorMsg}`);
+      logger.error('❌ Error showing version timeline', error instanceof Error ? error : undefined);
+    }
+  });
+
+  // 🎯 处理回退到上一版本请求
+  communicationService.onVersionRevertPrevious(async (payload) => {
+    try {
+      const { sessionId } = payload;
+      logger.info(`⏮️ Reverting to previous version for session: ${sessionId}`);
+
+      const action = await vscode.window.showWarningMessage(
+        '确定要回退到上一个版本吗？这将撤销最近一次AI应用的更改。',
+        { modal: true },
+        '回退',
+        '取消'
+      );
+
+      if (action !== '回退') {
+        return;
+      }
+
+      const result = await versionControlManager.revertPrevious(sessionId);
+
+      if (result.success) {
+        vscode.window.showInformationMessage(
+          `✅ 已回退到上一版本 (${result.revertedFiles.length} 个文件)`
+        );
+        logger.info('✅ Revert to previous completed successfully', result);
+      } else {
+        vscode.window.showErrorMessage(`回退失败: ${result.error || '未知错误'}`);
+        logger.error('❌ Revert to previous failed', new Error(result.error));
+      }
+
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      vscode.window.showErrorMessage(`回退失败: ${errorMsg}`);
+      logger.error('❌ Error reverting to previous', error instanceof Error ? error : undefined);
+    }
   });
 
   // 🎯 处理流程中断请求
@@ -1285,6 +1448,179 @@ function registerCommands(context: vscode.ExtensionContext) {
         vscode.window.showInformationMessage(`✅ 行内补全模型已切换到: ${modelName}`);
 
         logger.info(`Inline completion model changed to: ${selected.value}`);
+      }
+    }),
+
+    // 🎯 版本控制命令 - 回退到上一版本
+    vscode.commands.registerCommand('deepv.revertToPrevious', async () => {
+      try {
+        const currentSession = sessionManager.getCurrentSession();
+        if (!currentSession) {
+          vscode.window.showWarningMessage('没有活跃的会话');
+          return;
+        }
+
+        const action = await vscode.window.showWarningMessage(
+          '确定要回退到上一个版本吗？这将撤销最近一次AI应用的更改。',
+          { modal: true },
+          '回退',
+          '取消'
+        );
+
+        if (action !== '回退') {
+          return;
+        }
+
+        const result = await versionControlManager.revertPrevious(currentSession.info.id);
+
+        if (result.success) {
+          vscode.window.showInformationMessage(
+            `✅ 已回退到上一版本 (${result.revertedFiles.length} 个文件)`
+          );
+          logger.info('Reverted to previous version successfully', result);
+        } else {
+          vscode.window.showErrorMessage(`回退失败: ${result.error || '未知错误'}`);
+          logger.error('Failed to revert to previous version', new Error(result.error));
+        }
+
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        vscode.window.showErrorMessage(`回退失败: ${errorMsg}`);
+        logger.error('Error executing revert command', error instanceof Error ? error : undefined);
+      }
+    }),
+
+    // 🎯 版本控制命令 - 显示版本时间线
+    vscode.commands.registerCommand('deepv.showVersionTimeline', async () => {
+      try {
+        const currentSession = sessionManager.getCurrentSession();
+        if (!currentSession) {
+          vscode.window.showWarningMessage('没有活跃的会话');
+          return;
+        }
+
+        const timeline = versionControlManager.getTimeline(currentSession.info.id);
+
+        if (timeline.length === 0) {
+          vscode.window.showInformationMessage('当前会话没有版本历史');
+          return;
+        }
+
+        // 创建QuickPick选择器
+        const items = timeline.map(item => ({
+          label: item.isCurrent ? `$(check) ${item.title}` : item.title,
+          description: item.description,
+          detail: `${new Date(item.timestamp).toLocaleString()} • +${item.stats.linesAdded} -${item.stats.linesRemoved}`,
+          nodeId: item.nodeId
+        }));
+
+        const selected = await vscode.window.showQuickPick(items, {
+          placeHolder: '选择要回退到的版本',
+          title: '📋 版本历史时间线',
+          matchOnDescription: true,
+          matchOnDetail: true
+        });
+
+        if (selected) {
+          const action = await vscode.window.showWarningMessage(
+            `确定要回退到版本 "${selected.label}" 吗？`,
+            { modal: true },
+            '回退',
+            '取消'
+          );
+
+          if (action === '回退') {
+            const result = await versionControlManager.revertTo(
+              currentSession.info.id,
+              selected.nodeId
+            );
+
+            if (result.success) {
+              vscode.window.showInformationMessage(
+                `✅ 已回退到选定版本 (${result.revertedFiles.length} 个文件)`
+              );
+            } else {
+              vscode.window.showErrorMessage(`回退失败: ${result.error || '未知错误'}`);
+            }
+          }
+        }
+
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        vscode.window.showErrorMessage(`显示版本历史失败: ${errorMsg}`);
+        logger.error('Error showing version timeline', error instanceof Error ? error : undefined);
+      }
+    }),
+
+    // 🎯 调试命令 - 检查版本节点状态
+    vscode.commands.registerCommand('deepv.debugVersionNodes', async () => {
+      try {
+        const currentSession = sessionManager.getCurrentSession();
+        if (!currentSession) {
+          vscode.window.showWarningMessage('没有活跃的会话');
+          return;
+        }
+
+        const sessionId = currentSession.info.id;
+        const rollbackableIds = versionControlManager.getRollbackableMessageIds(sessionId);
+        const timeline = versionControlManager.getTimeline(sessionId);
+
+        const debugInfo = {
+          sessionId,
+          rollbackableMessageCount: rollbackableIds.length,
+          rollbackableMessageIds: rollbackableIds,
+          timelineCount: timeline.length,
+          timelineItems: timeline.map(item => ({
+            nodeId: item.nodeId,
+            title: item.title,
+            type: item.type,
+            fileCount: item.fileCount,
+            isCurrent: item.isCurrent
+          }))
+        };
+
+        logger.info('🔍 Version Control Debug Info:', debugInfo);
+
+        // 显示调试信息给用户
+        const debugText = `📋 版本控制诊断信息\n\n` +
+          `Session: ${sessionId}\n\n` +
+          `可回滚消息: ${rollbackableIds.length} 个\n` +
+          `${rollbackableIds.map(id => `  • ${id}`).join('\n')}\n\n` +
+          `版本时间线: ${timeline.length} 个节点\n` +
+          `${timeline.map(item => `  • ${item.isCurrent ? '✓' : ' '} ${item.title} (${item.fileCount} files)`).join('\n')}`;
+
+        // 显示在新的Webview中
+        const panel = vscode.window.createWebviewPanel(
+          'debugVersionNodes',
+          '版本控制诊断',
+          vscode.ViewColumn.Beside,
+          { enableScripts: true }
+        );
+
+        panel.webview.html = `
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <style>
+              body { font-family: monospace; padding: 20px; color: #ccc; background: #1e1e1e; }
+              h2 { color: #4ec9b0; }
+              pre { background: #2d2d30; padding: 10px; border-radius: 4px; overflow-x: auto; }
+              .success { color: #6a9955; }
+              .error { color: #f48771; }
+            </style>
+          </head>
+          <body>
+            <h2>📋 版本控制诊断信息</h2>
+            <p>Session: <span class="success">${sessionId}</span></p>
+            <p>可回滚消息: <span class="success">${rollbackableIds.length}</span> 个</p>
+            <pre>${JSON.stringify(debugInfo, null, 2)}</pre>
+          </body>
+          </html>
+        `;
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        vscode.window.showErrorMessage(`诊断失败: ${errorMsg}`);
+        logger.error('Debug command failed', error instanceof Error ? error : undefined);
       }
     })
   ];

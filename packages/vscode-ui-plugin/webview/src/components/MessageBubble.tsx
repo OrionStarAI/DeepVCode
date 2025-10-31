@@ -97,11 +97,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
       <div className="message-content">
         {message.type === 'user' ? (
           <div
-            className="user-message-wrapper"
             style={{
-              display: 'flex',
-              flexDirection: 'column',
-              position: 'relative'
+              position: 'relative',
+              display: 'inline-block',
+              maxWidth: '80%',
+              alignSelf: 'flex-end'
             }}
           >
             <div
@@ -109,8 +109,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               onClick={() => onStartEdit?.(message.id)}
               style={{
                 cursor: onStartEdit ? 'pointer' : 'default',
-                transition: 'background-color 0.2s ease',
-                position: 'relative'
+                transition: 'background-color 0.2s ease'
               }}
               title={onStartEdit ? '点击编辑消息' : undefined}
               onMouseEnter={(e) => {
@@ -126,47 +125,43 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             >
               {messageContentToString(message.content)}
             </div>
-            {/* 🎯 回退按钮 - 显示在用户消息气泡右上角 */}
+            {/* 🎯 回退按钮 - 显示在消息气泡右上角 */}
             {canRevert && (
               <button
-                className="message-revert-btn"
+                className="message-revert-btn-inline"
                 onClick={(e) => {
                   e.stopPropagation();
                   handleRevertToMessage();
                 }}
-                title="回退到此版本"
+                title="回退"
                 style={{
                   position: 'absolute',
-                  top: '0px',
-                  right: '0px',
-                  padding: '6px 8px',
+                  top: '4px',
+                  right: '-32px',
+                  width: '28px',
+                  height: '28px',
+                  padding: '4px',
                   background: 'transparent',
-                  border: '1px solid rgba(255,255,255,0.3)',
+                  border: 'none',
                   borderRadius: '4px',
-                  color: 'rgba(255,255,255,0.7)',
+                  color: 'var(--vscode-descriptionForeground)',
                   cursor: 'pointer',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '4px',
-                  fontSize: '12px',
-                  transition: 'all 0.2s ease',
-                  whiteSpace: 'nowrap',
-                  minWidth: '32px',
-                  minHeight: '32px'
+                  opacity: 0.6,
+                  transition: 'all 0.2s ease'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.15)';
-                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.5)';
-                  e.currentTarget.style.color = 'rgba(255,255,255,0.95)';
+                  e.currentTarget.style.opacity = '1';
+                  e.currentTarget.style.background = 'var(--vscode-toolbar-hoverBackground)';
                 }}
                 onMouseLeave={(e) => {
+                  e.currentTarget.style.opacity = '0.6';
                   e.currentTarget.style.background = 'transparent';
-                  e.currentTarget.style.borderColor = 'rgba(255,255,255,0.3)';
-                  e.currentTarget.style.color = 'rgba(255,255,255,0.7)';
                 }}
               >
-                <Undo2 size={14} />
+                <Undo2 size={16} />
               </button>
             )}
           </div>

@@ -79,6 +79,18 @@
         "command": "deepv.selectInlineCompletionModel",
         "title": "Select Inline Completion Model",
         "category": "DeepV Code"
+      },
+      {
+        "command": "deepv.revertToPrevious",
+        "title": "Revert to Previous Version",
+        "category": "DeepV Code",
+        "icon": "$(history)"
+      },
+      {
+        "command": "deepv.showVersionTimeline",
+        "title": "Show Version Timeline",
+        "category": "DeepV Code",
+        "icon": "$(timeline-view-icon)"
       }
     ],
     "viewsContainers": {

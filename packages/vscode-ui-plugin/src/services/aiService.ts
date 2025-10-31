@@ -54,6 +54,12 @@ interface ISessionHistoryManager {
   updateSessionInfo(sessionId: string, updates: Partial<import('../types/sessionTypes').SessionInfo>): Promise<void>;
 }
 
+// 🎯 版本控制管理器接口
+interface IVersionControlManager {
+  recordAppliedChanges(sessionId: string, turnId: string, toolCalls: VSCodeToolCall[], description?: string): Promise<string | null>;
+  getRollbackableMessageIds?(sessionId: string): Promise<string[]>;
+}
+
 export class AIService {
   private geminiClient?: GeminiClient;
   private config?: Config;
@@ -65,12 +71,14 @@ export class AIService {
   private isCurrentlyResponding: boolean = false;
   private isProcessing: boolean = false;
   private currentProcessingMessageId: string | null = null;
+  private currentUserMessageId: string | null = null; // 🎯 新增：当前处理的用户消息ID
   private canAbortFlow: boolean = false;
   private abortController?: AbortController;
 
   // 🎯 通信和工具状态
   private communicationService?: MultiSessionCommunicationService;
   private sessionHistoryManager?: ISessionHistoryManager;
+  private versionControlManager?: IVersionControlManager;
 
   // 🎯 增强的 Lint 功能
   private diagnosticsMonitor?: DiagnosticsMonitorService;
@@ -224,6 +232,9 @@ export class AIService {
                 toolName: tool.toolName
               };
               tool.responseParts = coreTool.response.responseParts;
+
+              // 🎯 Debug: 记录工具完成信息
+              this.logger.debug(`Tool completed: ${tool.toolName} (${tool.id}), params:`, tool.parameters);
             } else if (coreTool.status === 'error') {
               tool.result = {
                 success: false,
@@ -240,8 +251,19 @@ export class AIService {
           }
         });
 
+        // 🎯 Debug: 记录即将处理的已完成工具
+        this.logger.info(`🔧 About to handle batch complete with ${completedVSCodeTools.length} tools`);
+        this.logger.info(`   Current user message ID: ${this.currentUserMessageId}`);
+        this.logger.info(`   Current processing message ID: ${this.currentProcessingMessageId}`);
+
         this.notifyToolsUpdate();
-        this.handleToolBatchComplete(completedVSCodeTools);
+
+        // 🎯 立即捕获当前的用户消息ID，避免异步执行时被改变
+        const capturedUserMessageId = this.currentUserMessageId;
+        const capturedProcessingMessageId = this.currentProcessingMessageId;
+
+        // 使用捕获的ID来处理工具完成
+        this.handleToolBatchCompleteWithIds(completedVSCodeTools, capturedUserMessageId, capturedProcessingMessageId);
       };
 
       // 🎯 工具状态更新处理
@@ -678,6 +700,18 @@ export class AIService {
    * 🎯 处理工具批次完成 - AI核心职责
    */
   private async handleToolBatchComplete(completedTools: VSCodeToolCall[]) {
+    // 使用当前的ID调用
+    await this.handleToolBatchCompleteWithIds(completedTools, this.currentUserMessageId, this.currentProcessingMessageId);
+  }
+
+  /**
+   * 🎯 处理工具批次完成 - 带有捕获的消息ID
+   */
+  private async handleToolBatchCompleteWithIds(
+    completedTools: VSCodeToolCall[],
+    capturedUserMessageId: string | null,
+    capturedProcessingMessageId: string | null
+  ) {
     if (this.isCurrentlyResponding) {
       this.logger.info(`⏳ AI still responding, skipping tool results submission`);
       return;
@@ -685,6 +719,9 @@ export class AIService {
 
     // 🎯 检测成功完成的save_memory工具调用
     await this.handleMemoryToolsCompleted(completedTools);
+
+    // 🎯 记录版本信息 - 使用捕获的消息ID
+    await this.recordVersionForCompletedToolsWithIds(completedTools, capturedUserMessageId, capturedProcessingMessageId);
 
     const toolsToSubmit = completedTools.filter(tool =>
       (tool.status === ToolCallStatus.Success ||
@@ -701,6 +738,181 @@ export class AIService {
     }
 
     await this.submitToolResultsToLLM(toolsToSubmit);
+  }
+
+  /**
+   * 🎯 为成功完成的工具调用记录版本信息
+   */
+  private async recordVersionForCompletedTools(completedTools: VSCodeToolCall[]) {
+    // 使用当前的ID调用
+    await this.recordVersionForCompletedToolsWithIds(completedTools, this.currentUserMessageId, this.currentProcessingMessageId);
+  }
+
+  /**
+   * 🎯 为成功完成的工具调用记录版本信息 - 使用捕获的消息ID
+   */
+  private async recordVersionForCompletedToolsWithIds(
+    completedTools: VSCodeToolCall[],
+    capturedUserMessageId: string | null,
+    capturedProcessingMessageId: string | null
+  ) {
+    if (!this.versionControlManager || !this.sessionId) {
+      this.logger.debug('Version control manager or sessionId not available');
+      return;
+    }
+
+    // 🎯 调试：记录所有完成的工具
+    this.logger.debug(`Checking ${completedTools.length} completed tools for file modifications`);
+    completedTools.forEach(tool => {
+      this.logger.debug(`Tool: ${tool.toolName}, Status: ${tool.status}, ID: ${tool.id}`);
+    });
+
+    // 🎯 使用更智能的方式识别文件修改工具
+    const fileModifyingTools = completedTools.filter(tool => {
+      // 必须是成功的工具
+      if (tool.status !== ToolCallStatus.Success) {
+        return false;
+      }
+
+      const toolNameLower = tool.toolName.toLowerCase();
+
+      // 检查是否是文件相关的工具
+      const isFileOperation =
+        // 写入操作
+        toolNameLower.includes('write') ||
+        // 编辑操作
+        toolNameLower.includes('edit') ||
+        toolNameLower.includes('replace') ||
+        toolNameLower.includes('modify') ||
+        // 删除操作
+        toolNameLower.includes('delete') ||
+        toolNameLower.includes('remove') ||
+        // Lint修复
+        toolNameLower.includes('fix') ||
+        // 检查参数是否有文件路径相关
+        (tool.parameters && (
+          tool.parameters.file_path ||
+          tool.parameters.target_file ||
+          tool.parameters.fileName ||
+          tool.parameters.path ||
+          tool.parameters.filePath
+        ));
+
+      if (isFileOperation) {
+        this.logger.info(`✅ Identified file modifying tool: ${tool.toolName}`);
+      }
+
+      return isFileOperation;
+    });
+
+    if (fileModifyingTools.length === 0) {
+      // 🎯 降级方案：如果没有明确的文件修改工具，但有成功的工具，也创建版本节点
+      const anySuccessfulTool = completedTools.filter(tool =>
+        tool.status === ToolCallStatus.Success
+      );
+
+      if (anySuccessfulTool.length > 0) {
+        this.logger.warn('⚠️ No specific file tools found, but recording version for successful tools');
+        this.logger.debug('Successful tools:', anySuccessfulTool.map(t => ({
+          name: t.toolName,
+          params: t.parameters
+        })));
+
+        // 🎯 关键修复：必须有有效的messageId，否则不创建版本节点
+        let turnId = capturedUserMessageId;
+        if (!turnId && capturedProcessingMessageId) {
+          turnId = capturedProcessingMessageId;
+        }
+
+        if (!turnId) {
+          this.logger.warn(`❌ Cannot record version in fallback: both message IDs are null`);
+          return;
+        }
+
+        try {
+          const versionNodeId = await this.versionControlManager.recordAppliedChanges(
+            this.sessionId,
+            turnId,
+            anySuccessfulTool,
+            `Executed ${anySuccessfulTool.length} tools`
+          );
+
+          if (versionNodeId) {
+            this.logger.info(`✅ Fallback: Recorded version node: ${versionNodeId} for turn: ${turnId}`);
+
+            // 通知前端更新
+            if (this.communicationService && this.versionControlManager.getRollbackableMessageIds) {
+              const rollbackableIds = await this.versionControlManager.getRollbackableMessageIds(this.sessionId);
+              this.logger.info(`📋 Updated rollbackable message IDs: ${rollbackableIds.join(', ')}`);
+              await this.communicationService.sendRollbackableIdsUpdate(this.sessionId, rollbackableIds);
+            }
+          }
+        } catch (error) {
+          this.logger.error('❌ Fallback version recording failed', error instanceof Error ? error : undefined);
+        }
+      } else {
+        this.logger.warn('⚠️ No successful tools to record');
+      }
+
+      return;
+    }
+
+      this.logger.info(`🎯 Found ${fileModifyingTools.length} file modifying tools to record`);
+      this.logger.debug('File modifying tools:', fileModifyingTools.map(t => ({
+        name: t.toolName,
+        id: t.id,
+        params: t.parameters,
+        result: t.result
+      })));
+
+      try {
+        // 🎯 关键修复：必须使用实际捕获的用户消息ID，不允许使用虚假的fallback ID
+        // 如果没有有效的messageId，就不创建版本节点（避免创建无法回退的版本）
+        let turnId = capturedUserMessageId;
+
+        // 只有当用户消息ID不可用时，才尝试使用响应消息ID
+        if (!turnId && capturedProcessingMessageId) {
+          this.logger.warn(`⚠️ No user message ID, using processing message ID as fallback: ${capturedProcessingMessageId}`);
+          turnId = capturedProcessingMessageId;
+        }
+
+        // 如果两者都没有，完全放弃创建版本节点
+        if (!turnId) {
+          this.logger.warn(`❌ Cannot record version: both capturedUserMessageId and capturedProcessingMessageId are null`);
+          this.logger.warn(`   - currentUserMessageId: ${this.currentUserMessageId}`);
+          this.logger.warn(`   - currentProcessingMessageId: ${this.currentProcessingMessageId}`);
+          return;
+        }
+
+        this.logger.info(`🔄 Recording version for turnId: ${turnId}`);
+        this.logger.info(`   - capturedUserMessageId: ${capturedUserMessageId}`);
+        this.logger.info(`   - capturedProcessingMessageId: ${capturedProcessingMessageId}`);
+        this.logger.info(`   - Using turnId: ${turnId}`);
+
+        const versionNodeId = await this.versionControlManager.recordAppliedChanges(
+          this.sessionId,
+          turnId,
+          fileModifyingTools,
+          `Applied ${fileModifyingTools.length} file changes`
+        );
+
+        if (versionNodeId) {
+          this.logger.info(`✅ Recorded version node: ${versionNodeId} for turn: ${turnId} with ${fileModifyingTools.length} file changes`);
+
+          // 🎯 通知前端更新可回滚消息ID列表
+          if (this.communicationService && this.versionControlManager.getRollbackableMessageIds) {
+            const rollbackableIds = await this.versionControlManager.getRollbackableMessageIds(this.sessionId);
+            this.logger.info(`📋 Updated rollbackable message IDs: ${rollbackableIds.join(', ')}`);
+            await this.communicationService.sendRollbackableIdsUpdate(this.sessionId, rollbackableIds);
+          }
+        } else {
+          this.logger.warn(`⚠️ Failed to create version node for turn: ${turnId}`);
+        }
+
+    } catch (error) {
+      this.logger.error('❌ Failed to record version for completed tools', error instanceof Error ? error : undefined);
+      // 不抛出错误，版本记录失败不应该中断主流程
+    }
   }
 
   /**
@@ -917,6 +1129,12 @@ export class AIService {
       if (!this.isInitialized) {
         throw new Error('AI service is not initialized');
       }
+
+      // 🎯 保存当前用户消息ID，用于版本控制
+      this.currentUserMessageId = message.id;
+      this.logger.info(`📝 Processing user message: ${message.id}`);
+
+      // 简单回退服务会在extension.ts中自动创建快照，这里不需要额外处理
 
       const result = await ContextBuilder.buildContextualContent(message.content, context);
       await this.processStreamingResponseWithParts(message.id, result.parts, responseId);
@@ -1282,6 +1500,10 @@ export class AIService {
 
   setSessionHistoryManager(sessionHistoryManager: ISessionHistoryManager) {
     this.sessionHistoryManager = sessionHistoryManager;
+  }
+
+  setVersionControlManager(versionControlManager: IVersionControlManager) {
+    this.versionControlManager = versionControlManager;
   }
 
   setSessionId(sessionId: string) {

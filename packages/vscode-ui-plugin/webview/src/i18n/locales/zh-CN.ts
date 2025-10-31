@@ -215,4 +215,17 @@ export const zhCN: Translations = {
     fileNotFound: '文件未找到',
     operationCanceled: '操作已取消',
   },
+
+  versionHistory: {
+    title: '版本历史',
+    tooltip: '查看和管理对话版本历史',
+    showTimeline: '显示时间线',
+    revertPrevious: '回退到上一版本',
+    revertToVersion: '回退到此版本',
+    currentVersion: '当前版本',
+    noHistory: '暂无版本历史',
+    filesChanged: '个文件已修改',
+    linesAdded: '行新增',
+    linesRemoved: '行删除',
+  },
 };

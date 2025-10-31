@@ -70,6 +70,9 @@ export class SessionManager extends EventEmitter {
 
   private readonly persistenceService: SessionPersistenceService;
 
+  // 🎯 版本控制管理器引用
+  private versionControlManager?: any;
+
   constructor(
     private readonly logger: Logger,
     private readonly communicationService: MultiSessionCommunicationService,
@@ -82,6 +85,14 @@ export class SessionManager extends EventEmitter {
     this.persistenceService = new SessionPersistenceService(this.logger, extensionContext);
 
     this.setupEventHandlers();
+  }
+
+  /**
+   * 🎯 设置版本控制管理器
+   */
+  setVersionControlManager(versionControlManager: any) {
+    this.versionControlManager = versionControlManager;
+    this.logger.info('✅ Version Control Manager set for SessionManager');
   }
 
   /**
@@ -1028,6 +1039,11 @@ export class SessionManager extends EventEmitter {
 
     // 🎯 设置SessionHistoryManager引用
     aiService.setSessionHistoryManager(this);
+
+    // 🎯 设置版本控制管理器引用
+    if (this.versionControlManager) {
+      aiService.setVersionControlManager(this.versionControlManager);
+    }
 
     // 设置Session ID
     aiService.setSessionId(sessionId);

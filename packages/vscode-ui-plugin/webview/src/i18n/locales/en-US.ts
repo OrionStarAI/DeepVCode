@@ -215,4 +215,17 @@ export const enUS: Translations = {
     fileNotFound: 'File not found',
     operationCanceled: 'Operation canceled',
   },
+
+  versionHistory: {
+    title: 'Version History',
+    tooltip: 'View and manage conversation version history',
+    showTimeline: 'Show Timeline',
+    revertPrevious: 'Revert to Previous',
+    revertToVersion: 'Revert to This Version',
+    currentVersion: 'Current Version',
+    noHistory: 'No version history',
+    filesChanged: 'files changed',
+    linesAdded: 'lines added',
+    linesRemoved: 'lines removed',
+  },
 };

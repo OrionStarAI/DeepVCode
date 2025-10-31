@@ -108,7 +108,7 @@
 .message-bubble {
   margin-bottom: 4px; /* 进一步减少消息间距，最大化紧凑 */
   animation: fadeIn 0.3s ease-in;
-  position: relative;
+  position: relative; /* 🎯 关键：支持绝对定位的回退按钮 */
 }
 
 /* 🎯 消息底部 - 时间显示在气泡下方 */
