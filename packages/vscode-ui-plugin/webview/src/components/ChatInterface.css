@@ -104,22 +104,23 @@
   line-height: 1.4;
 }
 
-/* Message Bubbles - 参考截图的正确风格：背景色区分用户/AI */
+/* Message Bubbles - Cursor 风格：简洁对齐 */
 .message-bubble {
-  margin-bottom: 4px; /* 进一步减少消息间距，最大化紧凑 */
+  margin-bottom: 8px; /* 消息间距 */
   animation: fadeIn 0.3s ease-in;
-  position: relative; /* 🎯 关键：支持绝对定位的回退按钮 */
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
 }
 
-/* 🎯 消息底部 - 时间显示在气泡下方 */
+/* 🎯 消息时间显示 */
 .message-footer {
-  margin-top: 1px; /* 进一步减少与消息内容的间距 */
-  margin-bottom: 2px; /* 进一步减少与下一条消息的间距 */
+  margin-top: 2px;
   font-size: 11px;
   color: var(--vscode-descriptionForeground);
   opacity: 0.6;
-  text-align: right; /* 🎯 右对齐时间显示 */
-  padding-right: 4px; /* 与气泡边缘稍微对齐 */
+  line-height: 1;
 }
 
 .message-icon {
@@ -136,26 +137,36 @@
 }
 
 .message-content {
-  padding: 0; /* 完全去掉padding */
-  border-radius: 0; /* 移除圆角，参考截图平直风格 */
-  line-height: 1.3; /* 进一步减少行高 */
-  font-size: 14px; /* 明确字体大小 */
+  padding: 0;
+  border-radius: 0;
+  line-height: 1.5;
+  font-size: 14px;
+  margin-bottom: 2px;
 }
 
+/* 🎯 用户消息对齐 */
 .user-message {
   display: flex;
-  flex-direction: column; /* 🎯 改为垂直布局，让时间显示在下方 */
-  align-items: flex-end; /* 🎯 所有元素右对齐 */
+  flex-direction: column;
+  align-items: flex-end;
+  width: 100%;
+  gap: 2px;
 }
 
 .user-message .message-content {
-  background-color: var(--vscode-textBlockQuote-background, rgb(19, 46, 77)); /* 使用主题背景色 */
-  color: var(--vscode-textLink-foreground, rgb(112, 184, 255)); /* 使用主题链接色 */
-  padding: 12px 16px; /* 增加内边距，让文字和气泡边界有漂亮的间距 */
-  border-radius: 8px; /* 圆角 */
-  border: none; /* 移除边框 */
-  max-width: 80%; /* 限制最大宽度 */
-  display: inline-block; /* 宽度适应内容 */
+  background-color: var(--vscode-textBlockQuote-background, rgb(19, 46, 77));
+  color: var(--vscode-textLink-foreground, rgb(112, 184, 255));
+  padding: 8px 12px;
+  border-radius: 4px;
+  border: none;
+  max-width: 85%;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.user-message .message-footer {
+  text-align: right;
+  padding-right: 0;
 }
 
 /* 🎯 编辑状态的消息气泡样式 */
@@ -325,13 +336,25 @@
   }
 }
 
+/* 🎯 AI消息对齐 */
+.assistant-message {
+  align-items: flex-start;
+  width: 100%;
+}
+
 .assistant-message .message-content {
-  /* 参考截图，AI消息完全透明，与背景融合 */
   background-color: transparent;
-  margin-right: 8px; /* 减少右边距，充分利用宽度 */
-  margin-left: 0; /* 移除左边距 */
-  padding: 0; /* 完全去掉padding */
-  color: var(--vscode-foreground); /* 使用前景色 */
+  margin: 0;
+  padding: 0;
+  color: var(--vscode-foreground);
+  max-width: 100%;
+  word-break: break-word;
+  white-space: pre-wrap;
+}
+
+.assistant-message .message-footer {
+  text-align: left;
+  padding-left: 0;
 }
 
 .system-message .message-content {
@@ -361,22 +384,20 @@
   word-break: break-word;
 }
 
-/* 工具调用区域 - 与AI消息对齐 */
+/* 🎯 工具调用区域对齐 */
 .message-tools-section {
-  margin-top: 0; /* 完全去掉上边距 */
-  margin-right: 8px; /* 减少右边距，充分利用宽度 */
-  margin-left: 0; /* 移除左边距 */
+  margin: 0;
+  padding: 0;
+  width: 100%;
 }
 
-
-/* Loading Message - 与AI消息对齐 */
+/* 🎯 加载消息对齐 */
 .loading-message {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 4px 0; /* 减少padding */
-  margin-bottom: 2px; /* 减少margin */
-  margin-right: 8px; /* 减少右边距，充分利用宽度 */
+  padding: 0;
+  margin-bottom: 0;
   animation: fadeIn 0.3s ease-in;
 }
 
