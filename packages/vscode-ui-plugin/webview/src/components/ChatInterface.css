@@ -174,11 +174,15 @@
   background: transparent;
   padding: 0;
   margin-bottom: 8px;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
 }
 
 .message-bubble.editing .message-editor {
   width: 100%;
   max-width: none;
+  flex: 0 0 auto;  /* 不扩展，只占据需要的空间 */
 }
 
 /* 🎯 用户内容区域的悬停效果 */

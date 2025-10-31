@@ -17,17 +17,21 @@
 /* 🎯 编辑模式的特殊样式 */
 .message-input-container.edit-mode {
   /* 适配消息气泡的样式 */
-  margin: 8px 0;
-  border-radius: 12px;
+  margin: 8px 0 8px 0;
+  border-radius: 8px;
   background: var(--vscode-input-background);
-  border: 2px solid var(--vscode-focusBorder);
-  border-top: 2px solid var(--vscode-focusBorder); /* 覆盖默认border-top */
+  border: 1px solid var(--vscode-focusBorder);
   padding: 8px;
+  height: auto;  /* 🎯 自动高度，不固定 */
+  min-height: 80px;  /* 🎯 最小高度 */
+  max-height: 200px;  /* 🎯 最大高度限制 */
 }
 
 .message-input-container.edit-mode.compact {
-  /* 紧凑模式样式 - 与底部输入框保持一致的高度 */
-  margin: 4px 0;
+  /* 紧凑模式样式 */
+  margin: 4px 0 4px 0;
+  height: auto;
+  min-height: 70px;
 }
 
 /* 🎯 撰写模式保持原样 */
