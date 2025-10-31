@@ -59,8 +59,9 @@ async function restoreAction(
       let checkpointList = '📋 Current Session Checkpoints:\n\n';
 
       for (const checkpoint of sessionData.checkpoints) {
+        const summaryPrefix = checkpoint.summary ? `(${checkpoint.summary}) ` : '';
         const preview = checkpoint.lastUserMessage?.substring(0, 50) || '无消息';
-        checkpointList += `  ${checkpoint.id}: ${checkpoint.timeString} - "${preview}${checkpoint.lastUserMessage?.length > 50 ? '...' : ''}"\n`;
+        checkpointList += `  ${checkpoint.timeString} - ${summaryPrefix}"${preview}${checkpoint.lastUserMessage?.length > 50 ? '...' : ''}"\n`;
       }
 
       return {
@@ -176,11 +177,13 @@ async function completion(
     const sessionData = await sessionManager.loadSession(currentSessionId);
     if (sessionData && sessionData.checkpoints.length > 0) {
       return sessionData.checkpoints.map(cp => ({
-        label: cp.id,
-        value: cp.id,
-        description: cp.lastUserMessage
-          ? `${cp.lastUserMessage.substring(0, 50)}${cp.lastUserMessage.length > 50 ? '...' : ''}`
-          : '无消息记录'
+        label: cp.timeString || cp.id,  // 优先显示时间，没有则显示 ID
+        value: cp.id,  // 实际值还是 ID
+        description: cp.summary
+          ? `(${cp.summary}) ${cp.lastUserMessage?.substring(0, 40) || ''}${cp.lastUserMessage && cp.lastUserMessage.length > 40 ? '...' : ''}`
+          : cp.lastUserMessage
+            ? `${cp.lastUserMessage.substring(0, 50)}${cp.lastUserMessage.length > 50 ? '...' : ''}`
+            : '无消息记录'
       }));
     }
 

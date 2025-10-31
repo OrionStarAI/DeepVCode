@@ -44,9 +44,24 @@ export const DEFAULT_MODEL_CAPABILITIES: ModelCapabilities = {
 
 /**
  * Model-specific capability configurations
+ * ⚠️ Note: These are legacy configurations. Ideally, model capabilities should be fetched
+ * from cloudModels or the server API. This mapping is maintained for backward compatibility
+ * and fallback scenarios.
  */
 export const MODEL_CAPABILITIES: Record<string, ModelCapabilities> = {
-  // High-capability models (Claude, GPT-4, Gemini Pro)
+  // Flagship/High-capability Claude models
+  'claude-opus-4@20250514': {
+    toolCallReliability: 'high',
+    requiresStrictValidation: true,
+    maxConcurrentTools: 6,
+    needsFormatTolerance: false,
+    proneToIncompleteStream: false,
+    enableMalformedRetry: false,
+    functionCallTimeout: 30000,
+    enableProgressiveDegradation: false,
+  },
+
+  // High-capability Claude models (Sonnet - balanced)
   'claude-sonnet-4@20250514': {
     toolCallReliability: 'high',
     requiresStrictValidation: true,
@@ -69,6 +84,30 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapabilities> = {
     enableProgressiveDegradation: false,
   },
 
+  // Fast/Cost-effective Claude model
+  'claude-haiku-4-5@20251001': {
+    toolCallReliability: 'high',
+    requiresStrictValidation: true,
+    maxConcurrentTools: 4,
+    needsFormatTolerance: false,
+    proneToIncompleteStream: false,
+    enableMalformedRetry: false,
+    functionCallTimeout: 30000,
+    enableProgressiveDegradation: false,
+  },
+
+  // High-capability Gemini Pro models
+  'gemini-2.5-pro': {
+    toolCallReliability: 'high',
+    requiresStrictValidation: true,
+    maxConcurrentTools: 4,
+    needsFormatTolerance: false,
+    proneToIncompleteStream: false,
+    enableMalformedRetry: false,
+    functionCallTimeout: 30000,
+    enableProgressiveDegradation: false,
+  },
+
   'gemini-1.5-pro': {
     toolCallReliability: 'high',
     requiresStrictValidation: true,
@@ -80,7 +119,18 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapabilities> = {
     enableProgressiveDegradation: false,
   },
 
-  // Medium-capability models
+  // Medium-capability Gemini Flash models
+  'gemini-2.5-flash': {
+    toolCallReliability: 'medium',
+    requiresStrictValidation: false,
+    maxConcurrentTools: 3,
+    needsFormatTolerance: true,
+    proneToIncompleteStream: false,
+    enableMalformedRetry: true,
+    functionCallTimeout: 45000,
+    enableProgressiveDegradation: true,
+  },
+
   'gemini-1.5-flash': {
     toolCallReliability: 'medium',
     requiresStrictValidation: false,
@@ -142,20 +192,41 @@ export function getModelCapabilities(modelName: string): ModelCapabilities {
   // Try partial matching for model variants
   const normalizedName = modelName.toLowerCase();
 
-  // Check for flash models
+  // Check for Gemini 2.5 flash models
+  if (normalizedName.includes('gemini') && normalizedName.includes('2.5') && normalizedName.includes('flash')) {
+    return MODEL_CAPABILITIES['gemini-2.5-flash'];
+  }
+
+  // Check for Gemini 2.5 pro models
+  if (normalizedName.includes('gemini') && normalizedName.includes('2.5') && normalizedName.includes('pro')) {
+    return MODEL_CAPABILITIES['gemini-2.5-pro'];
+  }
+
+  // Check for Gemini flash models (fallback for other flash variants)
   if (normalizedName.includes('flash')) {
     if (normalizedName.includes('8b')) {
       return MODEL_CAPABILITIES['gemini-1.5-flash-8b'];
     }
-    return MODEL_CAPABILITIES['gemini-flash'];
+    // Default to gemini-1.5-flash for other flash models
+    return MODEL_CAPABILITIES['gemini-1.5-flash'];
   }
 
-  // Check for pro models
-  if (normalizedName.includes('pro')) {
+  // Check for Gemini pro models (fallback for other pro variants)
+  if (normalizedName.includes('gemini') && normalizedName.includes('pro')) {
     return MODEL_CAPABILITIES['gemini-1.5-pro'];
   }
 
-  // Check for Claude models
+  // Check for Claude Opus models
+  if (normalizedName.includes('claude') && normalizedName.includes('opus')) {
+    return MODEL_CAPABILITIES['claude-opus-4@20250514'];
+  }
+
+  // Check for Claude Haiku models
+  if (normalizedName.includes('claude') && normalizedName.includes('haiku')) {
+    return MODEL_CAPABILITIES['claude-haiku-4-5@20251001'];
+  }
+
+  // Check for Claude Sonnet models (default for other Claude models)
   if (normalizedName.includes('claude')) {
     return MODEL_CAPABILITIES['claude-3-5-sonnet-20241022'];
   }

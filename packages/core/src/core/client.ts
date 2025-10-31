@@ -131,10 +131,11 @@ export class GeminiClient {
     }
 
     const proxyServerUrl = getActiveProxyServerUrl();
-    const googleCloudLocation = process.env.GOOGLE_CLOUD_LOCATION || 'us-east5';
-    const googleCloudProject = process.env.GOOGLE_CLOUD_PROJECT || 'cmcm-cd';
+    // NOTE: googleCloudLocation and googleCloudProject are legacy parameters, no longer used after switching to proxy-based architecture
+    const googleCloudLocation = process.env.GOOGLE_CLOUD_LOCATION || 'us-central1';
+    const googleCloudProject = process.env.GOOGLE_CLOUD_PROJECT || 'default-project';
 
-    return new DeepVServerAdapter(googleCloudLocation, googleCloudProject, proxyServerUrl);
+    return new DeepVServerAdapter(googleCloudLocation, googleCloudProject, proxyServerUrl, this.config);
   }
 
   /**
@@ -603,14 +604,16 @@ Use Glob and ReadFile tools to explore specific files during our conversation.
 
     const loopDetected = await this.loopDetector.turnStarted(signal);
     if (loopDetected) {
-      yield { type: GeminiEventType.LoopDetected };
+      const loopType = this.loopDetector.getDetectedLoopType();
+      yield { type: GeminiEventType.LoopDetected, value: loopType ? loopType.toString() : undefined };
       return turn;
     }
 
     const resultStream = turn.run(request, signal);
     for await (const event of resultStream) {
       if (this.loopDetector.addAndCheck(event)) {
-        yield { type: GeminiEventType.LoopDetected };
+        const loopType = this.loopDetector.getDetectedLoopType();
+        yield { type: GeminiEventType.LoopDetected, value: loopType ? loopType.toString() : undefined };
         return turn;
       }
 

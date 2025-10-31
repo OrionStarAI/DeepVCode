@@ -564,13 +564,18 @@
 }
 
 
-/* 消息操作按钮 - 参考截图底部按钮组 */
+/* 消息操作按钮 */
 .message-actions {
   display: flex;
   align-items: center;
-  gap: 6px; /* 减少按钮间距 */
-  margin-top: 2px; /* 进一步减少上边距 */
-  margin-right: 8px; /* 减少右边距，充分利用宽度 */
+  gap: 4px;
+  margin-top: 6px;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.assistant-message:hover .message-actions {
+  opacity: 1;
 }
 
 .message-action-btn {
@@ -578,7 +583,7 @@
   border: none;
   color: var(--vscode-descriptionForeground);
   cursor: pointer;
-  padding: 4px;
+  padding: 5px;
   border-radius: 4px;
   font-size: 14px;
   transition: all 0.2s ease;
@@ -587,6 +592,7 @@
   justify-content: center;
   width: 28px;
   height: 28px;
+  position: relative;
 }
 
 .message-action-btn:hover {
@@ -598,9 +604,21 @@
   transform: scale(0.95);
 }
 
+.message-action-btn:focus {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 2px;
+}
+
 /* 复制成功提示 */
 .copy-success {
   color: var(--vscode-charts-green) !important;
+  animation: copySuccessPulse 0.3s ease;
+}
+
+@keyframes copySuccessPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
 }
 
 /* 🎯 Feedback 按钮样式 */
@@ -633,6 +651,22 @@
 
 .feedback-dislike:hover {
   background-color: var(--vscode-list-hoverBackground, rgba(239, 68, 68, 0.2)) !important;
+}
+
+/* 🎯 重新生成按钮样式 */
+.regenerate-btn {
+  transition: all 0.2s ease;
+  color: var(--vscode-textLink-foreground) !important;
+}
+
+.regenerate-btn:hover {
+  color: var(--vscode-textLink-activeForeground) !important;
+  background-color: var(--vscode-toolbar-hoverBackground) !important;
+  transform: rotate(180deg);
+}
+
+.regenerate-btn:active {
+  transform: rotate(180deg) scale(0.9);
 }
 
 /* 🎯 活动工具调用显示区域 */

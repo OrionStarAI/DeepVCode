@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Edit3, Trash2, Settings, Wrench, Plus } from 'lucide-react';
+import { Edit3, Trash2, Settings, Wrench, Plus, X } from 'lucide-react';
 import { SessionInfo } from '../../../src/types/sessionTypes';
 import { SessionType, SESSION_UI_CONSTANTS } from '../../../src/constants/sessionConstants';
 import { useTranslation } from '../hooks/useTranslation';
@@ -184,11 +184,11 @@ export const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
 
   /**
    * 处理创建新Session
-   * 优化逻辑：先查找未使用的session，如果有则切换，否则创建新的
+   * 🎯 直接创建新session，不做智能检查
    * 🎯 立即响应优化：UI立即反馈，后台操作异步进行
    */
   const handleCreateSession = () => {
-    console.log('🔍 [+按钮] 开始处理创建Session请求');
+    console.log('🆕 [+按钮] 创建新Session');
     console.log('🔍 [+按钮] 当前sessions数量:', sessions.length);
 
     // 🎯 立即滚动到开始位置，给用户即时反馈
@@ -199,23 +199,7 @@ export const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
       });
     }
 
-    // 如果提供了检查函数，先查找未使用的session
-    if (isSessionUnused) {
-      const unusedSessions = sessions.filter(session => isSessionUnused(session.id));
-      console.log('🔍 [+按钮] 找到未使用的sessions:', unusedSessions.length, unusedSessions.map(s => ({ id: s.id, name: s.name })));
-
-      if (unusedSessions.length > 0) {
-        const unusedSession = unusedSessions[0];
-        console.log('✅ [+按钮] 切换到未使用的session:', unusedSession.id, unusedSession.name);
-        // 🎯 立即切换UI状态，然后异步通知后端
-        onSessionSwitch(unusedSession.id);
-        return;
-      }
-    }
-
-    // 没有未使用的session，创建新的（底层会处理数量限制和踢出逻辑）
-    console.log('🆕 [+按钮] 没有未使用session，创建新的');
-    // 🎯 异步创建，不阻塞UI
+    // 🎯 直接创建新session（底层会处理数量限制和踢出逻辑）
     setTimeout(() => {
       onCreateSession(SessionType.CHAT);
     }, 0);
@@ -241,6 +225,21 @@ export const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
   const handleSessionAction = (action: 'rename' | 'delete' | 'duplicate', sessionId: string) => {
     onSessionAction(action, sessionId);
     setContextMenu(null);
+  };
+
+  /**
+   * 处理关闭按钮点击（删除session）
+   */
+  const handleCloseSession = (e: React.MouseEvent, sessionId: string) => {
+    e.stopPropagation(); // 阻止事件冒泡，避免触发tab切换
+
+    // 如果只剩一个session，不允许删除
+    if (sessions.length <= 1) {
+      console.warn('Cannot delete the last session');
+      return;
+    }
+
+    onSessionAction('delete', sessionId);
   };
 
 
@@ -302,6 +301,19 @@ export const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
               <span className="session-switcher__tab-title">
                 {getSessionDisplayTitle(session)}
               </span>
+
+              {/* 关闭按钮 */}
+              {sessions.length > 1 && (
+                <button
+                  className="session-switcher__tab-close"
+                  onClick={(e) => handleCloseSession(e, session.id)}
+                  title="关闭此会话"
+                  disabled={false}
+                >
+                  <X size={12} stroke="currentColor" />
+                </button>
+              )}
+
               {/* 未使用session的视觉标识 */}
               {isSessionUnused && isSessionUnused(session.id) && (
                 <span className="session-switcher__tab-indicator">●</span>

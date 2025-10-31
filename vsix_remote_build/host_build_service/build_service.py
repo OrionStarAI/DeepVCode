@@ -15,7 +15,7 @@ from typing import Optional, Dict, Any
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-import git
+
 
 from config import (
     BUILD_SERVICE_HOST,
@@ -24,6 +24,7 @@ from config import (
     PROJECT_PATH,
     ARTIFACTS_DIR,
     BUILD_TIMEOUT,
+    GIT_TIMEOUT,
     NPM_INSTALL_CMD,
     NPM_BUILD_CMD,
     NPM_PACKAGE_CMD,
@@ -48,10 +49,6 @@ logger = logging.getLogger(__name__)
 
 # ==================== 数据模型 ====================
 
-class FetchBranchRequest(BaseModel):
-    branch: str
-
-
 class BuildRequest(BaseModel):
     branch: str
 
@@ -62,7 +59,8 @@ class BuildTask:
     def __init__(self, task_id: str, branch: str):
         self.task_id = task_id
         self.branch = branch
-        self.status = "queued"  # queued -> building -> completed/failed
+        # 统一状态：queued -> fetching -> building -> completed/failed
+        self.status = "queued"
         self.created_time = datetime.now()
         self.start_time: Optional[datetime] = None
         self.end_time: Optional[datetime] = None
@@ -118,47 +116,121 @@ build_state = BuildState()
 
 # ==================== Git 操作 ====================
 
-def fetch_branch(branch: str) -> tuple[bool, str]:
+def git_cmd(cmd: str, timeout: int = GIT_TIMEOUT) -> tuple[bool, str]:
     """
-    拉取远程分支到本地
-    如果本地没有就创建，如果有就强制更新
-    返回：(成功, 消息)
+    执行git命令（在BASE_REPO_PATH目录）
+    返回：(成功, 输出或错误信息)
     """
     try:
-        logger.info(f"开始拉取分支: {branch}")
-        repo = git.Repo(BASE_REPO_PATH)
+        result = subprocess.run(
+            cmd,
+            shell=True,
+            cwd=BASE_REPO_PATH,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=timeout,
+        )
 
-        # 构建服务环境，清理本地改动
-        logger.info("清理本地改动（git reset --hard）")
-        repo.git.reset('--hard')
-
-        # 获取所有远程更新
-        logger.info("获取远程更新（git fetch）")
-        repo.remotes.origin.fetch()
-
-        # 检查本地分支是否存在
-        local_branches = [h.name for h in repo.heads]
-
-        if branch in local_branches:
-            # 分支存在，强制更新为远程版本
-            logger.info(f"分支 {branch} 已存在，切换并更新")
-            repo.heads[branch].checkout()
-            # 设置跟踪关系
-            repo.heads[branch].set_tracking_branch(repo.remotes.origin.refs[branch])
-            repo.remotes.origin.pull(branch, force=True)
-            message = f"分支 {branch} 已强制更新到与远程保持一致"
+        if result.returncode == 0:
+            return True, result.stdout.strip()
         else:
-            # 分支不存在，创建并切换到远程分支，同时设置跟踪
-            logger.info(f"分支 {branch} 不存在，创建新分支")
-            new_head = repo.create_head(branch, repo.remotes.origin.refs[branch])
-            new_head.set_tracking_branch(repo.remotes.origin.refs[branch])
-            new_head.checkout()
-            message = f"分支 {branch} 已创建并切换"
-
-        logger.info(message)
-        return True, message
+            error_msg = result.stderr.strip() or result.stdout.strip() or f"命令失败 (exit code: {result.returncode})"
+            return False, error_msg
+    except subprocess.TimeoutExpired:
+        return False, f"命令执行超时（{timeout}s）"
     except Exception as e:
-        error_msg = f"拉取分支失败: {str(e)}"
+        return False, f"执行异常: {str(e)}"
+
+
+def get_current_commit_info(timeout: int = GIT_TIMEOUT) -> tuple[str, str]:
+    """
+    获取当前HEAD的commit信息
+    返回：(短hash, commit消息)
+    例如：("a1b2c3d", "fix: resolve login issue")
+    """
+    try:
+        # 获取短hash (7位)
+        success, short_hash = git_cmd("git rev-parse --short=7 HEAD", timeout)
+        if not success:
+            return "unknown", "unknown"
+
+        # 获取commit消息（仅第一行）
+        success, commit_msg = git_cmd("git log -1 --pretty=%B HEAD", timeout)
+        if not success:
+            return short_hash, "unknown"
+
+        # 取第一行（有些commit消息可能多行）
+        first_line = commit_msg.split('\n')[0] if commit_msg else "unknown"
+        return short_hash, first_line
+    except Exception:
+        return "unknown", "unknown"
+
+
+def fetch_branch(branch: str, timeout: int = GIT_TIMEOUT) -> tuple[bool, str]:
+    """
+    拉取远程分支到本地
+    确保本地分支与远程完全同步（如果本地存在则强制更新，否则创建）
+    """
+    logger.info(f"开始拉取分支: {branch} (超时: {timeout}s)")
+
+    try:
+        # 0. 清理当前分支的本地改动（防止切分支失败）
+        logger.info("步骤0: 清理当前分支的本地改动 (git reset --hard)")
+        success, msg = git_cmd("git reset --hard", timeout)
+        if not success:
+            logger.warning(f"  清理当前分支改动失败，继续: {msg}")
+
+        # 1. 获取远程更新
+        logger.info("步骤1: 获取远程更新 (git fetch origin)")
+        success, msg = git_cmd("git fetch origin", timeout)
+        if not success:
+            return False, f"fetch 失败: {msg}"
+
+        # 2. 检查远程分支是否存在
+        logger.info(f"步骤2: 检查远程分支 'origin/{branch}'")
+        remote_exists, _ = git_cmd(f"git show-ref --verify --quiet refs/remotes/origin/{branch}", timeout)
+        if not remote_exists:
+            return False, f"远程分支 'origin/{branch}' 不存在"
+
+        # 3. 检查本地分支是否存在
+        logger.info(f"步骤3: 检查本地分支 '{branch}'")
+        local_exists, _ = git_cmd(f"git show-ref --verify --quiet refs/heads/{branch}", timeout)
+
+        logger.info(f"  本地分支存在: {local_exists}, 远程分支存在: {remote_exists}")
+
+        if local_exists:
+            # 本地分支存在：切换 + 强制更新到远程
+            logger.info(f"步骤4a: 切换到分支 '{branch}' (git checkout {branch})")
+            success, msg = git_cmd(f"git checkout {branch}", timeout)
+            if not success:
+                return False, f"切换失败: {msg}"
+
+            logger.info(f"步骤4b: 强制更新到远程 (git reset --hard origin/{branch})")
+            success, msg = git_cmd(f"git reset --hard origin/{branch}", timeout)
+            if not success:
+                return False, f"更新失败: {msg}"
+
+            result = f"分支 '{branch}' 已强制更新到远程最新版本"
+        else:
+            # 本地分支不存在：从远程创建
+            logger.info(f"步骤4: 从远程创建本地分支 (git checkout -b {branch} origin/{branch})")
+            success, msg = git_cmd(f"git checkout -b {branch} origin/{branch}", timeout)
+            if not success:
+                return False, f"创建分支失败: {msg}"
+
+            result = f"分支 '{branch}' 已从远程创建"
+
+        # 获取当前HEAD的commit信息
+        short_hash, commit_msg = get_current_commit_info(timeout)
+        result_with_commit = f"{result} | Latest: {short_hash} - {commit_msg}"
+
+        logger.info(f"✓ {result_with_commit}")
+        return True, result_with_commit
+
+    except Exception as e:
+        error_msg = f"拉取分支异常: {str(e)}"
         logger.error(error_msg, exc_info=True)
         return False, error_msg
 
@@ -307,44 +379,35 @@ def find_latest_vsix() -> Optional[str]:
 # ==================== 后台Worker ====================
 
 def build_worker():
-    """后台工作线程，处理构建队列"""
+    """后台工作线程，处理构建队列（全程排队）"""
     logger.info("构建Worker线程启动")
     while True:
         try:
             # 从队列中获取任务
             task = build_state.queue.get()
             build_state.set_current_task(task)
-            logger.info(f"取出任务 {task.task_id}，分支: {task.branch}，任务类型: {task.status}")
+            logger.info(f"取出任务 {task.task_id}，分支: {task.branch}，开始执行完整流程")
 
-            # 检查任务类型
-            if task.status == "fetch_queued":
-                # 只拉取分支，不构建
-                task.status = "fetching"
-                success, message = fetch_branch(task.branch)
-                if not success:
-                    task.status = "failed"
-                    task.error_message = f"分支拉取失败: {message}"
-                    task.end_time = datetime.now()
-                    logger.error(f"任务 {task.task_id} 拉取分支失败: {message}")
-                else:
-                    task.status = "fetch_completed"
-                    task.end_time = datetime.now()
-                    logger.info(f"任务 {task.task_id} 分支拉取成功")
+            # 第1步：拉取分支
+            task.status = "fetching"
+            logger.info(f"任务 {task.task_id} 第1步: 正在拉取分支 '{task.branch}'...")
+            success, message = fetch_branch(task.branch)
+            if not success:
+                task.status = "failed"
+                task.error_message = f"分支拉取失败: {message}"
+                task.end_time = datetime.now()
+                logger.error(f"任务 {task.task_id} 拉取分支失败: {message}")
+                build_state.set_current_task(None)
+                continue
 
-            elif task.status == "build_queued":
-                # 先拉取分支，再构建
-                task.status = "fetching"
-                success, message = fetch_branch(task.branch)
-                if not success:
-                    task.status = "failed"
-                    task.error_message = f"分支拉取失败: {message}"
-                    task.end_time = datetime.now()
-                    logger.error(f"任务 {task.task_id} 拉取分支失败: {message}")
-                    build_state.set_current_task(None)
-                    continue
+            # 记录拉取分支的commit信息
+            short_hash, commit_msg = get_current_commit_info()
+            logger.info(f"任务 {task.task_id} 分支拉取成功: {short_hash} - {commit_msg}，即将进行第2步构建")
 
-                # 执行npm构建
-                success, message = execute_npm_commands(task)
+            # 第2步：执行npm构建
+            task.status = "building"
+            success, message = execute_npm_commands(task)
+            # 注意：execute_npm_commands 会根据结果设置 task.status 为 "completed" 或 "failed"
 
             build_state.set_current_task(None)
 
@@ -359,48 +422,25 @@ worker_thread.start()
 
 # ==================== API 端点 ====================
 
-@app.post("/api/fetch-branch")
-async def api_fetch_branch(request: FetchBranchRequest) -> Dict[str, Any]:
+@app.post("/api/submit-build-task")
+async def api_submit_build_task(request: BuildRequest) -> Dict[str, Any]:
     """
-    拉取分支接口 - 只负责排队，不立即切分支
-    返回任务ID和队列位置，Worker会在轮到时才真正拉取分支
-    """
-    # 创建新任务（只拉分支，不构建）
-    task_id = str(uuid.uuid4())
-    task = BuildTask(task_id, request.branch)
-    task.status = "fetch_queued"  # 标记为"等待拉取分支"的队列状态
-
-    # 加入队列
-    build_state.add_task(task)
-    queue_position = build_state.get_queue_position(task_id)
-
-    return {
-        "success": True,
-        "message": f"分支拉取任务已加入队列，排在第{queue_position}位",
-        "task_id": task_id,
-        "branch": request.branch,
-        "queue_position": queue_position,
-    }
-
-
-@app.post("/api/build")
-async def api_build(request: BuildRequest) -> Dict[str, Any]:
-    """
-    构建接口 - 将任务加入队列
+    提交完整构建任务接口（全程排队）
+    包含：排队 -> 拉取分支 -> 构建
     返回任务ID和队列位置
     """
-    # 创建新任务（包含拉取分支和构建）
+    # 创建新任务（完整流程：拉分支 + 构建）
     task_id = str(uuid.uuid4())
     task = BuildTask(task_id, request.branch)
-    task.status = "build_queued"  # 标记为"等待构建"的队列状态
+    task.status = "queued"  # 统一的初始状态
 
-    # 加入队列
+    # 加入全局队列
     build_state.add_task(task)
     queue_position = build_state.get_queue_position(task_id)
 
     return {
         "success": True,
-        "message": f"构建任务已加入队列，排在第{queue_position}位",
+        "message": f"完整构建任务已加入队列，排在第{queue_position}位（包括拉取分支和构建）",
         "task_id": task_id,
         "queue_position": queue_position,
     }
@@ -409,7 +449,7 @@ async def api_build(request: BuildRequest) -> Dict[str, Any]:
 @app.get("/api/build-status")
 async def api_build_status(task_id: str) -> Dict[str, Any]:
     """
-    构建状态查询接口
+    任务状态查询接口（全程排队）
     返回任务状态、队列位置等信息
     """
     task = build_state.get_task(task_id)
@@ -422,34 +462,37 @@ async def api_build_status(task_id: str) -> Dict[str, Any]:
         "message": "",
     }
 
-    # 拉取分支相关状态
-    if task.status in ("fetch_queued", "build_queued"):
+    # 排队状态
+    if task.status == "queued":
         queue_pos = build_state.get_queue_position(task_id)
         response["queue_position"] = queue_pos
-        task_type = "拉取分支" if task.status == "fetch_queued" else "构建"
-        response["message"] = f"{task_type}排队中，当前排在第{queue_pos}位"
+        response["message"] = f"任务排队中，当前排在第{queue_pos}位"
 
+    # 拉取分支状态
     elif task.status == "fetching":
         response["message"] = "正在拉取分支..."
 
-    elif task.status == "fetch_completed":
-        response["message"] = "分支拉取成功，等待用户提交构建任务"
-
+    # 构建状态
     elif task.status == "building":
         current = build_state.get_current_task()
         if current:
             response["current_building_branch"] = current.branch
-        # 显示最后一条 npm 输出作为进度提示
-        response["message"] = task.error_message if task.error_message else "构建进行中..."
+        # 获取当前commit信息并显示
+        short_hash, commit_msg = get_current_commit_info()
+        progress_msg = task.error_message if task.error_message else "构建进行中..."
+        response["message"] = f"{progress_msg} | Building: {short_hash} - {commit_msg}"
         response["build_logs"] = task.logs
 
+    # 任务完成
     elif task.status == "completed":
-        response["message"] = "构建成功"
+        short_hash, commit_msg = get_current_commit_info()
+        response["message"] = f"任务成功（拉分支 + 构建） | Built: {short_hash} - {commit_msg}"
         response["build_logs"] = task.logs
         response["result_file"] = task.result_file
 
+    # 任务失败
     elif task.status == "failed":
-        response["message"] = "构建失败"
+        response["message"] = "任务失败（拉分支或构建失败）"
         response["error_message"] = task.error_message
         response["build_logs"] = task.logs
 

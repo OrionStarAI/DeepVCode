@@ -36,3 +36,4 @@ DeepV Code (Monorepo)
 **内部依赖关系：** cli → core；两个VSCode扩展独立运行
 **技术栈：** TypeScript + Node.js + React(Ink) + esbuild + Vitest
 **核心特点：** 单仓库架构、分层设计、丰富工具系统、MCP集成、双VSCode扩展策略
+- 用户偏好：尽量不生成 .md 文件，除非用于 AI 自己的任务记忆，且用完后必须删除

@@ -19,7 +19,7 @@ import {
 } from '../utils/displayUtils.js';
 import { computeSessionStats } from '../utils/computeStats.js';
 import { SubAgentStatsContainer } from './SubAgentStats.js';
-import { calculateModelCost } from '../utils/costCalculator.js';
+
 import { t } from '../utils/i18n.js';
 import { useSmallWindowOptimization, WindowSizeLevel } from '../hooks/useSmallWindowOptimization.js';
 
@@ -78,7 +78,6 @@ const ModelUsageTable: React.FC<{
   const outputTokensWidth = 12;
   const cacheWidth = 12;
   const creditsWidth = 10;
-  const costWidth = 10;
 
 
 
@@ -101,9 +100,6 @@ const ModelUsageTable: React.FC<{
         <Box width={creditsWidth} justifyContent="flex-end">
           <Text bold>{t('table.header.credits')}</Text>
         </Box>
-        <Box width={costWidth} justifyContent="flex-end">
-          <Text bold>{t('table.header.cost')}</Text>
-        </Box>
       </Box>
       {/* Divider */}
       <Box
@@ -112,13 +108,12 @@ const ModelUsageTable: React.FC<{
         borderTop={false}
         borderLeft={false}
         borderRight={false}
-        width={requestsWidth + inputTokensWidth + outputTokensWidth + cacheWidth + creditsWidth + costWidth}
+        width={requestsWidth + inputTokensWidth + outputTokensWidth + cacheWidth + creditsWidth}
       ></Box>
 
       {/* Rows */}
       {Object.entries(models).map(([name, modelMetrics]) => {
         const cacheRead = modelMetrics.tokens.cacheRead || 0;
-        const costs = calculateModelCost(name, modelMetrics);
 
         return (
           <Box key={name}>
@@ -148,15 +143,6 @@ const ModelUsageTable: React.FC<{
               {modelMetrics.credits.total > 0 ? (
                 <Text color={Colors.AccentPurple} bold>
                   {modelMetrics.credits.total.toLocaleString()}
-                </Text>
-              ) : (
-                <Text color={Colors.Gray}>-</Text>
-              )}
-            </Box>
-            <Box width={costWidth} justifyContent="flex-end">
-              {costs ? (
-                <Text color={Colors.AccentRed} bold>
-                  ${costs.total.toFixed(4)}
                 </Text>
               ) : (
                 <Text color={Colors.Gray}>-</Text>

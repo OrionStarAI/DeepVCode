@@ -81,6 +81,9 @@ interface SessionData {
 
   /** 加载状态 */
   isLoading: boolean;
+
+  /** 🎯 Plan模式 - 只讨论不改代码 */
+  isPlanMode: boolean;  // 是否在Plan模式（只读分析模式）
 }
 
 const initialState: MultiSessionAppState = {
@@ -114,6 +117,18 @@ export const useMultiSessionState = () => {
   useEffect(() => {
     stateRef.current = state;
   }, [state]);
+
+  // 🎯 BUG FIX: 清理超时
+  useEffect(() => {
+    return () => {
+      // 组件卸载时清理所有待处理的session内容加载超时
+      for (const timeoutId of loadSessionContentTimeoutsRef.current.values()) {
+        clearTimeout(timeoutId);
+      }
+      loadSessionContentTimeoutsRef.current.clear();
+      console.log('🧹 [CLEANUP] Cleared all session content loading timeouts');
+    };
+  }, []);
 
   /**
    * 更新状态的通用方法
@@ -158,17 +173,24 @@ export const useMultiSessionState = () => {
       isProcessing: false,  // 🎯 初始不在处理中
       currentProcessingMessageId: null,  // 🎯 无正在处理的消息
       canAbort: false,  // 🎯 初始不可中断
-      isLoading: false,
+      isLoading: loadContent,  // 🎯 BUG FIX: 只有当需要加载时才设置为true，否则为false
+      isPlanMode: false,  // 🎯 初始不在Plan模式
     };
 
     updateState(prev => {
       const newSessions = new Map(prev.sessions);
       newSessions.set(sessionInfo.id, sessionData);
 
+      // 🎯 BUG FIX: 如果没有当前Session，自动设置为新创建的Session
+      // 这确保至少有一个Session被选中显示
+      const newCurrentSessionId = prev.currentSessionId || sessionInfo.id;
+
+      console.log(`🎯 [CREATE-SESSION] Created session ${sessionInfo.id}, currentSessionId: ${newCurrentSessionId}`);
+
       return {
         ...prev,
         sessions: newSessions,
-        currentSessionId: prev.currentSessionId || sessionInfo.id
+        currentSessionId: newCurrentSessionId
       };
     });
 
@@ -177,7 +199,10 @@ export const useMultiSessionState = () => {
 
   /**
    * 🎯 按需加载Session内容
+   * 🎯 BUG FIX: 添加超时保护，防止isLoading永远卡住
    */
+  const loadSessionContentTimeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+
   const loadSessionContent = useCallback((sessionId: string) => {
     updateState(prev => {
       const session = prev.sessions.get(sessionId);
@@ -197,12 +222,49 @@ export const useMultiSessionState = () => {
         sessions: newSessions
       };
     });
+
+    // 🎯 BUG FIX: 设置超时，3秒后如果还没收到onRestoreUIHistory，自动重置loading
+    const existingTimeout = loadSessionContentTimeoutsRef.current.get(sessionId);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+    }
+
+    const timeoutId = setTimeout(() => {
+      console.warn(`⏰ [TIMEOUT] Session ${sessionId} content loading timeout after 3000ms, auto-resetting`);
+      // 后端未在规定时间内返回消息，手动重置loading状态
+      updateState(prev => {
+        const session = prev.sessions.get(sessionId);
+        if (!session) return prev;
+
+        const newSessions = new Map(prev.sessions);
+        newSessions.set(sessionId, {
+          ...session,
+          isLoading: false
+        });
+
+        return {
+          ...prev,
+          sessions: newSessions
+        };
+      });
+
+      loadSessionContentTimeoutsRef.current.delete(sessionId);
+    }, 3000);
+
+    loadSessionContentTimeoutsRef.current.set(sessionId, timeoutId);
   }, [updateState]);
 
   /**
    * 删除Session
    */
   const deleteSession = useCallback((sessionId: string) => {
+    // 🎯 BUG FIX: 清理被删除session的所有超时
+    const timeout = loadSessionContentTimeoutsRef.current.get(sessionId);
+    if (timeout) {
+      clearTimeout(timeout);
+      loadSessionContentTimeoutsRef.current.delete(sessionId);
+    }
+
     updateState(prev => {
       const newSessions = new Map(prev.sessions);
       newSessions.delete(sessionId);
@@ -211,6 +273,16 @@ export const useMultiSessionState = () => {
       if (prev.currentSessionId === sessionId) {
         const remainingIds = Array.from(newSessions.keys());
         newCurrentSessionId = remainingIds.length > 0 ? remainingIds[0] : null;
+
+        // 🎯 BUG FIX: 当切换到剩余的Session时，确保其isLoading状态正确
+        // 防止继承之前的pending loading状态导致卡死
+        if (newCurrentSessionId) {
+          const targetSession = newSessions.get(newCurrentSessionId);
+          if (targetSession && targetSession.isLoading) {
+            console.log(`🔄 [DELETE] Resetting isLoading for switched session: ${newCurrentSessionId}`);
+            targetSession.isLoading = false;
+          }
+        }
       }
 
       return {
@@ -239,16 +311,25 @@ export const useMultiSessionState = () => {
       if (!targetSession.isContentLoaded) {
         console.log('🔄 [SWITCH] Loading content for session:', sessionId);
         targetSession.isContentLoaded = true;
-        targetSession.isLoading = true;
 
-        // ✅ 保留现有messages，不清空数据，但如果没有消息则显示加载状态
-        if (targetSession.messages.length === 0) {
-          console.log('📥 [SWITCH] Empty session, will load from backend:', sessionId);
-        } else {
+        // 🎯 BUG FIX: 根据是否有消息来决定是否设置loading状态
+        // 只有真的有数据需要从后端加载时才设置loading，否则会造成无限等待
+        if (targetSession.messages.length > 0) {
           console.log('✅ [SWITCH] Preserving existing messages, count:', targetSession.messages.length);
-          // 如果已有消息，取消loading状态，直接显示现有内容
+          // 已有消息，直接显示，不需要loading状态
+          targetSession.isLoading = false;
+        } else {
+          console.log('📥 [SWITCH] Empty session, will load from backend:', sessionId);
+          // 🎯 BUG FIX: 新建session时，初始时不设置loading（避免卡死）
+          // 后端会主动通过onRestoreUIHistory发送消息或保持空状态
+          // 无需等待，直接显示空状态即可发送消息
           targetSession.isLoading = false;
         }
+      } else if (targetSession.isLoading) {
+        // 🎯 BUG FIX: 如果Session已加载但isLoading仍为true，表示之前的loading超时了或有异常
+        // 关闭Session后切换时会出现这种情况，需要重置为false
+        console.log('🔧 [SWITCH] Resetting isLoading for already-loaded session:', sessionId);
+        targetSession.isLoading = false;
       }
 
       // 更新当前Session状态为active，其他为idle
@@ -390,6 +471,7 @@ export const useMultiSessionState = () => {
         isProcessing: false,  // 🎯 重置处理状态
         currentProcessingMessageId: null,  // 🎯 清除正在处理的消息
         canAbort: false,  // 🎯 重置中断标志
+        isPlanMode: false,  // 🎯 重置Plan模式
         info: {
           ...sessionData.info,
           messageCount: 0,
@@ -652,6 +734,15 @@ export const useMultiSessionState = () => {
    * 设置指定Session的加载状态
    */
   const setSessionLoading = useCallback((sessionId: string, isLoading: boolean) => {
+    // 🎯 BUG FIX: 当loading状态重置为false时，清理对应的超时
+    if (!isLoading) {
+      const timeout = loadSessionContentTimeoutsRef.current.get(sessionId);
+      if (timeout) {
+        clearTimeout(timeout);
+        loadSessionContentTimeoutsRef.current.delete(sessionId);
+      }
+    }
+
     updateState(prev => {
       const sessionData = prev.sessions.get(sessionId);
       if (!sessionData) return prev;
@@ -805,6 +896,13 @@ export const useMultiSessionState = () => {
 
     // 🎯 UI历史恢复 - 智能合并，避免覆盖现有数据
     restoreSessionMessages: useCallback((sessionId: string, messages: ChatMessage[]) => {
+      // 🎯 BUG FIX: 收到onRestoreUIHistory时，清理对应的超时
+      const timeout = loadSessionContentTimeoutsRef.current.get(sessionId);
+      if (timeout) {
+        clearTimeout(timeout);
+        loadSessionContentTimeoutsRef.current.delete(sessionId);
+      }
+
       updateState(prev => {
         const sessionData = prev.sessions.get(sessionId);
         if (!sessionData) return prev;
@@ -822,10 +920,23 @@ export const useMultiSessionState = () => {
           return { ...prev, sessions: newSessions };
         }
 
+        // 🎯 清理历史消息的临时状态字段
+        const cleanedMessages = messages.map(msg => {
+          if (msg.type === 'assistant') {
+            return {
+              ...msg,
+              isStreaming: false,  // 清除流式状态
+              isProcessingTools: false,  // 清除工具处理状态
+              toolsCompleted: true  // 标记工具已完成
+            };
+          }
+          return msg;
+        });
+
         const newSessions = new Map(prev.sessions);
         const updatedSessionData = {
           ...sessionData,
-          messages: messages,
+          messages: cleanedMessages,  // 使用清理后的消息
           // 🎯 Session恢复时，设置lastAcceptedMessageId为最后一条消息，确保diff状态为空
           lastAcceptedMessageId: messages.length > 0 ? messages[messages.length - 1].id : null,
           isLoading: false, // 🎯 恢复消息完成后重置loading状态
@@ -914,6 +1025,25 @@ export const useMultiSessionState = () => {
     updateMessageToolCalls,
     updateToolLiveOutput,
     abortCurrentProcess,
+
+    // 🎯 Plan模式管理
+    togglePlanMode: useCallback((sessionId: string, enabled: boolean) => {
+      updateState(prev => {
+        const sessionData = prev.sessions.get(sessionId);
+        if (!sessionData) return prev;
+
+        const newSessions = new Map(prev.sessions);
+        const updatedSessionData = {
+          ...sessionData,
+          isPlanMode: enabled,
+          info: { ...sessionData.info, lastActivity: Date.now() }
+        };
+        newSessions.set(sessionId, updatedSessionData);
+
+        console.log(`🎯 [PLAN-MODE] Session ${sessionId} Plan mode toggled to: ${enabled}`);
+        return { ...prev, sessions: newSessions };
+      });
+    }, [updateState]),
 
     // 上下文管理
     updateGlobalContext,

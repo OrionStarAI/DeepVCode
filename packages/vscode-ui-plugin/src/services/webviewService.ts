@@ -7,7 +7,6 @@ import { MultiSessionCommunicationService } from './multiSessionCommunicationSer
 import { Logger } from '../utils/logger';
 
 export class WebViewService {
-  private panel: vscode.WebviewPanel | undefined;
   private disposables: vscode.Disposable[] = [];
 
   constructor(
@@ -39,49 +38,23 @@ export class WebViewService {
 
       this.disposables.push(registration);
       this.logger.info('WebView provider registered successfully');
+
+      // 🎯 在启动时自动显示侧边栏视图（如同 AugmentCode 的行为）
+      this.show();
     } catch (error) {
       this.logger.error('Failed to initialize WebViewService', error instanceof Error ? error : undefined);
       throw error;
     }
   }
 
-  show() {
-    if (this.panel) {
-      this.panel.reveal();
-    } else {
-      this.createPanel();
+  async show() {
+    try {
+      // 🎯 通过命令行显示并聚焦侧边栏视图，这样即使关闭也会自动恢复
+      await vscode.commands.executeCommand('deepv.aiAssistant.focus');
+      this.logger.info('Sidebar view revealed');
+    } catch (error) {
+      this.logger.error('Failed to show sidebar view', error instanceof Error ? error : undefined);
     }
-  }
-
-  private createPanel() {
-    this.panel = vscode.window.createWebviewPanel(
-      'deepv.aiAssistant',
-      'DeepVCode',
-      vscode.ViewColumn.Two,
-      {
-        enableScripts: true,
-        retainContextWhenHidden: true,
-        enableFindWidget: true,
-        enableCommandUris: true,
-        localResourceRoots: [
-          vscode.Uri.joinPath(this.context.extensionUri, 'webview', 'build'),
-          vscode.Uri.joinPath(this.context.extensionUri, 'assets')
-        ]
-      }
-    );
-
-    // Set up communication
-    this.communicationService.setWebview(this.panel.webview);
-
-    // Set webview content
-    this.panel.webview.html = this.getWebviewContent(this.panel.webview);
-
-    // Handle panel disposal
-    this.panel.onDidDispose(() => {
-      this.panel = undefined;
-    });
-
-    this.logger.info('Created WebView panel');
   }
 
   private getWebviewContent(webview: vscode.Webview): string {
@@ -176,11 +149,6 @@ export class WebViewService {
   async dispose() {
     this.logger.info('Disposing WebViewService');
 
-    if (this.panel) {
-      this.panel.dispose();
-      this.panel = undefined;
-    }
-
     this.disposables.forEach(d => d.dispose());
     this.disposables = [];
   }
@@ -204,6 +172,7 @@ class DeepVWebviewViewProvider implements vscode.WebviewViewProvider {
 
     webviewView.webview.options = {
       enableScripts: true,
+      enableForms: true, // 🎯 启用表单和拖拽支持
       localResourceRoots: [
         vscode.Uri.joinPath(this.context.extensionUri, 'webview', 'build'),
         vscode.Uri.joinPath(this.context.extensionUri, 'assets')

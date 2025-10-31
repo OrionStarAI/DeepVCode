@@ -3,7 +3,7 @@
  * 基于 Lexical 的富文本输入组件，支持文件拖拽、富文本显示等功能
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useImperativeHandle } from 'react';
 import { LexicalComposer } from '@lexical/react/LexicalComposer';
 import { RichTextPlugin } from '@lexical/react/LexicalRichTextPlugin';
 import { ContentEditable } from '@lexical/react/LexicalContentEditable';
@@ -21,13 +21,16 @@ import { ModelSelector } from './ModelSelector';
 // 导入拆分后的组件和节点
 import { FileReferenceNode, $createFileReferenceNode, $isFileReferenceNode } from './MessageInput/nodes/FileReferenceNode';
 import { ImageReferenceNode, $createImageReferenceNode, $isImageReferenceNode } from './MessageInput/nodes/ImageReferenceNode';
+import { CodeReferenceNode, $createCodeReferenceNode, $isCodeReferenceNode } from './MessageInput/nodes/CodeReferenceNode';
 import { KeyboardPlugin } from './MessageInput/plugins/KeyboardPlugin';
 import { DragDropPlugin } from './MessageInput/plugins/DragDropPlugin';
 import { ClipboardPlugin } from './MessageInput/plugins/ClipboardPlugin';
 import { FileAutocompletePlugin } from './MessageInput/plugins/FileAutocompletePlugin';
 import { EditorRefPlugin } from './MessageInput/plugins/EditorRefPlugin';
-import { FileUploadButton } from './MessageInput/components/FileUploadButton';
+import { UnifiedFileUploadButton } from './MessageInput/components/UnifiedFileUploadButton';
 import { ImageReference, resetImageCounter } from './MessageInput/utils/imageProcessor';
+import { FileUploadResult, FileType } from './MessageInput/utils/fileTypes';
+import { PlanModeToggle } from './PlanModeToggle';
 
 import './MessageInput/MessageInput.css';
 
@@ -65,6 +68,10 @@ interface MessageInputProps {
   showTokenUsage?: boolean;                    // 是否显示Token使用情况
   placeholder?: string;                        // 自定义占位符
   compact?: boolean;                          // 紧凑模式（编辑时可能需要）
+
+  // 🎯 新增：Plan模式
+  isPlanMode?: boolean;                        // 是否在Plan模式
+  onTogglePlanMode?: (enabled: boolean) => void;  // Plan模式切换回调
 }
 
 // Lexical 错误边界组件
@@ -72,32 +79,48 @@ function LexicalErrorBoundary({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-export const MessageInput: React.FC<MessageInputProps> = ({
-  isLoading,
-  isProcessing = false,
-  canAbort = false,
-  onSendMessage,
-  onAbortProcess,
-  onMessageSent,
-  selectedModelId,
-  onModelChange,
-  sessionId,
-  tokenUsage,
+// 🎯 定义 MessageInput 暴露的方法接口
+export interface MessageInputHandle {
+  insertCodeReference: (codeRef: {
+    fileName: string;
+    filePath: string;
+    code: string;
+    startLine?: number;
+    endLine?: number;
+  }) => void;
+}
 
-  // 🎯 编辑模式属性
-  mode = 'compose',
-  editingMessageId,
-  initialContent,
-  onSaveEdit,
-  onCancelEdit,
+export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputProps>((props, ref) => {
+  const {
+    isLoading,
+    isProcessing = false,
+    canAbort = false,
+    onSendMessage,
+    onAbortProcess,
+    onMessageSent,
+    selectedModelId,
+    onModelChange,
+    sessionId,
+    tokenUsage,
 
-  // 🎯 样式和行为定制
-  className = '',
-  showModelSelector = true,
-  showTokenUsage = true,
-  placeholder,
-  compact = false
-}) => {
+    // 🎯 编辑模式属性
+    mode = 'compose',
+    editingMessageId,
+    initialContent,
+    onSaveEdit,
+    onCancelEdit,
+
+    // 🎯 样式和行为定制
+    className = '',
+    showModelSelector = true,
+    showTokenUsage = true,
+    placeholder,
+    compact = false,
+
+    // 🎯 Plan模式
+    isPlanMode = false,
+    onTogglePlanMode
+  } = props;
   const { t } = useTranslation();
   const [editorState, setEditorState] = useState<EditorState | null>(null);
   const [textContent, setTextContent] = useState('');
@@ -116,6 +139,47 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   // 🎯 跟踪是否已经填充过初始内容
   const [hasPopulatedContent, setHasPopulatedContent] = useState(false);
 
+  // 🎯 暴露方法给父组件
+  useImperativeHandle(ref, () => ({
+    insertCodeReference: (codeRef: {
+      fileName: string;
+      filePath: string;
+      code: string;
+      startLine?: number;
+      endLine?: number;
+    }) => {
+      if (!editorRef.current) {
+        console.warn('Editor not ready, cannot insert code reference');
+        return;
+      }
+
+      editorRef.current.update(() => {
+        const selection = $getSelection();
+
+        if ($isRangeSelection(selection)) {
+          // 🎯 创建代码引用节点
+          const codeNode = $createCodeReferenceNode(
+            codeRef.fileName,
+            codeRef.filePath,
+            codeRef.startLine,
+            codeRef.endLine,
+            codeRef.code
+          );
+
+          // 🎯 插入节点和一个空格
+          const spaceNode = $createTextNode(' ');
+          selection.insertNodes([codeNode, spaceNode]);
+
+          // 🎯 将光标移到空格后面
+          spaceNode.selectNext();
+        }
+      });
+
+      // 🎯 聚焦编辑器
+      editorRef.current.focus();
+    }
+  }));
+
   // 🎯 重置填充状态当编辑模式变化或编辑不同消息时
   useEffect(() => {
     if (!isEditMode || !editingMessageId) {
@@ -125,13 +189,13 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
   // 🎯 自动扩展配置
   const MIN_HEIGHT = 140; // 🎯 编辑模式和撰写模式使用相同高度
-  const MAX_HEIGHT = 400; // 🎯 编辑模式和撰写模式使用相同最大高度
+  const MAX_HEIGHT = 400; // 🎯 最大高度限制（约16-17行文本）
   const LINE_HEIGHT = 24; // 大约每行的高度
 
   // 🎯 Lexical 初始化配置
   const initialConfig = {
     namespace: 'MessageInput',
-    nodes: [FileReferenceNode, ImageReferenceNode], // 注册自定义文件引用节点和图片引用节点
+    nodes: [FileReferenceNode, ImageReferenceNode, CodeReferenceNode], // 注册自定义节点
     onError: (error: Error) => {
       console.error('Lexical Error:', error);
     },
@@ -171,14 +235,21 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     });
 
     setTextContent(newTextContent);
-
-    // 🎯 只在内容变化时检查自动扩展
-    if (contentChanged) {
-      requestAnimationFrame(() => {
-        checkAndAutoExpand();
-      });
-    }
   };
+
+  // 🎯 监听文本内容变化，自动调整高度
+  useEffect(() => {
+    // 延迟执行以确保DOM已更新
+    const timer = setTimeout(() => {
+      if (isEditMode) {
+        checkAndAutoExpandForEdit();
+      } else {
+        checkAndAutoExpand();
+      }
+    }, 50);
+
+    return () => clearTimeout(timer);
+  }, [textContent, isEditMode]);
 
   // 🎯 编辑模式专用的高度检查和调整
   const checkAndAutoExpandForEdit = () => {
@@ -216,25 +287,38 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     }
   };
 
-  // 🎯 检查并自动扩展容器高度
+  // 🎯 检查并自动扩展容器高度（撰写模式）
   const checkAndAutoExpand = () => {
-    if (isResizing) return;
+    console.log('🔍 checkAndAutoExpand 被调用');
+
+    if (isResizing) {
+      console.log('⏸️ 正在调整大小，跳过');
+      return;
+    }
 
     // 🎯 通过查找DOM元素来获取内容编辑器
     const contentEditable = containerRef.current?.querySelector('.lexical-content-editable') as HTMLElement;
-    if (!contentEditable) return;
+    if (!contentEditable) {
+      console.log('❌ 找不到内容编辑器元素');
+      return;
+    }
 
     const scrollHeight = contentEditable.scrollHeight;
-    const currentHeight = contentEditable.clientHeight;
-
-    // 🎯 只有当内容实际溢出时才需要扩展
-    const isOverflowing = scrollHeight > currentHeight + 5; // 5px 容错
+    const clientHeight = contentEditable.clientHeight;
     const hasContent = textContent.trim().length > 0;
 
+    console.log('📏 当前状态:', {
+      scrollHeight,
+      clientHeight,
+      textLength: textContent.length,
+      hasContent,
+      currentContainerHeight: containerHeight
+    });
+
     // 🎯 计算需要的容器高度（内容高度 + padding + 其他元素空间）
-    const padding = 24; // 12px top + 12px bottom padding
+    const padding = 24; // top + bottom padding (根据实际CSS的10px * 2 = 20，留些余量)
     const toolbarHeight = 40; // 底部工具栏高度（包括边距和边框）
-    const handleHeight = 8; // 拖拽手柄高度
+    const handleHeight = 16; // 拖拽手柄高度（8px + margins）
     const extraSpace = padding + toolbarHeight + handleHeight + 8; // 额外的8px缓冲
 
     let neededContainerHeight;
@@ -242,18 +326,26 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     if (!hasContent) {
       // 🎯 没有内容时，重置为最小高度
       neededContainerHeight = MIN_HEIGHT;
-    } else if (isOverflowing) {
-      // 🎯 只有在内容溢出时才增加高度
-      neededContainerHeight = Math.min(MAX_HEIGHT, scrollHeight + extraSpace);
     } else {
-      // 🎯 内容没有溢出，保持当前高度
-      return;
+      // 🎯 直接根据内容scrollHeight计算需要的高度，不等待溢出
+      neededContainerHeight = Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, scrollHeight + extraSpace));
     }
 
-    // 🎯 如果需要的高度与当前高度不同
-    if (Math.abs(neededContainerHeight - containerHeight) > 10) {
+    console.log('💡 计算结果:', {
+      neededHeight: neededContainerHeight,
+      currentHeight: containerHeight,
+      diff: Math.abs(neededContainerHeight - containerHeight),
+      MIN_HEIGHT,
+      MAX_HEIGHT
+    });
+
+    // 🎯 如果需要的高度与当前高度差异超过5px才调整
+    if (Math.abs(neededContainerHeight - containerHeight) > 5) {
+      console.log('✅ 开始调整高度:', containerHeight, '→', neededContainerHeight);
       setContainerHeight(neededContainerHeight);
       setIsAutoExpanded(neededContainerHeight > MIN_HEIGHT);
+    } else {
+      console.log('⏭️ 高度差异小于5px，不调整');
     }
   };
 
@@ -372,9 +464,54 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     }
   };
 
-  // 🎯 处理图片上传
-  const handleImageUploaded = (imageData: ImageReference) => {
-    insertImageReferenceNode(imageData);
+  // 🎯 处理统一的文件上传（图片、代码、Markdown）
+  const handleFileSelected = (result: FileUploadResult) => {
+    if (!editorRef.current) {
+      console.error('编辑器引用不可用');
+      return;
+    }
+
+    if (result.type === FileType.IMAGE && result.imageData) {
+      // 处理图片文件
+      const imageRef: ImageReference = {
+        id: result.id,
+        fileName: result.fileName,
+        data: result.imageData.data,
+        mimeType: result.imageData.mimeType,
+        originalSize: result.imageData.originalSize,
+        compressedSize: result.imageData.compressedSize,
+        width: result.imageData.width,
+        height: result.imageData.height,
+      };
+      insertImageReferenceNode(imageRef);
+    } else if (result.type === FileType.TEXT && result.textData) {
+      // 处理文本文件（代码 + Markdown）
+      const textData = result.textData;
+      editorRef.current.update(() => {
+        const selection = $getSelection();
+        if ($isRangeSelection(selection)) {
+          // 插入文件引用节点
+          const fileReferenceNode = $createFileReferenceNode(
+            result.fileName,
+            result.fileName // 对于文本文件，使用文件名作为路径的标识
+          );
+
+          // ✨ 新增：保存完整的文件内容和语言到节点中
+          fileReferenceNode.setFileContent(textData.content, textData.language);
+
+          console.log(`🔍 [DEBUG] 设置文件内容: ${result.fileName}, contentLength: ${textData.content.length}, language: ${textData.language}`);
+          console.log(`🔍 [DEBUG] 节点内容验证: ${fileReferenceNode.__fileContent?.length || 0} chars`);
+
+          selection.insertNodes([fileReferenceNode]);
+
+          // 在文件引用后添加空格
+          const spaceNode = $createTextNode(' ');
+          fileReferenceNode.insertAfter(spaceNode);
+
+          console.log(`✅ 文本文件已插入: ${result.fileName}${textData.language ? ` (${textData.language})` : ''}`);
+        }
+      });
+    }
   };
 
   // 🎯 在上传前聚焦编辑器
@@ -438,6 +575,19 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                 const imageNode = $createImageReferenceNode(imageData);
                 paragraph.append(imageNode);
                 console.log('🎯 恢复图片引用节点:', item.value.fileName);
+              }
+            } else if (item.type === 'code_reference') {
+              // 🎯 处理代码引用
+              if (item.value?.fileName && item.value?.filePath && item.value?.code) {
+                const codeNode = $createCodeReferenceNode(
+                  item.value.fileName,
+                  item.value.filePath,
+                  item.value.startLine,
+                  item.value.endLine,
+                  item.value.code
+                );
+                paragraph.append(codeNode);
+                console.log('🎯 恢复代码引用节点:', item.value.fileName, `(${item.value.startLine}-${item.value.endLine})`);
               }
             }
           } catch (error) {
@@ -561,18 +711,49 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       const collectRawStructure = (node: any) => {
         if ($isFileReferenceNode(node)) {
           // 文件引用节点 - 直接处理，不递归子节点
-          rawContent.push({
-            type: 'file_reference',
-            value: {
-              fileName: node.__fileName,
-              filePath: node.__filePath
-            }
-          });
+          // ✨ 新增：检查是否有嵌入的文件内容
+          console.log(`🔍 [DEBUG] FileReferenceNode: ${node.__fileName}, hasContent: ${!!node.__fileContent}, contentLength: ${node.__fileContent?.length || 0}`);
+
+          if (node.__fileContent) {
+            // 有完整内容（来自文本文件上传）
+            console.log(`✅ [DEBUG] 使用 text_file_content 类型: ${node.__fileName}`);
+            rawContent.push({
+              type: 'text_file_content',
+              value: {
+                fileName: node.__fileName,
+                content: node.__fileContent,
+                language: node.__language,
+                size: node.__fileContent.length
+              }
+            });
+          } else {
+            // 无内容（来自项目文件引用）
+            console.log(`⚠️ [DEBUG] 使用 file_reference 类型: ${node.__fileName}`);
+            rawContent.push({
+              type: 'file_reference',
+              value: {
+                fileName: node.__fileName,
+                filePath: node.__filePath
+              }
+            });
+          }
         } else if ($isImageReferenceNode(node)) {
           // 图片引用节点 - 直接处理，不递归子节点
           rawContent.push({
             type: 'image_reference',
             value: node.__imageData
+          });
+        } else if ($isCodeReferenceNode(node)) {
+          // 🎯 代码引用节点 - 发送完整代码内容给 AI
+          rawContent.push({
+            type: 'code_reference',
+            value: {
+              fileName: node.__fileName,
+              filePath: node.__filePath,
+              startLine: node.__startLine,
+              endLine: node.__endLine,
+              code: node.__code  // 发送完整代码给 AI
+            }
           });
         } else {
           // 对于其他节点，检查是否有子节点
@@ -602,7 +783,9 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     const hasContent = rawContent.some(part =>
       (part.type === 'text' && part.value.trim()) ||
       part.type === 'file_reference' ||
-      part.type === 'image_reference'
+      part.type === 'image_reference' ||
+      part.type === 'code_reference' ||  // 🎯 支持代码引用
+      part.type === 'text_file_content'  // ✨ 新增：包含文本文件内容
     );
 
     if (hasContent && !isLoading && !isProcessing) {
@@ -806,11 +989,18 @@ export const MessageInput: React.FC<MessageInputProps> = ({
             )}
           </div>
 
-          {/* 右侧：上传按钮和发送按钮 */}
+          {/* 右侧：Plan Mode开关、上传按钮和发送按钮 */}
           <div className="input-actions">
-            {/* 图片上传按钮 */}
-            <FileUploadButton
-              onImageSelected={handleImageUploaded}
+            {/* 🎯 Plan Mode切换开关 - 放在上传按钮左边 */}
+            <PlanModeToggle
+              isPlanMode={isPlanMode}
+              onToggle={onTogglePlanMode || (() => {})}
+              disabled={isLoading || isProcessing}
+            />
+
+            {/* 统一文件上传按钮（图片、代码、Markdown） */}
+            <UnifiedFileUploadButton
+              onFileSelected={handleFileSelected}
               onBeforeUpload={handleBeforeUpload}
               disabled={isLoading || isProcessing}
             />
@@ -821,7 +1011,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                 className="send-button processing"
                 onClick={onAbortProcess}
                 disabled={!canAbort}
-                title={canAbort ? "Stop AI processing" : "Cannot stop"}
+                title={canAbort ? t('chat.stopProcessing', {}, 'Stop AI processing') : t('chat.cannotStop', {}, 'Processing cannot be stopped')}
               >
                 <Square size={16} stroke="currentColor" />
               </button>
@@ -830,7 +1020,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
                 className="send-button"
                 onClick={handleSend}
                 disabled={!textContent.trim() || isLoading || isProcessing}
-                title={isLoading ? 'Sending...' : 'Send message'}
+                title={isLoading ? t('chat.sending', {}, 'Sending...') : t('chat.sendMessage', {}, 'Send message')}
               >
                 {isLoading ? (
                   <div className="button-spinner" />
@@ -846,4 +1036,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
 
     </div>
   );
-};
+});
+
+// 🎯 设置 displayName 以便调试
+MessageInput.displayName = 'MessageInput';

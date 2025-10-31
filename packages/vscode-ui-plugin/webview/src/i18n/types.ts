@@ -67,6 +67,26 @@ export interface Translations {
     sendMessage: string;
     clearInput: string;
     scrollToBottom: string;
+    stopProcessing: string;
+    cannotStop: string;
+    sending: string;
+    editPlaceholder: string;
+  };
+
+  plan: {
+    mode: {
+      label: string;
+      off: string;
+      activeTooltip: string;
+      inactiveTooltip: string;
+      indicator: string;
+      blockedToolsMessage: string;
+      focusOnDesign: string;
+      availableToolsInfo: string;
+      useHintPrefix: string;
+      useHintCommand: string;
+      useHintSuffix: string;
+    };
   };
 
   messages: {
@@ -212,6 +232,37 @@ export interface Translations {
     permissionError: string;
     fileNotFound: string;
     operationCanceled: string;
+  };
+
+  rules: {
+    title: string;
+    newRule: string;
+    noRules: string;
+    createHint: string;
+    ruleTitle: string;
+    ruleType: string;
+    rulePriority: string;
+    ruleDescription: string;
+    ruleContent: string;
+    fileExtensions: string;
+    pathPatterns: string;
+    languages: string;
+    descriptionPlaceholder: string;
+    contentPlaceholder: string;
+    typeAlwaysApply: string;
+    typeManualApply: string;
+    typeContextAware: string;
+    priorityHigh: string;
+    priorityMedium: string;
+    priorityLow: string;
+    disabled: string;
+    confirmDelete: string;
+    confirmDeleteTitle: string;
+    saveError: string;
+    deleteError: string;
+    newRuleTitle: string;
+    newRuleContent: string;
+    infoText: string;
   };
 
   versionHistory: {

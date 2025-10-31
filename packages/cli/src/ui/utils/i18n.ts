@@ -475,7 +475,7 @@ export const translations = {
     'auth.deepvlab.browser.url': 'If the browser doesn\'t open automatically, please visit: {url}',
     'auth.deepvlab.cancel.hint': 'Press ESC to cancel authentication',
     'auth.deepvlab.cancelled': 'Authentication cancelled',
-    'auth.option.deepvlab': 'DeepVlab Unified Login',
+    'auth.option.deepvlab': 'Press Enter to sign in to DeepV Code',
 
     // Welcome and Dialog Messages
     'welcome.title': '🎉 Welcome to DeepV Code! ✨',
@@ -1027,6 +1027,17 @@ export const translations = {
     'error.config.not.loaded': 'Configuration not loaded.',
     'error.tool.registry.unavailable': 'Unable to retrieve tool registry.',
 
+    // Loop Detection Messages
+    'loop.consecutive.tool.calls.title': '🔄 Repetitive Tool Calls Detected',
+    'loop.consecutive.tool.calls.description': 'The AI model is repeatedly calling the same tool with identical parameters.',
+    'loop.consecutive.tool.calls.action': 'How to fix:\n• Refine your request to be more specific\n• Provide additional context or constraints\n• Try asking the AI to approach the problem differently\n• Continue the conversation with new instructions or /session new to start fresh',
+    'loop.chanting.identical.sentences.title': '🔄 Repetitive Content Detected',
+    'loop.chanting.identical.sentences.description': 'The AI model is repeatedly generating the same text or responses.',
+    'loop.chanting.identical.sentences.action': 'How to fix:\n• The model may be stuck on a specific pattern\n• Try breaking the pattern with a new instruction\n• Ask the AI to try a different approach\n• Continue the conversation with new context or /session new for a fresh start',
+    'loop.llm.detected.title': '⚠️ Unproductive Loop Detected',
+    'loop.llm.detected.description': 'The AI model appears to be stuck without making meaningful progress on the task.',
+    'loop.llm.detected.action': 'How to fix:\n• Provide clearer task requirements or accept the current progress\n• Refocus the AI on the core problem\n• Consider breaking the task into smaller subtasks\n• Continue with new instructions or /session new to restart',
+
     // Daily Tips
     'tip.help': '/help - View all available commands',
     'tip.theme': '/theme - Change theme appearance',
@@ -1382,7 +1393,7 @@ export const translations = {
     'auth.deepvlab.server.error': '❌ DeepVlab认证启动失败：{error}',
     'auth.deepvlab.page.title': 'DeepVlab认证成功',
     'auth.deepvlab.page.success': '✅ DeepVlab认证成功！',
-    'auth.option.deepvlab': 'DeepVlab统一登录',
+    'auth.option.deepvlab': '按回车键，以便登录DeepV Code',
     'welcome.title': '🎉 欢迎使用 DeepV Code！✨',
     'welcome.subtitle': '🚀 开启您的智能编程之旅 💻',
     'welcome.daily.tip.title': '每日技巧',
@@ -1932,6 +1943,17 @@ export const translations = {
     // Error messages
     'error.config.not.loaded': '配置未加载。',
     'error.tool.registry.unavailable': '无法检索工具注册表。',
+
+    // Loop Detection Messages
+    'loop.consecutive.tool.calls.title': '🔄 检测到重复工具调用',
+    'loop.consecutive.tool.calls.description': 'AI模型在反复调用相同的工具且参数完全相同。',
+    'loop.consecutive.tool.calls.action': '解决方案：\n• 用更具体的信息来优化您的请求\n• 提供额外的上下文或约束条件\n• 让AI尝试从不同角度处理问题\n• 继续对话并提供新的指示，或执行 /session new 开始新会话',
+    'loop.chanting.identical.sentences.title': '🔄 检测到重复内容',
+    'loop.chanting.identical.sentences.description': 'AI模型在反复生成相同的文本或响应。',
+    'loop.chanting.identical.sentences.action': '解决方案：\n• 模型可能陷入特定的文本模式\n• 尝试用新的指示打破这个模式\n• 要求AI采用不同的方法\n• 继续对话并提供新的上下文，或执行 /session new 重新开始',
+    'loop.llm.detected.title': '⚠️ 检测到无进展循环',
+    'loop.llm.detected.description': 'AI模型似乎陷入困境，在任务上没有取得有意义的进展。',
+    'loop.llm.detected.action': '解决方案：\n• 提供更清晰的任务要求或接受当前进展\n• 将AI的注意力重新集中在核心问题上\n• 考虑将任务分解为更小的子任务\n• 继续进行新的指示或执行 /session new 来重新启动',
 
     // Daily Tips - 每日技巧
     'tip.help': '/help - 查看所有可用命令',

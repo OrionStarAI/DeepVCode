@@ -16,9 +16,12 @@ import { VersionControlManager } from './services/versionControlManager';
 import { SimpleRevertService } from './services/simpleRevertService';
 import { CursorStyleRevertService } from './services/cursorStyleRevertService';
 import { DeepVInlineCompletionProvider } from './services/inlineCompletionProvider';
+import { RuleService } from './services/ruleService';
+import { ContextBuilder } from './services/contextBuilder';
 import { Logger } from './utils/logger';
 import { startupOptimizer } from './utils/startupOptimizer';
 import { EnvironmentOptimizer } from './utils/environmentOptimizer';
+import { ClipboardCacheService } from './services/clipboardCacheService';
 
 let logger: Logger;
 let webviewService: WebViewService;
@@ -31,7 +34,13 @@ let versionControlManager: VersionControlManager;
 let simpleRevertService: SimpleRevertService;
 let cursorStyleRevertService: CursorStyleRevertService;
 let inlineCompletionProvider: DeepVInlineCompletionProvider;
+let ruleService: RuleService;
+let inlineCompletionStatusBar: vscode.StatusBarItem;
 let extensionContext: vscode.ExtensionContext;
+let clipboardCache: ClipboardCacheService;
+
+// 🎯 服务初始化状态标志，避免重复初始化
+let servicesInitialized = false;
 
 export async function activate(context: vscode.ExtensionContext) {
   console.log('=== DeepV Code AI Assistant: Starting activation ===');
@@ -95,6 +104,27 @@ export async function activate(context: vscode.ExtensionContext) {
     sessionManager = new SessionManager(logger, communicationService, context);
     fileSearchService = new FileSearchService(logger);
     fileRollbackService = FileRollbackService.getInstance(logger);
+    clipboardCache = new ClipboardCacheService(logger);
+
+    // 🎯 初始化规则服务
+    ruleService = new RuleService(logger);
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    await ruleService.initialize(workspaceRoot);
+    logger.info('RuleService initialized');
+
+    // 🎯 设置规则变化回调，通知前端刷新规则列表
+    ruleService.onRulesChanged(async () => {
+      logger.info('Rules changed, notifying webview...');
+      try {
+        const rules = ruleService.getAllRules();
+        await communicationService.sendRulesListResponse(rules);
+      } catch (error) {
+        logger.error('Failed to send rules update to webview', error instanceof Error ? error : undefined);
+      }
+    });
+
+    // 🎯 将规则服务设置到 ContextBuilder
+    ContextBuilder.setRuleService(ruleService);
     versionControlManager = new VersionControlManager(logger, context);
 
     // 🎯 初始化简单回退服务
@@ -117,8 +147,22 @@ export async function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(completionProviderDisposable);
     logger.info('InlineCompletionProvider registered for all file types');
 
+    // 🎯 创建状态栏项，用于控制代码补全开关
+    inlineCompletionStatusBar = vscode.window.createStatusBarItem(
+      vscode.StatusBarAlignment.Right,
+      100 // 优先级，越大越靠右
+    );
+    updateInlineCompletionStatusBar();
+    inlineCompletionStatusBar.command = 'deepv.toggleInlineCompletionFromStatusBar';
+    inlineCompletionStatusBar.show();
+    context.subscriptions.push(inlineCompletionStatusBar);
+    logger.info('Inline completion status bar created');
+
     // Setup communication between services
     setupServiceCommunication();
+
+    // 🎯 监听文本选择变化 + 剪贴板监听（用于缓存复制的代码信息）
+    setupClipboardMonitoring(context);
 
     // 🎯 立即初始化WebView服务，这样用户点击时就能看到loading界面
     try {
@@ -131,6 +175,16 @@ export async function activate(context: vscode.ExtensionContext) {
     startupOptimizer.endPhase();
 
     startupOptimizer.startPhase('Background Services Startup');
+
+    // 🎯 自动初始化核心服务（SessionManager + InlineCompletion）
+    // 这样即使前端没有发送 start_services 请求（例如切换项目后），服务也能正常工作
+    try {
+      logger.info('Auto-initializing core services during activation...');
+      await startServices();
+      logger.info('Core services auto-initialized successfully');
+    } catch (error) {
+      logger.warn('Core services auto-initialization failed, will retry when requested', error instanceof Error ? error : undefined);
+    }
 
     logger.info('DeepV Code AI Assistant activated successfully');
     console.log('=== DeepV Code AI Assistant: Activation completed ===');
@@ -158,6 +212,12 @@ export async function deactivate(): Promise<void> {
   logger?.info('DeepV Code AI Assistant is deactivating...');
 
   try {
+    // 🎯 重置服务初始化标志，允许重新激活时重新初始化
+    servicesInitialized = false;
+
+    if (inlineCompletionStatusBar) {
+      inlineCompletionStatusBar.dispose();
+    }
     if (inlineCompletionProvider) {
       inlineCompletionProvider.dispose();
     }
@@ -180,11 +240,6 @@ export async function deactivate(): Promise<void> {
 }
 
 function setupServiceCommunication() {
-  // Context changes
-  contextService.onContextChange(() => {
-    // TODO: 需要通知所有session的context更新
-    logger.info('Context changed, need to notify all sessions');
-  });
 
   // 🎯 设置基础消息处理器（通过SessionManager分发到对应session）
   setupBasicMessageHandlers();
@@ -1265,6 +1320,46 @@ function setupMultiSessionHandlers() {
       logger.error('Failed to process session UI history', error instanceof Error ? error : undefined);
     }
   });
+
+  // 🎯 处理规则列表请求
+  communicationService.onRulesListRequest(async () => {
+    try {
+      logger.info('Received rules_list_request');
+      const rules = ruleService.getAllRules();
+      await communicationService.sendRulesListResponse(rules);
+    } catch (error) {
+      logger.error('Failed to get rules list', error instanceof Error ? error : undefined);
+      await communicationService.sendRulesListResponse([]);
+    }
+  });
+
+  // 🎯 处理规则保存请求
+  communicationService.onRulesSave(async (payload) => {
+    try {
+      logger.info('Received rules_save request', { ruleId: payload.rule.id });
+      await ruleService.saveRule(payload.rule);
+      await communicationService.sendRulesSaveResponse(true);
+      logger.info('Rule saved successfully', { ruleId: payload.rule.id });
+    } catch (error) {
+      logger.error('Failed to save rule', error instanceof Error ? error : undefined);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      await communicationService.sendRulesSaveResponse(false, errorMessage);
+    }
+  });
+
+  // 🎯 处理规则删除请求
+  communicationService.onRulesDelete(async (payload) => {
+    try {
+      logger.info('Received rules_delete request', { ruleId: payload.ruleId });
+      await ruleService.deleteRule(payload.ruleId);
+      await communicationService.sendRulesDeleteResponse(true);
+      logger.info('Rule deleted successfully', { ruleId: payload.ruleId });
+    } catch (error) {
+      logger.error('Failed to delete rule', error instanceof Error ? error : undefined);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      await communicationService.sendRulesDeleteResponse(false, errorMessage);
+    }
+  });
 }
 
 function registerCommands(context: vscode.ExtensionContext) {
@@ -1276,23 +1371,167 @@ function registerCommands(context: vscode.ExtensionContext) {
       logger.info('deepv.openAIAssistant command executed');
       console.log('DeepV Code: openAIAssistant command executed');
 
-      // 🎯 确保WebView立即显示，即使服务还没完全初始化
+      // 🎯 显示侧边栏视图
       try {
-        if (webviewService) {
-          webviewService.show();
-        } else {
-          // 如果webviewService还没初始化，立即创建一个临时的
-          const tempWebviewService = new WebViewService(context, communicationService, logger);
-          await tempWebviewService.initialize();
-          tempWebviewService.show();
-          // 当正式的webviewService初始化完成后会接管
-        }
+        await webviewService?.show();
       } catch (error) {
         logger.error('Failed to show webview', error instanceof Error ? error : undefined);
         vscode.window.showErrorMessage('Failed to open DeepV Code Assistant');
       }
     }),
 
+    // 🎯 右键菜单命令：添加代码到当前对话（只插入，不自动发送）
+    vscode.commands.registerCommand('deepv.addToCurrentChat', async () => {
+      logger.info('deepv.addToCurrentChat command executed');
+
+      try {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor || editor.selection.isEmpty) {
+          vscode.window.showWarningMessage('请先选择要添加的代码');
+          return;
+        }
+
+        const selectedText = editor.document.getText(editor.selection);
+        const fileName = path.basename(editor.document.uri.fsPath);
+        const filePath = editor.document.uri.fsPath;
+        const startLine = editor.selection.start.line + 1;
+        const endLine = editor.selection.end.line + 1;
+
+        // 🎯 先聚焦侧边栏视图
+        await vscode.commands.executeCommand('deepv.aiAssistant.focus');
+
+        // 🎯 等待 webview 准备就绪
+        await communicationService.waitForReady(3000);
+
+        // 🎯 发送插入代码消息（只插入到输入框，不自动发送）
+        communicationService.sendMessage({
+          type: 'insert_code_to_input',
+          payload: {
+            fileName,
+            filePath,
+            code: selectedText,
+            startLine,
+            endLine
+          }
+        });
+      } catch (error) {
+        logger.error('Failed to execute addToCurrentChat', error instanceof Error ? error : undefined);
+        vscode.window.showErrorMessage('无法添加代码到对话');
+      }
+    }),
+
+    // 🎯 旧的命令（保留兼容性）- 解释代码
+    vscode.commands.registerCommand('deepv.explainCode', async () => {
+      logger.info('deepv.explainCode command executed');
+
+      try {
+        const selectedText = getSelectedText();
+        if (!selectedText) {
+          vscode.window.showWarningMessage('请先选择要解释的代码');
+          return;
+        }
+
+        // 🎯 先聚焦侧边栏视图（如果已打开就聚焦，如果没打开就打开）
+        await vscode.commands.executeCommand('deepv.aiAssistant.focus');
+
+        // 🎯 等待 webview 准备就绪（最多等待 3 秒）
+        await communicationService.waitForReady(3000);
+
+        // 发送预填充消息到webview
+        const editor = vscode.window.activeTextEditor;
+        const fileName = editor?.document.fileName || 'selected code';
+        const message = `请解释以下代码:\n\n\`\`\`\n${selectedText}\n\`\`\`\n\n来自文件: ${fileName}`;
+
+        // 🎯 发送消息（webview 已 ready 或进入队列）
+        communicationService.sendMessage({
+          type: 'prefill_message',
+          payload: { message }
+        });
+      } catch (error) {
+        logger.error('Failed to execute explainCode', error instanceof Error ? error : undefined);
+        vscode.window.showErrorMessage('无法执行代码解释功能');
+      }
+    }),
+
+    // 🎯 右键菜单命令：优化代码
+    vscode.commands.registerCommand('deepv.optimizeCode', async () => {
+      logger.info('deepv.optimizeCode command executed');
+
+      try {
+        const selectedText = getSelectedText();
+        if (!selectedText) {
+          vscode.window.showWarningMessage('请先选择要优化的代码');
+          return;
+        }
+
+        // 🎯 先聚焦侧边栏视图（如果已打开就聚焦，如果没打开就打开）
+        await vscode.commands.executeCommand('deepv.aiAssistant.focus');
+
+        // 🎯 等待 webview 准备就绪（最多等待 3 秒）
+        await communicationService.waitForReady(3000);
+
+        // 发送预填充消息到webview
+        const editor = vscode.window.activeTextEditor;
+        const fileName = editor?.document.fileName || 'selected code';
+        const message = `请优化以下代码，提高性能和可读性:\n\n\`\`\`\n${selectedText}\n\`\`\`\n\n来自文件: ${fileName}`;
+
+        // 🎯 发送消息（webview 已 ready 或进入队列）
+        communicationService.sendMessage({
+          type: 'prefill_message',
+          payload: { message }
+        });
+      } catch (error) {
+        logger.error('Failed to execute optimizeCode', error instanceof Error ? error : undefined);
+        vscode.window.showErrorMessage('无法执行代码优化功能');
+      }
+    }),
+
+    // 🎯 右键菜单命令：生成测试
+    vscode.commands.registerCommand('deepv.generateTests', async () => {
+      logger.info('deepv.generateTests command executed');
+
+      try {
+        const selectedText = getSelectedText();
+        if (!selectedText) {
+          vscode.window.showWarningMessage('请先选择要生成测试的代码');
+          return;
+        }
+
+        // 🎯 先聚焦侧边栏视图（如果已打开就聚焦，如果没打开就打开）
+        await vscode.commands.executeCommand('deepv.aiAssistant.focus');
+
+        // 🎯 等待 webview 准备就绪（最多等待 3 秒）
+        await communicationService.waitForReady(3000);
+
+        // 发送预填充消息到webview
+        const editor = vscode.window.activeTextEditor;
+        const fileName = editor?.document.fileName || 'selected code';
+        const message = `请为以下代码生成单元测试:\n\n\`\`\`\n${selectedText}\n\`\`\`\n\n来自文件: ${fileName}`;
+
+        // 🎯 发送消息（webview 已 ready 或进入队列）
+        communicationService.sendMessage({
+          type: 'prefill_message',
+          payload: { message }
+        });
+      } catch (error) {
+        logger.error('Failed to execute generateTests', error instanceof Error ? error : undefined);
+        vscode.window.showErrorMessage('无法执行生成测试功能');
+      }
+    }),
+    // 🎯 打开自定义规则管理
+    vscode.commands.registerCommand('deepv.openRulesManagement', async () => {
+      logger.info('deepv.openRulesManagement command executed');
+      try {
+        // 通过 webview 消息通知前端打开规则管理对话框
+        await communicationService.sendMessage({
+          type: 'open_rules_management',
+          payload: {}
+        });
+      } catch (error) {
+        logger.error('Failed to open rules management', error instanceof Error ? error : undefined);
+        vscode.window.showErrorMessage('Failed to open Rules Management');
+      }
+    }),
     // 🎯 添加日志查看命令
     vscode.commands.registerCommand('deepv.openLogFile', async () => {
       try {
@@ -1399,6 +1638,27 @@ function registerCommands(context: vscode.ExtensionContext) {
       vscode.window.showInformationMessage(`行内补全功能${status}`);
 
       logger.info(`Inline completion toggled: ${newState}`);
+
+      // 更新状态栏显示
+      updateInlineCompletionStatusBar();
+    }),
+
+    // 🎯 从状态栏切换行内补全开关
+    vscode.commands.registerCommand('deepv.toggleInlineCompletionFromStatusBar', async () => {
+      const config = vscode.workspace.getConfiguration('deepv');
+      const isEnabled = config.get<boolean>('enableInlineCompletion', true);
+      const newState = !isEnabled;
+
+      await config.update('enableInlineCompletion', newState, vscode.ConfigurationTarget.Global);
+
+      logger.info(`Inline completion toggled from status bar: ${newState}`);
+
+      // 更新状态栏显示（tooltip会显示新状态，无需额外提示）
+      updateInlineCompletionStatusBar();
+
+      // 🎯 使用状态栏消息代替弹窗提示，更轻量级，5秒后自动消失
+      const statusMessage = newState ? 'DeepV 代码补全已启用' : 'DeepV 代码补全已禁用';
+      vscode.window.setStatusBarMessage(statusMessage, 3000);
     }),
 
     // 🎯 选择行内补全模型
@@ -1631,6 +1891,32 @@ function registerCommands(context: vscode.ExtensionContext) {
 }
 
 /**
+ * 更新状态栏显示
+ */
+function updateInlineCompletionStatusBar() {
+  if (!inlineCompletionStatusBar) {
+    return;
+  }
+
+  const config = vscode.workspace.getConfiguration('deepv');
+  const isEnabled = config.get<boolean>('enableInlineCompletion', true);
+
+  if (isEnabled) {
+    // 开启状态：使用DeepV品牌标识 - "D" + check图标代表DeepV
+    inlineCompletionStatusBar.text = 'D$(check)';
+    inlineCompletionStatusBar.tooltip = 'DeepV 代码补全：已启用（点击关闭）';
+    inlineCompletionStatusBar.backgroundColor = undefined;
+    inlineCompletionStatusBar.color = undefined;
+  } else {
+    // 关闭状态：使用D + X表示禁用
+    inlineCompletionStatusBar.text = 'D$(x)';
+    inlineCompletionStatusBar.tooltip = 'DeepV 代码补全：已禁用（点击启用）';
+    inlineCompletionStatusBar.backgroundColor = undefined;
+    inlineCompletionStatusBar.color = new vscode.ThemeColor('statusBarItem.warningForeground');
+  }
+}
+
+/**
  * 初始化行内补全服务
  */
 async function initializeInlineCompletion() {
@@ -1691,6 +1977,13 @@ async function initializeInlineCompletion() {
             logger.info(`Inline completion model changed to: ${newModel}`);
           }
         }
+
+        // 🎯 监听代码补全开关变化，更新状态栏
+        if (e.affectsConfiguration('deepv.enableInlineCompletion')) {
+          updateInlineCompletionStatusBar();
+          const isEnabled = vscode.workspace.getConfiguration('deepv').get<boolean>('enableInlineCompletion', true);
+          logger.info(`Inline completion status bar updated: ${isEnabled ? 'enabled' : 'disabled'}`);
+        }
       })
     );
 
@@ -1701,6 +1994,12 @@ async function initializeInlineCompletion() {
 }
 
 async function startServices() {
+  // 🎯 避免重复初始化
+  if (servicesInitialized) {
+    logger.info('Services already initialized, skipping...');
+    return;
+  }
+
   try {
     logger.info('Starting remaining services initialization...');
 
@@ -1724,12 +2023,34 @@ async function startServices() {
 
       // 🎯 初始化行内补全服务（依赖 SessionManager）
       await initializeInlineCompletion();
+
+      // 🎯 监听 session 切换和删除事件，重新初始化行内补全服务
+      sessionManager.on('switched', async () => {
+        logger.info('Session switched, reinitializing inline completion...');
+        await initializeInlineCompletion();
+      });
+
+      sessionManager.on('deleted', async () => {
+        logger.info('Session deleted, reinitializing inline completion...');
+        await initializeInlineCompletion();
+      });
+
+      sessionManager.on('created', async () => {
+        logger.info('Session created, reinitializing inline completion...');
+        await initializeInlineCompletion();
+      });
+
     } catch (error) {
       logger.warn('SessionManager initialization failed, continuing with basic mode', error instanceof Error ? error : undefined);
     }
 
+    // 🎯 标记服务已初始化
+    servicesInitialized = true;
+    logger.info('✅ All core services initialized successfully');
+
   } catch (error) {
     logger.error('Failed to initialize core services', error instanceof Error ? error : undefined);
+    servicesInitialized = false; // 初始化失败，重置标志
     throw error;
   }
 }
@@ -1878,4 +2199,144 @@ async function openDeletedFileContent(
     logger.error('Failed to open deleted file content', error instanceof Error ? error : undefined);
     throw error;
   }
+}
+
+/**
+ * 设置剪贴板监听
+ *
+ * 监听文本编辑器的选择变化和剪贴板变化，
+ * 当用户复制代码时，缓存文件信息以供粘贴时使用
+ */
+function setupClipboardMonitoring(context: vscode.ExtensionContext) {
+  let lastClipboardContent: string = '';
+  let lastSelection: { editor: vscode.TextEditor; selection: vscode.Selection } | null = null;
+
+  // 🎯 监听文本选择变化
+  context.subscriptions.push(
+    vscode.window.onDidChangeTextEditorSelection((event) => {
+      if (!event.selections || event.selections.length === 0) {
+        return;
+      }
+
+      const selection = event.selections[0];
+      if (selection.isEmpty) {
+        return;
+      }
+
+      // 记录最后的选择
+      lastSelection = {
+        editor: event.textEditor,
+        selection
+      };
+
+      // 🎯 启动短期剪贴板检查（仅 3 秒）
+      startClipboardCheck();
+    })
+  );
+
+  // 🎯 优化：仅在文本选择变化后的短时间内检查剪贴板（避免持续轮询）
+  let clipboardCheckInterval: NodeJS.Timeout | null = null;
+  let clipboardCheckCount = 0;
+  const MAX_CLIPBOARD_CHECKS = 6; // 最多检查 6 次（3 秒）
+
+  const startClipboardCheck = () => {
+    // 清除旧的定时器
+    if (clipboardCheckInterval) {
+      clearInterval(clipboardCheckInterval);
+    }
+
+    clipboardCheckCount = 0;
+
+    // 🎯 只在选择后的 3 秒内检查剪贴板
+    clipboardCheckInterval = setInterval(async () => {
+      clipboardCheckCount++;
+
+      // 🎯 3 秒后停止检查
+      if (clipboardCheckCount >= MAX_CLIPBOARD_CHECKS) {
+        if (clipboardCheckInterval) {
+          clearInterval(clipboardCheckInterval);
+          clipboardCheckInterval = null;
+        }
+        return;
+      }
+
+      try {
+        const currentClipboard = await vscode.env.clipboard.readText();
+
+        // 如果剪贴板内容没有变化，跳过
+        if (currentClipboard === lastClipboardContent || !currentClipboard.trim()) {
+          return;
+        }
+
+        lastClipboardContent = currentClipboard;
+
+        // 如果有最近的选择
+        if (lastSelection) {
+          const { editor, selection } = lastSelection;
+          const selectedText = editor.document.getText(selection);
+
+        // 如果剪贴板内容和选择的文本匹配
+        if (selectedText.trim() === currentClipboard.trim()) {
+          // 🎯 缓存文件信息
+          clipboardCache.cache({
+            fileName: path.basename(editor.document.uri.fsPath),
+            filePath: editor.document.uri.fsPath,
+            code: selectedText,
+            startLine: selection.start.line + 1,
+            endLine: selection.end.line + 1
+          });
+
+          // 🎯 成功缓存后立即停止检查
+          if (clipboardCheckInterval) {
+            clearInterval(clipboardCheckInterval);
+            clipboardCheckInterval = null;
+          }
+        }
+        }
+      } catch (error) {
+        // 忽略剪贴板读取错误（可能是权限问题）
+      }
+    }, 500);
+  };
+
+  // 清理定时器
+  context.subscriptions.push({
+    dispose: () => {
+      if (clipboardCheckInterval) {
+        clearInterval(clipboardCheckInterval);
+        clipboardCheckInterval = null;
+      }
+    }
+  });
+
+  // 🎯 添加消息处理器：响应 webview 的剪贴板缓存请求
+  communicationService.addMessageHandler('request_clipboard_cache', (payload: any) => {
+    const pastedCode = payload?.code;
+
+    if (typeof pastedCode === 'string') {
+      const cachedInfo = clipboardCache.get(pastedCode);
+      if (cachedInfo) {
+        // 有缓存信息
+        communicationService.sendMessage({
+          type: 'clipboard_cache_response',
+          payload: {
+            found: true,
+            fileName: cachedInfo.fileName,
+            filePath: cachedInfo.filePath,
+            code: cachedInfo.code,
+            startLine: cachedInfo.startLine,
+            endLine: cachedInfo.endLine
+          }
+        });
+      } else {
+        // 无缓存信息
+        communicationService.sendMessage({
+          type: 'clipboard_cache_response',
+          payload: { found: false }
+        });
+      }
+    }
+  });
+
+  logger.info('📋 Clipboard monitoring enabled');
 }

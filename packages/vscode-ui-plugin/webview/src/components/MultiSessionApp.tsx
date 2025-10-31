@@ -15,10 +15,13 @@ import { useTranslation } from '../hooks/useTranslation';
 import { SessionSwitcher } from './SessionSwitcher';
 import { SessionManagerDialog } from './SessionManagerDialog';
 import { ProjectSettingsDialog } from './ProjectSettingsDialog';
+import { RulesManagementDialog } from './RulesManagementDialog';
 import { ChatInterface } from './ChatInterface';
 import { LoginPage } from './LoginPage';
 import { LoadingScreen } from './LoadingScreen';
 import { UpdatePrompt } from './UpdatePrompt';
+import { MessageInputHandle } from './MessageInput';
+import { PlanModeNotification } from './PlanModeNotification';
 import { SessionType } from '../../../src/constants/sessionConstants';
 import { SessionInfo } from '../../../src/types/sessionTypes';
 import { MessageContent } from '../types/index';
@@ -40,6 +43,9 @@ export const MultiSessionApp: React.FC = () => {
   const { t } = useTranslation();
   const [isInitialized, setIsInitialized] = useState(false);
 
+  // 🎯 MessageInput 的 ref，用于插入代码引用
+  const messageInputRef = useRef<MessageInputHandle>(null);
+
   // 🎯 登录状态管理
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null); // null = 检查中, false = 未登录, true = 已登录
   const [isLoggingIn, setIsLoggingIn] = useState(false);
@@ -52,7 +58,20 @@ export const MultiSessionApp: React.FC = () => {
   const [forceUpdate, setForceUpdate] = useState(false);
 
   // 🎯 模型选择状态管理
-  const [selectedModelId, setSelectedModelId] = useState('claude-sonnet-4@20250514');
+  // 🛡️ 改为 'auto' 让服务端决定成本最优的模型
+  const [selectedModelId, setSelectedModelId] = useState('auto');
+
+  // 🎯 规则管理对话框状态
+  const [isRulesManagementOpen, setIsRulesManagementOpen] = useState(false);
+
+  // 🎯 Plan模式通知状态
+  const [planModeNotification, setPlanModeNotification] = useState<{
+    visible: boolean;
+    blockedTools: string[];
+  }>({ visible: false, blockedTools: [] });
+
+  // 🎯 BUG FIX: 保存加载超时ID，以便清理
+  const loadingTimeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   const {
     state,
@@ -71,6 +90,7 @@ export const MultiSessionApp: React.FC = () => {
     updateMessageToolCalls,
     updateToolLiveOutput,
     abortCurrentProcess,
+    togglePlanMode, // 🎯 新增：Plan模式切换
     updateGlobalContext,
     updateSessionContext,
     setSessionLoading,
@@ -111,6 +131,18 @@ export const MultiSessionApp: React.FC = () => {
     stateRef.current = state;
     getSessionRef.current = getSession;
   });
+
+  // 🎯 BUG FIX: 清理超时 - 当组件卸载时清除所有待处理的超时
+  useEffect(() => {
+    return () => {
+      // 清理所有待处理的加载超时
+      for (const timeoutId of loadingTimeoutsRef.current.values()) {
+        clearTimeout(timeoutId);
+      }
+      loadingTimeoutsRef.current.clear();
+      console.log('🧹 [CLEANUP] Cleared all loading timeouts');
+    };
+  }, []);
 
   /**
    * 🎯 处理session切换 - 合并所有切换逻辑
@@ -250,6 +282,31 @@ export const MultiSessionApp: React.FC = () => {
       updateRollbackableIds(sessionId, rollbackableMessageIds || []);
     });
 
+    // 🎯 监听消息预填充（右键菜单快捷操作 - 自动发送）
+    messageService.onPrefillMessage(({ message }) => {
+      console.log('📝 [PREFILL] Received prefill message, auto-sending:', message.substring(0, 50) + '...');
+      // 🎯 直接发送消息到当前session
+      handleSendMessage([{ type: 'text', value: message }]);
+    });
+
+    // 🎯 监听插入代码到输入框（只插入，不自动发送）
+    messageService.onInsertCodeToInput(({ fileName, filePath, code, startLine, endLine }) => {
+      console.log('📝 [INSERT CODE] Received code to insert:', fileName, startLine, '-', endLine);
+
+      // 🎯 调用 MessageInput 的方法插入代码引用
+      if (messageInputRef.current) {
+        messageInputRef.current.insertCodeReference({
+          fileName,
+          filePath,
+          code,
+          startLine,
+          endLine
+        });
+      } else {
+        console.warn('MessageInput ref not available, cannot insert code');
+      }
+    });
+
     // 🎯 监听可回滚消息ID列表更新
     messageService.onUpdateRollbackableIds(({ sessionId, rollbackableMessageIds }) => {
       updateRollbackableIds(sessionId, rollbackableMessageIds);
@@ -297,6 +354,13 @@ export const MultiSessionApp: React.FC = () => {
 
       // 🎯 重置加载状态 - AI开始响应时，用户的"发送中"状态应该结束
       setSessionLoading(sessionId, false);
+
+      // 🎯 BUG FIX: 清理超时，因为后端已经响应了
+      const timeout = loadingTimeoutsRef.current.get(sessionId);
+      if (timeout) {
+        clearTimeout(timeout);
+        loadingTimeoutsRef.current.delete(sessionId);
+      }
 
       // 创建一个新的AI消息占位符
       const streamingMessage: ChatMessage = {
@@ -348,6 +412,13 @@ export const MultiSessionApp: React.FC = () => {
       }
 
       setSessionLoading(sessionId, false);
+
+      // 🎯 BUG FIX: 清理超时
+      const timeout = loadingTimeoutsRef.current.get(sessionId);
+      if (timeout) {
+        clearTimeout(timeout);
+        loadingTimeoutsRef.current.delete(sessionId);
+      }
     });
 
     // 🚨 REMOVED: onChatResponse 监听器已移除
@@ -370,6 +441,13 @@ export const MultiSessionApp: React.FC = () => {
       addMessage(sessionId, errorMessage);
       setSessionLoading(sessionId, false);
 
+      // 🎯 BUG FIX: 清理超时
+      const timeout = loadingTimeoutsRef.current.get(sessionId);
+      if (timeout) {
+        clearTimeout(timeout);
+        loadingTimeoutsRef.current.delete(sessionId);
+      }
+
       // 清理可能存在的流式消息状态
       for (const [messageId, streamingMsg] of streamingMessages.current.entries()) {
         if (streamingMsg.sessionId === sessionId) {
@@ -383,10 +461,67 @@ export const MultiSessionApp: React.FC = () => {
       // 🎯 优先使用明确关联的messageId，否则回退到当前处理中的消息
       // 使用ref获取最新状态，避免闭包问题
       const currentGetSession = getSessionRef.current;
-      const targetMessageId = associatedMessageId || currentGetSession(sessionId)?.currentProcessingMessageId;
+      const currentSession = currentGetSession(sessionId);
+      const targetMessageId = associatedMessageId || currentSession?.currentProcessingMessageId;
 
       if (targetMessageId) {
-        updateMessageToolCalls(sessionId, targetMessageId, toolCalls);
+        // 🎯 Plan模式下过滤工具 - 只允许只读工具执行
+        let filteredToolCalls = toolCalls;
+
+        if (currentSession?.isPlanMode) {
+          const readOnlyTools = new Set([
+            // 文件系统读取
+            'read_file',           // 读取文件
+            'read_many_files',     // 批量读取文件
+            'list_directory',      // 列出目录
+
+            // 搜索和分析
+            'search_file_content', // 搜索文件内容 (grep)
+            'glob',               // 文件查找
+            'read_lints',         // 读取linter信息
+
+            // 网络获取
+            'web_fetch',          // 获取网页内容
+            'google_web_search',  // 网页搜索
+
+            // 分析和规划工具
+            'task',               // 代码分析工具
+            'todo_write',         // 任务规划和管理 (内存操作，不修改文件)
+            'save_memory'         // 保存规划信息到AI记忆 (内存操作)
+          ]);
+
+          // 分离只读工具和修改性工具
+          const allowedToolCalls = toolCalls.filter(t => readOnlyTools.has(t.toolName));
+          const blockedToolCalls = toolCalls.filter(t => !readOnlyTools.has(t.toolName));
+
+          // 如果有被阻止的工具，标记为错误状态并显示通知
+          if (blockedToolCalls.length > 0) {
+            const blockedToolNames = blockedToolCalls.map(t => t.toolName);
+            console.warn(`🚫 [PLAN MODE] Blocked tools: ${blockedToolNames.join(', ')}`);
+
+            // 标记被阻止的工具为错误状态
+            blockedToolCalls.forEach(tool => {
+              tool.status = ToolCallStatus.Error;
+              tool.result = {
+                success: false,
+                error: `🚫 Plan mode has disabled this tool. Use /plan off to exit Plan mode and enable all tools.`,
+                executionTime: 0,
+                toolName: tool.toolName
+              };
+            });
+
+            // 🎯 显示通知而不是添加系统消息
+            setPlanModeNotification({
+              visible: true,
+              blockedTools: blockedToolNames
+            });
+          }
+
+          // 只处理允许的工具
+          filteredToolCalls = [...allowedToolCalls, ...blockedToolCalls];
+        }
+
+        updateMessageToolCalls(sessionId, targetMessageId, filteredToolCalls);
       } else {
         console.warn('⚠️ No target message found for tool calls update');
       }
@@ -459,6 +594,16 @@ export const MultiSessionApp: React.FC = () => {
       // 重置Session状态
       setProcessingState(sessionId, false, null, false);
     });
+
+    // =============================================================================
+    // 🎯 自定义规则管理监听器
+    // =============================================================================
+
+    messageService.onOpenRulesManagement(() => {
+      console.log('📋 Opening rules management dialog');
+      setIsRulesManagementOpen(true);
+    });
+
     return () => {
     };
 
@@ -586,8 +731,43 @@ export const MultiSessionApp: React.FC = () => {
     addMessage(sessionId, userMessage);
     setSessionLoading(sessionId, true);
 
+    // 🎯 BUG FIX: 添加超时保护，防止isLoading永远卡住
+    // 清除该session的任何已存在的超时
+    const existingTimeout = loadingTimeoutsRef.current.get(sessionId);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+    }
+
+    // 如果后端在5秒内没有响应，自动重置loading状态
+    const loadingTimeoutId = setTimeout(() => {
+      console.warn(`⏰ [TIMEOUT] Session ${sessionId} loading timeout after 5000ms, auto-resetting`);
+      setSessionLoading(sessionId, false);
+      loadingTimeoutsRef.current.delete(sessionId);
+    }, 5000);
+
+    // 🎯 BUG FIX: 保存超时ID以便后续清理
+    loadingTimeoutsRef.current.set(sessionId, loadingTimeoutId);
+
+    // 🎯 Plan模式：添加AI提示注入
+    let messageContentToSend = content;
+    if (currentSession.isPlanMode) {
+      // 将消息内容转换为字符串以便添加提示
+      const contentStr = messageContentToString(content);
+      const planPrompt = `[PLAN MODE ACTIVE]
+The user is currently in Plan mode, focusing on requirements discussion and solution design. Please:
+1. You may use analytical tools: read_file, read_many_files, list_directory, search_file_content, glob, web_fetch, task, etc.
+2. Do NOT use modification tools: write_file, delete_file, replace, run_shell_command, lint_fix, etc.
+3. Focus on understanding requirements, discussing solutions, and designing architecture
+4. Provide detailed planning and recommendations, but do not perform modification operations
+5. If modification operations are needed, remind the user to first exit Plan mode
+
+User question: ${contentStr}`;
+
+      messageContentToSend = createTextMessageContent(planPrompt);
+    }
+
     // 发送到Extension
-    getGlobalMessageService().sendChatMessage(sessionId, content, userMessage.id);
+    getGlobalMessageService().sendChatMessage(sessionId, messageContentToSend, userMessage.id);
   };
 
 
@@ -975,6 +1155,7 @@ export const MultiSessionApp: React.FC = () => {
               selectedModelId={selectedModelId}               // 🎯 传入选中的模型
               onModelChange={handleModelChange}               // 🎯 传入模型变更回调
               sessionId={state.currentSessionId || undefined} // 🎯 传入当前会话ID
+              messageInputRef={messageInputRef}               // 🎯 传入 MessageInput ref（用于插入代码引用）
               onUpdateMessages={(messages) => {               // 🎯 传入消息更新回调
                 if (state.currentSessionId) {
                   forceUpdateSessionMessages(state.currentSessionId, messages);
@@ -982,6 +1163,12 @@ export const MultiSessionApp: React.FC = () => {
               }}
               tokenUsage={currentSession.info.tokenUsage}     // 🎯 传入Token使用情况
               rollbackableMessageIds={currentSession.rollbackableMessageIds} // 🎯 传入可回滚消息ID列表
+              isPlanMode={currentSession.isPlanMode}          // 🎯 传入Plan模式状态
+              onTogglePlanMode={(enabled) => {                // 🎯 传入Plan模式切换回调
+                if (state.currentSessionId) {
+                  togglePlanMode(state.currentSessionId, enabled);
+                }
+              }}
             />
           ) : (
             <div className="multi-session-app__no-session">
@@ -1018,6 +1205,14 @@ export const MultiSessionApp: React.FC = () => {
         onClose={() => toggleProjectSettings(false)}
       />
 
+      {/* 自定义规则管理对话框 */}
+      {isRulesManagementOpen && (
+        <RulesManagementDialog
+          isOpen={isRulesManagementOpen}
+          onClose={() => setIsRulesManagementOpen(false)}
+        />
+      )}
+
       {/* 工具确认对话框 - 暂时禁用 */}
       {/* {state.ui.showConfirmationDialog && state.ui.currentConfirmationTool && (
         <ConfirmationDialog
@@ -1028,6 +1223,13 @@ export const MultiSessionApp: React.FC = () => {
           onCancel={() => hideConfirmationDialog()}
         />
       )} */}
+
+      {/* 🎯 Plan模式通知 */}
+      <PlanModeNotification
+        visible={planModeNotification.visible}
+        blockedTools={planModeNotification.blockedTools}
+        onDismiss={() => setPlanModeNotification({ visible: false, blockedTools: [] })}
+      />
 
       {/* 🎯 全局拖拽测试组件 - 恢复启用但非干扰模式 */}
       <DragDropGlobalTest enabled={false} />

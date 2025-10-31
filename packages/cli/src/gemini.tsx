@@ -9,9 +9,10 @@ import { render } from 'ink';
 import { AppWrapper } from './ui/App.js';
 import { loadCliConfig, parseArguments, CliArgs } from './config/config.js';
 import { readStdin } from './utils/readStdin.js';
-import { basename } from 'node:path';
+import { basename, resolve, normalize } from 'node:path';
 import v8 from 'node:v8';
 import os from 'node:os';
+import fs from 'node:fs';
 import { spawn } from 'node:child_process';
 import { start_sandbox } from './utils/sandbox.js';
 import {
@@ -203,6 +204,46 @@ async function askUserForUpdate(): Promise<boolean> {
   });
 }
 
+/**
+ * Handle and validate the --workdir parameter.
+ * Supports both Windows and Unix-style paths.
+ * Converts paths to absolute and validates they exist.
+ */
+function processWorkdirParameter(workdirPath: string | undefined): string | null {
+  if (!workdirPath) {
+    return null;
+  }
+
+  try {
+    // Normalize the path (handles both Windows and Unix separators)
+    // This converts backslashes to forward slashes on Unix and vice versa on Windows
+    const normalizedPath = normalize(workdirPath);
+
+    // Resolve to absolute path (relative to current working directory if not absolute)
+    const absolutePath = resolve(normalizedPath);
+
+    // Verify the directory exists
+    const stats = fs.statSync(absolutePath);
+
+    if (!stats.isDirectory()) {
+      console.error(`Error: --workdir path is not a directory: ${absolutePath}`);
+      process.exit(1);
+    }
+
+    return absolutePath;
+  } catch (error) {
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
+      console.error(`Error: --workdir path does not exist: ${workdirPath}`);
+    } else {
+      console.error(`Error: Invalid --workdir path: ${workdirPath}`);
+      if (error instanceof Error) {
+        console.error(`Details: ${error.message}`);
+      }
+    }
+    process.exit(1);
+  }
+}
+
 export async function main() {
   setupUnhandledRejectionHandler();
 
@@ -212,11 +253,19 @@ export async function main() {
   // Load environment variables early to ensure Claude configuration works
   loadEnvironment();
 
+  // Parse arguments first to check for --workdir, --update flag and enable silent mode early if needed
+  const argv = await parseArguments();
+
+  // Handle --workdir parameter before setting up workspace
+  if (argv.workdir) {
+    const workdirPath = processWorkdirParameter(argv.workdir);
+    if (workdirPath) {
+      process.chdir(workdirPath);
+    }
+  }
+
   const workspaceRoot = process.cwd();
   const settings = loadSettings(workspaceRoot);
-
-  // Parse arguments first to check for --update flag and enable silent mode early if needed
-  const argv = await parseArguments();
 
   // Enable silent mode early for -p flag to suppress startup logs
 
@@ -753,6 +802,46 @@ function restoreWindowTitle() {
   if (currentWindowTitle) {
     process.stdout.write(`\x1b]2;${currentWindowTitle}\x07`);
   }
+}
+
+/**
+ * 🎯 使用 Checkpoint Summary 更新窗口标题
+ * 格式：🚀 <summary> - DeepV Code - <工作目录名>
+ * @param summary 生成的摘要（10字以内）
+ * @param settings 用户配置
+ * @param workspaceName 工作目录名（可选，默认使用当前工作目录）
+ */
+export function updateWindowTitleWithSummary(
+  summary: string,
+  settings: LoadedSettings,
+  workspaceName?: string
+): void {
+  // 1. 参数校验
+  if (!summary || summary.trim().length === 0) {
+    console.log('[Title] Summary is empty, skipping title update');
+    return;
+  }
+
+  // 2. 检查用户是否禁用标题
+  if (settings.merged.hideWindowTitle) {
+    return;
+  }
+
+  // 3. 获取工作目录名
+  const workspace = workspaceName || basename(process.cwd());
+
+  // 4. 构造新标题：🚀 <summary> - DeepV Code - <工作目录名>
+  const cleanSummary = summary.trim();
+  const newTitle = `🚀 ${cleanSummary} - DeepV Code - ${workspace}`;
+
+  // 5. 更新全局变量（标题保护机制会自动使用这个值）
+  currentWindowTitle = newTitle;
+  process.env.CLI_TITLE = newTitle;  // 同步环境变量，防止音频播放完成后被旧值覆盖
+
+  // 6. 立即设置标题到终端
+  process.stdout.write(`\x1b]2;${newTitle}\x07`);
+
+  console.log(`[Title] Updated to: ${newTitle}`);
 }
 
 // 导出恢复函数供其他模块使用

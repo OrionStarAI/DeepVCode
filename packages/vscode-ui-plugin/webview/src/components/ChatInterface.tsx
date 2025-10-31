@@ -47,6 +47,11 @@ interface ChatInterfaceProps {
     cacheReadInputTokens?: number;
     creditsUsage?: number;
   };
+  // 🎯 新增：MessageInput ref（用于插入代码引用）
+  messageInputRef?: React.RefObject<any>;
+  // 🎯 新增：Plan模式
+  isPlanMode?: boolean;         // 是否在Plan模式
+  onTogglePlanMode?: (enabled: boolean) => void;  // Plan模式切换回调
 }
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({
@@ -64,7 +69,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   sessionId,
   onUpdateMessages,
   tokenUsage,
-  rollbackableMessageIds = []
+  rollbackableMessageIds = [],
+  messageInputRef,
+  isPlanMode = false,
+  onTogglePlanMode
 }) => {
   const { t } = useTranslation();
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
@@ -225,6 +233,60 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     onSendMessage(content);
     // 自动滚动到底部
     forceScrollToBottom();
+  };
+
+  // 🎯 处理重新生成消息
+  const handleRegenerate = (messageId: string) => {
+    // 找到要重新生成的消息
+    const message = messages.find(msg => msg.id === messageId);
+    if (!message || message.type !== 'assistant') {
+      console.error('无法重新生成：消息类型错误');
+      return;
+    }
+
+    // 找到该消息的索引
+    const messageIndex = messages.findIndex(msg => msg.id === messageId);
+    if (messageIndex < 0) {
+      console.error('无法重新生成：未找到消息');
+      return;
+    }
+
+    // 查找最近的用户消息及其索引
+    let userMessage: ChatMessage | undefined;
+    let userMessageIndex = -1;
+    for (let i = messageIndex - 1; i >= 0; i--) {
+      if (messages[i].type === 'user') {
+        userMessage = messages[i];
+        userMessageIndex = i;
+        break;
+      }
+    }
+
+    if (!userMessage || userMessageIndex === -1) {
+      console.error('无法重新生成：未找到对应的用户消息');
+      return;
+    }
+
+    // 🎯 保留原用户消息，只删除助手回答及之后的所有消息
+    // 这样用户消息保持不变（ID和内容都不变）
+    const newMessages = messages.slice(0, userMessageIndex + 1); // 保留到用户消息（包含）
+
+    // 更新消息列表
+    if (onUpdateMessages) {
+      onUpdateMessages(newMessages);
+    }
+
+    // 🎯 使用消息服务直接发送聊天请求，不通过onSendMessage（避免重复创建用户消息）
+    const messageService = getGlobalMessageService();
+    if (sessionId && messageService) {
+      // 延迟发送，确保消息列表已更新
+      setTimeout(() => {
+        messageService.sendChatMessage(sessionId, userMessage.content, userMessage.id);
+        forceScrollToBottom();
+      }, 50);
+    } else {
+      console.error('无法重新生成：缺少sessionId或messageService');
+    }
   };
 
   // 🎯 新增：编辑功能处理函数
@@ -440,42 +502,61 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
           </div>
         ) : (
           <>
-            {messages.map((message) => (
-              <div key={message.id} data-message-id={message.id}>
-                {/* 🎯 如果是正在编辑的用户消息，显示编辑器 */}
-                {message.type === 'user' && editingMessageId === message.id ? (
-                  <div className="message-bubble user-message editing">
-                    <MessageInput
-                      mode="edit"
-                      editingMessageId={message.id}
-                      initialContent={message.content}
-                      onSendMessage={onSendMessage} // 🎯 编辑模式下不会调用这个，但是接口需要
-                      onSaveEdit={handleSaveEdit}
-                      onCancelEdit={handleCancelEdit}
-                      isLoading={false}
-                      isProcessing={false}
-                      selectedModelId={selectedModelId}
-                      onModelChange={onModelChange}
+            {(() => {
+              // 🎯 提前计算最后一条助手消息的索引（优化性能，避免每次渲染都计算）
+              let lastAssistantMessageIndex = -1;
+              for (let i = messages.length - 1; i >= 0; i--) {
+                if (messages[i].type === 'assistant') {
+                  lastAssistantMessageIndex = i;
+                  break;
+                }
+              }
+
+              return messages.map((message, index) => {
+                // 🎯 判断是否是最后一条助手消息
+                const isLastAssistantMessage = index === lastAssistantMessageIndex;
+
+                return (
+                <div key={message.id} data-message-id={message.id}>
+                  {/* 🎯 如果是正在编辑的用户消息，显示编辑器 */}
+                  {message.type === 'user' && editingMessageId === message.id ? (
+                    <div className="message-bubble user-message editing">
+                      <MessageInput
+                        mode="edit"
+                        editingMessageId={message.id}
+                        initialContent={message.content}
+                        onSendMessage={onSendMessage} // 🎯 编辑模式下不会调用这个，但是接口需要
+                        onSaveEdit={handleSaveEdit}
+                        onCancelEdit={handleCancelEdit}
+                        isLoading={false}
+                        isProcessing={false}
+                        selectedModelId={selectedModelId}
+                        onModelChange={onModelChange}
+                        sessionId={sessionId}
+                        tokenUsage={tokenUsage}
+                        showModelSelector={true}
+                        showTokenUsage={false}
+                        compact={true}
+                        className="message-editor"
+                        placeholder="编辑你的消息..."
+                        isPlanMode={isPlanMode}
+                        onTogglePlanMode={onTogglePlanMode}
+                      />
+                    </div>
+                  ) : (
+                    <MessageBubble
+                      message={message}
+                      onToolConfirm={onToolConfirm}
+                      onStartEdit={message.type === 'user' && rollbackableMessageIds.includes(message.id) ? handleStartEdit : undefined}
+                      onRegenerate={isLastAssistantMessage ? handleRegenerate : undefined}
+                      canRevert={message.type === 'user' && rollbackableMessageIds.includes(message.id)}
                       sessionId={sessionId}
-                      tokenUsage={tokenUsage}
-                      showModelSelector={true}
-                      showTokenUsage={false}
-                      compact={true}
-                      className="message-editor"
-                      placeholder="编辑你的消息..."
                     />
-                  </div>
-                ) : (
-                  <MessageBubble
-                    message={message}
-                    onToolConfirm={onToolConfirm}
-                    onStartEdit={message.type === 'user' && rollbackableMessageIds.includes(message.id) ? handleStartEdit : undefined}
-                    canRevert={message.type === 'user' && rollbackableMessageIds.includes(message.id)}
-                    sessionId={sessionId}
-                  />
-                )}
-              </div>
-            ))}
+                  )}
+                </div>
+                );
+              });
+            })()}
 
             {isLoading && (
               <div className="loading-message">
@@ -590,6 +671,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
       {/* Input Area */}
       <MessageInput
+        ref={messageInputRef}
         isLoading={isLoading}
         isProcessing={isProcessing}
         canAbort={canAbort}
@@ -599,6 +681,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         onModelChange={onModelChange}
         sessionId={sessionId}
         tokenUsage={tokenUsage}
+        isPlanMode={isPlanMode}
+        onTogglePlanMode={onTogglePlanMode}
       />
     </div>
   );

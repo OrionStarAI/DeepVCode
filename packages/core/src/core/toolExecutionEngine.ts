@@ -185,20 +185,20 @@ const createErrorResponse = (
 
 /**
  * 工具执行引擎 - 纯粹的工具调度逻辑，与UI完全解耦
- * 
+ *
  * 这个类包含从CoreToolScheduler中提取的所有核心调度逻辑，
  * 但通过ToolSchedulerAdapter接口与UI交互，实现完全解耦。
  */
 export class ToolExecutionEngine {
   // ✅ 唯一的状态源
   private toolCalls: EngineToolCall[] = [];
-  
+
   private toolRegistry: Promise<ToolRegistry>;
   private adapter: ToolSchedulerAdapter;
   private approvalMode: ApprovalMode;
   private config: Config;
   private getPreferredEditor: () => EditorType | undefined;
-  
+
   // 用于 Promise 驱动的完成检测，避免轮询竞态条件
   private completionResolvers: Array<(calls: CompletedEngineToolCall[]) => void> = [];
 
@@ -224,18 +224,18 @@ export class ToolExecutionEngine {
     if (toolCall.agentContext.agentType === 'sub') return 1;  // SubAgent 最高优先级
     return 2;  // MainAgent
   }
-  
+
   /**
    * 🎯 获取当前应该显示的确认（按优先级排序）
    */
   getActiveConfirmation(): WaitingToolCall | null {
-    const confirmingCalls = this.toolCalls.filter(tc => 
+    const confirmingCalls = this.toolCalls.filter(tc =>
       tc.status === 'awaiting_approval'
     ) as WaitingToolCall[];
-    
+
     if (confirmingCalls.length === 0) return null;
-    
-    return confirmingCalls.sort((a, b) => 
+
+    return confirmingCalls.sort((a, b) =>
       this.getConfirmationPriority(a) - this.getConfirmationPriority(b)
     )[0];
   }
@@ -253,7 +253,7 @@ export class ToolExecutionEngine {
   //   const runtimeCallId = 'runtime-' + Date.now();
   //   const modifiedDetails: ToolCallConfirmationDetails = {
   //     ...details,
-  //     title: type === 'runtime' 
+  //     title: type === 'runtime'
   //       ? `🔄 执行中确认: ${details.title || details.type}`
   //       : details.title,
   //   };
@@ -266,11 +266,11 @@ export class ToolExecutionEngine {
   //         try {
   //           // 调用原始确认逻辑
   //           await details.onConfirm(outcome, payload);
-            
+
   //           // 从工具调用列表中移除临时运行时确认调用
   //           this.toolCalls = this.toolCalls.filter(call => call.request.callId !== runtimeCallId);
   //           this.adapter.onToolCallsUpdate([...this.toolCalls], context);
-            
+
   //           resolve(outcome);
   //         } catch (error) {
   //           // 清理临时调用
@@ -320,10 +320,10 @@ export class ToolExecutionEngine {
   private createStatusUpdateCallback(parentContext: ToolExecutionContext, parentCallId: string) {
     return (subAgentToolCalls: any[], subContext: any) => {
       // 找到父工具调用
-      const parentToolIndex = this.toolCalls.findIndex(call => 
+      const parentToolIndex = this.toolCalls.findIndex(call =>
         call.request.callId === parentCallId
       );
-      
+
       if (parentToolIndex >= 0) {
         // 🎯 直接把子工具调用存到父工具的 subToolCalls 属性
         this.toolCalls[parentToolIndex] = {
@@ -336,7 +336,7 @@ export class ToolExecutionEngine {
             }
           }))
         };
-        
+
         // 通知UI更新（传递嵌套结构）
         this.adapter.onToolCallsUpdate([...this.toolCalls], parentContext);
       }
@@ -497,11 +497,11 @@ export class ToolExecutionEngine {
 
     if (this.toolCalls.length > 0 && allCallsAreTerminal) {
       const completedCalls = [...this.toolCalls] as CompletedEngineToolCall[];
-      
+
       // 通知等待的 Promise resolvers
       const resolversToCall = [...this.completionResolvers];
       this.completionResolvers = [];
-      
+
       // 记录工具调用日志
       for (const call of completedCalls) {
         logToolCall(this.config, new ToolCallEvent(call));
@@ -509,12 +509,12 @@ export class ToolExecutionEngine {
 
       // 通知适配器所有工具完成
       this.adapter.onAllToolsComplete(completedCalls, context);
-      
+
       // 通知所有等待的resolvers
       resolversToCall.forEach((resolve) => {
         resolve(completedCalls);
       });
-      
+
       // 清空工具调用数组
       this.toolCalls = [];
       this.adapter.onToolCallsUpdate([...this.toolCalls], context);
@@ -547,7 +547,7 @@ export class ToolExecutionEngine {
           parentAgentId: context.agentType === 'sub' ? 'main-agent' : undefined,
           taskDescription: context.taskDescription,
         };
-        
+
         if (!toolInstance) {
           return {
             status: 'error',
@@ -668,7 +668,7 @@ export class ToolExecutionEngine {
     if (!toolCall || toolCall.status !== 'awaiting_approval') return;
 
     const waitingCall = toolCall as WaitingToolCall;
-    
+
     // 🎯 调用原始确认逻辑，避免递归
     const confirmationDetails = waitingCall.confirmationDetails as any;
     if (confirmationDetails.originalOnConfirm) {
@@ -678,7 +678,7 @@ export class ToolExecutionEngine {
       // SubAgent：调用当前的onConfirm（这是包装后的）
       await waitingCall.confirmationDetails.onConfirm(outcome, payload);
     }
-    
+
     // 🎯 更新工具调用状态
     this.toolCalls = this.toolCalls.map((call) => {
       if (call.request.callId !== callId) return call;
@@ -771,8 +771,9 @@ export class ToolExecutionEngine {
       );
     }
 
-    // 并行执行所有工具
-    callsToExecute.forEach(async (toolCall) => {
+    // 🔥 关键修复：使用 Promise.all 并行执行所有工具，并等待它们完成
+    // 这确保了当用户点击"停止"时，所有任务都会被正确中断
+    const executionPromises = callsToExecute.map(async (toolCall) => {
       const { request: reqInfo, tool: toolInstance } = toolCall;
 
       try {
@@ -786,7 +787,7 @@ export class ToolExecutionEngine {
             taskDescription: context.taskDescription,
           }),
           statusUpdateCallback: this.createStatusUpdateCallback(context, reqInfo.callId),
-          
+
           onPreToolExecution: async (toolCall: {
             callId: string;
             tool: Tool;
@@ -807,7 +808,7 @@ export class ToolExecutionEngine {
             this.toolCalls = this.toolCalls.map((call) => {
               if (call.request.callId === reqInfo.callId) {
                 let liveOutput: string | object = output;
-                
+
                 // 🔧 如果是 task 工具且在 SubAgent 环境下，尝试解析结构化数据
                 if (call.request.name === 'task') {
                   try {
@@ -819,7 +820,7 @@ export class ToolExecutionEngine {
                     liveOutput = output;
                   }
                 }
-                
+
                 return { ...call, liveOutput } as ExecutingToolCall;
               }
               return call;
@@ -860,5 +861,8 @@ export class ToolExecutionEngine {
         this.setStatusInternal(reqInfo.callId, 'error', response, context);
       }
     });
+
+    // 🔥 关键：等待所有工具执行完成或被中止
+    await Promise.all(executionPromises);
   }
 }

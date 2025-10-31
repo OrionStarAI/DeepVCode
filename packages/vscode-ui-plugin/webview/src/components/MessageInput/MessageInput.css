@@ -3,7 +3,8 @@
 .message-input-container {
   border-top: 1px solid var(--vscode-panel-border);
   background-color: var(--vscode-editor-background);
-  padding: 4px 12px 12px 12px; /* 🎯 与消息容器padding对齐 */
+  padding: 4px 12px 12px 12px; /* 🎯 减少左右padding，提供更多输入空间 */
+  width: 100%; /* 🎯 确保占据全宽 */
   max-width: 100%;
   position: relative;
   height: 140px; /* 🎯 固定高度约3行 */
@@ -32,11 +33,6 @@
   margin: 4px 0 4px 0;
   height: auto;
   min-height: 70px;
-}
-
-/* 🎯 撰写模式保持原样 */
-.message-input-container.compose-mode {
-  /* 保持原有样式 */
 }
 
 /* 🎯 当正在调整大小时禁用动画，避免拖拽时的延迟 */
@@ -106,7 +102,7 @@
   color: var(--vscode-input-foreground);
   border: 1px solid var(--vscode-input-border);
   border-radius: 6px;
-  padding: 12px 16px; /* 🎯 移除右侧和底部的额外padding，让文本区域填充满 */
+  padding: 10px 12px; /* 🎯 进一步减少padding，提供更多文本编辑空间 */
   font-family: var(--vscode-font-family);
   font-size: 14px;
   line-height: 1.5;
@@ -117,6 +113,7 @@
   overflow-x: hidden !important;
   overflow-y: auto !important;
   word-wrap: break-word;
+  word-break: break-word; /* 🎯 确保长单词也能换行 */
   cursor: text;
   resize: none;
   /* 🎯 确保编辑器能够响应容器高度变化 */
@@ -186,11 +183,16 @@
   font-family: var(--vscode-font-family);
   font-size: 14px;
   position: absolute;
-  top: 12px; /* 匹配新的padding */
-  left: 16px;
+  top: 10px; /* 🎯 匹配新的padding */
+  left: 12px; /* 🎯 匹配新的padding */
+  right: 12px; /* 🎯 新增：给右侧也设定边界 */
   pointer-events: none;
   user-select: none;
   line-height: 1.5;
+  /* 🎯 新增：强制单行，超出显示省略号 */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .placeholder-hint {
@@ -279,6 +281,97 @@
 
 /* 🎯 文件引用节点容器 */
 .file-reference-node {
+  display: inline !important;
+  vertical-align: baseline !important;
+  line-height: inherit !important;
+  font-size: inherit !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  background: none !important;
+}
+
+/* 🎯 代码引用标签样式（类似文件引用，但颜色不同） */
+.inline-code-ref-tag {
+  display: inline-flex !important;
+  align-items: center;
+  background-color: var(--vscode-textCodeBlock-background, #1e1e1e);
+  color: var(--vscode-textLink-foreground, #4fc3f7);
+  border: 1px solid var(--vscode-textLink-foreground, #4fc3f7);
+  border-radius: 4px;
+  padding: 1px 4px;
+  font-size: 11px;
+  font-weight: 500;
+  margin: 0 1px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+  cursor: default;
+  user-select: none;
+  white-space: nowrap;
+  vertical-align: baseline !important;
+  line-height: 1 !important;
+  max-width: 200px;
+  height: auto;
+  min-height: auto;
+}
+
+.inline-code-ref-tag:hover {
+  background-color: var(--vscode-textLink-activeForeground, #3ba9d8);
+  box-shadow: 0 2px 6px rgba(79, 195, 247, 0.3);
+}
+
+.code-ref-icon {
+  font-size: 12px;
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+
+.code-ref-name {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-right: 1px;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.code-ref-line {
+  opacity: 0.8;
+  font-size: 10px;
+}
+
+.code-ref-remove-btn {
+  background: none;
+  border: none;
+  color: currentColor;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.code-ref-remove-btn:hover {
+  background-color: var(--vscode-errorForeground, #f85149);
+  color: white;
+  transform: scale(1.1);
+}
+
+.code-ref-remove-btn:active {
+  transform: scale(0.95);
+}
+
+/* 🎯 代码引用节点容器 */
+.code-reference-node {
   display: inline !important;
   vertical-align: baseline !important;
   line-height: inherit !important;
@@ -576,7 +669,7 @@
   box-shadow: 0 1px 2px rgba(0,0,0,0.1);
 }
 
-/* 🎯 美化滚动条样式 */
+/* 🎯 美化滚动条样式 - message-input */
 .message-input::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -599,9 +692,29 @@
   background-color: var(--vscode-scrollbarSlider-activeBackground);
 }
 
-.input-actions {
-  display: flex;
-  gap: 4px;
+/* 🎯 美化滚动条样式 - lexical-content-editable */
+.lexical-content-editable::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.lexical-content-editable::-webkit-scrollbar-track {
+  background: var(--vscode-input-background);
+  border-radius: 4px;
+}
+
+.lexical-content-editable::-webkit-scrollbar-thumb {
+  background-color: var(--vscode-scrollbarSlider-background);
+  border-radius: 4px;
+  border: 2px solid var(--vscode-input-background);
+}
+
+.lexical-content-editable::-webkit-scrollbar-thumb:hover {
+  background-color: var(--vscode-scrollbarSlider-hoverBackground);
+}
+
+.lexical-content-editable::-webkit-scrollbar-thumb:active {
+  background-color: var(--vscode-scrollbarSlider-activeBackground);
 }
 
 .send-button {
@@ -644,17 +757,41 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
-/* 🎯 处理中的停止按钮样式 */
+/* 🎯 处理中的停止按钮样式 - 增强的视觉反馈 */
 .send-button.processing {
-  background: #3c1618 !important; /* 🎯 暗红色背景，参考截图 */
-  color: #ff6b6b !important; /* 🎯 红色图标 */
-  border-color: #5c2629 !important; /* 🎯 稍亮的边框 */
-  /* 🎯 移除所有动画效果 */
+  background: linear-gradient(135deg, #5c2629 0%, #3c1618 100%) !important;
+  color: #ff6b6b !important;
+  border: 2px solid #ff6b6b !important;
+  border-color: #ff6b6b !important;
+  font-weight: 600;
+  box-shadow: 0 0 8px rgba(255, 107, 107, 0.3) !important;
+  /* 🎯 添加脉冲动画吸引用户注意 */
+  animation: stopButtonPulse 2s ease-in-out infinite;
 }
 
 .send-button.processing:hover:not(:disabled) {
-  background: #4a1d20 !important; /* 🎯 悬停时稍亮的暗红色 */
-  color: #ff8787 !important; /* 🎯 悬停时稍亮的红色图标 */
+  background: linear-gradient(135deg, #ff6b6b 0%, #ff5252 100%) !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 12px rgba(255, 107, 107, 0.5) !important;
+  transform: scale(1.05);
+  animation: none;
+}
+
+.send-button.processing:active:not(:disabled) {
+  transform: scale(0.98);
+  box-shadow: 0 0 6px rgba(255, 107, 107, 0.3) !important;
+}
+
+/* 🎯 停止按钮脉冲动画 - 在处理中时吸引注意力 */
+@keyframes stopButtonPulse {
+  0%, 100% {
+    box-shadow: 0 0 8px rgba(255, 107, 107, 0.3);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(255, 107, 107, 0.6);
+    transform: scale(1.02);
+  }
 }
 
 /* 移除编辑模式的特殊按钮样式，与底部保持一致 */
@@ -680,8 +817,13 @@
 .input-actions {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
   gap: 8px;
-  margin-top: 8px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  margin-left: auto; /* 🎯 新增：推向右侧 */
+  position: relative;
+  z-index: 50;
 }
 
 /* 🎯 输入工具栏 - 底部工具栏容器 */
@@ -690,9 +832,13 @@
   justify-content: space-between;
   align-items: center;
   margin-top: 8px;
-  padding: 8px 0 12px 0; /* 🎯 保持顶部和底部间距，确保贴底显示 */
+  padding: 8px 0 12px 0;
   border-top: 1px solid var(--vscode-panel-border);
   background: transparent;
+  min-width: 0;
+  gap: 8px;
+  flex-wrap: nowrap;
+  overflow: visible;
 }
 
 .input-footer {
@@ -700,35 +846,42 @@
   justify-content: flex-start;
   align-items: center;
   gap: 12px;
+  flex: 0 1 auto; /* 🎯 修复：只占据必要空间，不强制占据剩余空间 */
+  min-width: 0; /* 🎯 允许内部元素压缩 */
+  overflow: visible; /* 🎯 确保内容不被裁剪 */
 }
 
-/* 🎯 MessageInput 中的模型选择器特殊样式 */
+/* 🎯 MessageInput 中的模型选择器特殊样式 - 渐进式压缩 */
 .message-input-model-selector {
-  min-width: 200px;
-  max-width: 280px;
+  min-width: 80px;
+  max-width: 320px;
+  flex: 1 1 auto;
 }
 
 .message-input-model-selector .model-selector-trigger {
-  font-size: 11px;
+  font-size: 12px;
   padding: 6px 8px;
-  height: 28px;
+  height: 32px;
   border-radius: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .message-input-model-selector .model-name {
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .message-input-model-selector .model-tier,
 .message-input-model-selector .model-credits {
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .message-input-model-selector .model-icon {
   font-size: 12px;
 }
 
-/* 上下文剩余量指示器 */
+/* 上下文剩余量指示器 - 平滑流体布局，随窗口连续压缩 */
 .context-indicator {
   display: flex;
   align-items: center;
@@ -736,6 +889,11 @@
   background-color: var(--vscode-badge-background);
   border-radius: 3px;
   border: 1px solid var(--vscode-widget-border);
+  min-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 0 1 auto;
+  white-space: nowrap;
 }
 
 .context-percentage {
@@ -743,6 +901,29 @@
   font-weight: 500;
   color: var(--vscode-badge-foreground);
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 🎯 当窗口 < 450px 时，完全隐藏 Context 指示器（不要留下空框） */
+@media (max-width: 449px) {
+  .context-indicator {
+    display: none;
+  }
+}
+
+/* 🎯 当模型选择框隐藏时（< 200px），隐藏 Context 指示器 */
+@media (max-width: 199px) {
+  .message-input-model-selector {
+    display: none !important;
+    visibility: hidden;
+    width: 0;
+    height: 0;
+  }
+
+  .context-indicator {
+    display: none;
+  }
 }
 
 
@@ -1001,3 +1182,6 @@
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
 }
+
+/* 🎯 保持统一简洁的样式，不做响应式压缩 */
+/* 使用内容自适应宽度和文字省略号处理溢出 */
