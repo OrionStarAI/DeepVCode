@@ -102,7 +102,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               display: 'flex',
               alignItems: 'flex-start',
               gap: '8px',
-              paddingRight: canRevert ? '32px' : '0px',
               wordBreak: 'break-word',
               maxWidth: '100%'
             }}
@@ -130,45 +129,93 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             >
               {messageContentToString(message.content)}
             </div>
-            {/* 🎯 回退按钮 - 显示在消息气泡右边，固定宽度 */}
-            {canRevert && (
-              <button
-                className="message-revert-btn-inline"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleRevertToMessage();
-                }}
-                title="回退"
-                style={{
-                  flexShrink: 0,  // 🎯 不缩小，保持固定大小
-                  width: '28px',
-                  height: '28px',
-                  padding: '4px',
-                  minWidth: '28px',  // 🎯 设置最小宽度
-                  background: 'transparent',
-                  border: 'none',
-                  borderRadius: '4px',
-                  color: 'var(--vscode-descriptionForeground)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  opacity: 0.6,
-                  transition: 'all 0.2s ease',
-                  marginTop: '2px'  // 🎯 轻微调整，与文字顶部对齐
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.opacity = '1';
-                  e.currentTarget.style.background = 'var(--vscode-toolbar-hoverBackground)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.opacity = '0.6';
-                  e.currentTarget.style.background = 'transparent';
-                }}
-              >
-                <Undo2 size={16} />
-              </button>
-            )}
+
+            {/* 🎯 编辑和回退按钮容器 - 靠右排列 */}
+            <div
+              style={{
+                display: 'flex',
+                gap: '4px',
+                alignItems: 'flex-start',
+                flexShrink: 0,
+                marginLeft: '8px'
+              }}
+            >
+              {/* 编辑按钮 */}
+              {onStartEdit && (
+                <button
+                  className="message-edit-btn-inline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onStartEdit(message.id);
+                  }}
+                  title="编辑消息"
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    padding: '4px',
+                    background: 'transparent',
+                    border: 'none',
+                    borderRadius: '4px',
+                    color: 'var(--vscode-descriptionForeground)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    opacity: 0.6,
+                    transition: 'all 0.2s ease',
+                    marginTop: '2px'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.opacity = '1';
+                    e.currentTarget.style.background = 'var(--vscode-toolbar-hoverBackground)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.opacity = '0.6';
+                    e.currentTarget.style.background = 'transparent';
+                  }}
+                >
+                  ✎
+                </button>
+              )}
+
+              {/* 回退按钮 */}
+              {canRevert && (
+                <button
+                  className="message-revert-btn-inline"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleRevertToMessage();
+                  }}
+                  title="回退"
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    padding: '4px',
+                    background: 'transparent',
+                    border: 'none',
+                    borderRadius: '4px',
+                    color: 'var(--vscode-descriptionForeground)',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    opacity: 0.6,
+                    transition: 'all 0.2s ease',
+                    marginTop: '2px'
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.opacity = '1';
+                    e.currentTarget.style.background = 'var(--vscode-toolbar-hoverBackground)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.opacity = '0.6';
+                    e.currentTarget.style.background = 'transparent';
+                  }}
+                >
+                  <Undo2 size={16} />
+                </button>
+              )}
+            </div>
           </div>
         ) : message.type === 'tool' ? (
           // 🎯 工具消息直接显示，不使用Markdown渲染
