@@ -70,6 +70,14 @@ export interface EditOperation {
 
   /** 创建时间 */
   createdAt: number;
+
+  // ==================== 新增：文件内容快照（关键修复）====================
+
+  /** 修改前的文件内容（用于回退） */
+  beforeContent?: string;
+
+  /** 修改后的文件内容（用于前进） */
+  afterContent?: string;
 }
 
 /**

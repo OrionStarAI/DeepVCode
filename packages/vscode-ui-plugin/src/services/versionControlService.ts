@@ -558,14 +558,39 @@ export class VersionControlService {
               processedFiles.push(fileUri);
             }
           } else if (operationType === 'delete') {
-            // 删除操作的反向是恢复 - 但我们没有原始内容，记录警告
-            this.logger.warn(`⚠️ Cannot restore deleted file: ${fileUri} (no original content stored)`);
-            // 不添加到processedFiles，因为我们无法恢复
+            // 🎯 删除操作的反向是恢复 - 使用保存的 beforeContent（修改前是什么）
+            if (operation.beforeContent !== undefined && operation.beforeContent !== null) {
+              try {
+                // 创建文件并写入原始内容
+                edit.createFile(uri, { overwrite: true });
+                edit.insert(uri, new vscode.Position(0, 0), operation.beforeContent);
+                this.logger.info(`📝 Restoring deleted file: ${fileUri} (${operation.beforeContent.length} bytes)`);
+                processedFiles.push(fileUri);
+              } catch (restoreError) {
+                this.logger.error(`Failed to restore deleted file ${fileUri}:`, restoreError instanceof Error ? restoreError : undefined);
+              }
+            } else {
+              this.logger.warn(`⚠️ Cannot restore deleted file: ${fileUri} (no backup available)`);
+            }
           } else if (operationType === 'modify') {
-            // 修改操作的反向也是无法精确恢复（需要逆补丁）
-            this.logger.warn(`⚠️ Cannot revert modifications: ${fileUri} (no reverse patch available)`);
-            // 仍然记录为处理过，避免多次尝试
-            processedFiles.push(fileUri);
+            // 🎯 修改操作的反向是使用 beforeContent 覆盖当前内容
+            if (operation.beforeContent !== undefined && operation.beforeContent !== null) {
+              try {
+                // 打开文件并替换所有内容
+                const document = await vscode.workspace.openTextDocument(uri);
+                const fullRange = new vscode.Range(
+                  new vscode.Position(0, 0),
+                  new vscode.Position(document.lineCount, 0)
+                );
+                edit.replace(uri, fullRange, operation.beforeContent);
+                this.logger.info(`♻️ Restoring modified file: ${fileUri} (${operation.beforeContent.length} bytes)`);
+                processedFiles.push(fileUri);
+              } catch (restoreError) {
+                this.logger.error(`Failed to restore modified file ${fileUri}:`, restoreError instanceof Error ? restoreError : undefined);
+              }
+            } else {
+              this.logger.warn(`⚠️ Cannot revert modifications: ${fileUri} (no backup content available)`);
+            }
           }
 
         } catch (error) {
@@ -755,20 +780,19 @@ export class VersionControlService {
 
   /**
    * 从工具调用创建编辑操作
+   *
+   * 🎯 关键改进：获取真实的文件内容快照用于回退
    */
   private async createEditOperationFromToolCall(toolCall: ToolCall): Promise<EditOperation | null> {
     try {
-      // 🎯 根据工具类型创建模拟的编辑操作
       const toolName = toolCall.toolName;
       const params = toolCall.parameters;
 
-      // 🎯 降级方案：接受所有工具调用，不再严格限制
-      // 这确保了即使工具名称有变化，也能记录版本
       this.logger.debug(`Processing tool for version control: ${toolName}`);
 
       const opId = this.generateId('op');
 
-      // 从参数中提取文件路径 - 支持更多参数名称
+      // 从参数中提取文件路径
       let fileUri = params.file_path ||
                    params.target_file ||
                    params.fileName ||
@@ -777,7 +801,7 @@ export class VersionControlService {
                    params.file ||
                    params.filepath ||
                    params.target ||
-                   '(tool operation)';  // 如果没有文件路径，使用通用标识
+                   '(tool operation)';
 
       // 根据工具类型确定操作类型
       let operationType: 'create' | 'modify' | 'delete' = 'modify';
@@ -797,12 +821,26 @@ export class VersionControlService {
         operationType = 'modify';
       }
 
-      // 创建简化的编辑操作（因为没有详细的 diff 信息）
+      // 🎯 获取文件修改前的内容（用于回退）
+      let beforeContent: string | undefined;
+      let afterContent: string | undefined;
+
+      try {
+        const uri = vscode.Uri.file(fileUri);
+        const document = await vscode.workspace.openTextDocument(uri);
+        beforeContent = document.getText();
+        this.logger.debug(`📖 Captured file before content for ${fileUri} (${beforeContent.length} bytes)`);
+      } catch (readError) {
+        // 文件不存在或无法读取 - 对于 create 操作是正常的
+        this.logger.debug(`⏭️ File not yet exists or cannot be read: ${fileUri}`);
+      }
+
+      // 🎯 创建编辑操作，保存文件内容快照
       const operation: EditOperation = {
         opId,
         fileUri,
-        baseHash: this.generateId('hash'),
-        resultHash: this.generateId('hash'),
+        baseHash: beforeContent ? this.computeHash(beforeContent) : this.generateId('hash'),
+        resultHash: this.generateId('hash'),  // 修改后的 hash 在应用后会更新
         patch: `Tool: ${toolName}\nFile: ${fileUri}\nOperation: ${operationType}`,
         inversePatch: `Revert: ${toolName}\nFile: ${fileUri}\nOperation: ${operationType}`,
         hunks: [],
@@ -811,10 +849,14 @@ export class VersionControlService {
           linesRemoved: 0
         },
         operationType,
-        createdAt: Date.now()
+        createdAt: Date.now(),
+
+        // 🎯 关键：保存文件内容快照
+        beforeContent,  // 修改前的内容
+        afterContent    // 修改后的内容（会在 applyOpsAsBatch 后更新）
       };
 
-      this.logger.debug(`Created operation for tool ${toolName}: ${fileUri}`);
+      this.logger.info(`✅ Created operation - tool: ${toolName}, file: ${fileUri}, type: ${operationType}, beforeContent: ${beforeContent ? 'saved' : 'N/A'}`);
       return operation;
 
     } catch (error) {
