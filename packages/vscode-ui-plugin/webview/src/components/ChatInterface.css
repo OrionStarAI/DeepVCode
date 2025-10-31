@@ -8,11 +8,11 @@
   position: relative;
 }
 
-/* Messages Container - 更紧凑的间距，参考截图风格 */
+/* Messages Container - 与输入框对齐 */
 .messages-container {
   flex: 1;
   overflow-y: auto;
-  padding: 4px 8px; /* 进一步减少padding */
+  padding: 12px 12px 4px 12px; /* 🎯 与输入框左右padding对齐 */
   scroll-behavior: smooth;
   position: relative;
   min-height: 0; /* Allow shrinking */

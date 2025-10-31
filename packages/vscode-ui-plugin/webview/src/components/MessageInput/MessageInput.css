@@ -3,7 +3,7 @@
 .message-input-container {
   border-top: 1px solid var(--vscode-panel-border);
   background-color: var(--vscode-editor-background);
-  padding: 12px 12px 0; /* 🎯 移除底部padding，直接贴底 */
+  padding: 4px 12px 12px 12px; /* 🎯 与消息容器padding对齐 */
   max-width: 100%;
   position: relative;
   height: 140px; /* 🎯 固定高度约3行 */
@@ -11,6 +11,7 @@
   flex-shrink: 0;
   /* 🎯 平滑的高度变化动画 */
   transition: height 0.2s ease-out;
+  box-sizing: border-box; /* 🎯 包含padding在宽度计算内 */
 }
 
 /* 🎯 编辑模式的特殊样式 */
