@@ -11,7 +11,6 @@ import { MessageBubble } from './MessageBubble';
 import { ToolCallList } from './ToolCallList';
 import { MessageInput } from './MessageInput';
 import FilesChangedBar from './FilesChangedBar';
-import { VersionHistoryButton } from './VersionHistoryButton';
 import { useTranslation } from '../hooks/useTranslation';
 import './ChatInterface.css';
 import { getGlobalMessageService } from '../services/globalMessageService';
@@ -427,26 +426,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   return (
     <div className="chat-interface">
-      {/* 🎯 顶部工具栏 - 包含版本历史按钮等 */}
-      {messages.length > 0 && sessionId && (
-        <div
-          className="chat-header"
-          style={{
-            position: 'sticky',
-            top: 0,
-            zIndex: 10,
-            background: 'var(--vscode-editor-background)',
-            borderBottom: '1px solid var(--vscode-panel-border)',
-            padding: '8px 12px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-end',
-            gap: '8px'
-          }}
-        >
-          <VersionHistoryButton sessionId={sessionId} />
-        </div>
-      )}
+
 
       {/* Messages Area */}
       <div className="messages-container" ref={messagesContainerRef}>
