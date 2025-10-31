@@ -192,6 +192,8 @@ export class VersionControlService {
 
   /**
    * 回退到目标节点
+   *
+   * 🎯 改进：检查回退限制（每条消息仅允许回退一次）
    */
   async revertTo(
     targetNodeId: string,
@@ -215,6 +217,32 @@ export class VersionControlService {
 
       this.logger.info(`✅ Found target node - targetNodeId: ${targetNodeId}, nodeType: ${targetNode.nodeType}, ops: ${targetNode.ops.length}`);
 
+      // 🎯 检查回退限制：该节点是否已被回退过？
+      if (targetNode.hasBeenReverted) {
+        const errorMsg = `Cannot revert to this message - it has already been reverted once. (Cursor-style single revert limit)`;
+        this.logger.warn(`⚠️ ${errorMsg}`);
+        return {
+          success: false,
+          revertedFiles: [],
+          conflictFiles: [],
+          error: errorMsg,
+          executionTime: 0
+        };
+      }
+
+      // 🎯 检查是否被锁定：该节点及之后的节点是否被锁定？
+      if (targetNode.isLocked) {
+        const errorMsg = `Cannot revert to this message - it has been locked after a previous revert.`;
+        this.logger.warn(`⚠️ ${errorMsg}`);
+        return {
+          success: false,
+          revertedFiles: [],
+          conflictFiles: [],
+          error: errorMsg,
+          executionTime: 0
+        };
+      }
+
       // 如果当前节点ID不存在，设置为根节点ID
       if (!this.state.currentNodeId) {
         this.logger.warn(`⚠️ No current node set, initializing to root or target`);
@@ -228,10 +256,19 @@ export class VersionControlService {
       // 执行回退
       const result = await this.executePath(path, options);
 
-      // 如果成功，更新当前节点指针
+      // 如果成功，更新当前节点指针并应用回退限制
       if (result.success && result.newNodeId) {
         this.state.currentNodeId = result.newNodeId;
         this.logger.info(`➡️ Updated current node to: ${result.newNodeId}`);
+
+        // 🎯 应用回退限制：标记该节点已被回退
+        targetNode.hasBeenReverted = true;
+        targetNode.revertCount = (targetNode.revertCount || 0) + 1;
+        targetNode.revertedAt = Date.now();
+        this.logger.info(`🔒 Marked node ${targetNodeId} as reverted (count: ${targetNode.revertCount})`);
+
+        // 🎯 锁定该节点及所有后续节点
+        this.lockNodeAndDescendants(targetNodeId);
       } else {
         this.logger.warn(`⚠️ Revert failed, current node unchanged`);
       }
@@ -867,6 +904,8 @@ export class VersionControlService {
 
   /**
    * 创建版本节点
+   *
+   * 🎯 改进：初始化回退限制相关字段
    */
   private createVersionNode(
     parentId: string | null,
@@ -885,7 +924,15 @@ export class VersionControlService {
       nodeType,
       description,
       childrenIds: [],
-      createdAt: Date.now()
+      createdAt: Date.now(),
+
+      // ==================== 新增：回退限制初始化 ====================
+      /** 初始状态：未被回退 */
+      revertCount: 0,
+      /** 初始状态：未被回退 */
+      hasBeenReverted: false,
+      /** 初始状态：未锁定 */
+      isLocked: false
     };
   }
 
@@ -903,6 +950,50 @@ export class VersionControlService {
     }
 
     return ancestors;
+  }
+
+  /**
+   * 锁定指定节点及其所有后续节点
+   *
+   * 🎯 实现 Cursor 风格的回退限制：当回退到某个节点时，
+   * 该节点及之后的所有节点都被锁定，不允许再回退
+   */
+  private lockNodeAndDescendants(nodeId: string): void {
+    const targetNode = this.state.nodes.get(nodeId);
+    if (!targetNode) {
+      this.logger.warn(`⚠️ Cannot lock node ${nodeId} - not found`);
+      return;
+    }
+
+    // 使用队列进行广度优先遍历，锁定该节点及所有后续节点
+    const queue: string[] = [nodeId];
+    const locked: Set<string> = new Set();
+
+    while (queue.length > 0) {
+      const currentId = queue.shift()!;
+
+      if (locked.has(currentId)) {
+        continue;  // 跳过已处理的节点
+      }
+
+      const node = this.state.nodes.get(currentId);
+      if (node) {
+        // 锁定该节点
+        node.isLocked = true;
+        locked.add(currentId);
+
+        // 将所有子节点加入队列
+        for (const childId of node.childrenIds) {
+          if (!locked.has(childId)) {
+            queue.push(childId);
+          }
+        }
+
+        this.logger.debug(`🔒 Locked node: ${currentId}`);
+      }
+    }
+
+    this.logger.info(`🔒 Locked node ${nodeId} and ${locked.size - 1} descendants`);
   }
 
   /**

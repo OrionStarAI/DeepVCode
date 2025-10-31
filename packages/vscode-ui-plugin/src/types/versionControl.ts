@@ -110,6 +110,20 @@ export interface VersionNode {
 
   /** 子节点ID列表（分支） */
   childrenIds: string[];
+
+  // ==================== 新增：回退限制机制（Cursor 风格）====================
+
+  /** 该节点已被回退过的次数 */
+  revertCount: number;
+
+  /** 节点是否已被回退（true = 已回退，不再允许回退） */
+  hasBeenReverted: boolean;
+
+  /** 回退发生的时间戳（如果已回退） */
+  revertedAt?: number;
+
+  /** 该节点及之后的所有节点是否已被"锁定"（不允许回退） */
+  isLocked: boolean;
 }
 
 /**

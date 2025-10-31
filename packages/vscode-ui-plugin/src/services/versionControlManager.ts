@@ -445,6 +445,85 @@ export class VersionControlManager {
     return [...new Set(messageIds)].sort();
   }
 
+  /**
+   * 检查指定消息是否可以回退
+   *
+   * 🎯 实现 Cursor 风格的回退限制：
+   * - 每条消息仅允许回退一次
+   * - 回退后，该消息及之后的所有消息均不可再回退
+   *
+   * @param sessionId 会话ID
+   * @param turnId 消息ID
+   * @returns { canRevert: boolean, reason?: string }
+   */
+  canRevertMessage(sessionId: string, turnId: string): { canRevert: boolean; reason?: string } {
+    const service = this.versionServices.get(sessionId);
+    if (!service) {
+      return { canRevert: false, reason: 'No version service found' };
+    }
+
+    // 通过 turnId 找到对应的版本节点
+    const node = this.findNodeByTurnId(service, turnId);
+    if (!node) {
+      return { canRevert: false, reason: 'Message version not found' };
+    }
+
+    // 检查是否已被回退
+    if (node.hasBeenReverted) {
+      return {
+        canRevert: false,
+        reason: 'This message has already been reverted once (single revert limit)'
+      };
+    }
+
+    // 检查是否被锁定
+    if (node.isLocked) {
+      return {
+        canRevert: false,
+        reason: 'This message cannot be reverted - locked after a previous revert'
+      };
+    }
+
+    // 可以回退
+    return { canRevert: true };
+  }
+
+  /**
+   * 获取消息的回退状态信息
+   *
+   * @param sessionId 会话ID
+   * @param turnId 消息ID
+   * @returns 回退状态对象
+   */
+  getMessageRevertStatus(
+    sessionId: string,
+    turnId: string
+  ): {
+    canRevert: boolean;
+    hasBeenReverted: boolean;
+    isLocked: boolean;
+    reason?: string;
+  } {
+    const service = this.versionServices.get(sessionId);
+    if (!service) {
+      return { canRevert: false, hasBeenReverted: false, isLocked: false, reason: 'No version service' };
+    }
+
+    const node = this.findNodeByTurnId(service, turnId);
+    if (!node) {
+      return { canRevert: false, hasBeenReverted: false, isLocked: false, reason: 'Message not found' };
+    }
+
+    const canRevertCheck = this.canRevertMessage(sessionId, turnId);
+
+    return {
+      canRevert: canRevertCheck.canRevert,
+      hasBeenReverted: node.hasBeenReverted || false,
+      isLocked: node.isLocked || false,
+      reason: canRevertCheck.reason
+    };
+  }
+
   // =============================================================================
   // 辅助方法
   // =============================================================================
