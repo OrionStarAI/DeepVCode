@@ -1166,7 +1166,29 @@ User question: ${contentStr}`;
               isPlanMode={currentSession.isPlanMode}          // 🎯 传入Plan模式状态
               onTogglePlanMode={(enabled) => {                // 🎯 传入Plan模式切换回调
                 if (state.currentSessionId) {
-                  togglePlanMode(state.currentSessionId, enabled);
+                  const sessionId = state.currentSessionId;  // 🎯 在外部捕获sessionId，避免null问题
+                  togglePlanMode(sessionId, enabled);
+
+                  // 🎯 当关闭Plan模式时，自动发送退出消息到后端
+                  if (!enabled && currentSession.isPlanMode) {
+                    // 延迟以确保状态已更新
+                    setTimeout(() => {
+                      const updatedSession = getCurrentSession();
+                      if (updatedSession && updatedSession.messages.length > 0) {
+                        // 获取最后一条消息（应该是刚添加的退出消息）
+                        const lastMessage = updatedSession.messages[updatedSession.messages.length - 1];
+                        if (lastMessage.type === 'user' && lastMessage.id.startsWith('plan-mode-exit-')) {
+                          console.log(`🎯 [PLAN-MODE-EXIT] Auto-sending exit message to backend:`, lastMessage.id);
+                          // 发送到后端
+                          getGlobalMessageService().sendChatMessage(
+                            sessionId,
+                            lastMessage.content,
+                            lastMessage.id
+                          );
+                        }
+                      }
+                    }, 50);
+                  }
                 }
               }}
             />
