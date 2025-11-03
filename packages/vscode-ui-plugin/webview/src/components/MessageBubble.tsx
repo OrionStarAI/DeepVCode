@@ -9,7 +9,7 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import rehypeHighlight from 'rehype-highlight';
 import rehypeRaw from 'rehype-raw';
-import { Copy, Check, ThumbsUp, ThumbsDown, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
+import { Copy, Check, ThumbsUp, ThumbsDown, RefreshCw, ChevronDown, ChevronUp, Pencil, Undo } from 'lucide-react';
 import { ChatMessage } from '../types';
 
 import { ToolCallList } from './ToolCallList';
@@ -168,9 +168,10 @@ interface MessageBubbleProps {
   onToolConfirm?: (toolCallId: string, confirmed: boolean, userInput?: string) => void;
   onStartEdit?: (messageId: string) => void; // 🎯 新增：开始编辑回调
   onRegenerate?: (messageId: string) => void; // 🎯 新增：重新生成回调
+  onRollback?: (messageId: string) => void; // 🎯 新增：回退到此消息回调
 }
 
-export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolConfirm, onStartEdit, onRegenerate }) => {
+export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolConfirm, onStartEdit, onRegenerate, onRollback }) => {
   const [copySuccess, setCopySuccess] = React.useState(false);
   // 🎯 Like/Dislike 状态管理
   const [feedbackState, setFeedbackState] = React.useState<'none' | 'like' | 'dislike'>('none');
@@ -238,26 +239,35 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
     <div className={getMessageClass(message.type)}>
       <div className="message-content">
         {message.type === 'user' ? (
-          <div
-            className="user-content"
-            onClick={() => onStartEdit?.(message.id)}
-            style={{
-              cursor: onStartEdit ? 'pointer' : 'default',
-              transition: 'background-color 0.2s ease'
-            }}
-            title={onStartEdit ? '点击编辑消息' : undefined}
-            onMouseEnter={(e) => {
-              if (onStartEdit) {
-                e.currentTarget.style.backgroundColor = 'var(--vscode-list-hoverBackground)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (onStartEdit) {
-                e.currentTarget.style.backgroundColor = 'transparent';
-              }
-            }}
-          >
-            {messageContentToString(message.content)}
+          <div className="user-content">
+            <span 
+              onClick={() => onStartEdit?.(message.id)}
+              style={{
+                cursor: onStartEdit ? 'pointer' : 'default'
+              }}
+            >
+              {messageContentToString(message.content)}
+            </span>
+            {onStartEdit && (
+              <button
+                className="edit-button-inline"
+                onClick={() => onStartEdit(message.id)}
+                title="编辑消息"
+                aria-label="编辑消息"
+              >
+                <Pencil size={14} />
+              </button>
+            )}
+            {onRollback && (
+              <button
+                className="rollback-button-inline"
+                onClick={() => onRollback(message.id)}
+                title="回退到此消息"
+                aria-label="回退到此消息"
+              >
+                <Undo size={14} />
+              </button>
+            )}
           </div>
         ) : message.type === 'tool' ? (
           // 🎯 工具消息直接显示，不使用Markdown渲染

@@ -18,6 +18,7 @@ import { ContextBuilder } from './services/contextBuilder';
 import { Logger } from './utils/logger';
 import { startupOptimizer } from './utils/startupOptimizer';
 import { EnvironmentOptimizer } from './utils/environmentOptimizer';
+import { ROLLBACK_MESSAGES } from './i18n/messages';
 import { ClipboardCacheService } from './services/clipboardCacheService';
 
 let logger: Logger;
@@ -354,6 +355,146 @@ function setupBasicMessageHandlers() {
       logger.error('❌ 处理编辑消息失败:', error instanceof Error ? error : undefined);
       communicationService.sendChatError(payload.sessionId, error instanceof Error ? error.message : String(error));
     }
+  });
+
+  /**
+   * 🎯 回退到指定消息处理器
+   * 
+   * 功能说明：
+   * - 回退操作是破坏性的，会删除目标消息之后的所有消息和文件修改
+   * - 前端会先截断UI中的消息历史，提供即时反馈
+   * - 后端负责分析并回滚文件系统到目标消息时的状态
+   * 
+   * 处理流程：
+   * 1. 获取AI服务实例
+   * 2. 分析目标消息之后的所有文件修改
+   * 3. 逐个回滚这些文件到原始状态
+   * 4. 通知前端回滚结果
+   * 
+   * @param payload.sessionId - 会话ID
+   * @param payload.messageId - 目标消息ID（回退到此消息）
+   * @param payload.originalMessages - 完整的原始消息历史（用于分析文件修改）
+   */
+    communicationService.onRollbackToMessage(async (payload: any) => {
+      logger.info(`📥 ${ROLLBACK_MESSAGES.ROLLBACK_INITIATED}`, {
+        sessionId: payload.sessionId,
+        messageId: payload.messageId,
+        originalMessagesCount: payload.originalMessages?.length || 0
+      });
+
+    try {
+      // ✅ 步骤1: 获取AI服务实例（延迟初始化）
+      const aiService = await sessionManager.getInitializedAIService(payload.sessionId);
+
+        // ✅ 步骤2: 执行文件回滚到目标消息状态
+        logger.info(`🔄 ${ROLLBACK_MESSAGES.FILE_ROLLBACK_STARTED}`);
+
+      // 获取工作区根目录（文件回滚需要绝对路径）
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+
+        if (!workspaceRoot) {
+          logger.warn(`⚠️ ${ROLLBACK_MESSAGES.WORKSPACE_NOT_FOUND}`);
+        }
+
+      // 🎯 使用前端传递的原始完整消息历史
+      // 为什么需要完整历史？
+      // - fileRollbackService 需要分析目标消息之后所有的文件修改
+      // - 每条消息可能包含多个文件操作（创建、修改、删除）
+      // - 需要追踪每个文件的 originalContent 来进行回滚
+      const messagesForRollback = payload.originalMessages || [];
+
+      logger.info('📋 准备分析消息历史进行文件回滚:', {
+        总消息数: messagesForRollback.length,
+        目标消息ID: payload.messageId,
+        工作区根目录: workspaceRoot || '未设置'
+      });
+
+      try {
+        // 🔍 调用文件回滚服务
+        // 此服务会：
+        // 1. 从目标消息的下一条开始分析所有消息
+        // 2. 提取所有文件修改操作（通过 associatedToolCalls）
+        // 3. 对于每个修改的文件，恢复到 firstOriginalContent
+        // 4. 对于新建的文件，删除它们
+        // 5. 对于删除的文件，恢复它们
+        const rollbackResult = await fileRollbackService.rollbackFilesToMessage(
+          messagesForRollback,
+          payload.messageId,
+          workspaceRoot
+        );
+
+        logger.info('📊 文件回滚执行结果:', {
+          是否全部成功: rollbackResult.success,
+          成功回滚文件数: rollbackResult.rolledBackFiles.length,
+          失败文件数: rollbackResult.failedFiles.length,
+          总文件数: rollbackResult.totalFiles,
+          成功的文件列表: rollbackResult.rolledBackFiles,
+          失败的文件详情: rollbackResult.failedFiles.map(f => ({
+            文件名: f.fileName,
+            错误: f.error
+          }))
+        });
+
+        // ✅ 步骤3: 通知前端文件回滚完成
+        if (rollbackResult.totalFiles > 0) {
+          communicationService.sendMessage({
+            type: 'file_rollback_complete',
+            payload: {
+              sessionId: payload.sessionId,
+              result: rollbackResult,
+              targetMessageId: payload.messageId
+            }
+          });
+
+          // 如果有文件回滚失败，额外发送警告
+          if (rollbackResult.failedFiles.length > 0) {
+            logger.warn('⚠️ 部分文件回滚失败', {
+              失败数量: rollbackResult.failedFiles.length,
+              失败文件: rollbackResult.failedFiles.map(f => f.fileName)
+            });
+          }
+          } else {
+            logger.info(`ℹ️ ${ROLLBACK_MESSAGES.NO_FILES_TO_ROLLBACK}`);
+          }
+
+      } catch (fileRollbackError) {
+        // 文件回滚失败不应该阻止整个回退流程
+        // 记录错误并通知前端，但继续执行
+        logger.error('❌ 文件回滚过程出错:', fileRollbackError instanceof Error ? fileRollbackError : undefined);
+
+        // 通知前端文件回滚失败
+        communicationService.sendMessage({
+          type: 'file_rollback_failed',
+          payload: {
+            sessionId: payload.sessionId,
+            error: fileRollbackError instanceof Error ? fileRollbackError.message : String(fileRollbackError),
+            targetMessageId: payload.messageId
+          }
+        });
+      }
+
+      // ✅ 步骤4: AI历史回滚说明
+      // 注意：AI的对话历史回滚由前端控制
+      // - 前端已经截断了消息列表
+      // - AI服务会在下次对话时自动使用更新后的消息历史
+      // - 因此这里不需要显式调用AI服务的历史回滚方法
+      logger.info('ℹ️ AI历史回滚由前端消息截断控制，后端无需额外处理');
+
+        logger.info(`✅ ${ROLLBACK_MESSAGES.ROLLBACK_COMPLETED}`, {
+          sessionId: payload.sessionId,
+          targetMessageId: payload.messageId
+        });
+
+      } catch (error) {
+        // 回退操作的顶层错误处理
+        logger.error(`❌ ${ROLLBACK_MESSAGES.ROLLBACK_FAILED}:`, error instanceof Error ? error : undefined);
+
+        // 发送错误消息到前端
+        communicationService.sendChatError(
+          payload.sessionId,
+          `${ROLLBACK_MESSAGES.ROLLBACK_FAILED}: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
   });
 
   // 处理工具执行请求
