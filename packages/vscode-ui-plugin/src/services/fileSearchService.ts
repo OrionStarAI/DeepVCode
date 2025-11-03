@@ -63,6 +63,11 @@ export class FileSearchService {
 
   /**
    * 完全模拟CLI中的@补全搜索逻辑
+   * 
+   * 平台兼容性说明：
+   * - 统一使用 / 作为路径分隔符（跨平台标准）
+   * - Windows 路径 C:\Users\file 会被规范化为 C:/Users/file
+   * - 内部使用 Node.js path 模块进行实际文件操作
    */
   async searchFiles(partialPath: string): Promise<Suggestion[]> {
     if (!this.workspaceRoot || !this.fileDiscoveryService) {
@@ -72,13 +77,18 @@ export class FileSearchService {
 
     const cwd = this.workspaceRoot;
     
+    // 🎯 平台兼容性：将路径分隔符统一为 / (适用于 Mac/Linux/Windows)
+    // Windows 也支持 / 作为路径分隔符
+    const normalizedPath = partialPath.replace(/\\/g, '/');
+    
     // 直接复用CLI中的路径解析逻辑
-    const lastSlashIndex = partialPath.lastIndexOf('/');
-    const baseDirRelative = lastSlashIndex === -1 ? '.' : partialPath.substring(0, lastSlashIndex + 1);
+    const lastSlashIndex = normalizedPath.lastIndexOf('/');
+    const baseDirRelative = lastSlashIndex === -1 ? '.' : normalizedPath.substring(0, lastSlashIndex + 1);
     const prefix = unescapePath(
-      lastSlashIndex === -1 ? partialPath : partialPath.substring(lastSlashIndex + 1)
+      lastSlashIndex === -1 ? normalizedPath : normalizedPath.substring(lastSlashIndex + 1)
     );
 
+    // 🎯 使用 path.resolve 自动处理平台差异
     const baseDirAbsolute = path.resolve(cwd, baseDirRelative);
     
     const filterOptions = DEFAULT_FILE_FILTERING_OPTIONS;
@@ -87,7 +97,7 @@ export class FileSearchService {
       let fetchedSuggestions: Suggestion[] = [];
 
       // 直接复用CLI的搜索策略：递归搜索 vs 目录内搜索
-      if (partialPath.indexOf('/') === -1 && prefix) {
+      if (normalizedPath.indexOf('/') === -1 && prefix) {
         // 递归搜索（复用CLI的findFilesWithGlob逻辑）
         fetchedSuggestions = await this.findFilesWithGlob(prefix, this.fileDiscoveryService, filterOptions);
       } else {

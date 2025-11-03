@@ -7,6 +7,7 @@ import * as fs from 'fs/promises';
 import * as path from 'path';
 import { Logger } from '../utils/logger';
 import { ChatMessage } from '../types/messages';
+import { ROLLBACK_MESSAGES, FILE_OPERATION_MESSAGES } from '../i18n/messages';
 
 // 🎯 复制共享类型到extension层，避免跨目录引用问题
 interface ModifiedFile {
@@ -56,7 +57,7 @@ export class FileRollbackService {
     targetMessageId: string,
     workspaceRoot?: string
   ): Promise<FileRollbackResult> {
-    this.logger.info(`🔄 开始文件回滚到消息: ${targetMessageId}`);
+    this.logger.info(`🔄 ${ROLLBACK_MESSAGES.FILE_ROLLBACK_STARTED}: ${targetMessageId}`);
 
     try {
       // 🎯 1. 计算需要回滚的文件
@@ -85,7 +86,7 @@ export class FileRollbackService {
       // 🎯 2. 执行文件回滚
       const result = await this.executeFileRollback(filesToRollback);
 
-      this.logger.info(`✅ 文件回滚完成:`, {
+      this.logger.info(`✅ ${ROLLBACK_MESSAGES.FILE_ROLLBACK_COMPLETED}:`, {
         成功文件数: result.rolledBackFiles.length,
         失败文件数: result.failedFiles.length,
         总文件数: result.totalFiles
@@ -94,7 +95,7 @@ export class FileRollbackService {
       return result;
 
     } catch (error) {
-      this.logger.error('❌ 文件回滚失败:', error instanceof Error ? error : undefined);
+      this.logger.error(`❌ ${ROLLBACK_MESSAGES.FILE_ROLLBACK_FAILED}:`, error instanceof Error ? error : undefined);
       return {
         success: false,
         rolledBackFiles: [],
@@ -158,7 +159,7 @@ export class FileRollbackService {
    * 🎯 恢复被删除的文件
    */
   private async restoreDeletedFile(fileInfo: ModifiedFile, fileName: string): Promise<void> {
-    this.logger.info(`🔄 恢复被删除的文件: ${fileName}`);
+    this.logger.info(`🔄 ${FILE_OPERATION_MESSAGES.RESTORING_DELETED_FILE(fileName)}`);
 
     const contentToRestore = fileInfo.deletedContent || fileInfo.firstOriginalContent;
     if (!contentToRestore) {
@@ -177,7 +178,7 @@ export class FileRollbackService {
    * 🎯 删除新建的文件
    */
   private async deleteNewFile(fileInfo: ModifiedFile, fileName: string): Promise<void> {
-    this.logger.info(`🗑️ 删除新建的文件: ${fileName}`);
+    this.logger.info(`🗑️ ${FILE_OPERATION_MESSAGES.DELETING_NEW_FILE(fileName)}`);
 
     try {
       // 检查文件是否存在
@@ -189,7 +190,7 @@ export class FileRollbackService {
     } catch (error) {
       // 如果文件不存在，则认为已经达到目标状态
       if (error instanceof Error && (error as any).code === 'ENOENT') {
-        this.logger.info(`文件 ${fileName} 不存在，无需删除`);
+        this.logger.info(FILE_OPERATION_MESSAGES.FILE_ALREADY_DELETED(fileName));
         return;
       }
       throw error;
@@ -200,7 +201,7 @@ export class FileRollbackService {
    * 🎯 恢复修改的文件到原始状态
    */
   private async restoreModifiedFile(fileInfo: ModifiedFile, fileName: string): Promise<void> {
-    this.logger.info(`📝 恢复修改的文件: ${fileName}`);
+    this.logger.info(`📝 ${FILE_OPERATION_MESSAGES.REVERTING_MODIFIED_FILE(fileName)}`);
 
     if (!fileInfo.firstOriginalContent) {
       throw new Error(`无法恢复文件 ${fileName}: 缺少原始内容`);
@@ -395,30 +396,36 @@ export class FileRollbackService {
 
   /**
    * 🎯 获取绝对路径用于文件操作
+   * 
+   * 平台兼容性处理：
+   * - Mac/Linux: 使用 / 作为路径分隔符
+   * - Windows: 使用 \ 作为路径分隔符，支持 C:\ 格式的驱动器盘符
+   * - 使用 Node.js path 模块统一处理，确保跨平台兼容
    */
   private getAbsolutePath(filePath: string, workspaceRoot?: string): string {
     if (!filePath) {
       return workspaceRoot || '';
     }
 
-    // 如果已经是绝对路径，直接返回
-    if (filePath.startsWith('/') || filePath.match(/^[a-zA-Z]:/)) {
-      return filePath;
+    // 🎯 统一路径分隔符（将 / 和 \ 都转换为当前系统的分隔符）
+    const normalizedFilePath = path.normalize(filePath);
+
+    // 🎯 检测是否已经是绝对路径
+    // path.isAbsolute() 可以正确处理：
+    // - Mac/Linux: /Users/xxx
+    // - Windows: C:\Users\xxx 或 \\server\share
+    if (path.isAbsolute(normalizedFilePath)) {
+      return normalizedFilePath;
     }
 
-    // 如果有工作区根目录，则组合成绝对路径
+    // 🎯 如果有工作区根目录，组合成绝对路径
     if (workspaceRoot) {
-      // 确保路径分隔符正确
-      const separator = process.platform === 'win32' ? '\\' : '/';
-      const normalizedWorkspaceRoot = workspaceRoot.endsWith(separator)
-        ? workspaceRoot
-        : workspaceRoot + separator;
-
-      return normalizedWorkspaceRoot + filePath;
+      // 使用 path.join 自动处理路径分隔符，确保跨平台兼容
+      return path.join(workspaceRoot, normalizedFilePath);
     }
 
-    // 否则返回原路径
-    return filePath;
+    // 🎯 否则返回规范化后的路径
+    return normalizedFilePath;
   }
 
 

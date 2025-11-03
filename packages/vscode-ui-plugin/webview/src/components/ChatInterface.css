@@ -146,6 +146,7 @@
   display: flex;
   flex-direction: column; /* 🎯 改为垂直布局，让时间显示在下方 */
   align-items: flex-end; /* 🎯 所有元素右对齐 */
+  position: relative; /* 🎯 为编辑按钮提供定位上下文 */
 }
 
 .user-message .message-content {
@@ -155,7 +156,7 @@
   border-radius: 8px; /* 圆角 */
   border: none; /* 移除边框 */
   max-width: 80%; /* 限制最大宽度 */
-  display: inline-block; /* 宽度适应内容 */
+  display: inline-flex; /* 改为 inline-flex 以支持内部的编辑按钮 */
 }
 
 /* 🎯 编辑状态的消息气泡样式 */
@@ -170,29 +171,82 @@
   max-width: none;
 }
 
-/* 🎯 用户内容区域的悬停效果 */
-.user-content:hover {
-  background-color: var(--vscode-list-hoverBackground);
-  border-radius: 4px;
-  transition: background-color 0.2s ease;
+/* 🎯 用户内容区域 - 包含文本和编辑按钮 */
+.user-content {
+  display: inline-block;
+  white-space: pre-wrap;
+  word-break: break-word;
+  width: 100%;
 }
 
-.user-content[style*="cursor: pointer"] {
-  position: relative;
+.user-content > span {
+  display: inline;
 }
 
-.user-content[style*="cursor: pointer"]:after {
-  content: "✏️";
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  font-size: 12px;
-  opacity: 0;
-  transition: opacity 0.2s ease;
-}
-
-.user-content[style*="cursor: pointer"]:hover:after {
+/* 🎯 用户消息编辑按钮 - 跟随在文本后面 */
+.edit-button-inline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   opacity: 0.7;
+  transition: opacity 0.2s ease, background 0.2s ease, transform 0.1s ease;
+  cursor: pointer;
+  padding: 3px;
+  border-radius: 3px;
+  background: transparent;
+  border: none;
+  vertical-align: middle;
+  margin-left: 6px;
+}
+
+.edit-button-inline:hover {
+  opacity: 1 !important;
+  background: rgba(255, 255, 255, 0.15);
+  transform: translateY(-1px);
+}
+
+.edit-button-inline:active {
+  transform: translateY(0) scale(0.95);
+}
+
+.edit-button-inline svg {
+  width: 14px;
+  height: 14px;
+  color: var(--vscode-descriptionForeground, #cccccc);
+  display: block;
+}
+
+/* 🎯 用户消息回退按钮 - 跟随在编辑按钮后面 */
+.rollback-button-inline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.7;
+  transition: opacity 0.2s ease, background 0.2s ease, transform 0.1s ease;
+  cursor: pointer;
+  padding: 3px;
+  border-radius: 3px;
+  background: transparent;
+  border: none;
+  vertical-align: middle;
+  margin-left: 4px;
+}
+
+.rollback-button-inline:hover {
+  opacity: 1 !important;
+  background: rgba(255, 165, 0, 0.15);
+  transform: translateY(-1px);
+}
+
+.rollback-button-inline:active {
+  transform: translateY(0) scale(0.95);
+}
+
+.rollback-button-inline svg {
+  width: 14px;
+  height: 14px;
+  color: var(--vscode-debugIcon-startForeground, #ffa500);
+  display: block;
 }
 
 
@@ -356,10 +410,6 @@
   color: var(--vscode-descriptionForeground);
 }
 
-.user-content {
-  white-space: pre-wrap;
-  word-break: break-word;
-}
 
 /* 工具调用区域 - 与AI消息对齐 */
 .message-tools-section {

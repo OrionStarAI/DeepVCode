@@ -85,9 +85,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingOriginalMessage, setEditingOriginalMessage] = useState<ChatMessage | null>(null);
 
-  // 🎯 新增：确认对话框状态
+  // 🎯 新增：编辑确认对话框状态
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [pendingEditData, setPendingEditData] = useState<{messageId: string, newContent: MessageContent} | null>(null);
+
 
   // 🎯 智能滚动：根据用户位置自动滚动到底部
   useEffect(() => {
@@ -427,6 +428,96 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setShowConfirmDialog(false);
   };
 
+  /**
+   * 🎯 处理回退到指定消息
+   * 
+   * 功能说明：
+   * - 回退操作会删除目标消息之后的所有消息
+   * - 同时会将文件系统回滚到该消息时的状态
+   * - 直接执行，无需二次确认
+   * 
+   * 执行流程：
+   * 1. 验证目标消息有效性
+   * 2. 中断当前正在进行的AI处理
+   * 3. 截断UI中的消息历史
+   * 4. 发送回退请求到后端进行文件回滚
+   * 5. 后端会回滚文件到目标消息时的状态
+   * 
+   * @param messageId - 要回退到的目标消息ID
+   */
+  const handleRollback = async (messageId: string) => {
+    // 🔍 1. 验证目标消息是否存在
+    const messageIndex = messages.findIndex(msg => msg.id === messageId);
+    if (messageIndex === -1) {
+      console.error('🎯 回退失败：找不到目标消息', { messageId });
+      return;
+    }
+
+    // 🔍 2. 检查是否是最后一条消息（最后一条消息不应该显示回退按钮，但做双重保险）
+    const isLastMessage = messageIndex === messages.length - 1;
+    if (isLastMessage) {
+      console.warn('🎯 无法回退：这是最后一条消息');
+      return;
+    }
+
+    // 🔍 3. 计算将被删除的消息数量
+    const messagesWillBeDeleted = messages.length - messageIndex - 1;
+
+    console.log('🎯 开始执行回退操作:', {
+      目标消息ID: messageId,
+      目标消息索引: messageIndex,
+      当前消息总数: messages.length,
+      将删除的消息数: messagesWillBeDeleted
+    });
+
+    try {
+      // ✅ 步骤1: 中断当前进程（如果有AI正在生成回复）
+      if (onAbortProcess) {
+        console.log('🎯 中断当前AI处理流程');
+        onAbortProcess();
+      }
+
+      // ✅ 步骤2: 截断消息历史到目标消息（包含目标消息本身）
+      const newMessages = messages.slice(0, messageIndex + 1);
+
+      console.log('🎯 消息历史已截断:', {
+        原始消息数量: messages.length,
+        截断后数量: newMessages.length,
+        删除的消息数: messages.length - newMessages.length
+      });
+
+      // ✅ 步骤3: 立即更新UI中的消息列表（提供即时反馈）
+      if (onUpdateMessages) {
+        console.log('🎯 立即更新UI消息列表');
+        onUpdateMessages(newMessages);
+      }
+
+      // ✅ 步骤4: 发送回退请求到后端
+      // 后端会：
+      // - 分析目标消息之后所有的文件修改
+      // - 将这些文件回滚到目标消息时的状态
+      // - 回滚AI的对话历史
+      console.log('🎯 发送回退请求到后端（包含完整消息历史用于文件分析）');
+      
+      getGlobalMessageService().sendRollbackToMessage(
+        sessionId || '',
+        messageId,
+        messages  // ⭐ 传递原始完整消息历史，后端需要分析所有文件修改
+      );
+
+      // ✅ 步骤5: 触发滚动到底部，让用户看到最新状态
+      forceScrollToBottom();
+
+      console.log('✅ 回退操作已触发，等待后端文件回滚完成');
+
+    } catch (error) {
+      console.error('❌ 回退操作失败:', error);
+      
+      // 错误已经记录到控制台，后端会通过 sendChatError 向前端发送错误消息
+      // 前端会在聊天界面显示错误提示
+    }
+  };
+
   const handleCancelEdit = () => {
     console.log('🎯 取消编辑消息:', {
       editingMessageId,
@@ -549,6 +640,17 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                       onToolConfirm={onToolConfirm}
                       onStartEdit={message.type === 'user' && rollbackableMessageIds.includes(message.id) ? handleStartEdit : undefined}
                       onRegenerate={isLastAssistantMessage ? handleRegenerate : undefined}
+                      onRollback={
+                        // 🎯 回退按钮显示条件：
+                        // 1. 必须是用户消息
+                        // 2. 必须在可回滚消息列表中
+                        // 3. 不能是最后一条消息（最后一条消息后面没有可回退的内容）
+                        message.type === 'user' && 
+                        rollbackableMessageIds.includes(message.id) && 
+                        index < messages.length - 1 
+                          ? handleRollback 
+                          : undefined
+                      }
                     />
                   )}
                 </div>
