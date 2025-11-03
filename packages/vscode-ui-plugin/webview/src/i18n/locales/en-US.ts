@@ -75,6 +75,15 @@ export const enUS: Translations = {
     editPlaceholder: 'Edit your message...',
   },
 
+  command: {
+    refine: {
+      button: {
+        empty_text: 'Enter text to refine',
+        tooltip: 'Refine text with AI (improve clarity, grammar, tone)',
+      },
+    },
+  },
+
   plan: {
     mode: {
       label: 'Plan',

@@ -69,6 +69,18 @@
   min-height: 0;
 }
 
+/* 🎯 编辑框内浮动操作按钮容器 - Refine 按钮位置 */
+.editor-floating-actions {
+  position: absolute;
+  bottom: 10px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 10;
+  pointer-events: auto;
+}
+
 .message-input {
   flex: 1;
   background-color: var(--vscode-input-background);

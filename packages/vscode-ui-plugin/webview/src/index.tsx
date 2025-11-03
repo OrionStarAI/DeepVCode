@@ -89,7 +89,22 @@ document.head.appendChild(styleElement);
 
 // 🌐 预先创建全局MessageService实例（但不启动）
 console.log('🚀 Pre-creating global MessageService instance...');
-getGlobalMessageService();
+const messageService = getGlobalMessageService();
+
+// 🎯 提前注册 refine 相关的监听器，避免消息丢失
+console.log('🎯 Registering refine command listeners...');
+messageService.onRefineResult((data: any) => {
+  console.log('[Global Init] refine_result received:', data);
+  // 广播事件，让订阅者知道
+  window.dispatchEvent(new CustomEvent('refine-result', { detail: data }));
+});
+
+messageService.onRefineError((data: any) => {
+  console.log('[Global Init] refine_error received:', data);
+  // 广播事件，让订阅者知道
+  window.dispatchEvent(new CustomEvent('refine-error', { detail: data }));
+});
+console.log('✅ Refine listeners registered');
 
 // Get the root element
 const container = document.getElementById('root');

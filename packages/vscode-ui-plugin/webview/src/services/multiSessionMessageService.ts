@@ -67,7 +67,10 @@ interface MultiSessionMessageFromExtension {
        'open_rules_management' |
        'rules_list_response' |
        'rules_save_response' |
-       'rules_delete_response';
+       'rules_delete_response' |
+       // 🎯 文本优化命令（/refine）
+       'refine_result' |
+       'refine_error';
   payload: Record<string, unknown> & {
     sessionId?: string; // 大部分消息都包含sessionId
   };
@@ -827,6 +830,25 @@ export class MultiSessionMessageService {
       payload: { ruleId }
     });
   }
+
+  // =============================================================================
+  // 🎯 文本优化命令（/refine）
+  // =============================================================================
+
+  /**
+   * 🎯 监听文本优化结果
+   */
+  onRefineResult(callback: (data: { original: string; refined: string }) => void): () => void {
+    return this.addMessageHandler('refine_result', callback);
+  }
+
+  /**
+   * 🎯 监听文本优化错误
+   */
+  onRefineError(callback: (data: { error: string }) => void): () => void {
+    return this.addMessageHandler('refine_error', callback);
+  }
+
   // =============================================================================
   // 公共方法
   // =============================================================================

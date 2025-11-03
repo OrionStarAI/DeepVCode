@@ -230,6 +230,9 @@ function setupServiceCommunication() {
     // Note: 日志已禁用，避免过多输出影响调试
   });
 
+  // 🎯 设置 /refine 命令处理器（文本优化功能，需在登录前立即注册）
+  setupRefineCommandHandler();
+
   // 🎯 设置基础消息处理器（通过SessionManager分发到对应session）
   setupBasicMessageHandlers();
 
@@ -929,6 +932,148 @@ function setupLoginHandlers() {
   });
 }
 
+/**
+ * 🎯 设置 /refine 命令处理器
+ * 文本优化功能：使用 AI 服务对文本进行优化
+ */
+function setupRefineCommandHandler() {
+  communicationService.addMessageHandler('execute_slash_command', async (payload: any) => {
+    try {
+      const { command, args } = payload;
+      logger.info(`📝 Executing slash command: /${command} with args:`, args);
+
+      if (command === 'refine') {
+        // 🎯 处理 /refine 命令，使用 AI 服务优化文本
+        await handleRefineCommand(args);
+      } else {
+        logger.warn(`⚠️ Unknown slash command: ${command}`);
+        communicationService.sendGenericMessage('refine_error', {
+          error: `Unknown command: /${command}`,
+        });
+      }
+    } catch (error) {
+      logger.error('❌ Failed to execute slash command', error instanceof Error ? error : undefined);
+      communicationService.sendGenericMessage('refine_error', {
+        error: error instanceof Error ? error.message : 'Failed to execute command',
+      });
+    }
+  });
+
+  logger.info('🎯 Refine command handler registered');
+}
+
+/**
+ * 处理 /refine 命令的实际逻辑
+ * 构造优化提示词并通过 AI 服务发送请求
+ */
+async function handleRefineCommand(originalText: string) {
+  try {
+    if (!originalText || !originalText.trim()) {
+      communicationService.sendGenericMessage('refine_error', {
+        error: 'Input text cannot be empty',
+      });
+      return;
+    }
+
+    logger.info('🎯 Starting text refinement...', { textLength: originalText.length });
+
+    // 🎯 构造优化提示词 - 一次性请求，不带任何上下文
+    const refinePrompt = `⚠️ NO TOOLS ALLOWED ⚠️
+
+Here is an instruction that I'd like to give you, but it needs to be improved. Rewrite and enhance this instruction to make it clearer, more specific, less ambiguous, and correct any mistakes. Do not use any tools: reply immediately with your answer, even if you're not sure. Consider the context of our conversation history when enhancing the prompt. If there is code in triple backticks (\`\`\`) consider whether it is a code sample and should remain unchanged.Reply with the following format:
+### BEGIN RESPONSE ###
+Here is an enhanced version of the original instruction that is more specific and clear:
+<dvcode-refine-prompt>enhanced prompt goes here</dvcode-refine-prompt>
+### END RESPONSE ###
+
+Here is my original instruction:
+
+ ${originalText}`;
+
+    // 🎯 获取当前会话的 AI 服务和 Gemini 客户端
+    const currentAIService = sessionManager.getCurrentAIService();
+    const geminiClient = currentAIService?.getGeminiClient?.();
+
+    if (!geminiClient) {
+      logger.error('Gemini client not available');
+      communicationService.sendGenericMessage('refine_error', {
+        error: 'AI client not available. Please start a chat session first.',
+      });
+      return;
+    }
+
+    // 收集完整的响应
+    let refinedText = '';
+    const abortController = new AbortController();
+
+    try {
+      const stream = geminiClient.sendMessageStream(
+        [{ text: refinePrompt }],
+        abortController.signal,
+        `refine - ${Date.now()}`
+      );
+
+      // 设置超时保护
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          abortController.abort();
+          reject(new Error('Refinement timeout'));
+        }, 30000);
+      });
+
+      const streamPromise = (async () => {
+        try {
+          for await (const event of stream) {
+            if (event.type === 'content') {
+              refinedText += event.value;
+            }
+          }
+        } catch (error) {
+          if (error instanceof Error && error.message.includes('aborted')) {
+            throw new Error('Refinement timeout');
+          }
+          throw error;
+        }
+      })();
+
+      await Promise.race([streamPromise, timeoutPromise]);
+
+      logger.info('✅ Text refinement completed');
+
+      // 🎯 清理AI响应，提取 <dvcode-refine-prompt> 标签内的内容
+      let cleanedText = refinedText.trim();
+
+      // 尝试提取 <dvcode-refine-prompt>...</dvcode-refine-prompt> 标签内的内容
+      const tagMatch = cleanedText.match(/<dvcode-refine-prompt>([\s\S]*?)<\/dvcode-refine-prompt>/);
+      if (tagMatch && tagMatch[1]) {
+        cleanedText = tagMatch[1].trim();
+      } else {
+        // 如果没有标签，则删除常见的前缀和后缀
+        cleanedText = cleanedText.replace(/^### BEGIN RESPONSE ###\n+/i, '');
+        cleanedText = cleanedText.replace(/\n+### END RESPONSE ###$/i, '');
+        cleanedText = cleanedText.replace(/^Here is an enhanced version[\s\S]*?:\n+/i, '');
+        cleanedText = cleanedText.trim();
+      }
+
+      communicationService.sendGenericMessage('refine_result', {
+        original: originalText,
+        refined: cleanedText,
+      });
+
+    } catch (error) {
+      throw new Error(`AI service error: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
+  } catch (error) {
+    logger.error('❌ Text refinement failed', error instanceof Error ? error : undefined);
+    communicationService.sendGenericMessage('refine_error', {
+      error: error instanceof Error ? error.message : 'Failed to refine text',
+    });
+  }
+}
+
+
+
 function setupMultiSessionHandlers() {
   // 处理Session创建请求
   communicationService.onSessionCreate(async (payload) => {
@@ -1282,7 +1427,7 @@ function registerCommands(context: vscode.ExtensionContext) {
         // 发送预填充消息到webview
         const editor = vscode.window.activeTextEditor;
         const fileName = editor?.document.fileName || 'selected code';
-        const message = `请解释以下代码:\n\n\`\`\`\n${selectedText}\n\`\`\`\n\n来自文件: ${fileName}`;
+        const message = `请解释以下代码: \n\n\`\`\`\n${selectedText}\n\`\`\`\n\n来自文件: ${fileName}`;
 
         // 🎯 发送消息（webview 已 ready 或进入队列）
         communicationService.sendMessage({
@@ -1944,23 +2089,23 @@ function setupClipboardMonitoring(context: vscode.ExtensionContext) {
           const { editor, selection } = lastSelection;
           const selectedText = editor.document.getText(selection);
 
-        // 如果剪贴板内容和选择的文本匹配
-        if (selectedText.trim() === currentClipboard.trim()) {
-          // 🎯 缓存文件信息
-          clipboardCache.cache({
-            fileName: path.basename(editor.document.uri.fsPath),
-            filePath: editor.document.uri.fsPath,
-            code: selectedText,
-            startLine: selection.start.line + 1,
-            endLine: selection.end.line + 1
-          });
+          // 如果剪贴板内容和选择的文本匹配
+          if (selectedText.trim() === currentClipboard.trim()) {
+            // 🎯 缓存文件信息
+            clipboardCache.cache({
+              fileName: path.basename(editor.document.uri.fsPath),
+              filePath: editor.document.uri.fsPath,
+              code: selectedText,
+              startLine: selection.start.line + 1,
+              endLine: selection.end.line + 1
+            });
 
-          // 🎯 成功缓存后立即停止检查
-          if (clipboardCheckInterval) {
-            clearInterval(clipboardCheckInterval);
-            clipboardCheckInterval = null;
+            // 🎯 成功缓存后立即停止检查
+            if (clipboardCheckInterval) {
+              clearInterval(clipboardCheckInterval);
+              clipboardCheckInterval = null;
+            }
           }
-        }
         }
       } catch (error) {
         // 忽略剪贴板读取错误（可能是权限问题）
