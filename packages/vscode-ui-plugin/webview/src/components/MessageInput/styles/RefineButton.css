@@ -1,0 +1,78 @@
+/* Refine Button Styles */
+
+.refine-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  background-color: transparent;
+  border: 1px solid var(--vscode-button-border, transparent);
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--vscode-button-foreground);
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  position: relative;
+  outline: none;
+}
+
+/* Normal state */
+.refine-button:not(:disabled) {
+  background-color: var(--vscode-button-background);
+}
+
+/* Hover state */
+.refine-button:hover:not(:disabled) {
+  background-color: var(--vscode-button-hoverBackground);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+
+/* Focus state */
+.refine-button:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 2px;
+}
+
+/* Hovered style - extra visual feedback */
+.refine-button.hovered:not(:disabled) {
+  background-color: var(--vscode-button-hoverBackground);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+/* Loading state */
+.refine-button.loading {
+  color: var(--vscode-button-foreground);
+  background-color: var(--vscode-button-hoverBackground);
+  cursor: not-allowed;
+}
+
+/* Disabled state */
+.refine-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background-color: var(--vscode-button-background);
+}
+
+/* Icon styles */
+.refine-icon {
+  stroke: currentColor;
+  stroke-width: 2;
+  display: block;
+}
+
+/* Loading animation */
+.refine-button.loading .loading-icon {
+  animation: spin-rotation 1s linear infinite;
+}
+
+@keyframes spin-rotation {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

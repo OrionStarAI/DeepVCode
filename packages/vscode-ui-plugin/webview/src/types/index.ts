@@ -161,6 +161,7 @@ export interface MessageToExtension {
        'get_available_models' |       // 🎯 新增：获取可用模型列表
        'set_current_model' |          // 🎯 新增：设置当前模型
        'get_current_model' |          // 🎯 新增：获取当前模型
+       'execute_slash_command' |      // 🎯 新增：执行 slash 命令（如 /refine）
        'ready';
   payload: Record<string, unknown>;
 }
