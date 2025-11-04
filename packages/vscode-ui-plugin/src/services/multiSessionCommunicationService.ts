@@ -435,6 +435,10 @@ export class MultiSessionCommunicationService {
     return this.addMessageHandler('edit_message_and_regenerate', handler);
   }
 
+  onRollbackToMessage(handler: (data: { messageId: string; sessionId: string; originalMessages?: any[] }) => void): vscode.Disposable {
+    return this.addMessageHandler('rollback_to_message', handler);
+  }
+
   onGetContext(handler: (data: { sessionId?: string }) => void): vscode.Disposable {
     return this.addMessageHandler('get_context', handler);
   }

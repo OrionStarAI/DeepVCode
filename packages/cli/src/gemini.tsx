@@ -253,12 +253,14 @@ export async function main() {
   // Load environment variables early to ensure Claude configuration works
   loadEnvironment();
 
-  // Parse arguments first to check for --workdir, --update flag and enable silent mode early if needed
-  const argv = await parseArguments();
+  // Need to parse arguments twice:
+  // 1. First pass with minimal setup to get --workdir
+  // This is needed to determine the workspace before loading extensions
+  let tempArgv = await parseArguments([]);
 
   // Handle --workdir parameter before setting up workspace
-  if (argv.workdir) {
-    const workdirPath = processWorkdirParameter(argv.workdir);
+  if (tempArgv.workdir) {
+    const workdirPath = processWorkdirParameter(tempArgv.workdir);
     if (workdirPath) {
       process.chdir(workdirPath);
     }
@@ -266,6 +268,17 @@ export async function main() {
 
   const workspaceRoot = process.cwd();
   const settings = loadSettings(workspaceRoot);
+
+  // Load extensions early (before final argument parsing)
+  // This allows extension commands to be registered dynamically
+  const extensions = await loadExtensions(workspaceRoot);
+
+  // Load prompt extensions (Gemini CLI compatible TOML prompts)
+  const { loadPromptExtensions } = await import('./config/prompt-extensions.js');
+  const promptExtensions = await loadPromptExtensions(extensions);
+
+  // Second pass: parse arguments with extension commands registered
+  const argv = await parseArguments(extensions);
 
   // Enable silent mode early for -p flag to suppress startup logs
 
@@ -427,8 +440,6 @@ export async function main() {
     }
     process.exit(1);
   }
-
-  const extensions = await loadExtensions(workspaceRoot);
 
   // Early check for list-sessions to avoid unnecessary session management
   if (argv.listSessions) {
@@ -693,6 +704,7 @@ export async function main() {
           settings={settings}
           startupWarnings={startupWarnings}
           version={version}
+          promptExtensions={promptExtensions}
         />
       </React.StrictMode>,
       { exitOnCtrlC: false },

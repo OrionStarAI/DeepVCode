@@ -83,6 +83,7 @@ export interface MultiSessionMessageToExtension {
        'tool_cancel_all' |
        'chat_message' |
        'edit_message_and_regenerate' |
+       'rollback_to_message' |          // 🎯 新增：回退到指定消息
        'get_context' |
        'ready' |
        // 🎯 新增流程控制消息类型
@@ -400,6 +401,21 @@ export class MultiSessionMessageService {
         messageId,
         newContent,
         originalMessages, // 🎯 新增：传递完整的原始消息历史用于文件回滚分析
+        timestamp: Date.now()
+      }
+    });
+  }
+
+  /**
+   * 🎯 发送回退到指定消息请求
+   */
+  sendRollbackToMessage(sessionId: string, messageId: string, originalMessages?: any[]) {
+    this.sendMessage({
+      type: 'rollback_to_message',
+      payload: {
+        sessionId,
+        messageId,
+        originalMessages, // 🎯 传递完整的原始消息历史用于文件回滚分析
         timestamp: Date.now()
       }
     });

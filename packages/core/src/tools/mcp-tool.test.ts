@@ -31,35 +31,45 @@ const mockCallableToolInstance: Mocked<CallableTool> = {
 
 describe('generateValidName', () => {
   it('should return a valid name for a simple function', () => {
-    expect(generateValidName( 'myServer', 'myFunction')).toBe('myServer_myFunction');
+    expect(generateValidName('myFunction')).toBe('myFunction');
   });
 
   it('should replace invalid characters with underscores', () => {
-    expect(generateValidName('myServer', 'invalid-name with spaces')).toBe(
-      'myServer_invalid-name_with_spaces',
+    expect(generateValidName('invalid-name with spaces')).toBe(
+      'invalid-name_with_spaces',
     );
   });
 
-  it('should truncate long names', () => {
-    expect(generateValidName('myServer', 'x'.repeat(80))).toBe(
-      'myServer_xxxxxxxxxxxxxxxxxxxxxxxxxxxx___xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx',
+  it('should replace dots with underscores (Claude incompatible)', () => {
+    expect(generateValidName('my.function.name')).toBe(
+      'my_function_name',
     );
+  });
+
+  it('should ensure name starts with letter or underscore', () => {
+    expect(generateValidName('123invalid')).toBe('_123invalid');
+    expect(generateValidName('!@#valid')).toBe('_valid');
+  });
+
+  it('should truncate long names at 128 characters', () => {
+    const longName = 'x'.repeat(150);
+    const result = generateValidName(longName);
+    expect(result.length).toBe(128);
   });
 
   it('should handle names with only invalid characters', () => {
-    expect(generateValidName('myServer', '!@#$%^&*()')).toBe('myServer___________');
+    const result = generateValidName('!@#$%^&*()');
+    expect(result.startsWith('_')).toBe(true);
+    expect(result.length).toBeLessThanOrEqual(128);
   });
 
-  it('should handle names that are exactly 63 characters long', () => {
-    expect(generateValidName('myServer', 'a'.repeat(63)).length).toBe(63);
+  it('should handle names that are exactly 128 characters long', () => {
+    expect(generateValidName('a'.repeat(128)).length).toBe(128);
   });
 
-  it('should handle names that are exactly 64 characters long', () => {
-    expect(generateValidName('myServer', 'a'.repeat(64)).length).toBe(63);
-  });
-
-  it('should handle names that are longer than 64 characters', () => {
-    expect(generateValidName('myServer', 'a'.repeat(80)).length).toBe(63);
+  it('should handle names that are longer than 128 characters', () => {
+    const result = generateValidName('a'.repeat(150));
+    expect(result.length).toBe(128);
   });
 });
 
