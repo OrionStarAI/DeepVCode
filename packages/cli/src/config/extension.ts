@@ -11,11 +11,12 @@ import * as os from 'os';
 import { glob } from 'glob';
 
 export const EXTENSIONS_DIRECTORY_NAME = path.join('.deepv', 'extensions');
-export const EXTENSIONS_CONFIG_FILENAME = 'deepv-extension.json';
+export const EXTENSIONS_CONFIG_FILENAME = 'gemini-extension.json';
 
 export interface Extension {
   config: ExtensionConfig;
   contextFiles: string[];
+  path?: string; // Path to the extension directory
 }
 
 export interface ExtensionConfig {
@@ -26,11 +27,23 @@ export interface ExtensionConfig {
   excludeTools?: string[];
 }
 
+export interface ExtensionInstallMetadata {
+  source: string;
+  type: 'git' | 'local' | 'link';
+  ref?: string;
+  autoUpdate?: boolean;
+  allowPreRelease?: boolean;
+}
+
 export async function loadExtensions(workspaceDir: string): Promise<Extension[]> {
-  const allExtensions = [
-    ...(await loadExtensionsFromDir(workspaceDir)),
-    ...(await loadExtensionsFromDir(os.homedir())),
-  ];
+  const workspaceExtensions = await loadExtensionsFromDir(workspaceDir);
+  const homeExtensions = await loadExtensionsFromDir(os.homedir());
+  const allExtensions = [...workspaceExtensions, ...homeExtensions];
+
+  if (allExtensions.length > 0) {
+    console.log(`[Extensions Loaded] Found ${allExtensions.length} extensions:`,
+      allExtensions.map(e => `${e.config.name}@${e.config.version}`).join(', '));
+  }
 
   const uniqueExtensions = new Map<string, Extension>();
   for (const extension of allExtensions) {
@@ -62,16 +75,16 @@ async function loadExtensionsFromDir(dir: string): Promise<Extension[]> {
 
 async function findContextFiles(baseDir: string, filePatterns: string[]): Promise<string[]> {
   const foundFiles: string[] = [];
-  
+
   for (const pattern of filePatterns) {
     if (pattern.includes('*')) {
       // Handle glob patterns
       try {
         const fullPattern = path.join(baseDir, pattern);
-        const matches = await glob(fullPattern, { 
+        const matches = await glob(fullPattern, {
           cwd: baseDir,
           absolute: true,
-          nodir: true 
+          nodir: true
         });
         if (matches.length > 0) {
           foundFiles.push(...matches);
@@ -89,7 +102,7 @@ async function findContextFiles(baseDir: string, filePatterns: string[]): Promis
       }
     }
   }
-  
+
   return foundFiles;
 }
 
@@ -124,6 +137,7 @@ async function loadExtension(extensionDir: string): Promise<Extension | null> {
     return {
       config,
       contextFiles,
+      path: extensionDir,
     };
   } catch (e) {
     console.error(
@@ -149,7 +163,7 @@ function getContextFileNames(config: ExtensionConfig): string[] {
 function getDefaultContextFileNames(): string[] {
   return [
     'AGENTS.md',
-    'DEEPV.md', 
+    'DEEPV.md',
     'GEMINI.md',
     'CLAUDE.md',
     '.augement/*.md',
@@ -208,4 +222,19 @@ export function annotateActiveExtensions(
   }
 
   return annotatedExtensions;
+}
+
+const INSTALL_METADATA_FILENAME = '.dvcode-install-metadata.json';
+
+export function loadInstallMetadata(
+  extensionDir: string,
+): ExtensionInstallMetadata | undefined {
+  const metadataFilePath = path.join(extensionDir, INSTALL_METADATA_FILENAME);
+  try {
+    const configContent = fs.readFileSync(metadataFilePath, 'utf-8');
+    const metadata = JSON.parse(configContent) as ExtensionInstallMetadata;
+    return metadata;
+  } catch (_e) {
+    return undefined;
+  }
 }

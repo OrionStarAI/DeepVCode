@@ -26,6 +26,7 @@ import { Settings } from './settings.js';
 import { Extension, annotateActiveExtensions } from './extension.js';
 import { getCliVersion } from '../utils/version.js';
 import { loadSandboxConfig } from './sandboxConfig.js';
+import { extensionsCommand } from '../commands/extensions.js';
 
 // Simple console logger for now - replace with actual logger if available
 const logger = {
@@ -246,6 +247,7 @@ export async function parseArguments(): Promise<CliArgs> {
       type: 'string',
       description: 'Specify the working directory (supports both Windows and Unix paths)',
     })
+    .command(extensionsCommand)
     .version(await getCliVersion()) // This will enable the --version flag based on package.json
     .alias('v', 'version')
     .help()
@@ -496,8 +498,25 @@ function mergeMcpServers(settings: Settings, extensions: Extension[]) {
           );
           return;
         }
+
+        // Replace ${extensionPath} in args and command
+        const resolvedServer = { ...server };
+        if (extension.path) {
+          if (resolvedServer.args) {
+            resolvedServer.args = resolvedServer.args.map((arg) =>
+              arg.replace(/\$\{extensionPath\}/g, extension.path!),
+            );
+          }
+          if (resolvedServer.command) {
+            resolvedServer.command = resolvedServer.command.replace(
+              /\$\{extensionPath\}/g,
+              extension.path,
+            );
+          }
+        }
+
         mcpServers[key] = {
-          ...server,
+          ...resolvedServer,
           extensionName: extension.config.name,
         };
       },
