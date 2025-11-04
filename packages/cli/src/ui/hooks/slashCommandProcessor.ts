@@ -23,6 +23,7 @@ import { runExitCleanup } from '../../utils/cleanup.js';
 import { type CommandContext, type SlashCommand } from '../commands/types.js';
 import { CommandService } from '../../services/CommandService.js';
 import { BuiltinCommandLoader } from '../../services/BuiltinCommandLoader.js';
+import { ExtensionCommandLoader } from '../../services/ExtensionCommandLoader.js';
 import { FileCommandLoader } from '../../services/FileCommandLoader.js';
 import { InlineCommandLoader } from '../../services/InlineCommandLoader.js';
 import { McpPromptLoader } from '../../services/McpPromptLoader.js';
@@ -181,6 +182,7 @@ export const useSlashCommandProcessor = (
         new McpPromptLoader(config),
         new BuiltinCommandLoader(config),
         new InlineCommandLoader(config),
+        new ExtensionCommandLoader(config),
         new FileCommandLoader(config),
       ];
       const commandService = await CommandService.create(

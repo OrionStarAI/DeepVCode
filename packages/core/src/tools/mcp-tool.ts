@@ -274,15 +274,20 @@ function getStringifiedResultForDisplay(result: Part[]) {
 
 /** Visible for testing */
 export function generateValidName(name: string) {
-  // Replace invalid characters (based on Google Gemini API requirement: ^[a-zA-Z0-9_-]{1,128}$) with underscores
+  // Replace invalid characters (compatible with both Gemini and Claude)
   // Valid characters: a-z, A-Z, 0-9, underscore (_), hyphen (-)
+  // Note: Claude does NOT allow dots (.), only Gemini allows them
+  // Max length: 128 characters (Gemini limit)
   let validToolname = name.replace(/[^a-zA-Z0-9_-]/g, '_');
 
-  // If longer than 128 characters, replace middle with '___'
-  // (Gemini API says max length 128)
+  // Ensure it starts with a letter or underscore (Gemini requirement)
+  if (!/^[a-zA-Z_]/.test(validToolname)) {
+    validToolname = '_' + validToolname;
+  }
+
+  // If longer than 128 characters, truncate
   if (validToolname.length > 128) {
-    validToolname =
-      validToolname.slice(0, 62) + '___' + validToolname.slice(-63);
+    validToolname = validToolname.slice(0, 128);
   }
   return validToolname;
 }

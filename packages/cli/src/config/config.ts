@@ -27,6 +27,10 @@ import { Extension, annotateActiveExtensions } from './extension.js';
 import { getCliVersion } from '../utils/version.js';
 import { loadSandboxConfig } from './sandboxConfig.js';
 import { extensionsCommand } from '../commands/extensions.js';
+import {
+  loadAllExtensionCommands,
+  registerExtensionCommands,
+} from './extension-commands.js';
 
 // Simple console logger for now - replace with actual logger if available
 const logger = {
@@ -72,7 +76,7 @@ export interface CliArgs {
   workdir: string | undefined;
 }
 
-export async function parseArguments(): Promise<CliArgs> {
+export async function parseArguments(extensions: Extension[] = []): Promise<CliArgs> {
   const yargsInstance = yargs(hideBin(process.argv))
     .scriptName('deepv')
     .usage(
@@ -247,7 +251,17 @@ export async function parseArguments(): Promise<CliArgs> {
       type: 'string',
       description: 'Specify the working directory (supports both Windows and Unix paths)',
     })
-    .command(extensionsCommand)
+    .command(extensionsCommand);
+
+  // Dynamically load and register extension commands at runtime
+  if (extensions.length > 0) {
+    const extensionCommands = await loadAllExtensionCommands(extensions);
+    if (extensionCommands.length > 0) {
+      registerExtensionCommands(yargsInstance, extensionCommands);
+    }
+  }
+
+  yargsInstance
     .version(await getCliVersion()) // This will enable the --version flag based on package.json
     .alias('v', 'version')
     .help()

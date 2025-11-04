@@ -157,6 +157,7 @@ interface AppProps {
   settings: LoadedSettings;
   startupWarnings?: string[];
   version: string;
+  promptExtensions?: any[]; // PromptExtension[] - imported from prompt-extensions
 }
 
 export const AppWrapper = (props: AppProps) => {
@@ -176,7 +177,7 @@ export const AppWrapper = (props: AppProps) => {
   );
 };
 
-const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
+const App = ({ config, settings, startupWarnings = [], version, promptExtensions = [] }: AppProps) => {
   const isFocused = useFocus();
   useBracketedPaste();
 
@@ -275,23 +276,15 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
     };
   }, []);
 
-  // 在应用启动时发现MCP工具
+  // MCP tools are now discovered during Config.initialize() via setImmediate()
+  // We removed the duplicate discovery call here to avoid redundant initialization
+  // The tools will be available shortly after app startup
+  // Monitor status changes to detect when tools become available
   useEffect(() => {
-    const discoverMCPToolsOnStartup = async () => {
-      try {
-        const toolRegistry = await config.getToolRegistry();
-        if (toolRegistry && typeof (toolRegistry as any).discoverMcpTools === 'function') {
-          await (toolRegistry as any).discoverMcpTools();
-          if (config.getDebugMode()) {
-            console.log('[MCP] Tools discovered on startup');
-          }
-        }
-      } catch (error) {
-        console.warn('[MCP] Failed to discover tools on startup:', getErrorMessage(error));
-      }
-    };
-
-    discoverMCPToolsOnStartup();
+    // This effect just monitors MCP status changes, actual discovery happens in Config
+    if (config.getDebugMode()) {
+      console.log('[MCP] Config initialized, MCP tools discovery in progress');
+    }
   }, [config]);
 
   useEffect(() => {

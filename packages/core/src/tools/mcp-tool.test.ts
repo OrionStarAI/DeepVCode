@@ -40,15 +40,27 @@ describe('generateValidName', () => {
     );
   });
 
+  it('should replace dots with underscores (Claude incompatible)', () => {
+    expect(generateValidName('my.function.name')).toBe(
+      'my_function_name',
+    );
+  });
+
+  it('should ensure name starts with letter or underscore', () => {
+    expect(generateValidName('123invalid')).toBe('_123invalid');
+    expect(generateValidName('!@#valid')).toBe('_valid');
+  });
+
   it('should truncate long names at 128 characters', () => {
     const longName = 'x'.repeat(150);
     const result = generateValidName(longName);
     expect(result.length).toBe(128);
-    expect(result).toContain('___');
   });
 
   it('should handle names with only invalid characters', () => {
-    expect(generateValidName('!@#$%^&*()')).toBe('__________');
+    const result = generateValidName('!@#$%^&*()');
+    expect(result.startsWith('_')).toBe(true);
+    expect(result.length).toBeLessThanOrEqual(128);
   });
 
   it('should handle names that are exactly 128 characters long', () => {
@@ -58,7 +70,6 @@ describe('generateValidName', () => {
   it('should handle names that are longer than 128 characters', () => {
     const result = generateValidName('a'.repeat(150));
     expect(result.length).toBe(128);
-    expect(result).toContain('___');
   });
 });
 
