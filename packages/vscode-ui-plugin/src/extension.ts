@@ -362,18 +362,18 @@ function setupBasicMessageHandlers() {
 
   /**
    * 🎯 回退到指定消息处理器
-   * 
+   *
    * 功能说明：
    * - 回退操作是破坏性的，会删除目标消息之后的所有消息和文件修改
    * - 前端会先截断UI中的消息历史，提供即时反馈
    * - 后端负责分析并回滚文件系统到目标消息时的状态
-   * 
+   *
    * 处理流程：
    * 1. 获取AI服务实例
    * 2. 分析目标消息之后的所有文件修改
    * 3. 逐个回滚这些文件到原始状态
    * 4. 通知前端回滚结果
-   * 
+   *
    * @param payload.sessionId - 会话ID
    * @param payload.messageId - 目标消息ID（回退到此消息）
    * @param payload.originalMessages - 完整的原始消息历史（用于分析文件修改）
@@ -1118,6 +1118,18 @@ async function handleRefineCommand(originalText: string) {
 
     logger.info('🎯 Starting text refinement...', { textLength: originalText.length });
 
+    // 🎯 获取已初始化的 AI 服务（自动处理初始化）
+    const aiService = await sessionManager.getCurrentInitializedAIService();
+    const geminiClient = aiService.getGeminiClient();
+
+    if (!geminiClient) {
+      logger.error('Gemini client not available');
+      communicationService.sendGenericMessage('refine_error', {
+        error: 'AI client not available.',
+      });
+      return;
+    }
+
     // 🎯 构造优化提示词 - 一次性请求，不带任何上下文
     const refinePrompt = `⚠️ NO TOOLS ALLOWED ⚠️
 
@@ -1130,18 +1142,6 @@ Here is an enhanced version of the original instruction that is more specific an
 Here is my original instruction:
 
  ${originalText}`;
-
-    // 🎯 获取当前会话的 AI 服务和 Gemini 客户端
-    const currentAIService = sessionManager.getCurrentAIService();
-    const geminiClient = currentAIService?.getGeminiClient?.();
-
-    if (!geminiClient) {
-      logger.error('Gemini client not available');
-      communicationService.sendGenericMessage('refine_error', {
-        error: 'AI client not available. Please start a chat session first.',
-      });
-      return;
-    }
 
     // 收集完整的响应
     let refinedText = '';
