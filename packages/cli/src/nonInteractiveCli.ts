@@ -12,6 +12,8 @@ import {
   shutdownTelemetry,
   isTelemetrySdkInitialized,
   MESSAGE_ROLES,
+  MCPDiscoveryState,
+  getMCPDiscoveryState,
 } from 'deepv-code-core';
 import {
   Content,
@@ -53,12 +55,38 @@ function getResponseText(response: GenerateContentResponse): string | null {
   return null;
 }
 
+/**
+ * Wait for MCP discovery to complete
+ * Ensures extension tools are available before using them
+ */
+async function waitForMcpDiscovery(): Promise<void> {
+  const startTime = Date.now();
+  const timeout = 15000; // 15 seconds timeout
+  const checkInterval = 100; // Check every 100ms
+
+  while (Date.now() - startTime < timeout) {
+    const state = getMCPDiscoveryState();
+    if (state === MCPDiscoveryState.COMPLETED) {
+      return;
+    }
+    await new Promise(resolve => setTimeout(resolve, checkInterval));
+  }
+
+  // Timeout reached, but we continue anyway (MCP tools may not be available)
+  // This is not a critical failure, so we don't throw an error
+}
+
 export async function runNonInteractive(
   config: Config,
   input: string,
   prompt_id: string,
 ): Promise<void> {
   await config.initialize();
+
+  // Wait for MCP tools to be discovered before proceeding
+  // This ensures extension tools are available when sending prompts
+  await waitForMcpDiscovery();
+
   // Handle EPIPE errors when the output is piped to a command that closes early.
   process.stdout.on('error', (err: NodeJS.ErrnoException) => {
     if (err.code === 'EPIPE') {

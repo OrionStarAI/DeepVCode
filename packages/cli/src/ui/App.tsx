@@ -275,6 +275,25 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
     };
   }, []);
 
+  // 在应用启动时发现MCP工具
+  useEffect(() => {
+    const discoverMCPToolsOnStartup = async () => {
+      try {
+        const toolRegistry = await config.getToolRegistry();
+        if (toolRegistry && typeof (toolRegistry as any).discoverMcpTools === 'function') {
+          await (toolRegistry as any).discoverMcpTools();
+          if (config.getDebugMode()) {
+            console.log('[MCP] Tools discovered on startup');
+          }
+        }
+      } catch (error) {
+        console.warn('[MCP] Failed to discover tools on startup:', getErrorMessage(error));
+      }
+    };
+
+    discoverMCPToolsOnStartup();
+  }, [config]);
+
   useEffect(() => {
     checkForUpdates().then(setUpdateMessage);
   }, []);

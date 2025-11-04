@@ -37,7 +37,7 @@ export class DiscoveredMCPTool extends BaseTool<ToolParams, ToolResult> {
     nameOverride?: string,
   ) {
     super(
-      nameOverride ?? generateValidName(serverName, serverToolName),
+      nameOverride ?? generateValidName(serverToolName),
       `${serverToolName} (${serverName} MCP Server)`,
       description,
       Icon.Hammer,
@@ -273,16 +273,16 @@ function getStringifiedResultForDisplay(result: Part[]) {
 }
 
 /** Visible for testing */
-export function generateValidName(serverName: string , name: string) {
-  // Replace invalid characters (based on 400 error message from Gemini API) with underscores
-  let validServerName = serverName.replace(/[^a-zA-Z0-9_.-]/g, '_');
-  let validToolname = name.replace(/[^a-zA-Z0-9_.-]/g, '_');
+export function generateValidName(name: string) {
+  // Replace invalid characters (based on Google Gemini API requirement: ^[a-zA-Z0-9_-]{1,128}$) with underscores
+  // Valid characters: a-z, A-Z, 0-9, underscore (_), hyphen (-)
+  let validToolname = name.replace(/[^a-zA-Z0-9_-]/g, '_');
 
-  // If longer than 63 characters, replace middle with '___'
-  // (Gemini API says max length 64, but actual limit seems to be 63)
-  if (validToolname.length > 63) {
+  // If longer than 128 characters, replace middle with '___'
+  // (Gemini API says max length 128)
+  if (validToolname.length > 128) {
     validToolname =
-      validToolname.slice(0, 28) + '___' + validToolname.slice(-32);
+      validToolname.slice(0, 62) + '___' + validToolname.slice(-63);
   }
-  return validServerName + '_' + validToolname;
+  return validToolname;
 }
