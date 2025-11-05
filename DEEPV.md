@@ -37,21 +37,3 @@ DeepV Code (Monorepo)
 **技术栈：** TypeScript + Node.js + React(Ink) + esbuild + Vitest
 **核心特点：** 单仓库架构、分层设计、丰富工具系统、MCP集成、双VSCode扩展策略
 - 用户偏好：尽量不生成 .md 文件，除非用于 AI 自己的任务记忆，且用完后必须删除
-
-## 扩展系统 Windows 兼容性检查（2025-11-05）
-**修改内容：**
-- 改进扩展安装反馈，在安装完成后显示详细扩展信息
-- 放宽上下文文件验证（从阻止错误改为友好警告）
-- 显示上下文文件时使用 `path.basename()` 只显示文件名而非完整路径
-
-**Windows 兼容性验证结果：✅ PASS**
-1. **路径处理**：所有路径操作使用 `path.join()`、`path.resolve()` 和 `os.homedir()`，已验证跨平台兼容
-2. **Home 目录**：使用 `os.homedir()` 代替硬编码路径
-3. **临时目录**：使用 `os.tmpdir()` 代替 `/tmp`
-4. **npm 命令**：使用 `execSync('npm install', { cwd: path })` 支持所有平台
-5. **文件显示**：使用 `path.basename()` 处理不同平台的路径分隔符（\ vs /）
-6. **文件系统操作**：所有 fs 操作都支持跨平台，包括 `mkdirSync`、`rmSync` 等
-
-**关键代码位置：**
-- `packages/cli/src/commands/extensions/install.ts`：显示完整扩展信息
-- `packages/cli/src/config/extension-manager.ts`：`toOutputString()` 使用 `path.basename()`
