@@ -57,13 +57,13 @@ const infoCommand: SlashCommand = {
 
 DVCode supports Gemini CLI extensions. To manage extensions, use:
 
-  \u001b[36mnpm run dev extensions install <url>\u001b[0m   - Install extension
-  \u001b[36mnpm run dev extensions list\u001b[0m           - List extensions
-  \u001b[36mnpm run dev extensions validate <path>\u001b[0m  - Validate config
-  \u001b[36mnpm run dev extensions uninstall <name>\u001b[0m - Remove extension
+  \u001b[36mdvcode extensions install <url>\u001b[0m   - Install extension
+  \u001b[36mdvcode extensions list\u001b[0m           - List extensions
+  \u001b[36mdvcode extensions validate <path>\u001b[0m  - Validate config
+  \u001b[36mdvcode extensions uninstall <name>\u001b[0m - Remove extension
 
 Example:
-  \u001b[36mnpm run dev extensions install https://github.com/gemini-cli-extensions/nanobanana\u001b[0m
+  \u001b[36mdvcode extensions install https://github.com/gemini-cli-extensions/nanobanana\u001b[0m
 
 For more information, see EXTENSION_GEMINI_COMPAT.md
 `;
