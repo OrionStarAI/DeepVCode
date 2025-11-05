@@ -253,9 +253,8 @@ commands/
 
 ## 安装位置
 
-扩展默认安装到：
-- **全局**：`~/.deepv/extensions/`
-- **项目级**：`.deepv/extensions/` (当前项目)
+扩展安装到用户主目录：
+- **用户级**：`~/.deepv/extensions/`
 
 ## 常见问题
 

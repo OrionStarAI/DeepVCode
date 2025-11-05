@@ -79,6 +79,7 @@ export async function handleInstall(args: InstallArgs) {
     debugLogger.log(
       `Extension "${extension.config.name}" installed successfully and enabled.`,
     );
+    debugLogger.log('\n' + extensionManager.toOutputString(extension));
   } catch (error) {
     debugLogger.error(getErrorMessage(error));
     process.exit(1);
