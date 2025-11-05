@@ -131,10 +131,10 @@ export class ExtensionManager {
         throw new Error(`Extension validation failed: ${validationResult.errors.join(', ')}`);
       }
 
-      // If this is a git/download extension, move it to extensions directory
+      // If this is a git/download extension, move it to user-level extensions directory
       if (installMetadata.type === 'git') {
         const extensionsDir = path.join(
-          this.workspaceDir,
+          os.homedir(),
           '.deepv',
           'extensions',
         );
@@ -263,19 +263,9 @@ export class ExtensionManager {
   }
 
   async loadExtensions(): Promise<DVCodeExtension[]> {
-    const allExtensions = [
-      ...(await this.loadExtensionsFromDir(this.workspaceDir)),
-      ...(await this.loadExtensionsFromDir(os.homedir())),
-    ];
+    const allExtensions = await this.loadExtensionsFromDir(os.homedir());
 
-    const uniqueExtensions = new Map<string, DVCodeExtension>();
-    for (const extension of allExtensions) {
-      if (!uniqueExtensions.has(extension.config.name)) {
-        uniqueExtensions.set(extension.config.name, extension);
-      }
-    }
-
-    this.loadedExtensions = Array.from(uniqueExtensions.values());
+    this.loadedExtensions = allExtensions;
     return this.loadedExtensions;
   }
 
@@ -365,11 +355,6 @@ export class ExtensionManager {
   }
 
   private findExtensionDir(name: string): string | undefined {
-    const workspaceExtDir = path.join(this.workspaceDir, '.deepv', 'extensions', name);
-    if (fs.existsSync(workspaceExtDir)) {
-      return workspaceExtDir;
-    }
-
     const homeExtDir = path.join(os.homedir(), '.deepv', 'extensions', name);
     if (fs.existsSync(homeExtDir)) {
       return homeExtDir;
