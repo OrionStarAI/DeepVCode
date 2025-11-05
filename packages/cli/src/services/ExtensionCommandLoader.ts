@@ -6,6 +6,7 @@
 
 import { promises as fs } from 'fs';
 import path from 'path';
+import os from 'os';
 import toml from '@iarna/toml';
 import { glob } from 'glob';
 import { z } from 'zod';
@@ -52,89 +53,96 @@ export class ExtensionCommandLoader implements ICommandLoader {
   }
 
   /**
-   * Loads all commands from installed extensions
+   * Loads all commands from installed extensions in both workspace and home directories
    * @param signal An AbortSignal to cancel the loading process
    * @returns A promise that resolves to an array of loaded SlashCommands
    */
   async loadCommands(signal: AbortSignal): Promise<SlashCommand[]> {
     const commandMap = new Map<string, SlashCommand>();
-    const extensionsDir = path.join(this.projectRoot, '.deepv', 'extensions');
 
-    try {
-      // Check if extensions directory exists
-      await fs.access(extensionsDir);
-    } catch {
-      // Extensions directory doesn't exist, which is fine
-      return [];
-    }
+    // Load from both workspace and home directories
+    const extensionsDirs = [
+      path.join(this.projectRoot, '.deepv', 'extensions'), // workspace
+      path.join(os.homedir(), '.deepv', 'extensions'), // home directory
+    ];
 
-    try {
-      const entries = await fs.readdir(extensionsDir, {
-        withFileTypes: true,
-      });
+    const globOptions = {
+      nodir: true,
+      dot: true,
+      signal,
+    };
 
-      const extensionDirs = entries
-        .filter((entry) => entry.isDirectory())
-        .map((entry) => entry.name);
+    for (const extensionsDir of extensionsDirs) {
+      try {
+        // Check if extensions directory exists
+        await fs.access(extensionsDir);
+      } catch {
+        // Extensions directory doesn't exist in this location, skip it
+        continue;
+      }
 
-      const globOptions = {
-        nodir: true,
-        dot: true,
-        signal,
-      };
+      try {
+        const entries = await fs.readdir(extensionsDir, {
+          withFileTypes: true,
+        });
 
-      // Load commands from each extension
-      for (const extName of extensionDirs) {
-        const commandsDir = path.join(
-          extensionsDir,
-          extName,
-          'commands',
-        );
+        const extensionDirs = entries
+          .filter((entry) => entry.isDirectory())
+          .map((entry) => entry.name);
 
-        try {
-          // Check if commands directory exists in this extension
-          await fs.access(commandsDir);
-        } catch {
-          // This extension has no commands directory
-          continue;
-        }
-
-        try {
-          const files = await glob('**/*.toml', {
-            ...globOptions,
-            cwd: commandsDir,
-          });
-
-          const extCommandPromises = files.map((file) =>
-            this.parseAndAdaptFile(
-              path.join(commandsDir, file),
-              commandsDir,
-              extName,
-            ),
+        // Load commands from each extension in this directory
+        for (const extName of extensionDirs) {
+          const commandsDir = path.join(
+            extensionsDir,
+            extName,
+            'commands',
           );
 
-          const extCommands = (
-            await Promise.all(extCommandPromises)
-          ).filter((cmd): cmd is SlashCommand => cmd !== null);
+          try {
+            // Check if commands directory exists in this extension
+            await fs.access(commandsDir);
+          } catch {
+            // This extension has no commands directory
+            continue;
+          }
 
-          for (const cmd of extCommands) {
-            commandMap.set(cmd.name, cmd);
-            console.debug(
-              `[ExtensionCommandLoader] Loaded extension command: /${cmd.name}`,
+          try {
+            const files = await glob('**/*.toml', {
+              ...globOptions,
+              cwd: commandsDir,
+            });
+
+            const extCommandPromises = files.map((file) =>
+              this.parseAndAdaptFile(
+                path.join(commandsDir, file),
+                commandsDir,
+                extName,
+              ),
+            );
+
+            const extCommands = (
+              await Promise.all(extCommandPromises)
+            ).filter((cmd): cmd is SlashCommand => cmd !== null);
+
+            for (const cmd of extCommands) {
+              commandMap.set(cmd.name, cmd);
+              console.debug(
+                `[ExtensionCommandLoader] Loaded extension command: /${cmd.name}`,
+              );
+            }
+          } catch (error) {
+            console.warn(
+              `[ExtensionCommandLoader] Failed to load commands from extension '${extName}':`,
+              error instanceof Error ? error.message : String(error),
             );
           }
-        } catch (error) {
-          console.warn(
-            `[ExtensionCommandLoader] Failed to load commands from extension '${extName}':`,
-            error instanceof Error ? error.message : String(error),
-          );
         }
+      } catch (error) {
+        console.warn(
+          `[ExtensionCommandLoader] Failed to scan extensions directory '${extensionsDir}':`,
+          error instanceof Error ? error.message : String(error),
+        );
       }
-    } catch (error) {
-      console.warn(
-        `[ExtensionCommandLoader] Failed to scan extensions directory:`,
-        error instanceof Error ? error.message : String(error),
-      );
     }
 
     if (commandMap.size > 0) {
