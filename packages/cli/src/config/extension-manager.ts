@@ -425,7 +425,7 @@ export class ExtensionManager {
     if (extension.contextFiles.length > 0) {
       output += `\n  Context Files:`;
       extension.contextFiles.forEach((contextFile) => {
-        output += `\n    ${contextFile}`;
+        output += `\n    ${path.basename(contextFile)}`;
       });
     }
 
