@@ -381,23 +381,26 @@ export class ExtensionManager {
         errors.push(`Invalid version "${config.version}". Must be valid semver.`);
       }
 
-      // Validate context files exist
+      // Validate context files exist (optional warning, not blocking)
+      // If contextFileName is specified but not found, that's just a warning
+      // If contextFileName is not specified, we'll auto-discover during loadExtensionWithMetadata
       if (config.contextFileName) {
         const filePatterns = Array.isArray(config.contextFileName)
           ? config.contextFileName
           : [config.contextFileName];
 
-        const missingFiles = [];
+        let foundAtLeastOne = false;
         for (const pattern of filePatterns) {
           const filePath = path.join(extensionPath, pattern);
-          if (!fs.existsSync(filePath)) {
-            missingFiles.push(pattern);
+          if (fs.existsSync(filePath)) {
+            foundAtLeastOne = true;
+            break;
           }
         }
 
-        if (missingFiles.length === filePatterns.length) {
-          errors.push(
-            `Context files not found: ${missingFiles.join(', ')}`,
+        if (!foundAtLeastOne) {
+          debugLogger.log(
+            `⚠ Warning: Context files specified in extension config not found: ${filePatterns.join(', ')}`,
           );
         }
       }
@@ -417,27 +420,29 @@ export class ExtensionManager {
   }
 
   toOutputString(extension: DVCodeExtension): string {
-    const lines = [
-      `Extension: ${extension.config.name}`,
-      `Version: ${extension.config.version}`,
-    ];
+    let output = `✓ ${extension.config.name} (${extension.config.version})`;
 
     if (extension.contextFiles.length > 0) {
-      lines.push(
-        `Context Files: ${extension.contextFiles.map((f) => path.basename(f)).join(', ')}`,
-      );
+      output += `\n  Context Files:`;
+      extension.contextFiles.forEach((contextFile) => {
+        output += `\n    ${contextFile}`;
+      });
     }
 
     if (extension.config.mcpServers && Object.keys(extension.config.mcpServers).length > 0) {
-      lines.push(
-        `MCP Servers: ${Object.keys(extension.config.mcpServers).join(', ')}`,
-      );
+      output += `\n  MCP Servers:`;
+      Object.keys(extension.config.mcpServers).forEach((key) => {
+        output += `\n    ${key}`;
+      });
     }
 
     if (extension.config.excludeTools && extension.config.excludeTools.length > 0) {
-      lines.push(`Excluded Tools: ${extension.config.excludeTools.join(', ')}`);
+      output += `\n  Excluded Tools:`;
+      extension.config.excludeTools.forEach((tool) => {
+        output += `\n    ${tool}`;
+      });
     }
 
-    return lines.join('\n');
+    return output;
   }
 }
