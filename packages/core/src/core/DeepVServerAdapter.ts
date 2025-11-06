@@ -517,6 +517,11 @@ export class DeepVServerAdapter implements ContentGenerator {
         status: response.status
       });
 
+      // 🚨 注意：不清理超时保护！
+      // 超时保护需要在整个流读取过程中保持有效
+      // 在 createStreamGenerator 中会为每个 read() 调用单独添加超时保护
+      // 只有在流完全结束或出错时才会清理
+
       return response;
 
     } catch (error) {
@@ -552,8 +557,9 @@ export class DeepVServerAdapter implements ContentGenerator {
 
       throw error;
     } finally {
-      // 🚨 最终清理：确保资源一定被释放
-      clearTimeout(timeoutId);
+      // 注意：这里不清理 timeoutId
+      // 超时保护需要跨越整个流生成过程
+      // 只有在流完全结束时才会通过 createStreamGenerator 的 finally 块清理
       if (abortListener) {
         abortListener();
       }
@@ -562,6 +568,10 @@ export class DeepVServerAdapter implements ContentGenerator {
 
   /**
    * 🆕 创建流式生成器
+   *
+   * 🚨 添加流读取超时保护：
+   * - 为每个 read() 调用添加超时
+   * - 确保长时间无数据时自动中止
    */
   private async *createStreamGenerator(response: Response, abortSignal?: AbortSignal): AsyncGenerator<GenerateContentResponse> {
     const reader = response.body?.getReader();
@@ -580,7 +590,13 @@ export class DeepVServerAdapter implements ContentGenerator {
           break;
         }
 
-        const { done, value } = await reader.read();
+        // 🚨 为流读取添加超时保护（120秒）
+        // 这确保如果长时间没有收到任何数据，会自动中止
+        const { done, value } = await this.withTimeout(
+          reader.read(),
+          120000,
+          '[DeepV Server] Stream read timeout after 120s (no data received)'
+        );
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
@@ -891,5 +907,20 @@ export class DeepVServerAdapter implements ContentGenerator {
    */
   async embedContent(request: EmbedContentParameters): Promise<EmbedContentResponse> {
     throw new Error('Claude models do not support embedding content');
+  }
+
+  /**
+   * 🚨 为 Promise 添加超时保护
+   * 用于防止流式读取等长时间操作无限期等待
+   */
+  private withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> {
+    return Promise.race([
+      promise,
+      new Promise<T>((_, reject) =>
+        setTimeout(() => {
+          reject(new Error(timeoutMessage));
+        }, timeoutMs)
+      )
+    ]);
   }
 }
