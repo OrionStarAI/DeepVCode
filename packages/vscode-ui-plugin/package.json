@@ -208,7 +208,7 @@
         },
         "deepv.enableInlineCompletion": {
           "type": "boolean",
-          "default": true,
+          "default": false,
           "description": "Enable AI-powered inline code completions",
           "markdownDescription": "Enable or disable inline code completion suggestions powered by AI. When enabled, you'll see completion suggestions as you type."
         },
