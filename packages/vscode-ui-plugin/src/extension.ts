@@ -13,6 +13,8 @@ import { SessionManager } from './services/sessionManager';
 import { FileSearchService } from './services/fileSearchService';
 import { FileRollbackService } from './services/fileRollbackService';
 import { DeepVInlineCompletionProvider } from './services/inlineCompletionProvider';
+import { CompletionCache } from './services/completionCache';
+import { CompletionScheduler } from './services/completionScheduler';
 import { RuleService } from './services/ruleService';
 import { ContextBuilder } from './services/contextBuilder';
 import { Logger } from './utils/logger';
@@ -29,6 +31,8 @@ let sessionManager: SessionManager;
 let fileSearchService: FileSearchService;
 let fileRollbackService: FileRollbackService;
 let inlineCompletionProvider: DeepVInlineCompletionProvider;
+let completionCache: CompletionCache;
+let completionScheduler: CompletionScheduler;
 let ruleService: RuleService;
 let inlineCompletionStatusBar: vscode.StatusBarItem;
 let extensionContext: vscode.ExtensionContext;
@@ -121,8 +125,9 @@ export async function activate(context: vscode.ExtensionContext) {
     // 🎯 将规则服务设置到 ContextBuilder
     ContextBuilder.setRuleService(ruleService);
 
-    // 🎯 初始化行内补全提供者
-    inlineCompletionProvider = new DeepVInlineCompletionProvider(logger);
+    // 🎯 初始化行内补全系统（推-拉分离架构）
+    completionCache = new CompletionCache();
+    inlineCompletionProvider = new DeepVInlineCompletionProvider(completionCache, logger);
 
     // 🎯 注册行内补全提供者（支持所有编程语言）
     const completionProviderDisposable = vscode.languages.registerInlineCompletionItemProvider(
@@ -130,7 +135,7 @@ export async function activate(context: vscode.ExtensionContext) {
       inlineCompletionProvider
     );
     context.subscriptions.push(completionProviderDisposable);
-    logger.info('InlineCompletionProvider registered for all file types');
+    logger.info('InlineCompletionProvider registered (cache-only, pull mode)');
 
     // 🎯 创建状态栏项，用于控制代码补全开关
     inlineCompletionStatusBar = vscode.window.createStatusBarItem(
@@ -1725,31 +1730,30 @@ function registerCommands(context: vscode.ExtensionContext) {
         return;
       }
 
-      const stats = inlineCompletionProvider.getStats();
+      const providerStats = inlineCompletionProvider.getStats();
+      const schedulerStats = completionScheduler ? completionScheduler.getStats() : null;
 
       // 获取当前使用的模型
-      const completionService = inlineCompletionProvider.getCompletionService();
-      const actualModel = completionService?.getCurrentModel() || 'gemini-2.5-flash';
       const modelConfig = config.get<string>('inlineCompletionModel', 'auto');
 
-      // 🎯 根据配置显示友好的模型名称
-      let displayConfig = modelConfig;
-      if (modelConfig === 'auto') {
-        displayConfig = `Auto (${actualModel})`;
-      }
+      const message = `📊 行内补全统计（推-拉分离架构）：
 
-      const message = `📊 行内补全统计：
+⚙️  配置策略: ${modelConfig}
 
-🤖 当前使用模型: ${actualModel}
-⚙️  配置策略: ${displayConfig}
+📥 Provider (拉模式 - 只读缓存):
+  • 总调用次数: ${providerStats.totalRequests}
+  • 硬 Key 命中: ${providerStats.hardKeyHits}
+  • 软 Key 命中: ${providerStats.softKeyHits}
+  • 缓存未命中: ${providerStats.cacheMisses}
+  • 命中率: ${providerStats.hitRate}
 
-✅ 总请求数: ${stats.totalRequests}
-✅ 成功补全: ${stats.successfulCompletions}
-⏭️  取消请求: ${stats.canceledRequests}
-❌ 错误数: ${stats.errors}
+📤 Scheduler (推模式 - 后台请求):
+  • API 请求数: ${schedulerStats?.totalRequests || 0}
+  • 跳过请求数: ${schedulerStats?.totalSkipped || 0}
+  • 缓存大小: ${providerStats.cacheStats?.sets || 0}
 
-💡 提示：在任意代码文件中输入，等待补全建议出现（灰色文本）。
-💡 可在设置中修改 "DeepV Code: Inline Completion Model" 以切换模型。`;
+💡 提示：架构采用推-拉分离，Provider 只读缓存（< 10ms），Scheduler 在后台处理防抖和 API 请求。
+💡 命中率高说明缓存策略有效，减少了 API 调用。`;
 
       vscode.window.showInformationMessage(message, { modal: true });
     }),
@@ -1916,8 +1920,14 @@ async function initializeInlineCompletion() {
       logger.info(`Inline completion model override: ${modelOverride}`);
     }
 
-    // 🎯 将服务注入到 provider
-    inlineCompletionProvider.setCompletionService(completionService);
+    // 🎯 创建并初始化 CompletionScheduler（后台调度器）
+    completionScheduler = new CompletionScheduler(
+      completionCache,
+      completionService,
+      logger
+    );
+    completionScheduler.init(extensionContext);
+    logger.info('✅ CompletionScheduler initialized (background push mode, 200ms debounce)');
 
     // 🎯 监听配置变化
     extensionContext.subscriptions.push(
