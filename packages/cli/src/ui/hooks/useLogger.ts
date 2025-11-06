@@ -5,7 +5,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { sessionId, Logger } from 'deepv-code-core';
+import { getSessionId, Logger } from 'deepv-code-core';
 
 /**
  * Hook to manage the logger instance.
@@ -14,7 +14,7 @@ export const useLogger = () => {
   const [logger, setLogger] = useState<Logger | null>(null);
 
   useEffect(() => {
-    const newLogger = new Logger(sessionId);
+    const newLogger = new Logger(getSessionId());
     /**
      * Start async initialization, no need to await. Using await slows down the
      * time from launch to see the gemini-cli prompt and it's better to not save

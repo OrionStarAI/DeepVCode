@@ -118,5 +118,5 @@ export { OAuthUtils } from './mcp/oauth-utils.js';
 
 // Export telemetry functions
 export * from './telemetry/index.js';
-export { sessionId } from './utils/session.js';
+export { sessionId, getSessionId, setSessionId, resetSessionId } from './utils/session.js';
 export * from './utils/browser.js';

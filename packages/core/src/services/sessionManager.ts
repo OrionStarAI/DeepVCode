@@ -7,6 +7,7 @@
 import { promises as fs } from 'fs';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
+import { createHash } from 'crypto';
 import { getProjectTempDir } from '../utils/paths.js';
 import { getErrorMessage } from '../utils/errors.js';
 
@@ -21,6 +22,7 @@ export interface SessionMetadata {
   hasCheckpoint: boolean;
   firstUserMessage?: string;
   lastAssistantMessage?: string;
+  workdirHash?: string;
 }
 
 export interface SessionIndex {
@@ -74,6 +76,14 @@ export class SessionManager {
   }
 
   /**
+   * 计算workdir的hash值
+   */
+  private getWorkdirHash(workdir?: string): string {
+    const dirToHash = workdir || process.cwd();
+    return createHash('sha256').update(dirToHash).digest('hex');
+  }
+
+  /**
    * 获取session目录路径
    */
   private getSessionDir(sessionId: string): string {
@@ -115,21 +125,21 @@ export class SessionManager {
    */
   async getLastActiveSession(requireContent: boolean = false): Promise<string | undefined> {
     const index = await this.loadIndex();
-    
+
     if (!requireContent) {
       return index.lastActiveSession;
     }
-    
+
     // 查找最近的有实际对话内容的session
     for (const session of index.sessions) {
       try {
         const sessionDir = this.getSessionDir(session.sessionId);
         const historyFile = path.join(sessionDir, 'history.json');
-        
+
         // 检查是否存在history文件且有实际对话内容
         const historyContent = await fs.readFile(historyFile, 'utf-8');
         const history = JSON.parse(historyContent);
-        
+
         // 检查是否有用户消息（type为'user'）
         if (Array.isArray(history) && history.some(item => item.type === 'user')) {
           return session.sessionId;
@@ -139,7 +149,7 @@ export class SessionManager {
         continue;
       }
     }
-    
+
     // 如果没有找到有内容的session，返回最后活跃的session
     return index.lastActiveSession;
   }
@@ -147,7 +157,7 @@ export class SessionManager {
   /**
    * 创建新session
    */
-  async createNewSession(title?: string): Promise<SessionData> {
+  async createNewSession(title?: string, workdir?: string): Promise<SessionData> {
     const sessionId = this.generateSessionId();
     const now = new Date().toISOString();
     const sessionDir = this.getSessionDir(sessionId);
@@ -161,7 +171,8 @@ export class SessionManager {
       lastActiveAt: now,
       messageCount: 0,
       totalTokens: 0,
-      hasCheckpoint: false
+      hasCheckpoint: false,
+      workdirHash: this.getWorkdirHash(workdir)
     };
 
     const tokens: SessionTokenData = {
@@ -208,18 +219,84 @@ export class SessionManager {
   }
 
   /**
-   * 加载指定session
+   * 加载指定session，若缺失文件或目录则自动创建
    */
   async loadSession(sessionId: string): Promise<SessionData | null> {
     const sessionDir = this.getSessionDir(sessionId);
 
     try {
-      const [metadata, tokens, history, clientHistory] = await Promise.all([
-        fs.readFile(path.join(sessionDir, 'metadata.json'), 'utf-8').then(JSON.parse),
-        fs.readFile(path.join(sessionDir, 'tokens.json'), 'utf-8').then(JSON.parse),
-        fs.readFile(path.join(sessionDir, 'history.json'), 'utf-8').then(JSON.parse).catch(() => []),
-        fs.readFile(path.join(sessionDir, 'context.json'), 'utf-8').then(JSON.parse).catch(() => [])
-      ]);
+      // 确保session目录存在
+      await fs.mkdir(sessionDir, { recursive: true });
+
+      const metadataPath = path.join(sessionDir, 'metadata.json');
+      const tokensPath = path.join(sessionDir, 'tokens.json');
+      const historyPath = path.join(sessionDir, 'history.json');
+      const contextPath = path.join(sessionDir, 'context.json');
+
+      // 尝试读取所有文件，缺失则创建
+      let metadata: SessionMetadata;
+      let tokens: SessionTokenData;
+      let history: any[];
+      let clientHistory: any[];
+
+      // 读取或创建metadata
+      try {
+        const content = await fs.readFile(metadataPath, 'utf-8');
+        metadata = JSON.parse(content);
+        // 兼容旧数据：如果缺少workdirHash，补充当前的
+        if (!metadata.workdirHash) {
+          metadata.workdirHash = this.getWorkdirHash();
+        }
+      } catch {
+        // metadata不存在，创建一个默认的
+        const now = new Date().toISOString();
+        metadata = {
+          sessionId,
+          title: `Session ${new Date().toLocaleString()}`,
+          createdAt: now,
+          lastActiveAt: now,
+          messageCount: 0,
+          totalTokens: 0,
+          hasCheckpoint: false,
+          workdirHash: this.getWorkdirHash()
+        };
+        await fs.writeFile(metadataPath, JSON.stringify(metadata, null, 2));
+      }
+
+      // 读取或创建tokens
+      try {
+        const content = await fs.readFile(tokensPath, 'utf-8');
+        tokens = JSON.parse(content);
+      } catch {
+        // tokens不存在，创建一个默认的
+        const now = new Date().toISOString();
+        tokens = {
+          sessionId,
+          startTime: now,
+          models: {}
+        };
+        await fs.writeFile(tokensPath, JSON.stringify(tokens, null, 2));
+      }
+
+      // 读取或创建history
+      try {
+        const content = await fs.readFile(historyPath, 'utf-8');
+        history = JSON.parse(content);
+      } catch {
+        // history不存在，创建一个空数组
+        history = [];
+        await fs.writeFile(historyPath, JSON.stringify(history, null, 2));
+      }
+
+      // 读取或创建context
+      try {
+        const content = await fs.readFile(contextPath, 'utf-8');
+        clientHistory = JSON.parse(content);
+      } catch {
+        // context不存在，创建一个空数组
+        clientHistory = [];
+        await fs.writeFile(contextPath, JSON.stringify(clientHistory, null, 2));
+      }
 
       // 获取checkpoints列表
       const checkpoints = await this.getSessionCheckpoints(sessionId);
@@ -355,6 +432,9 @@ export class SessionManager {
     const sessionDir = this.getSessionDir(sessionId);
     const tokenFile = path.join(sessionDir, 'tokens.json');
 
+    // 确保session目录存在，解决并发初始化时的竞态条件
+    await fs.mkdir(sessionDir, { recursive: true });
+
     let existingTokens: SessionTokenData;
     try {
       const content = await fs.readFile(tokenFile, 'utf-8');
@@ -416,6 +496,9 @@ export class SessionManager {
     const sessionDir = this.getSessionDir(sessionId);
     const metadataFile = path.join(sessionDir, 'metadata.json');
 
+    // 确保session目录存在，解决并发初始化时的竞态条件
+    await fs.mkdir(sessionDir, { recursive: true });
+
     let metadata: SessionMetadata;
     try {
       const content = await fs.readFile(metadataFile, 'utf-8');
@@ -449,7 +532,7 @@ export class SessionManager {
     }
 
     // 按最后活跃时间排序
-    index.sessions.sort((a, b) => 
+    index.sessions.sort((a, b) =>
       new Date(b.lastActiveAt).getTime() - new Date(a.lastActiveAt).getTime()
     );
 
@@ -468,24 +551,41 @@ export class SessionManager {
   }
 
   /**
+   * 列出指定workdir下的所有session
+   */
+  async listSessionsByWorkdir(workdir?: string): Promise<SessionMetadata[]> {
+    const index = await this.loadIndex();
+    const workdirHash = this.getWorkdirHash(workdir);
+
+    // 过滤出workdirHash匹配的session，向下兼容旧的没有workdirHash的session
+    return index.sessions.filter(session => {
+      if (!session.workdirHash) {
+        // 旧数据兼容：如果session没有workdirHash，只在workdir为当前工作目录时显示
+        return workdir ? false : workdirHash === this.getWorkdirHash();
+      }
+      return session.workdirHash === workdirHash;
+    });
+  }
+
+  /**
    * 重建session索引（从实际的session目录重新扫描）
    */
   async rebuildIndex(): Promise<void> {
     console.log('[SessionManager] Rebuilding session index...');
-    
+
     try {
       await this.ensureSessionsDir();
-      
+
       // 读取sessions目录下的所有session文件夹
       const sessionDirs = await fs.readdir(this.sessionsDir, { withFileTypes: true });
       const sessions: SessionMetadata[] = [];
-      
+
       for (const dirent of sessionDirs) {
         if (dirent.isDirectory() && dirent.name !== 'index.json') {
           const sessionId = dirent.name;
           const sessionDir = this.getSessionDir(sessionId);
           const metadataFile = path.join(sessionDir, 'metadata.json');
-          
+
           try {
             const metadataContent = await fs.readFile(metadataFile, 'utf-8');
             const metadata: SessionMetadata = JSON.parse(metadataContent);
@@ -495,18 +595,18 @@ export class SessionManager {
           }
         }
       }
-      
+
       // 按最后活跃时间排序
-      sessions.sort((a, b) => 
+      sessions.sort((a, b) =>
         new Date(b.lastActiveAt).getTime() - new Date(a.lastActiveAt).getTime()
       );
-      
+
       // 重建索引
       const newIndex: SessionIndex = {
         sessions,
         lastActiveSession: sessions.length > 0 ? sessions[0].sessionId : undefined
       };
-      
+
       await this.saveIndex(newIndex);
       console.log(`[SessionManager] Rebuilt index with ${sessions.length} sessions`);
     } catch (error) {
@@ -536,14 +636,14 @@ export class SessionManager {
         validSessions.push(session);
       } catch {
         // 目录不存在，跳过（将被清理）
-        
+
       }
     }
 
     if (validSessions.length !== index.sessions.length) {
       index.sessions = validSessions;
       await this.saveIndex(index);
-      
+
     }
   }
 
@@ -552,7 +652,7 @@ export class SessionManager {
    */
   async cleanupOldSessions(maxSessions: number = 500, excludeSessionId?: string): Promise<void> {
     const index = await this.loadIndex();
-    
+
     // 如果session数量未超过限制，直接返回
     if (index.sessions.length <= maxSessions) {
       return;
@@ -575,16 +675,16 @@ export class SessionManager {
     }
 
     // 从最新的session开始，保留到maxSessions数量
-    const remainingSessions = sortedSessions.filter(s => 
+    const remainingSessions = sortedSessions.filter(s =>
       !excludeSessionId || s.sessionId !== excludeSessionId
     );
-    
+
     // 保留最新的sessions，删除最老的
     const keepCount = maxSessions - sessionsToKeep.length;
     if (keepCount > 0) {
       sessionsToKeep.push(...remainingSessions.slice(-keepCount));
     }
-    
+
     // 其余的都标记为删除
     sessionsToDelete.push(...remainingSessions.slice(0, remainingSessions.length - keepCount));
 
@@ -593,7 +693,7 @@ export class SessionManager {
       try {
         const sessionDir = this.getSessionDir(session.sessionId);
         await fs.rm(sessionDir, { recursive: true, force: true });
-        
+
       } catch (error) {
         console.warn(`[SessionManager] Failed to delete session ${session.sessionId}:`, getErrorMessage(error));
       }
@@ -611,22 +711,22 @@ export class SessionManager {
    * 执行完整的session清理
    */
   async performSessionCleanup(maxSessions: number = 500, preserveLatestEmpty: boolean = false, excludeSessionId?: string): Promise<void> {
-    
+
     if (excludeSessionId) {
-      
+
     }
-    
+
     try {
       // 1. 清理不存在的session记录
       await this.cleanupMissingSessions(excludeSessionId);
-      
+
       // 2. 清理没有对话内容的session
       await this.cleanupEmptySessions(preserveLatestEmpty, excludeSessionId);
-      
+
       // 3. 清理超出数量限制的session（滚动删除）
       await this.cleanupOldSessions(maxSessions, excludeSessionId);
-      
-      
+
+
     } catch (error) {
       console.warn('[SessionManager] Session cleanup failed:', getErrorMessage(error));
     }
@@ -650,13 +750,13 @@ export class SessionManager {
       try {
         const sessionDir = this.getSessionDir(session.sessionId);
         const historyFile = path.join(sessionDir, 'history.json');
-        
+
         // 检查是否存在history文件且有实际对话内容
         let hasRealConversation = false;
         try {
           const historyContent = await fs.readFile(historyFile, 'utf-8');
           const history = JSON.parse(historyContent);
-          
+
           // 检查是否有用户消息（type为'user'）
           if (Array.isArray(history)) {
             hasRealConversation = history.some(item => item.type === 'user');
@@ -665,7 +765,7 @@ export class SessionManager {
           // history文件不存在或无法读取，视为空session
           hasRealConversation = false;
         }
-        
+
         if (hasRealConversation) {
           activeSessions.push(session);
         } else {
@@ -682,7 +782,7 @@ export class SessionManager {
     let sessionsToDelete = emptySessions;
     if (preserveLatestEmpty && emptySessions.length > 0) {
       // 按最后活跃时间排序，保留最新的一个
-      emptySessions.sort((a, b) => 
+      emptySessions.sort((a, b) =>
         new Date(b.lastActiveAt).getTime() - new Date(a.lastActiveAt).getTime()
       );
       const latestEmptySession = emptySessions[0];
@@ -696,7 +796,7 @@ export class SessionManager {
       try {
         const sessionDir = this.getSessionDir(session.sessionId);
         await fs.rm(sessionDir, { recursive: true, force: true });
-        
+
       } catch (error) {
         console.warn(`[SessionManager] Failed to delete empty session ${session.sessionId}:`, getErrorMessage(error));
       }
@@ -706,7 +806,7 @@ export class SessionManager {
     if (sessionsToDelete.length > 0) {
       index.sessions = activeSessions;
       await this.saveIndex(index);
-      
+
     }
   }
 
@@ -753,16 +853,16 @@ export class SessionManager {
     try {
       const sessionDir = this.getSessionDir(sessionId);
       const historyFile = path.join(sessionDir, 'history.json');
-      
+
       // 检查是否存在history文件且有实际对话内容
       const historyContent = await fs.readFile(historyFile, 'utf-8');
       const history = JSON.parse(historyContent);
-      
+
       // 检查是否有用户消息（type为'user'）
       if (Array.isArray(history)) {
         return !history.some(item => item.type === 'user');
       }
-      
+
       return true; // 如果history不是数组，视为空session
     } catch {
       // history文件不存在或无法读取，视为空session
@@ -777,23 +877,23 @@ export class SessionManager {
   async cleanupCurrentEmptySessionOnExit(sessionId: string): Promise<void> {
     try {
       const isEmpty = await this.isSessionEmpty(sessionId);
-      
+
       if (isEmpty) {
         // console.log(`[SessionManager] 清理空会话: ${sessionId}`);
-        
+
         // 删除session目录
         const sessionDir = this.getSessionDir(sessionId);
         await fs.rm(sessionDir, { recursive: true, force: true });
-        
+
         // 从索引中移除
         const index = await this.loadIndex();
         index.sessions = index.sessions.filter(s => s.sessionId !== sessionId);
-        
+
         // 如果删除的是最后活跃的session，清除lastActiveSession
         if (index.lastActiveSession === sessionId) {
           index.lastActiveSession = index.sessions.length > 0 ? index.sessions[0].sessionId : undefined;
         }
-        
+
         await this.saveIndex(index);
         // console.log(`[SessionManager] 空会话已清理: ${sessionId}`);
       }
@@ -835,7 +935,7 @@ export class SessionManager {
           return session;
         }
       }
-      
+
       // 如果没有找到有内容的session，尝试获取最后活跃的session
       const fallbackSessionId = await this.getLastActiveSession(false);
       if (fallbackSessionId && fallbackSessionId !== lastSessionId) {

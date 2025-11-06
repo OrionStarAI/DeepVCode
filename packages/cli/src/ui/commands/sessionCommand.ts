@@ -32,7 +32,7 @@ const listSessionsCommand: SlashCommand = {
 
     try {
       const sessionManager = new SessionManager(config?.getProjectRoot() || process.cwd());
-      const sessions = await sessionManager.listSessions();
+      const sessions = await sessionManager.listSessionsByWorkdir(process.cwd());
 
       if (sessions.length === 0) {
         return {
@@ -104,7 +104,7 @@ const selectSessionCommand: SlashCommand = {
       // 没有参数时，显示可选择的session列表
       try {
         const sessionManager = new SessionManager(config?.getProjectRoot() || process.cwd());
-        const sessions = await sessionManager.listSessions();
+        const sessions = await sessionManager.listSessionsByWorkdir(process.cwd());
 
         if (sessions.length === 0) {
           return {
@@ -155,7 +155,7 @@ const selectSessionCommand: SlashCommand = {
 
     try {
       const sessionManager = new SessionManager(config?.getProjectRoot() || process.cwd());
-      const sessions = await sessionManager.listSessions();
+      const sessions = await sessionManager.listSessionsByWorkdir(process.cwd());
 
       if (sessions.length === 0) {
         return {
@@ -177,7 +177,7 @@ const selectSessionCommand: SlashCommand = {
       if (!isNaN(sessionNumber) && sessionNumber >= 1 && sessionNumber <= sortedSessions.length) {
         targetSession = sortedSessions[sessionNumber - 1];
       } else {
-        // 按session ID查找
+        // 按session ID查找（仅在当前workdir的session中查找）
         targetSession = sessions.find(session => session.sessionId === sessionArg);
       }
 
@@ -297,8 +297,8 @@ const newSessionCommand: SlashCommand = {
     try {
       const sessionManager = new SessionManager(config?.getProjectRoot() || process.cwd());
 
-      // 创建新会话
-      const newSession = await sessionManager.createNewSession();
+      // 创建新会话，传入当前工作目录
+      const newSession = await sessionManager.createNewSession(undefined, process.cwd());
 
       // 创建成功消息作为历史记录的一部分
       const successMessage = {
