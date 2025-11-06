@@ -376,9 +376,9 @@ export class ExtensionManager {
         );
       }
 
-      // Validate version is semver
-      if (!this.isValidSemver(config.version)) {
-        errors.push(`Invalid version "${config.version}". Must be valid semver.`);
+      // Validate version is semver or "latest"
+      if (!this.isValidSemver(config.version) && config.version !== 'latest') {
+        errors.push(`Invalid version "${config.version}". Must be valid semver or "latest".`);
       }
 
       // Validate context files exist (optional warning, not blocking)
