@@ -1703,7 +1703,7 @@ function registerCommands(context: vscode.ExtensionContext) {
     // 🎯 测试行内补全功能
     vscode.commands.registerCommand('deepv.testInlineCompletion', async () => {
       const config = vscode.workspace.getConfiguration('deepv');
-      const isEnabled = config.get<boolean>('enableInlineCompletion', true);
+      const isEnabled = config.get<boolean>('enableInlineCompletion', false);
 
       if (!isEnabled) {
         const action = await vscode.window.showWarningMessage(
@@ -1757,7 +1757,7 @@ function registerCommands(context: vscode.ExtensionContext) {
     // 🎯 切换行内补全开关
     vscode.commands.registerCommand('deepv.toggleInlineCompletion', async () => {
       const config = vscode.workspace.getConfiguration('deepv');
-      const isEnabled = config.get<boolean>('enableInlineCompletion', true);
+      const isEnabled = config.get<boolean>('enableInlineCompletion', false);
       const newState = !isEnabled;
 
       await config.update('enableInlineCompletion', newState, vscode.ConfigurationTarget.Global);
@@ -1774,7 +1774,7 @@ function registerCommands(context: vscode.ExtensionContext) {
     // 🎯 从状态栏切换行内补全开关
     vscode.commands.registerCommand('deepv.toggleInlineCompletionFromStatusBar', async () => {
       const config = vscode.workspace.getConfiguration('deepv');
-      const isEnabled = config.get<boolean>('enableInlineCompletion', true);
+      const isEnabled = config.get<boolean>('enableInlineCompletion', false);
       const newState = !isEnabled;
 
       await config.update('enableInlineCompletion', newState, vscode.ConfigurationTarget.Global);
@@ -1854,7 +1854,7 @@ function updateInlineCompletionStatusBar() {
   }
 
   const config = vscode.workspace.getConfiguration('deepv');
-  const isEnabled = config.get<boolean>('enableInlineCompletion', true);
+  const isEnabled = config.get<boolean>('enableInlineCompletion', false);
 
   if (isEnabled) {
     // 开启状态：使用DeepV品牌标识 - "D" + check图标代表DeepV
@@ -1936,7 +1936,7 @@ async function initializeInlineCompletion() {
         // 🎯 监听代码补全开关变化，更新状态栏
         if (e.affectsConfiguration('deepv.enableInlineCompletion')) {
           updateInlineCompletionStatusBar();
-          const isEnabled = vscode.workspace.getConfiguration('deepv').get<boolean>('enableInlineCompletion', true);
+          const isEnabled = vscode.workspace.getConfiguration('deepv').get<boolean>('enableInlineCompletion', false);
           logger.info(`Inline completion status bar updated: ${isEnabled ? 'enabled' : 'disabled'}`);
         }
       })
