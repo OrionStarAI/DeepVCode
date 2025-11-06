@@ -35,7 +35,7 @@ import {
   EditTool,
   ShellTool,
   WriteFileTool,
-  sessionId,
+  getSessionId,
   logUserPrompt,
   AuthType,
   SessionManager,
@@ -452,7 +452,7 @@ export async function main() {
     const tempConfig = await loadCliConfig(
       settings.merged,
       extensions,
-      sessionId, // Use default session ID
+      getSessionId(), // Use default session ID
       argv,
     );
     await listAvailableSessions(tempConfig);
@@ -479,7 +479,7 @@ export async function main() {
   }
 
   // Initialize session management
-  let finalSessionId = sessionId; // Default session ID
+  let finalSessionId = getSessionId(); // Default session ID
 
   const { SessionManager } = await import('deepv-code-core');
   const sessionManager = new SessionManager(workspaceRoot);
@@ -519,6 +519,7 @@ export async function main() {
 
   // Handle session selection based on command line arguments
   if (argv.session) {
+    // 用户明确指定了要加载的会话
     logIfNotSilent('log', `🔄 Loading session: ${argv.session}`);
     const sessionData = await sessionManager.loadSession(argv.session);
     if (sessionData) {
@@ -531,15 +532,17 @@ export async function main() {
       logIfNotSilent('log', `📝 Created new session: ${finalSessionId}`);
     }
   } else if (argv.continue) {
+    // 用户明确要求继续上一个会话
     logIfNotSilent('log', `🔄 Continuing last session...`);
     const sessionData = await sessionManager.initializeSession(true);
     finalSessionId = sessionData.sessionId as any;
     logIfNotSilent('log', `📝 Continuing last session: ${finalSessionId}`);
   } else {
+    // 直接启动：创建新的独立sessionId，不尝试恢复任何之前的会话
     logIfNotSilent('log', ``);
     const newSession = await sessionManager.createNewSession();
     finalSessionId = newSession.sessionId as any;
-
+    logIfNotSilent('log', `📝 Created new session: ${finalSessionId}`);
   }
 
   // Perform session cleanup after creating/selecting current session (runs in background)

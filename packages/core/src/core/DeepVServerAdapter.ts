@@ -482,11 +482,12 @@ export class DeepVServerAdapter implements ContentGenerator {
       }
     }
 
-    // 🚨 添加全局超时保护：60秒超时（流式可能需要更长时间）
-    const timeoutId = setTimeout(() => {
-      console.warn('[DeepV Server] Stream API call timeout - aborting after 60s');
-      controller.abort();
-    }, 60000);
+    // 注意：不使用全局超时定时器
+    // 原因：
+    // 1. 流式API本身没有明确的时间限制（可能会持续很长时间）
+    // 2. 如果中途没有数据，createStreamGenerator 中的 120秒 read() 超时会生效
+    // 3. 全局定时器易导致定时器泄漏（流完成后无法清理）
+    // 4. 用户可以通过 abortSignal 随时取消请求
 
     const startTime = Date.now();
 
@@ -539,21 +540,15 @@ export class DeepVServerAdapter implements ContentGenerator {
         status: response.status
       });
 
-      // 🚨 注意：不清理超时保护！
-      // 超时保护需要在整个流读取过程中保持有效
-      // 在 createStreamGenerator 中会为每个 read() 调用单独添加超时保护
-      // 只有在流完全结束或出错时才会清理
-
       return response;
 
     } catch (error) {
       const duration = Date.now() - startTime;
 
-      // 🚨 清理资源：移除abort监听器和超时定时器
+      // 🚨 清理资源：移除abort监听器
       if (abortListener) {
         abortListener();
       }
-      clearTimeout(timeoutId);
 
       // 用户取消请求的优雅处理
       if (error instanceof Error &&
@@ -579,9 +574,7 @@ export class DeepVServerAdapter implements ContentGenerator {
 
       throw error;
     } finally {
-      // 注意：这里不清理 timeoutId
-      // 超时保护需要跨越整个流生成过程
-      // 只有在流完全结束时才会通过 createStreamGenerator 的 finally 块清理
+      // 清理abort监听器
       if (abortListener) {
         abortListener();
       }
@@ -591,9 +584,11 @@ export class DeepVServerAdapter implements ContentGenerator {
   /**
    * 🆕 创建流式生成器
    *
-   * 🚨 添加流读取超时保护：
-   * - 为每个 read() 调用添加超时
-   * - 确保长时间无数据时自动中止
+   * 超时保护策略：
+   * - 每个 read() 调用有 120 秒超时（这是唯一的超时保护）
+   * - 如果 120 秒内没有收到数据，自动中止
+   * - 允许长时间的数据流传输（只要持续有数据到达）
+   * - 用户可以通过 abortSignal 随时取消请求
    */
   private async *createStreamGenerator(response: Response, abortSignal?: AbortSignal): AsyncGenerator<GenerateContentResponse> {
     const reader = response.body?.getReader();
@@ -612,8 +607,9 @@ export class DeepVServerAdapter implements ContentGenerator {
           break;
         }
 
-        // 🚨 为流读取添加超时保护（120秒）
+        // 为流读取添加超时保护（120秒）
         // 这确保如果长时间没有收到任何数据，会自动中止
+        // 但如果数据在持续到达，流可以无限期地运行
         const { done, value } = await this.withTimeout(
           reader.read(),
           120000,

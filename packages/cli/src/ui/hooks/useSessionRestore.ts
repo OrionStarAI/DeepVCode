@@ -14,7 +14,7 @@ interface UseSessionRestoreParams {
 }
 
 export const useSessionRestore = ({ config, loadHistory }: UseSessionRestoreParams) => {
-  
+
   const restoreSession = useCallback(async () => {
     const projectRoot = config.getProjectRoot();
     if (!projectRoot) {
@@ -22,23 +22,32 @@ export const useSessionRestore = ({ config, loadHistory }: UseSessionRestorePara
     }
 
     try {
-      //console.log('[SessionRestore] Starting session restoration...');
       const sessionManager = new SessionManager(projectRoot);
-      const sessionData = await sessionManager.loadSession(config.getSessionId());
-      
+      const currentSessionId = config.getSessionId();
+      const sessionData = await sessionManager.loadSession(currentSessionId);
+
       if (!sessionData) {
-        console.log('[SessionRestore] No session data found');
+        console.log(`[SessionRestore] No saved data for current session ${currentSessionId} - this is a new session`);
+        return;
+      }
+
+      // 只恢复有实际内容的会话
+      const hasHistory = sessionData.history && sessionData.history.length > 0;
+      const hasClientHistory = sessionData.clientHistory && sessionData.clientHistory.length > 0;
+
+      if (!hasHistory && !hasClientHistory) {
+        console.log(`[SessionRestore] Current session ${currentSessionId} has no history - starting fresh`);
         return;
       }
 
       // 1. 立即恢复UI历史记录
-      if (sessionData.history && sessionData.history.length > 0) {
+      if (hasHistory && sessionData.history) {
         console.log(`[SessionRestore] Restoring UI history with ${sessionData.history.length} items`);
         loadHistory(sessionData.history);
       }
 
       // 2. 启动AI客户端历史记录恢复监听器
-      if (sessionData.clientHistory && sessionData.clientHistory.length > 0) {
+      if (hasClientHistory && sessionData.clientHistory) {
         console.log(`[SessionRestore] Setting up AI client history restoration for ${sessionData.clientHistory.length} items`);
         startClientHistoryRestore(config, sessionData.clientHistory);
       }
@@ -61,10 +70,10 @@ export const useSessionRestore = ({ config, loadHistory }: UseSessionRestorePara
  */
 function startClientHistoryRestore(config: Config, clientHistory: any[]) {
   console.log('[SessionRestore] Starting AI client history restore monitor...');
- 
+
   const checkAndRestore = () => {
     const geminiClient = config.getGeminiClient();
-    
+
     // 检查客户端是否已初始化
     if (geminiClient && geminiClient.isInitialized?.()) {
       try {
@@ -92,7 +101,7 @@ function startClientHistoryRestore(config: Config, clientHistory: any[]) {
 export const useSessionAutoSave = (config: Config, history: HistoryItem[], streamingState: StreamingState) => {
   const lastSavedHistoryLengthRef = useRef(0);
   const previousStreamingStateRef = useRef<StreamingState | undefined>(undefined);
-  
+
   const saveSession = useCallback(async () => {
     // 检查是否有新的历史记录需要保存
     if (history.length === 0 || history.length === lastSavedHistoryLengthRef.current) {
@@ -107,13 +116,13 @@ export const useSessionAutoSave = (config: Config, history: HistoryItem[], strea
     try {
       const sessionManager = new SessionManager(projectRoot);
       const clientHistory = await config.getGeminiClient()?.getHistory();
-      
+
       await sessionManager.saveSessionHistory(
-        config.getSessionId(), 
-        history, 
+        config.getSessionId(),
+        history,
         clientHistory
       );
-      
+
       lastSavedHistoryLengthRef.current = history.length;
       console.log(`[SessionAutoSave] ✅ Turn completed - Saved ${history.length} history items`);
     } catch (error) {
@@ -125,7 +134,7 @@ export const useSessionAutoSave = (config: Config, history: HistoryItem[], strea
   useEffect(() => {
     const previousState = previousStreamingStateRef.current;
     const currentState = streamingState;
-    
+
     // 检测从Responding变为Idle，表示turn完成
     if (previousState === StreamingState.Responding && currentState === StreamingState.Idle) {
       // 使用小延迟确保所有状态已更新
@@ -133,7 +142,7 @@ export const useSessionAutoSave = (config: Config, history: HistoryItem[], strea
         saveSession();
       }, 500);
     }
-    
+
     previousStreamingStateRef.current = currentState;
   }, [streamingState, saveSession]);
 
@@ -145,8 +154,8 @@ export const useSessionAutoSave = (config: Config, history: HistoryItem[], strea
   //       if (projectRoot) {
   //         const sessionManager = new SessionManager(projectRoot);
   //         sessionManager.saveSessionHistory(
-  //           config.getSessionId(), 
-  //           history, 
+  //           config.getSessionId(),
+  //           history,
   //           undefined
   //         ).catch(error => {
   //           console.warn('[SessionAutoSave] ❌ Failed to save on unmount:', error);
