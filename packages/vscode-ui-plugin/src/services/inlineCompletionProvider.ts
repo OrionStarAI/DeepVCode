@@ -64,7 +64,7 @@ export class DeepVInlineCompletionProvider implements vscode.InlineCompletionIte
     try {
       // 检查是否启用了补全功能
       const config = vscode.workspace.getConfiguration('deepv');
-      const enableInlineCompletion = config.get<boolean>('enableInlineCompletion', true);
+      const enableInlineCompletion = config.get<boolean>('enableInlineCompletion', false);
 
       if (!enableInlineCompletion) {
         return null;
