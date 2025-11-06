@@ -53,19 +53,29 @@ const infoCommand: SlashCommand = {
   description: 'Show information about extensions system',
   kind: CommandKind.BUILT_IN,
   action: async (context: CommandContext): Promise<void> => {
-    const message = `\u001b[1mExtension System\u001b[0m
+    const title = t('command.extensions.info.title');
+    const intro = t('command.extensions.info.intro');
+    const installLabel = t('command.extensions.info.install');
+    const listLabel = t('command.extensions.info.list');
+    const validateLabel = t('command.extensions.info.validate');
+    const uninstallLabel = t('command.extensions.info.uninstall');
+    const exampleLabel = t('command.extensions.info.example');
+    const learnmoreLabel = t('command.extensions.info.learnmore');
+    const url = t('command.extensions.info.url');
 
-DVCode supports Gemini CLI extensions. To manage extensions, use:
+    const message = `\u001b[1m${title}\u001b[0m
 
-  \u001b[36mdvcode extensions install <url>\u001b[0m   - Install extension
-  \u001b[36mdvcode extensions list\u001b[0m           - List extensions
-  \u001b[36mdvcode extensions validate <path>\u001b[0m  - Validate config
-  \u001b[36mdvcode extensions uninstall <name>\u001b[0m - Remove extension
+${intro}
 
-Example:
-  \u001b[36mdvcode extensions install https://github.com/gemini-cli-extensions/nanobanana\u001b[0m
+  \u001b[36mdvcode extensions install <url>\u001b[0m   - ${installLabel}
+  \u001b[36mdvcode extensions list\u001b[0m           - ${listLabel}
+  \u001b[36mdvcode extensions validate <path>\u001b[0m  - ${validateLabel}
+  \u001b[36mdvcode extensions uninstall <name>\u001b[0m - ${uninstallLabel}
 
-For more information, see EXTENSION_GEMINI_COMPAT.md
+${exampleLabel}
+  \u001b[36mdvcode extensions install https://github.com/ChromeDevTools/chrome-devtools-ls-mcp\u001b[0m
+
+${learnmoreLabel} ${url}
 `;
 
     context.ui.addItem(

@@ -52,6 +52,7 @@ import { createConfirmationReadlineInterface } from './ui/utils/readlineOptimize
 import { setupGitErrorMonitoring, canDisableCheckpointing } from './utils/gitErrorHandler.js';
 import { AudioNotification } from './utils/audioNotification.js';
 import { performStartupResize } from './ui/utils/vscodeStartupResize.js';
+import { terminalSizeManager } from './ui/utils/terminalSizeManager.js';
 
 async function listAvailableSessions(config: Config): Promise<void> {
   try {
@@ -252,6 +253,11 @@ export async function main() {
 
   // Load environment variables early to ensure Claude configuration works
   loadEnvironment();
+
+  // 初始化 TerminalSizeManager 以集中管理 resize 事件
+  // 这样可以避免 MaxListenersExceededWarning，并提升性能
+  // 注意：terminalSizeManager 是单例，此调用确保其在应用启动时初始化
+  terminalSizeManager.getTerminalSize();
 
   // Need to parse arguments twice:
   // 1. First pass with minimal setup to get --workdir

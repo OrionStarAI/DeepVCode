@@ -51,7 +51,7 @@ export const useAuthCommand = (
       }
 
       try {
-        console.log('🔍 [AuthCommand] 启动时检查认证状态...');
+        console.log('[AuthCommand] checking auth at startup...');
 
         // 对于 Cheeth OA 认证，检查本地用户信息
         if (authType === AuthType.USE_CHEETH_OA) {
@@ -60,23 +60,23 @@ export const useAuthCommand = (
           const userInfo = proxyAuthManager.getUserInfo();
 
           if (!userInfo) {
-            console.log('🚨 [AuthCommand] 启动时发现认证过期，显示认证对话框');
+            console.log('[AuthCommand] auth expired at startup, opening auth dialog');
             openAuthDialog();
           } else {
-            console.log(`✅ [AuthCommand] 启动时认证检查通过: ${userInfo.name}`);
+            console.log(`[AuthCommand] auth check passed: ${userInfo.name}`);
           }
         } else {
           // 对于其他认证类型，尝试简单的认证刷新来检查状态
           try {
             await config.refreshAuth(authType);
-            console.log('✅ [AuthCommand] 启动时认证检查通过');
+            console.log('[AuthCommand] auth check passed');
           } catch (error) {
-            console.log('🚨 [AuthCommand] 启动时发现认证过期，显示认证对话框');
+            console.log('[AuthCommand] auth expired at startup, opening auth dialog');
             openAuthDialog();
           }
         }
       } catch (error) {
-        console.warn('⚠️ [AuthCommand] 启动时认证检查失败:', error);
+        console.warn('[AuthCommand] auth check at startup failed:', error);
         // 认证检查失败时，不强制显示对话框，等用户操作时再处理
       } finally {
         setStartupAuthCheckCompleted(true);
@@ -117,7 +117,7 @@ export const useAuthCommand = (
             // 检查是否已有用户信息（从本地文件自动加载）
             const userInfo = proxyAuthManager.getUserInfo();
             if (userInfo) {
-              console.log(`✅ 已登录用户: ${userInfo.name} (${userInfo.email || userInfo.openId || 'N/A'})`);
+              console.log(`✅ Logged in user: ${userInfo.name} (${userInfo.email || userInfo.openId || 'N/A'})`);
               // 有用户信息说明认证有效，不需要立即刷新
               return;
             }

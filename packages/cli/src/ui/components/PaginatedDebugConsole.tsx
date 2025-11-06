@@ -17,18 +17,25 @@ interface PaginatedDebugConsoleProps {
   isManuallyBrowsing: boolean;
 }
 
-export const PaginatedDebugConsole: React.FC<PaginatedDebugConsoleProps> = ({
+function PaginatedDebugConsoleComponent({
   messages,
   currentPage,
   pageSize,
   width,
   isManuallyBrowsing,
-}) => {
+}: PaginatedDebugConsoleProps) {
   const startIndex = currentPage * pageSize;
   const pageMessages = messages.slice(startIndex, startIndex + pageSize);
   const totalPages = Math.ceil(messages.length / pageSize) || 1;
+  const errorCount = messages.filter((msg) => msg.type === 'error').length;
+  const errorMessages = messages.filter((msg) => msg.type === 'error');
+
+  // Reserve space for error panel: 1 line for header + up to 3 error lines
+  const errorPanelHeight = errorCount > 0 ? Math.min(4, errorCount + 1) : 0;
+  const scrollableHeight = Math.max(5, pageSize - errorPanelHeight);
 
   const borderAndPadding = 4;
+  const scrollPageMessages = messages.slice(startIndex, startIndex + scrollableHeight);
 
   return (
     <Box
@@ -41,9 +48,12 @@ export const PaginatedDebugConsole: React.FC<PaginatedDebugConsoleProps> = ({
       height={pageSize + 3} // +3 for header and page indicator
     >
       {/* Header */}
-      <Box marginBottom={1}>
+      <Box marginBottom={1} justifyContent="space-between">
         <Text bold color={Colors.Foreground}>
-          Debug Console <Text color={Colors.Gray}>(ctrl+o to close, ctrl+s to exit paging)</Text>
+          Debug Console <Text color={Colors.Gray}>(ctrl+o to toggle, ctrl+s to expand, exit paging with Esc)</Text>
+        </Text>
+        <Text color={errorCount > 0 ? Colors.AccentRed : Colors.Gray}>
+          Errors: {errorCount}
         </Text>
       </Box>
 
@@ -52,25 +62,16 @@ export const PaginatedDebugConsole: React.FC<PaginatedDebugConsoleProps> = ({
         <Text color={Colors.Gray}>
           Page {currentPage + 1}/{totalPages} - {messages.length} total messages
         </Text>
-        <Text color={Colors.Gray}>
-          Navigation: PgUp/PgDown | Home (first) | End (latest)
-          {currentPage === totalPages - 1 && !isManuallyBrowsing && (
-            <Text color={Colors.AccentGreen}> [LIVE]</Text>
-          )}
-          {isManuallyBrowsing && (
-            <Text color={Colors.AccentYellow}> [BROWSING]</Text>
-          )}
-        </Text>
       </Box>
 
-      {/* Fixed height message area */}
-      <Box flexDirection="column" height={pageSize}>
-        {pageMessages.length === 0 ? (
+      {/* Scrollable message area */}
+      <Box flexDirection="column" height={scrollableHeight}>
+        {scrollPageMessages.length === 0 ? (
           <Box>
             <Text color={Colors.Gray}>No messages on this page</Text>
           </Box>
         ) : (
-          pageMessages.map((msg, index) => {
+          scrollPageMessages.map((msg, index) => {
             let textColor = Colors.Foreground;
             let icon = '\u2139'; // Information source (ℹ)
 
@@ -94,7 +95,7 @@ export const PaginatedDebugConsole: React.FC<PaginatedDebugConsoleProps> = ({
             }
 
             return (
-              <Box key={startIndex + index} flexDirection="row">
+              <Box key={`${currentPage}-${msg.type}-${index}`} flexDirection="row">
                 <Text color={textColor}>{icon} </Text>
                 <Text
                   color={textColor}
@@ -111,12 +112,51 @@ export const PaginatedDebugConsole: React.FC<PaginatedDebugConsoleProps> = ({
         )}
 
         {/* Fill remaining space to maintain fixed height */}
-        {Array.from({ length: Math.max(0, pageSize - pageMessages.length) }, (_, i) => (
+        {Array.from({ length: Math.max(0, scrollableHeight - scrollPageMessages.length) }, (_, i) => (
           <Box key={`empty-${i}`}>
             <Text> </Text>
           </Box>
         ))}
       </Box>
+
+      {/* Fixed error panel at the bottom */}
+      {errorCount > 0 && (
+        <Box
+          flexDirection="column"
+          marginTop={1}
+          paddingTop={1}
+          height={errorPanelHeight}
+        >
+          <Text bold color={Colors.AccentRed}>
+            ━━ ✖ Recent Errors ({errorCount} total):
+          </Text>
+          {errorMessages.slice(-3).map((msg, index) => (
+            <Box key={`error-${index}`} flexDirection="row">
+              <Text color={Colors.AccentRed}>  • </Text>
+              <Text color={Colors.AccentRed} wrap="wrap">
+                {msg.content}
+                {msg.count && msg.count > 1 && (
+                  <Text color={Colors.Gray}> (x{msg.count})</Text>
+                )}
+              </Text>
+            </Box>
+          ))}
+        </Box>
+      )}
     </Box>
   );
-};
+}
+
+export const PaginatedDebugConsole = React.memo(
+  PaginatedDebugConsoleComponent,
+  (prevProps, nextProps) => {
+    // Return true if props are equal (no re-render), false to re-render
+    return (
+      prevProps.messages.length === nextProps.messages.length &&
+      prevProps.currentPage === nextProps.currentPage &&
+      prevProps.pageSize === nextProps.pageSize &&
+      prevProps.width === nextProps.width &&
+      prevProps.isManuallyBrowsing === nextProps.isManuallyBrowsing
+    );
+  }
+);

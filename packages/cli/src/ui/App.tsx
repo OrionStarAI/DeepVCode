@@ -105,6 +105,7 @@ import ansiEscapes from 'ansi-escapes';
 import { OverflowProvider } from './contexts/OverflowContext.js';
 import { ShowMoreLines } from './components/ShowMoreLines.js';
 import { PaginatedDebugConsole } from './components/PaginatedDebugConsole.js';
+import { ScrollingDebugConsole } from './components/ScrollingDebugConsole.js';
 import { PrivacyNotice } from './privacy/PrivacyNotice.js';
 import { appEvents, AppEvent } from '../utils/events.js';
 import { AudioNotification } from '../utils/audioNotification.js';
@@ -291,17 +292,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     checkForUpdates().then(setUpdateMessage);
   }, []);
 
-  // Message count milestone hint state
-  const [messageCountHint, setMessageCountHint] = useState<string | null>(null);
-
-  const handleMessageCountMilestone = useCallback((count: number) => {
-    // Show hint when message count reaches multiples of 30
-    setMessageCountHint(tp('hint.message_count_milestone', { count }));
-  }, []);
-
-  const { history, addItem, clearItems, loadHistory } = useHistory({
-    onMessageCountMilestone: handleMessageCountMilestone,
-  });
+  const { history, addItem, clearItems, loadHistory } = useHistory();
   const {
     consoleMessages,
     handleNewMessage,
@@ -372,10 +363,6 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   const [ctrlDPressedOnce, setCtrlDPressedOnce] = useState(false);
   const ctrlDTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [constrainHeight, setConstrainHeight] = useState<boolean>(true);
-  // Debug panel pagination states
-  const [debugPanelPage, setDebugPanelPage] = useState(0);
-  const [debugPanelViewMode, setDebugPanelViewMode] = useState<'constrained' | 'paged'>('constrained');
-  const [isManuallyBrowsing, setIsManuallyBrowsing] = useState(false);
   const [ideConnectionStatus, setIdeConnectionStatus] = useState<IDEConnectionStatus>(
     IDEConnectionStatus.Disconnected
   );
@@ -818,9 +805,6 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     async (submittedValue: string) => {
       const trimmedValue = submittedValue.trim();
       if (trimmedValue.length > 0) {
-        // Clear message count hint when user submits new message
-        setMessageCountHint(null);
-
         // Clear screen once when user first submits message after logo is shown
         if (logoShows) {
           clearScreenWithScrollBuffer(stdout);
@@ -1053,7 +1037,14 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     }
 
     if (key.ctrl && input === 'o') {
+      // Toggle small console panel open/closed
       setShowErrorDetails((prev) => !prev);
+    } else if (key.ctrl && input === 's') {
+      // Toggle between small and large panel (only when open)
+      if (showErrorDetails) {
+        // If already open, toggle between constrained and full height
+        setConstrainHeight((prev) => !prev);
+      }
     } else if (key.ctrl && input === 't') {
       const newValue = !showToolDescriptions;
       setShowToolDescriptions(newValue);
@@ -1072,49 +1063,6 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
         return;
       }
       handleExit(ctrlDPressedOnce, setCtrlDPressedOnce, ctrlDTimerRef);
-    } else if (key.ctrl && input === 's' && !enteringConstrainHeightMode) {
-      // Toggle debug panel view mode when debug panel is shown
-      if (showErrorDetails) {
-        if (debugPanelViewMode === 'constrained') {
-          setDebugPanelViewMode('paged');
-          setIsManuallyBrowsing(false); // Start in auto-follow mode
-          // Will auto-jump to latest page via useEffect
-        } else {
-          setDebugPanelViewMode('constrained');
-          setIsManuallyBrowsing(false); // Reset state
-        }
-      } else {
-        // Original behavior when debug panel is not shown
-        setConstrainHeight(false);
-      }
-    } else if (showErrorDetails && debugPanelViewMode === 'paged') {
-      // Handle pagination in debug panel
-      if ((key as any).name === 'pageup') {
-        setIsManuallyBrowsing(true);
-        setDebugPanelPage(prev => Math.max(0, prev - 1));
-      } else if ((key as any).name === 'pagedown') {
-        const debugPanelPageSize = Math.floor(terminalHeight * 0.6);
-        const totalPages = Math.ceil(filteredConsoleMessages.length / debugPanelPageSize);
-        const newPage = Math.min(totalPages - 1, debugPanelPage + 1);
-
-        // If user is going to the last page, resume auto-follow
-        if (newPage === totalPages - 1) {
-          setIsManuallyBrowsing(false);
-        } else {
-          setIsManuallyBrowsing(true);
-        }
-        setDebugPanelPage(newPage);
-      } else if ((key as any).name === 'home') {
-        // Jump to first page - enter manual browsing mode
-        setIsManuallyBrowsing(true);
-        setDebugPanelPage(0);
-      } else if ((key as any).name === 'end') {
-        // Jump to last page (live view) - exit manual browsing mode
-        setIsManuallyBrowsing(false);
-        const debugPanelPageSize = Math.floor(terminalHeight * 0.6);
-        const totalPages = Math.ceil(filteredConsoleMessages.length / debugPanelPageSize);
-        setDebugPanelPage(Math.max(0, totalPages - 1));
-      }
     }
   });
 
@@ -1168,7 +1116,6 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   const handleClearScreen = useCallback(() => {
     clearItems();
     clearConsoleMessagesState();
-    setMessageCountHint(null); // Clear message count hint
     clearScreenWithScrollBuffer(stdout);
     refreshStatic();
   }, [clearItems, clearConsoleMessagesState, stdout, refreshStatic]);
@@ -1226,11 +1173,11 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     // 现代终端和计算机完全可以处理几百条消息的渲染
 
     // 添加所有历史项，使用staticKey确保/chat resume后强制重新渲染
-    items.push(...history.map((h, index) => (
+    items.push(...history.map((h) => (
       <HistoryItemDisplay
         terminalWidth={mainAreaWidth}
         availableTerminalHeight={staticAreaMaxItemHeight}
-        key={`${staticKey}-${h.id}-${index}`} // Linus fix: 使用staticKey确保/chat resume后强制重新渲染
+        key={`${staticKey}-${h.id}`} // 使用 staticKey 和 item ID 确保稳定的组件复用
         item={h}
         isPending={false}
         config={config}
@@ -1345,51 +1292,29 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   ) : null;
   const debugConsoleMaxHeight = Math.floor(Math.max(terminalHeight * 0.2, 5));
   const debugPanelPageSize = Math.floor(Math.max(terminalHeight * 0.6, 10)); // 60% of terminal height for paged mode
+  // Calculate debug panel height based on constrainHeight state
+  const debugPanelHeight = constrainHeight ? debugConsoleMaxHeight : debugPanelPageSize;
   const placeholder = planModeActive
     ? "  计划模式：可读取代码分析，禁止修改 (/plan off 退出)"
     : vimModeEnabled
       ? "  按 'i' 进入插入模式，按 'Esc' 进入普通模式。"
       : '  输入您的消息或 @文件路径';
 
-  // Auto-navigate to latest page when new messages arrive in paged mode (only if not manually browsing)
-  useEffect(() => {
-    if (debugPanelViewMode === 'paged' && filteredConsoleMessages.length > 0 && !isManuallyBrowsing) {
-      const totalPages = Math.ceil(filteredConsoleMessages.length / debugPanelPageSize);
-      const lastPageIndex = Math.max(0, totalPages - 1);
 
-      setDebugPanelPage(lastPageIndex);
-    }
-  }, [filteredConsoleMessages.length, debugPanelViewMode, debugPanelPageSize, isManuallyBrowsing]);
 
-  // Helper function to render debug panel based on current view mode
+  // Helper function to render debug panel with scrolling display
   const renderDebugPanel = () => {
-    if (!showErrorDetails) return null;
-
+    if (!showErrorDetails) {
+      return null;
+    }
     return (
-      <OverflowProvider>
-        <Box flexDirection="column">
-          {debugPanelViewMode === 'paged' ? (
-            <PaginatedDebugConsole
-              messages={filteredConsoleMessages}
-              currentPage={debugPanelPage}
-              pageSize={debugPanelPageSize}
-              width={inputWidth}
-              isManuallyBrowsing={isManuallyBrowsing}
-            />
-          ) : (
-            <>
-              <DetailedMessagesDisplay
-                messages={filteredConsoleMessages}
-                maxHeight={
-                  constrainHeight ? debugConsoleMaxHeight : undefined
-                }
-                width={inputWidth}
-              />
-              <ShowMoreLines constrainHeight={constrainHeight} />
-            </>
-          )}
-        </Box>
-      </OverflowProvider>
+      <Box flexDirection="column">
+        <ScrollingDebugConsole
+          messages={filteredConsoleMessages}
+          height={debugPanelHeight}
+          width={inputWidth}
+        />
+      </Box>
     );
   };
 
@@ -1512,7 +1437,6 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                   openAuthDialog();
                 }}
               />
-              {renderDebugPanel()}
             </>
           ) : isPreparingEnvironment ? (
             <>
@@ -1524,7 +1448,6 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                   openAuthDialog();
                 }}
               />
-              {renderDebugPanel()}
             </>
           ) : isAuthDialogOpen ? (
             <Box flexDirection="column">
@@ -1629,7 +1552,6 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
               {showIDEContextDetail && (
                 <IDEContextDetailDisplay openFiles={openFiles} />
               )}
-              {renderDebugPanel()}
 
               {/* Token Usage Display - 显示在输入框上方 */}
               {lastTokenUsage && streamingState !== StreamingState.Responding && (
@@ -1638,13 +1560,6 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                   inputWidth={inputWidth}
                   cumulativeCredits={cumulativeCredits}
                 />
-              )}
-
-              {/* Message count milestone hint - 显示在统计框下方 */}
-              {messageCountHint && (
-                <Box paddingLeft={1} paddingBottom={1}>
-                  <Text color={Colors.AccentOrange}>ℹ {messageCountHint}</Text>
-                </Box>
               )}
 
               {/* 润色 Loading 界面 */}
@@ -1755,6 +1670,8 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
               )}
             </Box>
           )}
+          {/* Debug Console - Fixed at bottom before Footer */}
+          {renderDebugPanel()}
           <Footer
             model={currentModel}
             targetDir={config.getTargetDir()}

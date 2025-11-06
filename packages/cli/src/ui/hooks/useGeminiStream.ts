@@ -1373,7 +1373,7 @@ User question: ${queryStr}`;
                 });
                 // 更新预估token显示
                 setEstimatedInputTokens(tokenResponse.totalTokens || 0);
-                console.log(`[Token Estimation] 预估输入token: ${tokenResponse.totalTokens || 0}`);
+                console.log(`[Token Estimation] Estimated input tokens: ${tokenResponse.totalTokens || 0}`);
               }
             }
           } catch (error) {

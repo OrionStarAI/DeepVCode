@@ -122,6 +122,13 @@ export class WebSearchTool extends BaseTool<
     }
     const geminiClient = this.config.getGeminiClient();
 
+    // 🚨 创建超时保护：web search最多30秒
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      console.warn(`[WebSearchTool] Web search timeout for query "${params.query}" - aborting after 30s`);
+      controller.abort();
+    }, 30000);
+
     try {
       console.log(`[WebSearchTool] Using temporary chat for web search with full API monitoring`);
       // 创建临时Chat获得完整的API日志、Token统计、错误处理等功能
@@ -134,11 +141,14 @@ export class WebSearchTool extends BaseTool<
       // 设置Google搜索工具
       temporaryChat.setTools([{ googleSearch: {} }]);
 
+      // 🚨 创建组合的abort signal：外部signal或超时signal中任一触发都会中止
+      const combinedSignal = AbortSignal.any([signal, controller.signal]);
+
       const response = await temporaryChat.sendMessage(
         {
           message: params.query,
           config: {
-            abortSignal: signal
+            abortSignal: combinedSignal
           }
         },
         `websearch-${Date.now()}`,
@@ -229,6 +239,10 @@ export class WebSearchTool extends BaseTool<
         llmContent: `Error: ${errorMessage}`,
         returnDisplay: t('websearch.error.performing'),
       };
+    } finally {
+      // 🚨 最终清理：确保超时定时器一定被清除
+      clearTimeout(timeoutId);
+      controller.abort(); // 清理超时controller
     }
   }
 }
