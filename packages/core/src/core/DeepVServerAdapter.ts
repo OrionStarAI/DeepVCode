@@ -170,9 +170,11 @@ export class DeepVServerAdapter implements ContentGenerator {
       }
     }
 
-    // 🚨 添加全局超时保护：30秒超时
-    const timeoutId = setTimeout(() => {
-      console.warn('[DeepV Server] API call timeout - aborting after 30s');
+    // 🚨 添加两层超时保护：
+    // 1. 连接层：30秒超时（保护TCP连接建立和响应头接收）
+    // 2. 数据层：120秒超时（保护完整响应体接收，response.json()）
+    const fetchTimeoutId = setTimeout(() => {
+      console.warn('[DeepV Server] API fetch timeout - aborting after 30s');
       controller.abort();
     }, 30000);
 
@@ -195,7 +197,15 @@ export class DeepVServerAdapter implements ContentGenerator {
         signal: controller.signal,
       });
 
+      // 🚨 获取响应头后清理连接超时，改用数据超时
+      clearTimeout(fetchTimeoutId);
+      const dataTimeoutId = setTimeout(() => {
+        console.warn('[DeepV Server] API data timeout - response.json() taking too long (>120s)');
+        controller.abort();
+      }, 120000);
+
       if (!response.ok) {
+        clearTimeout(dataTimeoutId);
         const errorText = await response.text();
 
         // 401错误特殊处理
@@ -219,7 +229,13 @@ export class DeepVServerAdapter implements ContentGenerator {
         throw new Error(`API request failed (${response.status}): ${errorText}`);
       }
 
-      const responseData = await response.json() as GenerateContentResponse;
+      // 🚨 使用数据层超时保护 response.json()
+      const responseData = await this.withTimeout(
+        response.json() as Promise<GenerateContentResponse>,
+        120000,
+        '[DeepV Server] API response parsing timeout after 120s'
+      );
+      clearTimeout(dataTimeoutId);
 
       // 确保响应对象有 functionCalls getter
       if (!responseData.functionCalls) {
@@ -259,11 +275,11 @@ export class DeepVServerAdapter implements ContentGenerator {
     } catch (error) {
       const duration = Date.now() - startTime;
 
-      // 🚨 清理资源：移除abort监听器和超时定时器
+      // 🚨 清理资源：移除abort监听器和所有超时定时器
       if (abortListener) {
         abortListener();
       }
-      clearTimeout(timeoutId);
+      clearTimeout(fetchTimeoutId);
 
       // 用户取消请求的优雅处理
       if (error instanceof Error &&
@@ -273,7 +289,13 @@ export class DeepVServerAdapter implements ContentGenerator {
       }
 
       // 超时错误处理
-      if (error instanceof Error && error.message.includes('abort')) {
+      if (error instanceof Error && error.message.includes('timeout')) {
+        logger.warn('[DeepV Server] Request timeout', {
+          endpoint,
+          duration: `${duration}ms`,
+          reason: error.message
+        });
+      } else if (error instanceof Error && error.message.includes('abort')) {
         logger.warn('[DeepV Server] Request aborted', {
           endpoint,
           duration: `${duration}ms`,
@@ -290,7 +312,7 @@ export class DeepVServerAdapter implements ContentGenerator {
       throw error;
     } finally {
       // 🚨 最终清理：确保资源一定被释放
-      clearTimeout(timeoutId);
+      clearTimeout(fetchTimeoutId);
       if (abortListener) {
         abortListener();
       }
