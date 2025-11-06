@@ -163,13 +163,7 @@ export function useReactToolScheduler(
 
   const toolCallsUpdateHandler: ToolCallsUpdateHandler = useCallback(
     (updatedCoreToolCalls: ToolCall[]) => {
-      // 🐛 调试日志：工具调用更新
-      console.log('[useReactToolScheduler] 🔄 工具调用列表更新:', {
-        prevCount: toolCallsForDisplay.length,
-        newCount: updatedCoreToolCalls.length,
-        newStatuses: updatedCoreToolCalls.map(tc => `${tc.request.name}:${tc.status}`),
-        prevStatuses: toolCallsForDisplay.map(tc => `${tc.request.name}:${tc.status}`)
-      });
+      console.log('[useReactToolScheduler] tool calls updated: prev=%d new=%d', toolCallsForDisplay.length, updatedCoreToolCalls.length);
 
       setToolCallsForDisplay((prevTrackedCalls) =>
         updatedCoreToolCalls.map((coreTc) => {

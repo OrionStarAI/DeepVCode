@@ -1,0 +1,587 @@
+
+> deepv-code-cli@1.0.202 test
+> vitest run errorParsing.test.ts
+
+
+[1m[46m RUN [49m[22m [36mv3.2.4 [39m[90mD:/projects/deepVcode/DeepCode/packages/cli[39m
+      [2mCoverage enabled with [22m[33mv8[39m
+
+ [31m❯[39m src/ui/utils/errorParsing.test.ts [2m([22m[2m40 tests[22m[2m | [22m[31m20 failed[39m[2m)[22m[32m 117[2mms[22m[39m
+   [32m✓[39m parseAndFormatApiError[2m > [22mshould format a valid API error JSON[32m 12[2mms[22m[39m
+[31m   [31m×[31m parseAndFormatApiError[2m > [22mshould format a 429 API error with the default message[39m[32m 30[2mms[22m[39m
+[31m     → expected '─────────────────────────────────────…' to contain '[API Error: Rate limit exceeded'[39m
+[31m   [31m×[31m parseAndFormatApiError[2m > [22mshould format a 429 API error with the personal message[39m[32m 11[2mms[22m[39m
+[31m     → expected '─────────────────────────────────────…' to contain '[API Error: Rate limit exceeded'[39m
+[31m   [31m×[31m parseAndFormatApiError[2m > [22mshould format a 429 API error with the vertex message[39m[32m 4[2mms[22m[39m
+[31m     → expected '─────────────────────────────────────…' to contain '[API Error: Rate limit exceeded'[39m
+   [32m✓[39m parseAndFormatApiError[2m > [22mshould return the original message if it is not a JSON error[32m 0[2mms[22m[39m
+   [32m✓[39m parseAndFormatApiError[2m > [22mshould return the original message for malformed JSON[32m 0[2mms[22m[39m
+   [32m✓[39m parseAndFormatApiError[2m > [22mshould handle JSON that does not match the ApiError structure[32m 0[2mms[22m[39m
+[31m   [31m×[31m parseAndFormatApiError[2m > [22mshould format a nested API error[39m[32m 3[2mms[22m[39m
+[31m     → expected '─────────────────────────────────────…' to contain 'Gemini 2.5 Pro Preview'[39m
+   [32m✓[39m parseAndFormatApiError[2m > [22mshould format a StructuredError[32m 0[2mms[22m[39m
+[31m   [31m×[31m parseAndFormatApiError[2m > [22mshould format a 429 StructuredError with the vertex message[39m[32m 4[2mms[22m[39m
+[31m     → expected '─────────────────────────────────────…' to contain '[API Error: Rate limit exceeded]'[39m
+   [32m✓[39m parseAndFormatApiError[2m > [22mshould handle an unknown error type[32m 0[2mms[22m[39m
+[31m   [31m×[31m parseAndFormatApiError[2m > [22mshould format a 429 API error with Pro quota exceeded message for Google auth (Free tier)[39m[32m 3[2mms[22m[39m
+[31m     → expected '[API Error: Quota exceeded for quota …' to contain '[API Error: Quota exceeded for quota …'[39m
+[31m   [31m×[31m parseAndFormatApiError[2m > [22mshould format a regular 429 API error with standard message for Google auth[39m[32m 4[2mms[22m[39m
+[31m     → expected '─────────────────────────────────────…' to contain '[API Error: Rate limit exceeded'[39m
+[31m   [31m×[31m parseAndFormatApiError[2m > [22mshould format a 429 API error with generic quota exceeded message for Google auth[39m[32m 2[2mms[22m[39m
+[31m     → expected '[API Error: Quota exceeded for quota …' to contain '[API Error: Quota exceeded for quota …'[39m
+[31m   [31m×[31m parseAndFormatApiError[2m > [22mshould prioritize Pro quota message over generic quota message for Google auth[39m[32m 2[2mms[22m[39m
+[31m     → expected '[API Error: Quota exceeded for quota …' to contain '[API Error: Quota exceeded for quota …'[39m
+[31m   [31m×[31m parseAndFormatApiError[2m > [22mshould format a 429 API error with Pro quota exceeded message for Google auth (Standard tier)[39m[32m 2[2mms[22m[39m
+[31m     → expected '[API Error: Quota exceeded for quota …' to contain '[API Error: Quota exceeded for quota …'[39m
+[31m   [31m×[31m parseAndFormatApiError[2m > [22mshould format a 429 API error with Pro quota exceeded message for Google auth (Legacy tier)[39m[32m 3[2mms[22m[39m
+[31m     → expected '[API Error: Quota exceeded for quota …' to contain '[API Error: Quota exceeded for quota …'[39m
+[31m   [31m×[31m parseAndFormatApiError[2m > [22mshould handle different Gemini 2.5 version strings in Pro quota exceeded errors[39m[32m 2[2mms[22m[39m
+[31m     → expected '[API Error: Quota exceeded for quota …' to contain 'You have reached your daily auto quot…'[39m
+   [32m✓[39m parseAndFormatApiError[2m > [22mshould not match non-Pro models with similar version strings[32m 0[2mms[22m[39m
+[31m   [31m×[31m parseAndFormatApiError[2m > [22mshould format a generic quota exceeded message for Google auth (Standard tier)[39m[32m 2[2mms[22m[39m
+[31m     → expected '[API Error: Quota exceeded for quota …' to contain '[API Error: Quota exceeded for quota …'[39m
+[31m   [31m×[31m parseAndFormatApiError[2m > [22mshould format a regular 429 API error with standard message for Google auth (Standard tier)[39m[32m 3[2mms[22m[39m
+[31m     → expected '─────────────────────────────────────…' to contain '[API Error: Rate limit exceeded'[39m
+   [32m✓[39m parseAndFormatApiError[2m > [22m403 Forbidden Error Handling[2m > [22mshould format a 403 forbidden error from string message[32m 0[2mms[22m[39m
+   [32m✓[39m parseAndFormatApiError[2m > [22m403 Forbidden Error Handling[2m > [22mshould format a 403 forbidden error from structured error[32m 0[2mms[22m[39m
+   [32m✓[39m parseAndFormatApiError[2m > [22m403 Forbidden Error Handling[2m > [22mshould format a 403 forbidden error from API error format[32m 0[2mms[22m[39m
+   [32m✓[39m parseAndFormatApiError[2m > [22m403 Forbidden Error Handling[2m > [22mshould format a 403 forbidden error from JSON string[32m 0[2mms[22m[39m
+   [32m✓[39m parseAndFormatApiError[2m > [22m403 Forbidden Error Handling[2m > [22mshould format a 403 error with Chinese locale[32m 0[2mms[22m[39m
+[31m   [31m×[31m parseAndFormatApiError[2m > [22mNetwork Connection Failed Error Handling[2m > [22mshould format a fetch failed error in English[39m[32m 2[2mms[22m[39m
+[31m     → expected '🌐 Network Connection Failed\n💡 Sugg…' to contain 'Your network is unstable and basic co…'[39m
+[31m   [31m×[31m parseAndFormatApiError[2m > [22mNetwork Connection Failed Error Handling[2m > [22mshould format a fetch failed error in Chinese[39m[32m 1[2mms[22m[39m
+[31m     → expected '🌐 网络连接失败\n💡 建议：检查您的代理设置或更换质量较好的网络节点' to contain '您所在的网络环境不稳定，与服务器的基本通信失败'[39m
+[31m   [31m×[31m parseAndFormatApiError[2m > [22mNetwork Connection Failed Error Handling[2m > [22mshould format an ECONNREFUSED error[39m[32m 2[2mms[22m[39m
+[31m     → expected '🌐 Network Connection Failed\n💡 Sugg…' to contain 'Your network is unstable'[39m
+   [32m✓[39m parseAndFormatApiError[2m > [22mNetwork Connection Failed Error Handling[2m > [22mshould format a structured error with fetch failed message[32m 1[2mms[22m[39m
+   [32m✓[39m parseAndFormatApiError[2m > [22mQuota Limit Exceeded (429) Error Handling[2m > [22mshould format a 429 API error with friendly message in English[32m 0[2mms[22m[39m
+   [32m✓[39m parseAndFormatApiError[2m > [22mQuota Limit Exceeded (429) Error Handling[2m > [22mshould format a 429 API error with friendly message in Chinese[32m 0[2mms[22m[39m
+   [32m✓[39m parseAndFormatApiError[2m > [22mQuota Limit Exceeded (429) Error Handling[2m > [22mshould format a 429 StructuredError with friendly message[32m 0[2mms[22m[39m
+   [32m✓[39m parseAndFormatApiError[2m > [22mQuota Limit Exceeded (429) Error Handling[2m > [22mshould extract and display quota details when available in 429 error[32m 0[2mms[22m[39m
+   [32m✓[39m parseAndFormatApiError[2m > [22mQuota Limit Exceeded (429) Error Handling[2m > [22mshould handle 429 error in string format with insufficient credits message[32m 0[2mms[22m[39m
+[31m   [31m×[31m parseAndFormatApiError[2m > [22mRegion Blocked (451) Error Handling[2m > [22mshould format a REGION_BLOCKED_451 error with JSON message in English[39m[32m 7[2mms[22m[39m
+[31m     → expected '─────────────────────────────────────…' to contain 'Check your network proxy settings'[39m
+[31m   [31m×[31m parseAndFormatApiError[2m > [22mRegion Blocked (451) Error Handling[2m > [22mshould format a REGION_BLOCKED_451 error with JSON message in Chinese[39m[32m 4[2mms[22m[39m
+[31m     → expected '─────────────────────────────────────…' to contain '检查网络代理设置'[39m
+[31m   [31m×[31m parseAndFormatApiError[2m > [22mRegion Blocked (451) Error Handling[2m > [22mshould format a REGION_BLOCKED_451 error without JSON message[39m[32m 6[2mms[22m[39m
+[31m     → expected '─────────────────────────────────────…' to contain 'Check your network proxy settings'[39m
+   [32m✓[39m parseAndFormatApiError[2m > [22mRegion Blocked (451) Error Handling[2m > [22mshould format a 451 structured error[32m 0[2mms[22m[39m
+   [32m✓[39m parseAndFormatApiError[2m > [22mRegion Blocked (451) Error Handling[2m > [22mshould format a string error containing 451 and region keywords[32m 0[2mms[22m[39m
+
+[31m⎯⎯⎯⎯⎯⎯[39m[1m[41m Failed Tests 20 [49m[22m[31m⎯⎯⎯⎯⎯⎯⎯[39m
+
+[41m[1m FAIL [22m[49m src/ui/utils/errorParsing.test.ts[2m > [22mparseAndFormatApiError[2m > [22mshould format a 429 API error with the default message
+[31m[1mAssertionError[22m: expected '─────────────────────────────────────…' to contain '[API Error: Rate limit exceeded'[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [API Error: Rate limit exceeded[39m
+[31m+ ─────────────────────────────────────────────────────[39m
+[31m+ ⚡ Service Quota Limit Exceeded (429)[39m
+[31m+[39m
+[31m+ Your account has reached its usage quota.[39m
+[31m+[39m
+[31m+ 💡 Solutions:[39m
+[31m+ • Upgrade your plan for higher quota limits[39m
+[31m+ • Wait until the next billing cycle (usually daily reset)[39m
+[31m+ • Contact our team for assistance[39m
+[31m+[39m
+[31m+ 🔗 Upgrade your plan: https://dvcode.deepvlab.ai/[39m
+[31m+ ─────────────────────────────────────────────────────[39m
+
+[36m [2m❯[22m src/ui/utils/errorParsing.test.ts:[2m56:20[22m[39m
+    [90m 54| [39m      [33mDEFAULT_GEMINI_FLASH_MODEL[39m[33m,[39m
+    [90m 55| [39m    )[33m;[39m
+    [90m 56| [39m    [34mexpect[39m(result)[33m.[39m[34mtoContain[39m([32m'[API Error: Rate limit exceeded'[39m)[33m;[39m
+    [90m   | [39m                   [31m^[39m
+    [90m 57| [39m    [34mexpect[39m(result)[33m.[39m[34mtoContain[39m(
+    [90m 58| [39m      'Possible quota limitations in place or slow response times dete…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/20]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/ui/utils/errorParsing.test.ts[2m > [22mparseAndFormatApiError[2m > [22mshould format a 429 API error with the personal message
+[31m[1mAssertionError[22m: expected '─────────────────────────────────────…' to contain '[API Error: Rate limit exceeded'[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [API Error: Rate limit exceeded[39m
+[31m+ ─────────────────────────────────────────────────────[39m
+[31m+ ⚡ Service Quota Limit Exceeded (429)[39m
+[31m+[39m
+[31m+ Your account has reached its usage quota.[39m
+[31m+[39m
+[31m+ 💡 Solutions:[39m
+[31m+ • Upgrade your plan for higher quota limits[39m
+[31m+ • Wait until the next billing cycle (usually daily reset)[39m
+[31m+ • Contact our team for assistance[39m
+[31m+[39m
+[31m+ 🔗 Upgrade your plan: https://dvcode.deepvlab.ai/[39m
+[31m+ ─────────────────────────────────────────────────────[39m
+
+[36m [2m❯[22m src/ui/utils/errorParsing.test.ts:[2m72:20[22m[39m
+    [90m 70| [39m      [33mDEFAULT_GEMINI_FLASH_MODEL[39m[33m,[39m
+    [90m 71| [39m    )[33m;[39m
+    [90m 72| [39m    [34mexpect[39m(result)[33m.[39m[34mtoContain[39m([32m'[API Error: Rate limit exceeded'[39m)[33m;[39m
+    [90m   | [39m                   [31m^[39m
+    [90m 73| [39m    [34mexpect[39m(result)[33m.[39m[34mtoContain[39m(
+    [90m 74| [39m      'Possible quota limitations in place or slow response times dete…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/20]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/ui/utils/errorParsing.test.ts[2m > [22mparseAndFormatApiError[2m > [22mshould format a 429 API error with the vertex message
+[31m[1mAssertionError[22m: expected '─────────────────────────────────────…' to contain '[API Error: Rate limit exceeded'[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [API Error: Rate limit exceeded[39m
+[31m+ ─────────────────────────────────────────────────────[39m
+[31m+ ⚡ Service Quota Limit Exceeded (429)[39m
+[31m+[39m
+[31m+ Your account has reached its usage quota.[39m
+[31m+[39m
+[31m+ 💡 Solutions:[39m
+[31m+ • Upgrade your plan for higher quota limits[39m
+[31m+ • Wait until the next billing cycle (usually daily reset)[39m
+[31m+ • Contact our team for assistance[39m
+[31m+[39m
+[31m+ 🔗 Upgrade your plan: https://dvcode.deepvlab.ai/[39m
+[31m+ ─────────────────────────────────────────────────────[39m
+
+[36m [2m❯[22m src/ui/utils/errorParsing.test.ts:[2m82:20[22m[39m
+    [90m 80| [39m      'got status: 429 Too Many Requests. {"error":{"code":429,"messag…
+    [90m 81| [39m    const result = parseAndFormatApiError(errorMessage, AuthType.USE_V…
+    [90m 82| [39m    [34mexpect[39m(result)[33m.[39m[34mtoContain[39m([32m'[API Error: Rate limit exceeded'[39m)[33m;[39m
+    [90m   | [39m                   [31m^[39m
+    [90m 83| [39m    [34mexpect[39m(result)[33m.[39m[34mtoContain[39m(vertexMessage)[33m;[39m
+    [90m 84| [39m  })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/20]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/ui/utils/errorParsing.test.ts[2m > [22mparseAndFormatApiError[2m > [22mshould format a nested API error
+[31m[1mAssertionError[22m: expected '─────────────────────────────────────…' to contain 'Gemini 2.5 Pro Preview'[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- Gemini 2.5 Pro Preview[39m
+[31m+ ─────────────────────────────────────────────────────[39m
+[31m+ ⚡ Service Quota Limit Exceeded (429)[39m
+[31m+[39m
+[31m+ Your account has reached its usage quota.[39m
+[31m+[39m
+[31m+ 💡 Solutions:[39m
+[31m+ • Upgrade your plan for higher quota limits[39m
+[31m+ • Wait until the next billing cycle (usually daily reset)[39m
+[31m+ • Contact our team for assistance[39m
+[31m+[39m
+[31m+ 🔗 Upgrade your plan: https://dvcode.deepvlab.ai/[39m
+[31m+ ─────────────────────────────────────────────────────[39m
+
+[36m [2m❯[22m src/ui/utils/errorParsing.test.ts:[2m126:20[22m[39m
+    [90m124| [39m
+    [90m125| [39m    const result = parseAndFormatApiError(errorMessage, AuthType.USE_G…
+    [90m126| [39m    [34mexpect[39m(result)[33m.[39m[34mtoContain[39m([32m'Gemini 2.5 Pro Preview'[39m)[33m;[39m
+    [90m   | [39m                   [31m^[39m
+    [90m127| [39m    [34mexpect[39m(result)[33m.[39m[34mtoContain[39m(geminiMessage)[33m;[39m
+    [90m128| [39m  })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/20]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/ui/utils/errorParsing.test.ts[2m > [22mparseAndFormatApiError[2m > [22mshould format a 429 StructuredError with the vertex message
+[31m[1mAssertionError[22m: expected '─────────────────────────────────────…' to contain '[API Error: Rate limit exceeded]'[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [API Error: Rate limit exceeded][39m
+[31m+ ─────────────────────────────────────────────────────[39m
+[31m+ ⚡ Service Quota Limit Exceeded (429)[39m
+[31m+[39m
+[31m+ Your account has reached its usage quota.[39m
+[31m+[39m
+[31m+ 💡 Solutions:[39m
+[31m+ • Upgrade your plan for higher quota limits[39m
+[31m+ • Wait until the next billing cycle (usually daily reset)[39m
+[31m+ • Contact our team for assistance[39m
+[31m+[39m
+[31m+ 🔗 Upgrade your plan: https://dvcode.deepvlab.ai/[39m
+[31m+ ─────────────────────────────────────────────────────[39m
+
+[36m [2m❯[22m src/ui/utils/errorParsing.test.ts:[2m145:20[22m[39m
+    [90m143| [39m    }[33m;[39m
+    [90m144| [39m    const result = parseAndFormatApiError(error, AuthType.USE_VERTEX_A…
+    [90m145| [39m    [34mexpect[39m(result)[33m.[39m[34mtoContain[39m([32m'[API Error: Rate limit exceeded]'[39m)[33m;[39m
+    [90m   | [39m                   [31m^[39m
+    [90m146| [39m    [34mexpect[39m(result)[33m.[39m[34mtoContain[39m(vertexMessage)[33m;[39m
+    [90m147| [39m  })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/20]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/ui/utils/errorParsing.test.ts[2m > [22mparseAndFormatApiError[2m > [22mshould format a 429 API error with Pro quota exceeded message for Google auth (Free tier)
+[31m[1mAssertionError[22m: expected '[API Error: Quota exceeded for quota …' to contain '[API Error: Quota exceeded for quota …'[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [API Error: Quota exceeded for quota metric[7m 'Gemini 2.5 Pro Requests'[27m[39m
+[31m+ [API Error: Quota exceeded for quota metric[7m][27m[39m
+[31m+ Possible quota limitations in place or slow response times detected. Switching to the auto model for the rest of this session.[39m
+
+[36m [2m❯[22m src/ui/utils/errorParsing.test.ts:[2m165:20[22m[39m
+    [90m163| [39m      [33mDEFAULT_GEMINI_FLASH_MODEL[39m[33m,[39m
+    [90m164| [39m    )[33m;[39m
+    [90m165| [39m    [34mexpect[39m(result)[33m.[39m[34mtoContain[39m(
+    [90m   | [39m                   [31m^[39m
+    [90m166| [39m      "[API Error: Quota exceeded for quota metric 'Gemini 2.5 Pro Req…
+    [90m167| [39m    )[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/20]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/ui/utils/errorParsing.test.ts[2m > [22mparseAndFormatApiError[2m > [22mshould format a regular 429 API error with standard message for Google auth
+[31m[1mAssertionError[22m: expected '─────────────────────────────────────…' to contain '[API Error: Rate limit exceeded'[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [API Error: Rate limit exceeded[39m
+[31m+ ─────────────────────────────────────────────────────[39m
+[31m+ ⚡ Service Quota Limit Exceeded (429)[39m
+[31m+[39m
+[31m+ Your account has reached its usage quota.[39m
+[31m+[39m
+[31m+ 💡 Solutions:[39m
+[31m+ • Upgrade your plan for higher quota limits[39m
+[31m+ • Wait until the next billing cycle (usually daily reset)[39m
+[31m+ • Contact our team for assistance[39m
+[31m+[39m
+[31m+ 🔗 Upgrade your plan: https://dvcode.deepvlab.ai/[39m
+[31m+ ─────────────────────────────────────────────────────[39m
+
+[36m [2m❯[22m src/ui/utils/errorParsing.test.ts:[2m186:20[22m[39m
+    [90m184| [39m      [33mDEFAULT_GEMINI_FLASH_MODEL[39m[33m,[39m
+    [90m185| [39m    )[33m;[39m
+    [90m186| [39m    [34mexpect[39m(result)[33m.[39m[34mtoContain[39m([32m'[API Error: Rate limit exceeded'[39m)[33m;[39m
+    [90m   | [39m                   [31m^[39m
+    [90m187| [39m    [34mexpect[39m(result)[33m.[39m[34mtoContain[39m(
+    [90m188| [39m      'Possible quota limitations in place or slow response times dete…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/20]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/ui/utils/errorParsing.test.ts[2m > [22mparseAndFormatApiError[2m > [22mshould format a 429 API error with generic quota exceeded message for Google auth
+[31m[1mAssertionError[22m: expected '[API Error: Quota exceeded for quota …' to contain '[API Error: Quota exceeded for quota …'[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [API Error: Quota exceeded for quota metric[7m 'GenerationRequests'[27m[39m
+[31m+ [API Error: Quota exceeded for quota metric[7m][27m[39m
+[31m+ Possible quota limitations in place or slow response times detected. Switching to the auto model for the rest of this session.[39m
+
+[36m [2m❯[22m src/ui/utils/errorParsing.test.ts:[2m205:20[22m[39m
+    [90m203| [39m      [33mDEFAULT_GEMINI_FLASH_MODEL[39m[33m,[39m
+    [90m204| [39m    )[33m;[39m
+    [90m205| [39m    [34mexpect[39m(result)[33m.[39m[34mtoContain[39m(
+    [90m   | [39m                   [31m^[39m
+    [90m206| [39m      "[API Error: Quota exceeded for quota metric 'GenerationRequests…
+    [90m207| [39m    )[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/20]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/ui/utils/errorParsing.test.ts[2m > [22mparseAndFormatApiError[2m > [22mshould prioritize Pro quota message over generic quota message for Google auth
+[31m[1mAssertionError[22m: expected '[API Error: Quota exceeded for quota …' to contain '[API Error: Quota exceeded for quota …'[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [API Error: Quota exceeded for quota metric[7m 'Gemini 2.5 Pro Requests'[27m[39m
+[31m+ [API Error: Quota exceeded for quota metric[7m][27m[39m
+[31m+ Possible quota limitations in place or slow response times detected. Switching to the auto model for the rest of this session.[39m
+
+[36m [2m❯[22m src/ui/utils/errorParsing.test.ts:[2m224:20[22m[39m
+    [90m222| [39m      [33mDEFAULT_GEMINI_FLASH_MODEL[39m[33m,[39m
+    [90m223| [39m    )[33m;[39m
+    [90m224| [39m    [34mexpect[39m(result)[33m.[39m[34mtoContain[39m(
+    [90m   | [39m                   [31m^[39m
+    [90m225| [39m      "[API Error: Quota exceeded for quota metric 'Gemini 2.5 Pro Req…
+    [90m226| [39m    )[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/20]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/ui/utils/errorParsing.test.ts[2m > [22mparseAndFormatApiError[2m > [22mshould format a 429 API error with Pro quota exceeded message for Google auth (Standard tier)
+[31m[1mAssertionError[22m: expected '[API Error: Quota exceeded for quota …' to contain '[API Error: Quota exceeded for quota …'[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [API Error: Quota exceeded for quota metric[7m 'Gemini 2.5 Pro Requests'[27m[39m
+[31m+ [API Error: Quota exceeded for quota metric[7m][27m[39m
+[31m+ Possible quota limitations in place or slow response times detected. Switching to the auto model for the rest of this session.[39m
+
+[36m [2m❯[22m src/ui/utils/errorParsing.test.ts:[2m243:20[22m[39m
+    [90m241| [39m      [33mDEFAULT_GEMINI_FLASH_MODEL[39m[33m,[39m
+    [90m242| [39m    )[33m;[39m
+    [90m243| [39m    [34mexpect[39m(result)[33m.[39m[34mtoContain[39m(
+    [90m   | [39m                   [31m^[39m
+    [90m244| [39m      "[API Error: Quota exceeded for quota metric 'Gemini 2.5 Pro Req…
+    [90m245| [39m    )[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/20]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/ui/utils/errorParsing.test.ts[2m > [22mparseAndFormatApiError[2m > [22mshould format a 429 API error with Pro quota exceeded message for Google auth (Legacy tier)
+[31m[1mAssertionError[22m: expected '[API Error: Quota exceeded for quota …' to contain '[API Error: Quota exceeded for quota …'[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [API Error: Quota exceeded for quota metric[7m 'Gemini 2.5 Pro Requests'[27m[39m
+[31m+ [API Error: Quota exceeded for quota metric[7m][27m[39m
+[31m+ Possible quota limitations in place or slow response times detected. Switching to the auto model for the rest of this session.[39m
+
+[36m [2m❯[22m src/ui/utils/errorParsing.test.ts:[2m267:20[22m[39m
+    [90m265| [39m      [33mDEFAULT_GEMINI_FLASH_MODEL[39m[33m,[39m
+    [90m266| [39m    )[33m;[39m
+    [90m267| [39m    [34mexpect[39m(result)[33m.[39m[34mtoContain[39m(
+    [90m   | [39m                   [31m^[39m
+    [90m268| [39m      "[API Error: Quota exceeded for quota metric 'Gemini 2.5 Pro Req…
+    [90m269| [39m    )[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/20]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/ui/utils/errorParsing.test.ts[2m > [22mparseAndFormatApiError[2m > [22mshould handle different Gemini 2.5 version strings in Pro quota exceeded errors
+[31m[1mAssertionError[22m: expected '[API Error: Quota exceeded for quota …' to contain 'You have reached your daily auto quot…'[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- You have reached your daily auto quota limit[39m
+[31m+ [API Error: Quota exceeded for quota metric][39m
+[31m+ Possible quota limitations in place or slow response times detected. Switching to the auto model for the rest of this session.[39m
+
+[36m [2m❯[22m src/ui/utils/errorParsing.test.ts:[2m302:22[22m[39m
+    [90m300| [39m    )[33m;[39m
+    [90m301| [39m
+    [90m302| [39m    [34mexpect[39m(result25)[33m.[39m[34mtoContain[39m(
+    [90m   | [39m                     [31m^[39m
+    [90m303| [39m      [32m'You have reached your daily auto quota limit'[39m[33m,[39m
+    [90m304| [39m    )[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/20]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/ui/utils/errorParsing.test.ts[2m > [22mparseAndFormatApiError[2m > [22mshould format a generic quota exceeded message for Google auth (Standard tier)
+[31m[1mAssertionError[22m: expected '[API Error: Quota exceeded for quota …' to contain '[API Error: Quota exceeded for quota …'[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [API Error: Quota exceeded for quota metric[7m 'GenerationRequests'[27m[39m
+[31m+ [API Error: Quota exceeded for quota metric[7m][27m[39m
+[31m+ Possible quota limitations in place or slow response times detected. Switching to the auto model for the rest of this session.[39m
+
+[36m [2m❯[22m src/ui/utils/errorParsing.test.ts:[2m364:20[22m[39m
+    [90m362| [39m      [33mDEFAULT_GEMINI_FLASH_MODEL[39m[33m,[39m
+    [90m363| [39m    )[33m;[39m
+    [90m364| [39m    [34mexpect[39m(result)[33m.[39m[34mtoContain[39m(
+    [90m   | [39m                   [31m^[39m
+    [90m365| [39m      "[API Error: Quota exceeded for quota metric 'GenerationRequests…
+    [90m366| [39m    )[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/20]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/ui/utils/errorParsing.test.ts[2m > [22mparseAndFormatApiError[2m > [22mshould format a regular 429 API error with standard message for Google auth (Standard tier)
+[31m[1mAssertionError[22m: expected '─────────────────────────────────────…' to contain '[API Error: Rate limit exceeded'[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [API Error: Rate limit exceeded[39m
+[31m+ ─────────────────────────────────────────────────────[39m
+[31m+ ⚡ Service Quota Limit Exceeded (429)[39m
+[31m+[39m
+[31m+ Your account has reached its usage quota.[39m
+[31m+[39m
+[31m+ 💡 Solutions:[39m
+[31m+ • Upgrade your plan for higher quota limits[39m
+[31m+ • Wait until the next billing cycle (usually daily reset)[39m
+[31m+ • Contact our team for assistance[39m
+[31m+[39m
+[31m+ 🔗 Upgrade your plan: https://dvcode.deepvlab.ai/[39m
+[31m+ ─────────────────────────────────────────────────────[39m
+
+[36m [2m❯[22m src/ui/utils/errorParsing.test.ts:[2m386:20[22m[39m
+    [90m384| [39m      [33mDEFAULT_GEMINI_FLASH_MODEL[39m[33m,[39m
+    [90m385| [39m    )[33m;[39m
+    [90m386| [39m    [34mexpect[39m(result)[33m.[39m[34mtoContain[39m([32m'[API Error: Rate limit exceeded'[39m)[33m;[39m
+    [90m   | [39m                   [31m^[39m
+    [90m387| [39m    [34mexpect[39m(result)[33m.[39m[34mtoContain[39m(
+    [90m388| [39m      'We appreciate you for choosing Gemini Code Assist and the Gemin…
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/20]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/ui/utils/errorParsing.test.ts[2m > [22mparseAndFormatApiError[2m > [22mNetwork Connection Failed Error Handling[2m > [22mshould format a fetch failed error in English
+[31m[1mAssertionError[22m: expected '🌐 Network Connection Failed\n💡 Sugg…' to contain 'Your network is unstable and basic co…'[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- [7mYour n[27metwork [7mis unstable and basic communication [27mwith t[7mhe server failed[27m[39m
+[31m+ [7m🌐 N[27metwork [7mConnection Failed[27m[39m
+[31m+ [7m💡 Suggestion: Check your proxy settings or s[27mwit[7mc[27mh t[7mo a better network[27m[39m
+
+[36m [2m❯[22m src/ui/utils/errorParsing.test.ts:[2m464:22[22m[39m
+    [90m462| [39m
+    [90m463| [39m      [34mexpect[39m(result)[33m.[39m[34mtoContain[39m([32m'🌐 Network Connection Failed'[39m)[33m;[39m
+    [90m464| [39m      expect(result).toContain('Your network is unstable and basic com…
+    [90m   | [39m                     [31m^[39m
+    [90m465| [39m      [34mexpect[39m(result)[33m.[39m[34mtoContain[39m([32m'Check your network connection status'[39m)[33m;[39m
+    [90m466| [39m      [34mexpect[39m(result)[33m.[39m[34mtoContain[39m([32m'Check proxy or firewall settings'[39m)[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/20]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/ui/utils/errorParsing.test.ts[2m > [22mparseAndFormatApiError[2m > [22mNetwork Connection Failed Error Handling[2m > [22mshould format a fetch failed error in Chinese
+[31m[1mAssertionError[22m: expected '🌐 网络连接失败\n💡 建议：检查您的代理设置或更换质量较好的网络节点' to contain '您所在的网络环境不稳定，与服务器的基本通信失败'[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 您所在的网络环境不稳定，与服务器的基本通信失败[39m
+[31m+ 🌐 网络连接失败[39m
+[31m+ 💡 建议：检查您的代理设置或更换质量较好的网络节点[39m
+
+[36m [2m❯[22m src/ui/utils/errorParsing.test.ts:[2m477:22[22m[39m
+    [90m475| [39m
+    [90m476| [39m      [34mexpect[39m(result)[33m.[39m[34mtoContain[39m([32m'🌐 网络连接失败'[39m)[33m;[39m
+    [90m477| [39m      [34mexpect[39m(result)[33m.[39m[34mtoContain[39m([32m'您所在的网络环境不稳定，与服务器的基本通信失败'[39m)[33m;[39m
+    [90m   | [39m                     [31m^[39m
+    [90m478| [39m      [34mexpect[39m(result)[33m.[39m[34mtoContain[39m([32m'检查您的网络连接状态'[39m)[33m;[39m
+    [90m479| [39m      [34mexpect[39m(result)[33m.[39m[34mtoContain[39m([32m'检查代理或防火墙设置'[39m)[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/20]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/ui/utils/errorParsing.test.ts[2m > [22mparseAndFormatApiError[2m > [22mNetwork Connection Failed Error Handling[2m > [22mshould format an ECONNREFUSED error
+[31m[1mAssertionError[22m: expected '🌐 Network Connection Failed\n💡 Sugg…' to contain 'Your network is unstable'[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- Your network is unstable[39m
+[31m+ 🌐 Network Connection Failed[39m
+[31m+ 💡 Suggestion: Check your proxy settings or switch to a better network[39m
+
+[36m [2m❯[22m src/ui/utils/errorParsing.test.ts:[2m488:22[22m[39m
+    [90m486| [39m
+    [90m487| [39m      [34mexpect[39m(result)[33m.[39m[34mtoContain[39m([32m'🌐 Network Connection Failed'[39m)[33m;[39m
+    [90m488| [39m      [34mexpect[39m(result)[33m.[39m[34mtoContain[39m([32m'Your network is unstable'[39m)[33m;[39m
+    [90m   | [39m                     [31m^[39m
+    [90m489| [39m    })[33m;[39m
+    [90m490| [39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/20]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/ui/utils/errorParsing.test.ts[2m > [22mparseAndFormatApiError[2m > [22mRegion Blocked (451) Error Handling[2m > [22mshould format a REGION_BLOCKED_451 error with JSON message in English
+[31m[1mAssertionError[22m: expected '─────────────────────────────────────…' to contain 'Check your network proxy settings'[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- Check your network proxy settings[39m
+[31m+ ─────────────────────────────────────────────────────[39m
+[31m+ 🌍 Region Access Restricted (451)[39m
+[31m+[39m
+[31m+ Unsupported country or region.[39m
+[31m+ We're working to expand the availability of DeepV Code. Thank you for your support.[39m
+[31m+ If you believe this is an error, please check your network settings.[39m
+[31m+[39m
+[31m+ We are expanding service coverage. Thank you for your support![39m
+[31m+[39m
+[31m+ If you believe this is an error, please check your network settings or report the issue.[39m
+[31m+[39m
+[31m+ 🔗 Get help: https://dvcode.deepvlab.ai/[39m
+[31m+ ─────────────────────────────────────────────────────[39m
+
+[36m [2m❯[22m src/ui/utils/errorParsing.test.ts:[2m575:22[22m[39m
+    [90m573| [39m      [34mexpect[39m(result)[33m.[39m[34mtoContain[39m([32m'Unsupported country or region'[39m)[33m;[39m
+    [90m574| [39m      expect(result).toContain('We\'re working to expand the availabil…
+    [90m575| [39m      [34mexpect[39m(result)[33m.[39m[34mtoContain[39m([32m'Check your network proxy settings'[39m)[33m;[39m
+    [90m   | [39m                     [31m^[39m
+    [90m576| [39m      expect(result).toContain('Try connecting from a supported region…
+    [90m577| [39m    })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/20]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/ui/utils/errorParsing.test.ts[2m > [22mparseAndFormatApiError[2m > [22mRegion Blocked (451) Error Handling[2m > [22mshould format a REGION_BLOCKED_451 error with JSON message in Chinese
+[31m[1mAssertionError[22m: expected '─────────────────────────────────────…' to contain '检查网络代理设置'[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- 检查网络代理设置[39m
+[31m+ ─────────────────────────────────────────────────────[39m
+[31m+ 🌍 地区访问受限 (451)[39m
+[31m+[39m
+[31m+ Unsupported country or region.[39m
+[31m+ We're working to expand the availability of DeepV Code. Thank you for your support.[39m
+[31m+ If you believe this is an error, please check your network settings.[39m
+[31m+[39m
+[31m+ 我们正在努力扩大服务覆盖范围，感谢您的支持！[39m
+[31m+[39m
+[31m+ 如果您认为我们的判断不正确，请检查您当前网络设置或反馈问题。[39m
+[31m+[39m
+[31m+ 🔗 获取帮助：https://dvcode.deepvlab.ai/[39m
+[31m+ ─────────────────────────────────────────────────────[39m
+
+[36m [2m❯[22m src/ui/utils/errorParsing.test.ts:[2m591:22[22m[39m
+    [90m589| [39m      [34mexpect[39m(result)[33m.[39m[34mtoContain[39m([32m'Unsupported country or region'[39m)[33m;[39m
+    [90m590| [39m      [34mexpect[39m(result)[33m.[39m[34mtoContain[39m([32m'我们正在努力扩大服务覆盖范围'[39m)[33m;[39m
+    [90m591| [39m      [34mexpect[39m(result)[33m.[39m[34mtoContain[39m([32m'检查网络代理设置'[39m)[33m;[39m
+    [90m   | [39m                     [31m^[39m
+    [90m592| [39m      [34mexpect[39m(result)[33m.[39m[34mtoContain[39m([32m'尝试接入受支持的区域网络'[39m)[33m;[39m
+    [90m593| [39m    })[33m;[39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/20]⎯[22m[39m
+
+[41m[1m FAIL [22m[49m src/ui/utils/errorParsing.test.ts[2m > [22mparseAndFormatApiError[2m > [22mRegion Blocked (451) Error Handling[2m > [22mshould format a REGION_BLOCKED_451 error without JSON message
+[31m[1mAssertionError[22m: expected '─────────────────────────────────────…' to contain 'Check your network proxy settings'[39m
+
+[32m- Expected[39m
+[31m+ Received[39m
+
+[32m- Check your network proxy settings[39m
+[31m+ ─────────────────────────────────────────────────────[39m
+[31m+ 🌍 Region Access Restricted (451)[39m
+[31m+[39m
+[31m+ DeepV Code service is not available in your current region.[39m
+[31m+[39m
+[31m+ We are expanding service coverage. Thank you for your support![39m
+[31m+[39m
+[31m+ If you believe this is an error, please check your network settings or report the issue.[39m
+[31m+[39m
+[31m+ 🔗 Get help: https://dvcode.deepvlab.ai/[39m
+[31m+ ─────────────────────────────────────────────────────[39m
+
+[36m [2m❯[22m src/ui/utils/errorParsing.test.ts:[2m602:22[22m[39m
+    [90m600| [39m      [34mexpect[39m(result)[33m.[39m[34mtoContain[39m([32m'🌍 Region Access Restricted (451)'[39m)[33m;[39m
+    [90m601| [39m      expect(result).toContain('DeepV Code service is not available in…
+    [90m602| [39m      [34mexpect[39m(result)[33m.[39m[34mtoContain[39m([32m'Check your network proxy settings'[39m)[33m;[39m
+    [90m   | [39m                     [31m^[39m
+    [90m603| [39m    })[33m;[39m
+    [90m604| [39m
+
+[31m[2m⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/20]⎯[22m[39m
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m20 failed[39m[22m[2m | [22m[1m[32m20 passed[39m[22m[90m (40)[39m
+[2m   Start at [22m 16:29:26
+[2m   Duration [22m 12.57s[2m (transform 1.69s, setup 0ms, collect 6.28s, tests 117ms, environment 1.29s, prepare 456ms)[22m
+
+JUNIT report written to D:/projects/deepVcode/DeepCode/packages/cli/junit.xml
+npm error Lifecycle script `test` failed with error:
+npm error code 1
+npm error path D:\projects\deepVcode\DeepCode\packages\cli
+npm error workspace deepv-code-cli@1.0.202
+npm error location D:\projects\deepVcode\DeepCode\packages\cli
+npm error command failed
+npm error command C:\WINDOWS\system32\cmd.exe /d /s /c vitest run errorParsing.test.ts

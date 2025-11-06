@@ -267,6 +267,106 @@ Possible causes:
   }
 }
 
+// 429配额限制错误检测函数
+function isQuotaLimitExceededError(error: unknown): boolean {
+  // 只检测非Pro/Generic配额限制的429错误
+  // Pro和Generic配额限制由isProQuotaExceededError和isGenericQuotaExceededError处理
+
+  // 检查字符串错误消息
+  if (typeof error === 'string') {
+    // 排除Pro和Generic配额限制的情况
+    if (error.includes("Quota exceeded for quota metric 'Gemini") ||
+        error.includes("Quota exceeded for quota metric 'GenerationRequests") ||
+        error.includes("Quota exceeded for quota metric 'EmbeddingRequests")) {
+      return false;
+    }
+
+    return error.includes('429') &&
+           (error.toLowerCase().includes('insufficient credits') ||
+            error.toLowerCase().includes('insufficient balance'));
+  }
+
+  // 检查结构化错误
+  if (isStructuredError(error)) {
+    // 排除Pro和Generic配额限制
+    if (error.message.includes("Quota exceeded for quota metric 'Gemini") ||
+        error.message.includes("Quota exceeded for quota metric 'GenerationRequests")) {
+      return false;
+    }
+
+    return error.status === 429 &&
+           error.message.toLowerCase().includes('insufficient');
+  }
+
+  // 检查API错误格式
+  if (isApiError(error)) {
+    // 排除Pro和Generic配额限制
+    if (error.error.message.includes("Quota exceeded for quota metric 'Gemini") ||
+        error.error.message.includes("Quota exceeded for quota metric 'GenerationRequests")) {
+      return false;
+    }
+
+    return error.error.code === 429 &&
+           error.error.message.toLowerCase().includes('insufficient');
+  }
+
+  return false;
+}
+
+// 生成429配额限制友好错误消息
+function getQuotaLimitExceededFriendlyMessage(error: unknown): string {
+  const isChinese = isChineseEnvironment();
+
+  // 尝试从错误中提取配额限制的详细信息
+  let quotaDetails = '';
+  try {
+    if (typeof error === 'string') {
+      // 查找是否包含额度信息
+      const creditsMatch = error.match(/(?:Available|available)[\s:]*([0-9.]+)/);
+      const neededMatch = error.match(/(?:Needed|needed)[\s:]*([0-9.]+)/);
+      if (creditsMatch && neededMatch) {
+        quotaDetails = `(${isChinese ? '可用' : 'Available'}: ${creditsMatch[1]}, ${isChinese ? '需要' : 'Needed'}: ${neededMatch[1]})`;
+      }
+    } else if (isStructuredError(error)) {
+      const creditsMatch = error.message.match(/(?:Available|available)[\s:]*([0-9.]+)/);
+      const neededMatch = error.message.match(/(?:Needed|needed)[\s:]*([0-9.]+)/);
+      if (creditsMatch && neededMatch) {
+        quotaDetails = `(${isChinese ? '可用' : 'Available'}: ${creditsMatch[1]}, ${isChinese ? '需要' : 'Needed'}: ${neededMatch[1]})`;
+      }
+    }
+  } catch (_e) {
+    // 解析失败，使用默认消息
+  }
+
+  if (isChinese) {
+    return `─────────────────────────────────────────────────────
+⚡ 服务配额已达上限 (429)
+
+${quotaDetails ? quotaDetails : '您账户的可用额度已用尽。'}
+
+💡 解决方案：
+• 升级您的套餐以获得更高的配额限制
+• 等待下一个计费周期（通常是每天重置）
+• 联系我们的团队寻求帮助
+
+🔗 升级套餐：https://dvcode.deepvlab.ai/
+─────────────────────────────────────────────────────`;
+  } else {
+    return `─────────────────────────────────────────────────────
+⚡ Service Quota Limit Exceeded (429)
+
+${quotaDetails ? quotaDetails : 'Your account has reached its usage quota.'}
+
+💡 Solutions:
+• Upgrade your plan for higher quota limits
+• Wait until the next billing cycle (usually daily reset)
+• Contact our team for assistance
+
+🔗 Upgrade your plan: https://dvcode.deepvlab.ai/
+─────────────────────────────────────────────────────`;
+  }
+}
+
 export function parseAndFormatApiError(
   error: unknown,
   authType?: AuthType,
@@ -287,6 +387,37 @@ export function parseAndFormatApiError(
   // 🆕 优先检查403禁止访问错误 - 显示友好提示
   if (is403ForbiddenError(error)) {
     return get403FriendlyMessage();
+  }
+
+  // 🆕 优先检查Pro配额限制错误 - 使用特定的配额消息而不是新的友好消息
+  if (isProQuotaExceededError(error)) {
+    // Pro配额限制由getRateLimitMessage处理，不用新的429友好消息
+    const rateLimitMsg = getRateLimitMessage(
+      authType,
+      error,
+      userTier,
+      currentModel,
+      fallbackModel,
+    );
+    return `[API Error: ${isStructuredError(error) ? error.message : 'Quota exceeded for quota metric'}]${rateLimitMsg}`;
+  }
+
+  // 🆕 优先检查Generic配额限制错误 - 使用特定的配额消息而不是新的429友好消息
+  if (isGenericQuotaExceededError(error)) {
+    // Generic配额限制由getRateLimitMessage处理，不用新的429友好消息
+    const rateLimitMsg = getRateLimitMessage(
+      authType,
+      error,
+      userTier,
+      currentModel,
+      fallbackModel,
+    );
+    return `[API Error: ${isStructuredError(error) ? error.message : 'Quota exceeded for quota metric'}]${rateLimitMsg}`;
+  }
+
+  // 🆕 优先检查新型429配额限制错误（Insufficient Credits） - 显示友好提示
+  if (isQuotaLimitExceededError(error)) {
+    return getQuotaLimitExceededFriendlyMessage(error);
   }
 
   // 🆕 优先检查DeepX服务端的配额错误 - 显示友好提示
@@ -311,6 +442,24 @@ export function parseAndFormatApiError(
     // 检查403错误
     if (error.status === 403) {
       return get403FriendlyMessage();
+    }
+
+    // 检查429错误 - Pro/Generic已在上面处理过，这里处理其他429错误
+    if (error.status === 429) {
+      // 先检查是否是Pro/Generic（虽然应该已经在上面被处理了，这里是保险起见）
+      if (!isProQuotaExceededError(error) && !isGenericQuotaExceededError(error)) {
+        return getQuotaLimitExceededFriendlyMessage(error);
+      }
+      // 如果是Pro/Generic，使用原来的处理逻辑
+      let text = `[API Error: ${error.message}]`;
+      text += getRateLimitMessage(
+        authType,
+        error,
+        userTier,
+        currentModel,
+        fallbackModel,
+      );
+      return text;
     }
 
     let text = `[API Error: ${error.message}]`;
@@ -338,6 +487,13 @@ export function parseAndFormatApiError(
       return get403FriendlyMessage();
     }
 
+    // 检查字符串中的429错误 - 但首先要排除Pro/Generic
+    if (error.includes('429') && !isProQuotaExceededError(error) && !isGenericQuotaExceededError(error)) {
+      if (isQuotaLimitExceededError(error)) {
+        return getQuotaLimitExceededFriendlyMessage(error);
+      }
+    }
+
     const jsonStart = error.indexOf('{');
     if (jsonStart === -1) {
       return `[API Error: ${error}]`; // Not a JSON error, return as is.
@@ -356,6 +512,33 @@ export function parseAndFormatApiError(
         // 检查解析后的API错误是否为403
         if (parsedError.error.code === 403 || parsedError.error.status === 'PERMISSION_DENIED') {
           return get403FriendlyMessage();
+        }
+
+        // 检查解析后的API错误是否为429
+        if (parsedError.error.code === 429) {
+          // Pro/Generic配额由下面的rateLimitMessage处理
+          if (isProQuotaExceededError(parsedError)) {
+            const rateLimitMsg = getRateLimitMessage(
+              authType,
+              parsedError,
+              userTier,
+              currentModel,
+              fallbackModel,
+            );
+            return `[API Error: ${parsedError.error.message}]${rateLimitMsg}`;
+          } else if (isGenericQuotaExceededError(parsedError)) {
+            const rateLimitMsg = getRateLimitMessage(
+              authType,
+              parsedError,
+              userTier,
+              currentModel,
+              fallbackModel,
+            );
+            return `[API Error: ${parsedError.error.message}]${rateLimitMsg}`;
+          } else {
+            // 其他429错误使用新的友好消息
+            return getQuotaLimitExceededFriendlyMessage(parsedError);
+          }
         }
 
         let finalMessage = parsedError.error.message;

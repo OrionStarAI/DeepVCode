@@ -18,14 +18,18 @@ interface DetailedMessagesDisplayProps {
   // If DetailedMessagesDisplay should handle filtering, add debugMode prop.
 }
 
-export const DetailedMessagesDisplay: React.FC<
-  DetailedMessagesDisplayProps
-> = ({ messages, maxHeight, width }) => {
+function DetailedMessagesDisplayComponent({
+  messages,
+  maxHeight,
+  width,
+}: DetailedMessagesDisplayProps) {
   if (messages.length === 0) {
     return null; // Don't render anything if there are no messages
   }
 
+  const errorCount = messages.filter((msg) => msg.type === 'error').length;
   const borderAndPadding = 4;
+
   return (
     <Box
       flexDirection="column"
@@ -35,9 +39,12 @@ export const DetailedMessagesDisplay: React.FC<
       paddingX={1}
       width={width}
     >
-      <Box marginBottom={1}>
+      <Box marginBottom={1} justifyContent="space-between">
         <Text bold color={Colors.Foreground}>
-          Debug Console <Text color={Colors.Gray}>(ctrl+o to close)</Text>
+          Debug Console <Text color={Colors.Gray}>(ctrl+o to toggle, ctrl+s to expand)</Text>
+        </Text>
+        <Text color={errorCount > 0 ? Colors.AccentRed : Colors.Gray}>
+          Errors: {errorCount}
         </Text>
       </Box>
       <MaxSizedBox maxHeight={maxHeight} maxWidth={width - borderAndPadding}>
@@ -65,7 +72,7 @@ export const DetailedMessagesDisplay: React.FC<
           }
 
           return (
-            <Box key={index} flexDirection="row">
+            <Box key={`${msg.type}-${index}`} flexDirection="row">
               <Text color={textColor}>{icon} </Text>
               <Text color={textColor} wrap="wrap">
                 {msg.content}
@@ -79,4 +86,16 @@ export const DetailedMessagesDisplay: React.FC<
       </MaxSizedBox>
     </Box>
   );
-};
+}
+
+export const DetailedMessagesDisplay = React.memo(
+  DetailedMessagesDisplayComponent,
+  (prevProps, nextProps) => {
+    // Return true if props are equal (no re-render), false to re-render
+    return (
+      prevProps.messages.length === nextProps.messages.length &&
+      prevProps.width === nextProps.width &&
+      prevProps.maxHeight === nextProps.maxHeight
+    );
+  }
+);

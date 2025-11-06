@@ -324,7 +324,7 @@ export class Turn {
       const contextForReport = [...this.chat.getHistory(/*curated*/ true), req];
       await reportError(
         error,
-        'Error when talking to Gemini API',
+        'Error communicating with AI model',
         contextForReport,
         'Turn.run-sendMessageStream',
       );

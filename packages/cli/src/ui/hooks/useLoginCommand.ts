@@ -48,7 +48,7 @@ export const useLoginCommand = (
             // 检查是否已有用户信息（从本地文件自动加载）
             const userInfo = proxyAuthManager.getUserInfo();
             if (userInfo) {
-              console.log(`🔄 已登录用户: ${userInfo.name} (${userInfo.email || userInfo.openId || 'N/A'})`);
+              console.log(`🔄 Logged in user: ${userInfo.name} (${userInfo.email || userInfo.openId || 'N/A'})`);
             }
           } catch (error) {
             console.warn('⚠️ 恢复飞书token失败:', error);
