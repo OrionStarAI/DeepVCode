@@ -171,12 +171,12 @@ export class DeepVServerAdapter implements ContentGenerator {
     }
 
     // 🚨 添加两层超时保护：
-    // 1. 连接层：30秒超时（保护TCP连接建立和响应头接收）
+    // 1. 连接层：120秒超时（保护TCP连接建立和响应头接收）
     // 2. 数据层：120秒超时（保护完整响应体接收，response.json()）
     const fetchTimeoutId = setTimeout(() => {
-      console.warn('[DeepV Server] API fetch timeout - aborting after 30s');
+      console.warn('[DeepV Server] API fetch timeout - aborting after 120s');
       controller.abort();
-    }, 30000);
+    }, 120000);
 
     const startTime = Date.now();
 
@@ -373,7 +373,10 @@ export class DeepVServerAdapter implements ContentGenerator {
     // These hardcoded checks are for API capability detection only
     if (request.model === 'claude-sonnet-4@20250514' ||
         request.model === 'claude-sonnet-4-5@20250929' ||
-        request.model === 'claude-haiku-4-5@20251001') {
+        request.model === 'claude-haiku-4-5@20251001' ||
+        request.model === 'claude-haiku-4-5-20251001' ||
+        request.model === 'claude-sonnet-4-20250514' ||
+        request.model === 'claude-sonnet-4-5-20250929') {
       return this._generateContentStream(request, scene);
     } else {
       // 其他模型将非流式响应包装为流式格式
