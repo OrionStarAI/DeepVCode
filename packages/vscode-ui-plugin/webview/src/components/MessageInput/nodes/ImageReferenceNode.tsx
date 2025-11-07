@@ -3,10 +3,11 @@
  * Lexical 自定义节点，用于在编辑器中显示图片引用
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { DecoratorNode, NodeKey, LexicalNode } from 'lexical';
 import { ImageReference } from '../utils/imageProcessor';
+import ImagePreviewModal from '../../ImagePreviewModal';
 
 // 🎯 图片引用节点的 React 组件
 function ImageReferenceComponent({
@@ -19,6 +20,7 @@ function ImageReferenceComponent({
   nodeKey: NodeKey;
 }) {
   const [editor] = useLexicalComposerContext();
+  const [showPreview, setShowPreview] = useState(false);
 
   const handleRemove = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -32,27 +34,54 @@ function ImageReferenceComponent({
     });
   };
 
+  const handleImageClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setShowPreview(true);
+  };
+
+  const handleTagClick = (e: React.MouseEvent) => {
+    // 不处理删除按钮的点击
+    if ((e.target as HTMLElement).closest('.image-ref-remove-btn')) {
+      return;
+    }
+    e.preventDefault();
+    e.stopPropagation();
+    setShowPreview(true);
+  };
+
   return (
-    <span
-      className="inline-image-ref-tag"
-      contentEditable={false}
-      title={fileName}
-    >
-      <img
-        src={`data:image/jpeg;base64,${imageData}`}
-        alt={fileName}
-        className="image-ref-preview"
-      />
-      <span className="image-ref-name">{fileName}</span>
-      <button
-        className="image-ref-remove-btn"
-        onClick={handleRemove}
-        onMouseDown={(e) => e.preventDefault()}
-        title={`移除 ${fileName}`}
+    <>
+      <span
+        className="inline-image-ref-tag"
+        contentEditable={false}
+        title={fileName}
+        onClick={handleTagClick}
+        style={{ cursor: 'pointer' }}
       >
-        ×
-      </button>
-    </span>
+        <img
+          src={`data:image/jpeg;base64,${imageData}`}
+          alt={fileName}
+          className="image-ref-preview"
+        />
+        <span className="image-ref-name">{fileName}</span>
+        <button
+          className="image-ref-remove-btn"
+          onClick={handleRemove}
+          onMouseDown={(e) => e.preventDefault()}
+          title={`移除 ${fileName}`}
+        >
+          ×
+        </button>
+      </span>
+      {showPreview && (
+        <ImagePreviewModal
+          fileName={fileName}
+          imageData={imageData}
+          onClose={() => setShowPreview(false)}
+        />
+      )}
+    </>
   );
 }
 
