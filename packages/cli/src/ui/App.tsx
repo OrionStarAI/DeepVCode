@@ -382,6 +382,10 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     options: Record<string, any>;
   } | null>(null);
   const [refineLoading, setRefineLoading] = useState<boolean>(false);
+  const [queuedPrompts, setQueuedPrompts] = useState<string[]>([]);
+  const [queuePaused, setQueuePaused] = useState<boolean>(false); // 队列暂停标志
+  const [queueEditMode, setQueueEditMode] = useState<boolean>(false); // 队列编辑模式
+  const [queueEditIndex, setQueueEditIndex] = useState<number>(0); // 当前编辑的队列索引
 
   // 调试：监听 refineResult 变化
   useEffect(() => {
@@ -795,8 +799,111 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     settings, // 传递设置对象以支持异步模型配置更新
   );
 
+  const sendPromptImmediately = useCallback(
+    (promptText: string, pauseQueueUntilResponse = false) => {
+      if (logoShows) {
+        clearScreenWithScrollBuffer(stdout);
+        setLogoShows(false);
+      }
+      setCumulativeCredits(0);
+
+      // 如果需要暂停队列直到响应开始
+      if (pauseQueueUntilResponse) {
+        setQueuePaused(true);
+      }
+
+      submitQuery(promptText);
+    },
+    [logoShows, stdout, submitQuery],
+  );
+
+  const queuePrompt = useCallback((promptText: string) => {
+    setQueuedPrompts((prev) => [...prev, promptText]);
+  }, []);
+
+  const updateQueueItem = useCallback((index: number, newContent: string) => {
+    const trimmed = newContent.trim();
+    if (trimmed === '') {
+      // 空内容 = 删除该项
+      setQueuedPrompts((prev) => prev.filter((_, i) => i !== index));
+      addItem(
+        {
+          type: MessageType.INFO,
+          text: tp('input.queue.item.deleted', { position: index + 1 }),
+        },
+        Date.now(),
+      );
+      // 如果删除后队列为空，退出编辑模式
+      setQueuedPrompts((prev) => {
+        if (prev.length === 0) {
+          setQueueEditMode(false);
+          setQueuePaused(false);
+        }
+        return prev;
+      });
+    } else {
+      // 更新内容
+      setQueuedPrompts((prev) =>
+        prev.map((item, i) => (i === index ? trimmed : item)),
+      );
+      addItem(
+        {
+          type: MessageType.INFO,
+          text: tp('input.queue.item.updated', { position: index + 1 }),
+        },
+        Date.now(),
+      );
+    }
+  }, [addItem, tp]);
+
+  const handlePromptOrQueue = useCallback(
+    (promptText: string, pauseQueueUntilResponse = false) => {
+      const sanitizedPrompt = promptText.trim();
+      if (!sanitizedPrompt) {
+        return;
+      }
+
+      if (streamingState !== StreamingState.Idle) {
+        queuePrompt(sanitizedPrompt);
+        // 不再显示 "ℹ️Queued #X:" 的 INFO 消息，队列在输入框上方显示
+        return;
+      }
+
+      sendPromptImmediately(sanitizedPrompt, pauseQueueUntilResponse);
+    },
+    [addItem, queuePrompt, queuedPrompts.length, sendPromptImmediately, streamingState],
+  );
+
   // Session自动保存 - 监听streaming状态变化
   useSessionAutoSave(config, history, streamingState);
+
+  // 队列自动执行逻辑
+  useEffect(() => {
+    if (
+      streamingState !== StreamingState.Idle ||
+      queuedPrompts.length === 0 ||
+      refineResult ||
+      queuePaused || // 队列暂停时不执行
+      queueEditMode // 编辑模式下不执行
+    ) {
+      return;
+    }
+
+    const [nextPrompt] = queuedPrompts;
+    if (!nextPrompt) {
+      return;
+    }
+
+    setQueuedPrompts((prev) => prev.slice(1));
+    sendPromptImmediately(nextPrompt);
+  }, [queuedPrompts, refineResult, sendPromptImmediately, streamingState, queuePaused, queueEditMode]);
+
+  // 当 AI 开始响应时，解除队列暂停
+  useEffect(() => {
+    if (queuePaused && streamingState !== StreamingState.Idle) {
+      setQueuePaused(false);
+    }
+  }, [queuePaused, streamingState]);
 
 
 
@@ -813,6 +920,30 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
 
         // 首先检查是否是slash命令
         if (trimmedValue.startsWith('/')) {
+          // 特殊处理：/queue clear 命令
+          if (trimmedValue === '/queue clear') {
+            if (queuedPrompts.length > 0) {
+              const clearedCount = queuedPrompts.length;
+              setQueuedPrompts([]);
+              addItem(
+                {
+                  type: MessageType.INFO,
+                  text: tp('input.queue.cleared', { count: clearedCount }),
+                },
+                Date.now(),
+              );
+            } else {
+              addItem(
+                {
+                  type: MessageType.INFO,
+                  text: t('input.queue.empty'),
+                },
+                Date.now(),
+              );
+            }
+            return;
+          }
+
           // 如果是润色命令，显示 loading 状态
           const isRefineCommand = trimmedValue.startsWith('/refine');
           if (isRefineCommand) {
@@ -833,10 +964,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
               return;
             } else if (slashCommandResult.type === 'submit_prompt') {
               // Slash命令返回需要提交的内容
-              setCumulativeCredits(0);
-
-              // 正常提交查询，历史记录会保持原文（确保AI上下文完整）
-              submitQuery(slashCommandResult.content);
+              handlePromptOrQueue(slashCommandResult.content);
               return;
             } else if (slashCommandResult.type === 'schedule_tool') {
               // Slash命令要求执行工具，这里可以扩展处理
@@ -882,12 +1010,10 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
           // 如果slashCommandResult为false，说明不是有效的slash命令，继续正常处理
         }
 
-        // 重置当前回合的累计credits
-        setCumulativeCredits(0);
-        submitQuery(trimmedValue);
+        handlePromptOrQueue(trimmedValue);
       }
     },
-    [submitQuery, logoShows, stdout, handleSlashCommand],
+    [handlePromptOrQueue, logoShows, stdout, handleSlashCommand],
   );
 
   const buffer = useTextBuffer({
@@ -949,6 +1075,61 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                        (isIDEATerminal && key.ctrl && input === 'q') ||
                        (process.platform === 'darwin' && key.meta && input === 'q');
 
+    // 处理队列编辑模式
+    if (queueEditMode) {
+      if (key.return) {
+        // Enter: 保存编辑
+        const newContent = buffer.text;
+        updateQueueItem(queueEditIndex, newContent);
+        setQueueEditMode(false);
+        setQueuePaused(false);
+        buffer.setText('');
+        return;
+      } else if (isCancelKey) {
+        // Esc: 取消编辑
+        setQueueEditMode(false);
+        setQueuePaused(false);
+        buffer.setText('');
+        return;
+      } else if (key.ctrl && key.upArrow) {
+        // Ctrl+↑: 保存当前并切换到下一条
+        const currentContent = buffer.text;
+        const originalContent = queuedPrompts[queueEditIndex];
+
+        // 只有内容改变时才更新
+        if (currentContent.trim() !== originalContent) {
+          updateQueueItem(queueEditIndex, currentContent);
+        }
+
+        // 切换到下一条（需要在更新后重新获取队列长度）
+        setQueuedPrompts((currentQueue) => {
+          if (currentQueue.length === 0) {
+            // 队列已空，退出编辑模式
+            setQueueEditMode(false);
+            setQueuePaused(false);
+            buffer.setText('');
+            return currentQueue;
+          }
+
+          const nextIndex = (queueEditIndex + 1) % currentQueue.length;
+          setQueueEditIndex(nextIndex);
+          buffer.setText(currentQueue[nextIndex] || '');
+          return currentQueue;
+        });
+        return;
+      }
+      // 其他按键继续正常的输入处理
+    } else {
+      // 非编辑模式下，Ctrl+↑ 进入队列编辑模式
+      if (key.ctrl && key.upArrow && queuedPrompts.length > 0) {
+        setQueueEditMode(true);
+        setQueuePaused(true); // 暂停队列执行
+        setQueueEditIndex(0);
+        buffer.setText(queuedPrompts[0]);
+        return;
+      }
+    }
+
     // 处理润色结果的确认
     if (refineResult) {
       console.log('[App useInput] refineResult存在，处理按键:', { input, return: key.return });
@@ -958,8 +1139,8 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
         const refinedText = refineResult.refined;
         setRefineResult(null);
         buffer.setText('');
-        setCumulativeCredits(0);
-        submitQuery(refinedText);
+        // 润色发送后暂停队列，直到 AI 开始响应
+        handlePromptOrQueue(refinedText, true);
         return;
       } else if (input.toLowerCase() === 'r') {
         // R：再次润色
@@ -1111,7 +1292,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     fetchUserMessages();
   }, [history, logger]);
 
-  const isInputActive = streamingState === StreamingState.Idle && !initError;
+  const shouldRenderInputPrompt = !refineResult && !initError;
 
   const handleClearScreen = useCallback(() => {
     clearItems();
@@ -1239,6 +1420,16 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
 
   const initialPrompt = useMemo(() => config.getQuestion(), [config]);
   const geminiClient = config.getGeminiClient();
+  const queuedPromptPreview = useMemo(() => {
+    if (queuedPrompts.length === 0) {
+      return '';
+    }
+    const normalized = queuedPrompts[0].replace(/\s+/g, ' ').trim();
+    if (!normalized) {
+      return '';
+    }
+    return normalized.length > 80 ? `${normalized.slice(0, 80)}...` : normalized;
+  }, [queuedPrompts]);
 
   useEffect(() => {
     if (
@@ -1254,14 +1445,11 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
       !showPrivacyNotice &&
       geminiClient?.isInitialized?.()
     ) {
-      // 重置当前回合的累计credits
-      setCumulativeCredits(0);
-      submitQuery(initialPrompt);
+      sendPromptImmediately(initialPrompt);
       initialPromptSubmitted.current = true;
     }
   }, [
     initialPrompt,
-    submitQuery,
     isAuthenticating,
     isPreparingEnvironment,
     isAuthDialogOpen,
@@ -1271,6 +1459,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     isEditorDialogOpen,
     showPrivacyNotice,
     geminiClient,
+    sendPromptImmediately,
   ]);
 
   // Store quitting render content but don't return early to avoid hooks order issues
@@ -1510,6 +1699,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
 
               <Box
                 marginTop={1}
+                marginBottom={1}
                 display="flex"
                 justifyContent="space-between"
                 width="100%"
@@ -1562,6 +1752,37 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                 />
               )}
 
+              {/* 队列消息显示 - 简洁模式（无Queued标签） */}
+              {queuedPrompts.length > 0 && !initError && (
+                <Box marginY={1} flexDirection="column" gap={0}>
+                  {queuedPrompts.map((prompt, index) => {
+                    const preview = prompt.length > 60 ? `${prompt.slice(0, 60)}...` : prompt;
+                    return (
+                      <Text key={index} dimColor>
+                        {index === 0 ? '↓' : ' '} {preview}
+                      </Text>
+                    );
+                  })}
+                  {queuedPrompts.length > 0 && (
+                    <Text dimColor>
+                      {t('input.queue.edit.hint')}
+                    </Text>
+                  )}
+                </Box>
+              )}
+
+              {/* 队列编辑模式界面 */}
+              {queueEditMode && (
+                <Box marginY={1}>
+                  <Text color={Colors.AccentBlue}>
+                    🔄 {tp('input.queue.edit.mode', {
+                      current: queueEditIndex + 1,
+                      total: queuedPrompts.length
+                    })} • {t('input.queue.edit.actions')}
+                  </Text>
+                </Box>
+              )}
+
               {/* 润色 Loading 界面 */}
               {refineLoading && (
                 <Box
@@ -1612,7 +1833,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                 </Box>
               )}
 
-              {isInputActive && !refineResult && (
+              {shouldRenderInputPrompt && (
                 <InputPrompt
                   buffer={buffer}
                   inputWidth={inputWidth}
@@ -1633,6 +1854,8 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                   placeholder={placeholder}
                   isModalOpen={isModelDialogOpen || isAuthDialogOpen || isThemeDialogOpen || isEditorDialogOpen}
                   isExecutingTools={isExecutingTools}
+                  isBusy={streamingState !== StreamingState.Idle || queuedPrompts.length > 0}
+                  isInSpecialMode={!!refineResult || queueEditMode}
                 />
               )}
             </>

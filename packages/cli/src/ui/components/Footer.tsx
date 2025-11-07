@@ -67,7 +67,7 @@ export const Footer: React.FC<FooterProps> = ({
   const modelShortDisplay = getShortModelName(modelDisplay, displayConfig.simplifyModel);
 
   return (
-    <Box justifyContent="space-between" width="100%">
+    <Box justifyContent="space-between" width="100%" marginTop={1}>
       <Box>
         {vimMode && <Text color={Colors.Gray}>[{vimMode}] </Text>}
         {nightly ? (

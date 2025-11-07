@@ -53,6 +53,8 @@ export function useCompletion(
   commandContext: CommandContext,
   config?: Config,
   shellModeActive?: boolean,
+  isBusy?: boolean, // AI 正在工作或有队列
+  isInSpecialMode?: boolean, // 正在润色/编辑队列等特殊模式
 ): UseCompletionReturn {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [activeSuggestionIndex, setActiveSuggestionIndex] =
@@ -242,7 +244,19 @@ export function useCompletion(
       }
 
       // Traverse the Command Tree using the tentative completed path
-      let currentLevel: readonly SlashCommand[] | undefined = slashCommands;
+      // 🚀 过滤命令列表：在 AI 忙碌或特殊模式时限制可用命令
+      let availableCommands: readonly SlashCommand[] = slashCommands;
+      if (isBusy && !isInSpecialMode) {
+        // AI 正在工作时，只显示队列管理和退出命令
+        availableCommands = slashCommands.filter(cmd =>
+          cmd.name === 'queue' || cmd.name === 'quit'
+        );
+      } else if (isInSpecialMode) {
+        // 特殊模式（润色确认、队列编辑）时，不提供命令补全
+        availableCommands = [];
+      }
+
+      let currentLevel: readonly SlashCommand[] | undefined = availableCommands;
       let leafCommand: SlashCommand | null = null;
 
       for (const part of commandPathParts) {
