@@ -48,6 +48,8 @@ export interface InputPromptProps {
   vimHandleInput?: (key: Key) => boolean;
   isModalOpen?: boolean;
   isExecutingTools?: boolean; // 🔧 新增：指示是否有工具正在执行（用于隐藏边框避免闪烁）
+  isBusy?: boolean; // 🚀 新增：AI 正在工作或有队列
+  isInSpecialMode?: boolean; // 🚀 新增：正在润色/编辑队列等特殊模式
 }
 
 export const InputPrompt: React.FC<InputPromptProps> = ({
@@ -70,6 +72,8 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
   setHelpModeActive,
   vimHandleInput,
   isModalOpen = false,
+  isBusy = false,
+  isInSpecialMode = false,
 }) => {
   const [justNavigatedHistory, setJustNavigatedHistory] = useState(false);
   const [renderDebounceId, setRenderDebounceId] = useState(0);
@@ -157,6 +161,8 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
     commandContext,
     config,
     shellModeActive,
+    isBusy,
+    isInSpecialMode,
   );
 
   const resetCompletionState = completion.resetCompletionState;
@@ -1016,18 +1022,6 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
     });
   }, [linesToRender, cursorVisualRowAbsolute, cursorVisualColAbsolute, scrollVisualRow, inputWidth, focus, buffer.text.length]);
 
-  // 计算顶部和底部边框线的宽度
-  // inputWidth + prompt (2 chars) + paddingX (1 on each side = 2)
-  const borderLineWidth = inputWidth + 4;
-  const borderChar = '─';
-  const topBorder = borderChar.repeat(borderLineWidth);
-  const bottomBorder = borderChar.repeat(borderLineWidth);
-  const borderColor = shellModeActive
-    ? Colors.AccentYellow
-    : helpModeActive
-    ? Colors.AccentGreen
-    : Colors.AccentBlue;
-
   // 根据模式选择合适的 placeholder 文本
   const placeholderText = helpModeActive
     ? t('input.placeholder.help_ask')
@@ -1035,13 +1029,6 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
 
   return (
     <>
-      {/* Top border line - 🔧 工具执行时隐藏边框避免闪烁 */}
-      {!isExecutingTools && (
-        <Box>
-          <Text color={borderColor}>{topBorder}</Text>
-        </Box>
-      )}
-
       {/* Input content */}
       <Box paddingX={1} minHeight={dynamicInputHeight}>
         <Text
@@ -1062,13 +1049,6 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
           )}
         </Box>
       </Box>
-
-      {/* Bottom border line - 🔧 工具执行时隐藏边框避免闪烁 */}
-      {!isExecutingTools && (
-        <Box>
-          <Text color={borderColor}>{bottomBorder}</Text>
-        </Box>
-      )}
 
       {/* 长文本粘贴提示 */}
       {pasteSegments.length > 0 && (

@@ -15,7 +15,7 @@
 function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
   // 移除#号并处理3位或6位hex
   const cleanHex = hex.replace('#', '');
-  
+
   if (cleanHex.length === 3) {
     // 3位hex：#RGB -> #RRGGBB
     const r = parseInt(cleanHex[0] + cleanHex[0], 16);
@@ -29,7 +29,7 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
     const b = parseInt(cleanHex.substring(4, 6), 16);
     return { r, g, b };
   }
-  
+
   return null;
 }
 
@@ -41,7 +41,7 @@ function rgbToHex(r: number, g: number, b: number): string {
     const hex = Math.round(Math.max(0, Math.min(255, n))).toString(16);
     return hex.length === 1 ? '0' + hex : hex;
   };
-  
+
   return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
 }
 
@@ -54,7 +54,7 @@ function rgbToHex(r: number, g: number, b: number): string {
 export function adjustBrightness(color: string, factor: number): string {
   // 确保factor在合理范围内
   factor = Math.max(0, Math.min(1, factor));
-  
+
   // 如果是hex颜色
   if (color.startsWith('#')) {
     const rgb = hexToRgb(color);
@@ -63,11 +63,11 @@ export function adjustBrightness(color: string, factor: number): string {
       const adjustedR = rgb.r * factor;
       const adjustedG = rgb.g * factor;
       const adjustedB = rgb.b * factor;
-      
+
       return rgbToHex(adjustedR, adjustedG, adjustedB);
     }
   }
-  
+
   // 对于CSS颜色名称，我们可以添加一些常见的映射
   // 或者直接返回原色（在终端中，某些颜色名称可能不支持亮度调整）
   const cssColorMap: Record<string, string> = {
@@ -82,7 +82,7 @@ export function adjustBrightness(color: string, factor: number): string {
     'gray': factor < 0.7 ? '#374151' : 'gray',
     'grey': factor < 0.7 ? '#374151' : 'grey',
   };
-  
+
   return cssColorMap[color.toLowerCase()] || color;
 }
 
@@ -100,13 +100,14 @@ export function createLEDColorPair(originalColor: string) {
 
 /**
  * 为渐变跑马灯效果创建三级颜色
- * @param originalColor 原始颜色
+ * @param originalColor 原始颜色（已废弃，现在使用固定的精细渐变配色）
  * @returns 包含dim、medium、bright三种颜色的对象
  */
 export function createGradientColorSet(originalColor: string) {
+  // 🎨 使用精心设计的固定配色方案，实现更细腻的跑马灯渐变效果
   return {
-    dim: adjustBrightness(originalColor, 0.4),      // 40%亮度 - 暗色背景
-    medium: adjustBrightness(originalColor, 0.7),   // 70%亮度 - 渐变首尾色
-    bright: originalColor                            // 100%亮度 - 高亮中心色
+    dim: '#666666',      // 文本默认色 - 暗灰色背景
+    medium: '#CCCCCC',   // 渐变过渡色 - 第1和第7字符
+    bright: '#F2F2F2'    // 高亮中心色 - 第2-6字符（接近白色）
   };
 }
