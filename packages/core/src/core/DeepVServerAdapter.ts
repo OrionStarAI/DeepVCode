@@ -171,12 +171,12 @@ export class DeepVServerAdapter implements ContentGenerator {
     }
 
     // 🚨 添加两层超时保护：
-    // 1. 连接层：120秒超时（保护TCP连接建立和响应头接收）
-    // 2. 数据层：120秒超时（保护完整响应体接收，response.json()）
+    // 1. 连接层：300秒超时（保护TCP连接建立和响应头接收）
+    // 2. 数据层：300秒超时（保护完整响应体接收，response.json()）
     const fetchTimeoutId = setTimeout(() => {
-      console.warn('[DeepV Server] API fetch timeout - aborting after 120s');
+      console.warn('[DeepV Server] API fetch timeout - aborting after 300s');
       controller.abort();
-    }, 120000);
+    }, 300000);
 
     const startTime = Date.now();
 
@@ -200,9 +200,9 @@ export class DeepVServerAdapter implements ContentGenerator {
       // 🚨 获取响应头后清理连接超时，改用数据超时
       clearTimeout(fetchTimeoutId);
       const dataTimeoutId = setTimeout(() => {
-        console.warn('[DeepV Server] API data timeout - response.json() taking too long (>120s)');
+        console.warn('[DeepV Server] API data timeout - response.json() taking too long (>300s)');
         controller.abort();
-      }, 120000);
+      }, 300000);
 
       if (!response.ok) {
         clearTimeout(dataTimeoutId);
@@ -232,8 +232,8 @@ export class DeepVServerAdapter implements ContentGenerator {
       // 🚨 使用数据层超时保护 response.json()
       const responseData = await this.withTimeout(
         response.json() as Promise<GenerateContentResponse>,
-        120000,
-        '[DeepV Server] API response parsing timeout after 120s'
+        300000,
+        '[DeepV Server] API response parsing timeout after 300s'
       );
       clearTimeout(dataTimeoutId);
 
@@ -376,7 +376,9 @@ export class DeepVServerAdapter implements ContentGenerator {
         request.model === 'claude-haiku-4-5@20251001' ||
         request.model === 'claude-haiku-4-5-20251001' ||
         request.model === 'claude-sonnet-4-20250514' ||
-        request.model === 'claude-sonnet-4-5-20250929') {
+        request.model === 'claude-sonnet-4-5-20250929'||
+        request.model === 'moonshotai/kimi-k2-thinking' 
+      ) {
       return this._generateContentStream(request, scene);
     } else {
       // 其他模型将非流式响应包装为流式格式
@@ -588,8 +590,8 @@ export class DeepVServerAdapter implements ContentGenerator {
    * 🆕 创建流式生成器
    *
    * 超时保护策略：
-   * - 每个 read() 调用有 120 秒超时（这是唯一的超时保护）
-   * - 如果 120 秒内没有收到数据，自动中止
+   * - 每个 read() 调用有 300 秒超时（这是唯一的超时保护）
+   * - 如果 300 秒内没有收到数据，自动中止
    * - 允许长时间的数据流传输（只要持续有数据到达）
    * - 用户可以通过 abortSignal 随时取消请求
    */
@@ -610,13 +612,13 @@ export class DeepVServerAdapter implements ContentGenerator {
           break;
         }
 
-        // 为流读取添加超时保护（120秒）
+        // 为流读取添加超时保护（300秒）
         // 这确保如果长时间没有收到任何数据，会自动中止
         // 但如果数据在持续到达，流可以无限期地运行
         const { done, value } = await this.withTimeout(
           reader.read(),
-          120000,
-          '[DeepV Server] Stream read timeout after 120s (no data received)'
+          300000,
+          '[DeepV Server] Stream read timeout after 300s (no data received)'
         );
         if (done) break;
 
