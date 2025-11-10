@@ -376,8 +376,7 @@ export class DeepVServerAdapter implements ContentGenerator {
         request.model === 'claude-haiku-4-5@20251001' ||
         request.model === 'claude-haiku-4-5-20251001' ||
         request.model === 'claude-sonnet-4-20250514' ||
-        request.model === 'claude-sonnet-4-5-20250929'||
-        request.model === 'moonshotai/kimi-k2-thinking' 
+        request.model === 'claude-sonnet-4-5-20250929'
       ) {
       return this._generateContentStream(request, scene);
     } else {
