@@ -21,6 +21,8 @@ import { useTerminalSize } from './hooks/useTerminalSize.js';
 import { useGeminiStream } from './hooks/useGeminiStream.js';
 import { t, tp } from './utils/i18n.js';
 import { useLoadingIndicator } from './hooks/useLoadingIndicator.js';
+import { useTaskCompletionSummary } from './hooks/useTaskCompletionSummary.js';
+import { TaskCompletionSummary } from './components/TaskCompletionSummary.js';
 import { useThemeCommand } from './hooks/useThemeCommand.js';
 import { useModelCommand } from './hooks/useModelCommand.js';
 import { useAuthCommand } from './hooks/useAuthCommand.js';
@@ -708,6 +710,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   const { rows: terminalHeight, columns: terminalWidth } = useTerminalSize();
   const { stdin, setRawMode } = useStdin();
   const isInitialMount = useRef(true);
+  const completionSummaryCounterRef = useRef(0);
 
   const widthFraction = 0.9;
   const inputWidth = Math.max(
@@ -1032,6 +1035,25 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   const { elapsedTime, currentLoadingPhrase, estimatedInputTokens: loadingEstimatedTokens } =
     useLoadingIndicator(streamingState, estimatedInputTokens);
 
+  // When transitioning from Responding to Idle, capture the elapsed time for printing
+  const lastElapsedTimeBeforeIdleRef = useRef<number>(0);
+  useEffect(() => {
+    if (streamingState === StreamingState.Responding) {
+      lastElapsedTimeBeforeIdleRef.current = elapsedTime;
+    }
+  }, [elapsedTime, streamingState]);
+
+  const { shouldShowSummary, completionElapsedTime } = useTaskCompletionSummary(
+    streamingState,
+    lastElapsedTimeBeforeIdleRef.current
+  );
+
+  // Track completion summary counter for unique keys
+  useEffect(() => {
+    if (shouldShowSummary) {
+      completionSummaryCounterRef.current += 1;
+    }
+  }, [shouldShowSummary]);
 
   const showAutoAcceptIndicator = useAutoAcceptIndicator({ config });
 
@@ -1365,8 +1387,19 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
       />
     )));
 
+    // Add task completion summary to static area when it should be shown
+    if (shouldShowSummary && completionElapsedTime > 0) {
+      items.push(
+        <TaskCompletionSummary
+          key={`completion-${completionSummaryCounterRef.current}`}
+          elapsedTime={completionElapsedTime}
+          isVisible={true}
+        />
+      );
+    }
+
     return items;
-  }, [history, mainAreaWidth, staticAreaMaxItemHeight, staticKey, terminalWidth, settings.merged.hideBanner, settings.merged.hideTips, config]); // 🚀 保留关键依赖：terminalWidth 对响应式布局重要
+  }, [history, mainAreaWidth, staticAreaMaxItemHeight, staticKey, terminalWidth, settings.merged.hideBanner, settings.merged.hideTips, config, shouldShowSummary, completionElapsedTime, completionSummaryCounterRef]); // 🚀 保留关键依赖：terminalWidth 对响应式布局重要
 
   useEffect(() => {
     // skip refreshing Static during first mount
