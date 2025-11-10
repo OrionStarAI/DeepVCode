@@ -55,6 +55,7 @@ export class ProxyAuthManager {
   private refreshPromise: Promise<string> | null = null;
   private lastStatusLogTime: number = 0;
   private cliVersion: string = 'unknown';
+  private periodicStatusCheckIntervalId: NodeJS.Timeout | null = null;
 
   /**
    * 获取CLI版本号
@@ -130,9 +131,10 @@ export class ProxyAuthManager {
 
   /**
    * 启动定期状态检查
+   * ⚠️ 关键：保存 intervalId 以支持后续清理，防止内存泄漏
    */
   private startPeriodicStatusCheck(): void {
-    setInterval(() => {
+    this.periodicStatusCheckIntervalId = setInterval(() => {
       if (this.jwtTokenData) {
         const now = Date.now();
         const timeRemaining = this.jwtTokenData.expiresAt - now;
@@ -583,11 +585,18 @@ export class ProxyAuthManager {
   }
 
   /**
-   * 清除认证信息
+   * 清除认证信息及资源
+   * ⚠️ 关键：清理 periodicStatusCheckIntervalId 防止内存泄漏
    */
   clear(): void {
     this.userInfo = null;
     this.jwtTokenData = null;
+
+    // 🔑 清理定期检查的 interval
+    if (this.periodicStatusCheckIntervalId !== null) {
+      clearInterval(this.periodicStatusCheckIntervalId);
+      this.periodicStatusCheckIntervalId = null;
+    }
 
     // 删除本地用户信息文件
     try {

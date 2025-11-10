@@ -170,11 +170,15 @@ export class DeepVServerAdapter implements ContentGenerator {
       }
     }
 
-    // 🚨 添加两层超时保护：
-    // 1. 连接层：300秒超时（保护TCP连接建立和响应头接收）
-    // 2. 数据层：300秒超时（保护完整响应体接收，response.json()）
+    // 🚨 非流式请求的超时保护：两层防御
+    // 第1层（连接层）：300秒内必须收到响应头
+    //   - 保护 TCP 连接建立和首个响应头的接收
+    //   - 防止服务端完全无响应的情况
+    // 第2层（数据层）：响应头后，300秒内必须完成 response.json() 解析
+    //   - 保护完整响应体的接收和 JSON 反序列化
+    //   - 总请求时间 = 连接等待 + 数据接收 + 解析，均有保护
     const fetchTimeoutId = setTimeout(() => {
-      console.warn('[DeepV Server] API fetch timeout - aborting after 300s');
+      console.warn('[DeepV Server] API fetch timeout - aborting connection layer after 300s');
       controller.abort();
     }, 300000);
 
@@ -197,10 +201,11 @@ export class DeepVServerAdapter implements ContentGenerator {
         signal: controller.signal,
       });
 
-      // 🚨 获取响应头后清理连接超时，改用数据超时
+      // 🚨 获取响应头后清理连接层超时，启用数据层超时
+      // 响应头已收到说明连接正常，现在保护响应体接收和解析阶段
       clearTimeout(fetchTimeoutId);
       const dataTimeoutId = setTimeout(() => {
-        console.warn('[DeepV Server] API data timeout - response.json() taking too long (>300s)');
+        console.warn('[DeepV Server] API data timeout - response.json() taking too long (>300s) in data layer');
         controller.abort();
       }, 300000);
 
@@ -229,11 +234,12 @@ export class DeepVServerAdapter implements ContentGenerator {
         throw new Error(`API request failed (${response.status}): ${errorText}`);
       }
 
-      // 🚨 使用数据层超时保护 response.json()
+      // 🚨 第三层保护：response.json() 解析也有独立的 300s 超时
+      // 虽然前面有数据层超时保护，但这里再加一层确保 JSON 解析不会卡住
       const responseData = await this.withTimeout(
         response.json() as Promise<GenerateContentResponse>,
         300000,
-        '[DeepV Server] API response parsing timeout after 300s'
+        '[DeepV Server] API response parsing timeout after 300s - JSON.parse() or streaming took too long'
       );
       clearTimeout(dataTimeoutId);
 
@@ -588,11 +594,14 @@ export class DeepVServerAdapter implements ContentGenerator {
   /**
    * 🆕 创建流式生成器
    *
-   * 超时保护策略：
-   * - 每个 read() 调用有 300 秒超时（这是唯一的超时保护）
-   * - 如果 300 秒内没有收到数据，自动中止
-   * - 允许长时间的数据流传输（只要持续有数据到达）
+   * 超时保护策略（针对 SSE/流式响应）：
+   * - 每次 read() 调用的等待时间不超过 300 秒
+   * - 如果 300 秒内未收到任何数据块，自动中止（防止僵死连接）
+   * - 只要数据块在 300 秒内持续到达，即使总耗时很长也不会超时
+   * - 这支持长时间运行的推理模型（如 o1 系列，思考可能需要几分钟）
    * - 用户可以通过 abortSignal 随时取消请求
+   *
+   * 设计意图：防止单个数据块卡顿，但允许完整的流式响应任意长
    */
   private async *createStreamGenerator(response: Response, abortSignal?: AbortSignal): AsyncGenerator<GenerateContentResponse> {
     const reader = response.body?.getReader();
@@ -605,19 +614,19 @@ export class DeepVServerAdapter implements ContentGenerator {
 
     try {
       while (true) {
-        // 检查是否被取消
+        // 检查是否被用户中止
         if (abortSignal?.aborted) {
-          console.log('[DeepV Server] Stream generation cancelled');
+          console.log('[DeepV Server] Stream generation cancelled by user');
           break;
         }
 
-        // 为流读取添加超时保护（300秒）
-        // 这确保如果长时间没有收到任何数据，会自动中止
-        // 但如果数据在持续到达，流可以无限期地运行
+        // ⏱️ 为每个 read() 添加 300 秒的空闲超时
+        // 保护机制：如果 300 秒内没有收到任何数据，认为连接已断或服务无响应
+        // 但流中每来一个数据块，计时器就重置（新的 read() 调用）
         const { done, value } = await this.withTimeout(
           reader.read(),
           300000,
-          '[DeepV Server] Stream read timeout after 300s (no data received)'
+          '[DeepV Server] Stream read timeout after 300s (no data received in this chunk)'
         );
         if (done) break;
 
@@ -932,17 +941,37 @@ export class DeepVServerAdapter implements ContentGenerator {
   }
 
   /**
-   * 🚨 为 Promise 添加超时保护
-   * 用于防止流式读取等长时间操作无限期等待
+   * ⏱️ 为 Promise 添加超时保护的通用工具
+   *
+   * 超时策略汇总：
+   * ┌─ 非流式请求 (generateContent)
+   * │  ├─ 连接层：300s 等待响应头（TCP 建立 + 首响）
+   * │  ├─ 数据层：300s 接收响应体（response.body）
+   * │  └─ 解析层：300s 解析 JSON（response.json()）
+   * │
+   * └─ 流式请求 (_generateContentStream)
+   *    └─ 读取层：每个 read() 调用 300s 超时
+   *       （若数据块在 300s 内到达则重置，无整体限制）
+   *       用途：防止单个数据块卡顿，支持长推理时间
+   *
+   * 实现：使用 Promise.race 竞速机制 + 显式清理
+   * ⚠️  关键：必须清理超时定时器，否则每次调用都泄漏 300s 的 setTimeout
    */
   private withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> {
-    return Promise.race([
-      promise,
-      new Promise<T>((_, reject) =>
-        setTimeout(() => {
-          reject(new Error(timeoutMessage));
-        }, timeoutMs)
-      )
-    ]);
+    let timeoutId: NodeJS.Timeout | null = null;
+
+    const timeoutPromise = new Promise<T>((_, reject) => {
+      timeoutId = setTimeout(() => {
+        reject(new Error(timeoutMessage));
+      }, timeoutMs);
+    });
+
+    return Promise.race([promise, timeoutPromise]).finally(() => {
+      // 🔑 关键清理：如果 promise 先完成，必须清理 timeoutId
+      // 否则会形成幽灵定时器，占用内存 300 秒，高并发下导致严重内存泄漏
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId);
+      }
+    });
   }
 }
