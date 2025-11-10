@@ -178,7 +178,7 @@ export class DeepVServerAdapter implements ContentGenerator {
     //   - 保护完整响应体的接收和 JSON 反序列化
     //   - 总请求时间 = 连接等待 + 数据接收 + 解析，均有保护
     const fetchTimeoutId = setTimeout(() => {
-      console.warn('[DeepV Server] API fetch timeout - aborting connection layer after 300s');
+      console.warn('[DeepV Server] API fetch timeout - aborting connection layer after 300s. Try: check your network, or say "continue" to retry.');
       controller.abort();
     }, 300000);
 
@@ -205,7 +205,7 @@ export class DeepVServerAdapter implements ContentGenerator {
       // 响应头已收到说明连接正常，现在保护响应体接收和解析阶段
       clearTimeout(fetchTimeoutId);
       const dataTimeoutId = setTimeout(() => {
-        console.warn('[DeepV Server] API data timeout - response.json() taking too long (>300s) in data layer');
+        console.warn('[DeepV Server] API data timeout - response.json() taking too long (>300s) in data layer. Try: check your network, say "continue" to retry, or try a different model.');
         controller.abort();
       }, 300000);
 
@@ -239,7 +239,7 @@ export class DeepVServerAdapter implements ContentGenerator {
       const responseData = await this.withTimeout(
         response.json() as Promise<GenerateContentResponse>,
         300000,
-        '[DeepV Server] API response parsing timeout after 300s - JSON.parse() or streaming took too long'
+        '[DeepV Server] API response parsing timeout after 300s - JSON.parse() or streaming took too long. Try: check your network, say "continue" to retry, or try a different model.'
       );
       clearTimeout(dataTimeoutId);
 
