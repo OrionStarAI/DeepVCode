@@ -781,6 +781,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     initError,
     pendingHistoryItems: pendingGeminiHistoryItems,
     thought,
+    reasoning, // 🆕 接收 reasoning 状态
     isCreatingCheckpoint, // 🎯 接收checkpoint创建状态
     isExecutingTools, // 🎯 接收工具执行状态
   } = useGeminiStream(
@@ -1729,6 +1730,15 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                 }
                 elapsedTime={elapsedTime}
               />
+
+              {/* 🆕 显示模型思考过程（reasoning） */}
+              {reasoning && reasoning.text && (
+                <Box marginTop={1} paddingX={1}>
+                  <Text dimColor>
+                    💭 {t('model.reasoning')}: {formatReasoningText(reasoning.text)}
+                  </Text>
+                </Box>
+              )}
 
               <Box
                 marginTop={1}

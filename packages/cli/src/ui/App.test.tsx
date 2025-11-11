@@ -676,6 +676,9 @@ describe('App UI', () => {
       initError: null,
       pendingHistoryItems: [],
       thought: null,
+      reasoning: null,
+      isCreatingCheckpoint: false,
+      isExecutingTools: false,
     });
 
     const { lastFrame, unmount } = render(
@@ -698,6 +701,13 @@ describe('App UI', () => {
       vi.mocked(useGeminiStream).mockReturnValue({
         streamingState: StreamingState.Idle,
         submitQuery: mockSubmitQuery,
+        initError: null,
+        pendingHistoryItems: [],
+        thought: null,
+        reasoning: null,
+        isCreatingCheckpoint: false,
+        isExecutingTools: false,
+      });
         initError: null,
         pendingHistoryItems: [],
         thought: null,
