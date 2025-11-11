@@ -10,7 +10,25 @@ import {
   CommandKind,
 } from './types.js';
 import { MessageType } from '../types.js';
-import { getLocalizedToolName, t } from '../utils/i18n.js';
+import { getLocalizedToolName, t, isChineseLocale } from '../utils/i18n.js';
+
+// 工具的英文描述映射
+const TOOL_DESCRIPTIONS_EN: Record<string, string> = {
+  'Edit': 'Edit file content by replacing specified text segments. Supports precise matching and multiple replacements',
+  'FindFiles': 'Search for files by name pattern, supporting wildcards and recursive search',
+  'WebSearch': 'Find relevant information and resources on the web using search engines',
+  'ReadFile': 'Read and display file content with support for pagination of large files',
+  'ReadFolder': 'Read directory structure and contents, displaying files in a folder',
+  'ReadManyFiles': 'Batch read multiple files efficiently for group file operations',
+  'Save Memory': 'Save important information to AI long-term memory for cross-session use',
+  'SearchText': 'Search for specified text content in files, supporting regular expressions',
+  'Shell': 'Execute system commands and shell scripts to interact with the operating system',
+  'Task': 'Manage and execute tasks with support for task scheduling and status tracking',
+  'TodoRead': 'Read todo list and view current task status',
+  'TodoWrite': 'Create and manage todo items, record tasks and progress',
+  'WebFetch': 'Fetch web page content and download network resources and data',
+  'WriteFile': 'Create or overwrite file content by writing data to specified file',
+};
 
 // 工具的中文描述映射
 const TOOL_DESCRIPTIONS_CN: Record<string, string> = {
@@ -48,7 +66,7 @@ export const toolsCommand: SlashCommand = {
       context.ui.addItem(
         {
           type: MessageType.ERROR,
-          text: '无法检索工具注册表。',
+          text: t('error.tool.registry.unavailable'),
         },
         Date.now(),
       );
@@ -59,7 +77,12 @@ export const toolsCommand: SlashCommand = {
     // Filter out MCP tools by checking for the absence of a serverName property
     const geminiTools = tools.filter((tool) => !('serverName' in tool));
 
-    let message = '🔧可用的工具:\n\n';
+    // Select descriptions based on locale
+    const DESCRIPTIONS = isChineseLocale() ? TOOL_DESCRIPTIONS_CN : TOOL_DESCRIPTIONS_EN;
+    const headerText = isChineseLocale() ? '🔧可用的工具:' : '🔧Available Tools:';
+    const noToolsText = isChineseLocale() ? '  暂无可用工具' : '  No tools available';
+
+    let message = `${headerText}\n\n`;
 
     if (geminiTools.length > 0) {
       geminiTools.forEach((tool) => {
@@ -70,16 +93,16 @@ export const toolsCommand: SlashCommand = {
           const grayColor = '\u001b[90m';
           const resetColor = '\u001b[0m';
 
-          // 优先使用中文描述，如果没有则使用英文原始描述
-          let briefDesc = TOOL_DESCRIPTIONS_CN[tool.displayName];
+          // Use localized description, fallback to tool.description if not found
+          let briefDesc = DESCRIPTIONS[tool.displayName];
 
           if (!briefDesc && tool.description) {
-            // 如果没有中文描述，从英文描述中提取第一句话或前150字符
+            // Extract first sentence or first 150 characters from English description
             const firstSentence = tool.description.split(/[.!?](?:\s|$)/)[0];
             briefDesc = firstSentence.length > 150
               ? tool.description.substring(0, 150) + '...'
               : firstSentence;
-            // 清理多余的空白符和换行符
+            // Clean up extra whitespace and newlines
             briefDesc = briefDesc.replace(/\s+/g, ' ').trim();
           }
 
@@ -92,7 +115,7 @@ export const toolsCommand: SlashCommand = {
         }
       });
     } else {
-      message += '  No tools available\n';
+      message += `${noToolsText}\n`;
     }
     message += '\n';
 
