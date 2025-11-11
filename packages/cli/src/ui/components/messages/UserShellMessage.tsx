@@ -18,12 +18,9 @@ export const UserShellMessage: React.FC<UserShellMessageProps> = ({ text, termin
   const commandToDisplay = text.startsWith('!') ? text.substring(1) : text;
   const userIndicator = '🧑💬'; // 小人 + 聊天emoji
 
-  // 使用真实的终端宽度，加回被减去的padding
-  const realTerminalWidth = (terminalWidth || 0) + 8;
-
   return (
-    <Box flexDirection="row" width={realTerminalWidth}>
-      <Box>
+    <Box flexDirection="row" width="100%">
+      <Box flexShrink={1}>
         <Text color={Colors.AccentCyan}>$ </Text>
         <Text>{commandToDisplay}</Text>
       </Box>

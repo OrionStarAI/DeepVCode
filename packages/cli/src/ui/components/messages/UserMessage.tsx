@@ -64,22 +64,21 @@ export const UserMessage: React.FC<UserMessageProps> = ({ text, terminalWidth })
   const fullText = formattedLines.join('\n');
 
   return (
-    <Box flexDirection="column">
-      <Box flexDirection="row" width="100%">
-        <Box
-          paddingX={2}
-          paddingY={0}
-          marginY={1}
-          alignSelf="flex-start"
-        >
-          <Text>{fullText}</Text>
-        </Box>
-        {terminalWidth && (
-          <Box flexGrow={1} justifyContent="flex-end" alignItems="flex-start" marginY={1}>
-            <Text>{userIndicator}</Text>
-          </Box>
-        )}
+    <Box flexDirection="row" width="100%">
+      <Box
+        paddingX={2}
+        paddingY={0}
+        marginY={1}
+        alignSelf="flex-start"
+        flexShrink={1}
+      >
+        <Text>{fullText}</Text>
       </Box>
+      {terminalWidth && (
+        <Box flexGrow={1} justifyContent="flex-end" alignItems="flex-start" marginY={1}>
+          <Text>{userIndicator}</Text>
+        </Box>
+      )}
     </Box>
   );
 };
