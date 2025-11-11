@@ -49,7 +49,17 @@ export function SuggestionsDisplay({
 
   // 🎯 提取搜索关键词用于高亮
   let searchQuery = '';
-  if (userInput.includes('@')) {
+  let isCommandMode = false;
+
+  if (userInput.startsWith('/')) {
+    // 斜杠命令模式：提取斜杠后的内容
+    isCommandMode = true;
+    const slashIndex = userInput.lastIndexOf('/');
+    const commandPart = userInput.substring(slashIndex + 1);
+    const spaceIndex = commandPart.indexOf(' ');
+    searchQuery = spaceIndex !== -1 ? commandPart.substring(0, spaceIndex) : commandPart;
+  } else if (userInput.includes('@')) {
+    // 文件路径模式
     const atIndex = userInput.lastIndexOf('@');
     const pathPart = userInput.substring(atIndex + 1);
     const lastSlash = pathPart.lastIndexOf('/');
@@ -83,12 +93,12 @@ export function SuggestionsDisplay({
 
         // 🎯 渲染带高亮的标签
         const renderLabel = () => {
-          if (!searchQuery || userInput.startsWith('/')) {
-            // 命令模式或无搜索词时不高亮
+          if (!searchQuery) {
+            // 无搜索词时不高亮
             return <Text color={baseColor}>{suggestion.label}</Text>;
           }
 
-          // 获取高亮片段
+          // 获取高亮片段（支持斜杠命令和文件路径）
           const segments = getHighlightSegments(suggestion.label, searchQuery);
 
           return (
