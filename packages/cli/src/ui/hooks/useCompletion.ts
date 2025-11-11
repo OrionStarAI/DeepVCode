@@ -360,12 +360,36 @@ export function useCompletion(
       // Command/Sub-command Completion
       const commandsToSearch = currentLevel || [];
       if (commandsToSearch.length > 0) {
-        let potentialSuggestions = commandsToSearch.filter(
-          (cmd) =>
-            cmd.description &&
-            (cmd.name.startsWith(partial) ||
-              cmd.altNames?.some((alt) => alt.startsWith(partial))),
-        );
+        let potentialSuggestions: SlashCommand[];
+        const potentialSuggestionsWithScore: Array<{ cmd: SlashCommand; fuzzyScore: number }> = [];
+
+        // 只有当用户输入了搜索词时，才使用模糊匹配；否则显示所有命令
+        if (partial) {
+          // 使用模糊匹配替代前缀匹配，支持任意位置的匹配
+          const suggestionsWithScore = commandsToSearch
+            .filter((cmd) => cmd.description)
+            .map((cmd) => {
+              // 获取命令名和别名的匹配结果
+              const nameMatch = fuzzyMatch(cmd.name, partial);
+              const aliasMatches = (cmd.altNames || []).map((alt) => fuzzyMatch(alt, partial));
+
+              // 选择最高分的匹配
+              const allMatches = [nameMatch, ...aliasMatches].filter((m) => m.matched);
+              const bestMatch = allMatches.reduce((best, current) =>
+                current.score > best.score ? current : best,
+                { matched: false, score: 0, indices: [] as number[] },
+              );
+
+              return { cmd, matched: bestMatch.matched, fuzzyScore: bestMatch.score };
+            })
+            .filter((item) => item.matched);
+
+          potentialSuggestions = suggestionsWithScore.map((item) => item.cmd);
+          potentialSuggestionsWithScore.push(...suggestionsWithScore);
+        } else {
+          // 没有搜索词时，显示所有有描述的命令，保持原顺序
+          potentialSuggestions = commandsToSearch.filter((cmd) => cmd.description);
+        }
 
         // If a user's input is an exact match and it is a leaf command,
         // enter should submit immediately.
@@ -375,6 +399,7 @@ export function useCompletion(
           );
           if (perfectMatch && perfectMatch.action) {
             potentialSuggestions = [];
+            potentialSuggestionsWithScore.length = 0;
           }
         }
 
@@ -384,25 +409,40 @@ export function useCompletion(
           description: cmd.description,
         }));
 
-        // 🔧 自定义排序：/help-ask 第一，/help 第二，/about 最后，其他按原顺序
-        finalSuggestions.sort((a, b) => {
-          const getPriority = (name: string): number => {
-            if (name === 'help-ask') return 0;
-            if (name === 'help') return 1;
-            if (name === 'about') return 999;
-            return 500; // 其他命令的默认优先级
-          };
+        // 🔧 自定义排序：只在有搜索词时，按模糊匹配得分和优先级排序
+        if (partial && potentialSuggestionsWithScore.length > 0) {
+          const scoreMap = new Map<string, number>();
+          potentialSuggestionsWithScore.forEach((item) => {
+            scoreMap.set(item.cmd.name, item.fuzzyScore);
+          });
 
-          const priorityA = getPriority(a.value);
-          const priorityB = getPriority(b.value);
+          finalSuggestions.sort((a, b) => {
+            const getPriority = (name: string): number => {
+              if (name === 'help-ask') return 0;
+              if (name === 'help') return 1;
+              if (name === 'about') return 999;
+              return 500; // 其他命令的默认优先级
+            };
 
-          if (priorityA !== priorityB) {
-            return priorityA - priorityB;
-          }
+            const priorityA = getPriority(a.value);
+            const priorityB = getPriority(b.value);
 
-          // 同优先级保持原顺序（通过原始索引）
-          return 0;
-        });
+            if (priorityA !== priorityB) {
+              return priorityA - priorityB;
+            }
+
+            // 同优先级下，按照模糊匹配得分降序排列
+            const scoreA = scoreMap.get(a.value) || 0;
+            const scoreB = scoreMap.get(b.value) || 0;
+
+            if (scoreA !== scoreB) {
+              return scoreB - scoreA; // 降序
+            }
+
+            // 同分数保持原顺序
+            return 0;
+          });
+        }
 
         // 🔧 智能匹配：根据当前输入找到最佳匹配的命令
         let bestMatchIndex = 0;
