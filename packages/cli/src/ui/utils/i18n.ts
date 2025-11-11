@@ -224,6 +224,9 @@ export const translations = {
     'input.queue.empty': 'ℹ️ Queue is already empty',
     'completion.clipboard.description': 'Paste clipboard content (image or text)',
 
+    // Suggestions Display
+    'suggestions.loading': 'Loading suggestions...',
+
     // Stats Display sections
     'section.interaction.summary': 'Interaction Summary',
     'section.performance': 'Performance',
@@ -1161,6 +1164,9 @@ export const translations = {
     'input.queue.cleared': '✅ 已清空 {count} 条排队指令',
     'input.queue.empty': 'ℹ️ 队列已为空',
     'completion.clipboard.description': '粘贴剪贴板内容（图片或文本）',
+
+    // Suggestions Display
+    'suggestions.loading': '正在加载建议...',
 
     // Stats Display sections
     'section.interaction.summary': '交互总结',
