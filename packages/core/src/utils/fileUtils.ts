@@ -737,9 +737,12 @@ export async function processSingleFileContent(
         }
         llmTextContent += formattedLines.join('\n');
 
+        const displayInfo = isTruncated
+          ? `read lines: ${actualStartLine + 1}-${endLine}`
+          : `(${endLine} lines)`;
         return {
           llmContent: llmTextContent,
-          returnDisplay: isTruncated ? '(truncated)' : '',
+          returnDisplay: displayInfo,
           isTruncated,
           originalLineCount,
           linesShown: [actualStartLine + 1, endLine],
@@ -799,9 +802,12 @@ export async function processSingleFileContent(
           }
           llmTextContent += formattedLines.join('\n');
 
+          const displayInfo = isTruncated
+            ? `read lines: ${actualStartLine + 1}-${endLine}`
+            : `${endLine} lines`;
           return {
             llmContent: llmTextContent,
-            returnDisplay: `Read Excel file: ${relativePathForDisplay}${isTruncated ? ' (truncated)' : ''}`,
+            returnDisplay: `Read Excel file: ${relativePathForDisplay} (${displayInfo})`,
             isTruncated,
             originalLineCount,
             linesShown: [actualStartLine + 1, endLine],
@@ -848,9 +854,12 @@ export async function processSingleFileContent(
           }
           llmTextContent += formattedLines.join('\n');
 
+          const displayInfo = isTruncated
+            ? `read lines: ${actualStartLine + 1}-${endLine}`
+            : `${endLine} lines`;
           return {
             llmContent: llmTextContent,
-            returnDisplay: `Read Word document: ${relativePathForDisplay}${isTruncated ? ' (truncated)' : ''}`,
+            returnDisplay: `Read Word document: ${relativePathForDisplay} (${displayInfo})`,
             isTruncated,
             originalLineCount,
             linesShown: [actualStartLine + 1, endLine],
@@ -898,9 +907,12 @@ export async function processSingleFileContent(
           }
           llmTextContent += formattedLines.join('\n');
 
+          const displayInfo = isTruncated
+            ? `read lines: ${actualStartLine + 1}-${endLine}`
+            : `${endLine} lines`;
           return {
             llmContent: llmTextContent, // Return as plain text, not inlineData
-            returnDisplay: `Read PDF as text: ${relativePathForDisplay}${isTruncated ? ' (truncated)' : ''}`,
+            returnDisplay: `Read PDF as text: ${relativePathForDisplay} (${displayInfo})`,
             isTruncated,
             originalLineCount,
             linesShown: [actualStartLine + 1, endLine],
