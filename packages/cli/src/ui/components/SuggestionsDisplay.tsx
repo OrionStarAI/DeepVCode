@@ -7,6 +7,7 @@
 import { Box, Text } from 'ink';
 import { Colors } from '../colors.js';
 import { getHighlightSegments } from '../utils/fuzzyMatch.js';
+import { t } from '../utils/i18n.js';
 
 export interface Suggestion {
   label: string;
@@ -37,7 +38,7 @@ export function SuggestionsDisplay({
   if (isLoading) {
     return (
       <Box paddingX={1} width={width}>
-        <Text color="gray">正在加载建议...</Text>
+        <Text color="gray">{t('suggestions.loading')}</Text>
       </Box>
     );
   }

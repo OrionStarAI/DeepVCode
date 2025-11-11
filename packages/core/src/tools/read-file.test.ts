@@ -218,7 +218,7 @@ describe('ReadFileTool', () => {
           'Line 7',
           'Line 8',
         ].join('\n'),
-        returnDisplay: '(truncated)',
+        returnDisplay: 'read lines: 6-8',
       });
     });
 
