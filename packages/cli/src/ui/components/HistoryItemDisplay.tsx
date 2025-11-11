@@ -39,7 +39,7 @@ export const HistoryItemDisplay: React.FC<HistoryItemDisplayProps> = ({
   config,
   isFocused = true,
 }) => (
-  <Box flexDirection="column" key={item.id}>
+  <Box flexDirection="column" key={item.id} width={terminalWidth}>
     {/* Render standard message types */}
     {item.type === 'user' && <UserMessage text={item.text} terminalWidth={terminalWidth} />}
     {item.type === 'user_shell' && <UserShellMessage text={item.text} terminalWidth={terminalWidth} />}
