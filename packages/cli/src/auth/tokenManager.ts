@@ -64,7 +64,7 @@ export class TokenManager {
   constructor(config: TokenManagerConfig) {
     this.config = {
       autoRefresh: true,
-      refreshBufferTime: 120, // 2分钟
+      refreshBufferTime: 259200, // 3天：提前3天开始renew，符合长期token设计
       ...config
     };
 
@@ -79,7 +79,7 @@ export class TokenManager {
     try {
       // 确保令牌目录存在
       await fs.mkdir(this.tokenDir, { recursive: true });
-      
+
       // 设置目录权限（仅所有者可访问）
       await fs.chmod(this.tokenDir, 0o700);
 
@@ -163,7 +163,7 @@ export class TokenManager {
     }
 
     this.refreshPromise = this.performTokenRefresh();
-    
+
     try {
       const newToken = await this.refreshPromise;
       this.refreshPromise = null;
@@ -202,13 +202,13 @@ export class TokenManager {
           await this.clearTokens();
           throw new Error('Refresh token expired or invalid');
         }
-        
+
         const errorText = await response.text();
         throw new Error(`Token refresh failed (${response.status}): ${errorText}`);
       }
 
       const tokenData = await response.json();
-      
+
       // 更新令牌
       await this.setTokens({
         accessToken: tokenData.accessToken,
@@ -257,7 +257,7 @@ export class TokenManager {
       }
 
       const authData = await response.json();
-      
+
       // 存储JWT令牌和用户信息
       await this.setTokens({
         accessToken: authData.accessToken,
@@ -327,8 +327,8 @@ export class TokenManager {
    * 检查令牌是否有效
    */
   isTokenValid(): boolean {
-    return !!(this.accessToken && 
-             this.tokenExpiry && 
+    return !!(this.accessToken &&
+             this.tokenExpiry &&
              Date.now() < this.tokenExpiry);
   }
 
@@ -345,7 +345,7 @@ export class TokenManager {
    */
   private isTokenExpiringSoon(bufferTimeMs?: number): boolean {
     if (!this.tokenExpiry) return true;
-    
+
     const buffer = bufferTimeMs || (this.config.refreshBufferTime! * 1000);
     return Date.now() > (this.tokenExpiry - buffer);
   }
@@ -365,7 +365,7 @@ export class TokenManager {
       this.accessToken = accessToken;
       this.refreshToken = refreshToken;
       this.tokenExpiry = expiry ? parseInt(expiry) : null;
-      
+
       if (userInfo) {
         try {
           this.userInfo = JSON.parse(userInfo);
@@ -419,7 +419,7 @@ export class TokenManager {
   private async loadEncryptionKey(): Promise<void> {
     try {
       const keyPath = path.join(this.tokenDir, this.ENCRYPTION_KEY_FILE);
-      
+
       try {
         const keyData = await fs.readFile(keyPath);
         this.encryptionKey = keyData;
@@ -446,7 +446,7 @@ export class TokenManager {
 
     const filePath = path.join(this.tokenDir, filename);
     const encryptedData = this.encrypt(data);
-    
+
     await fs.writeFile(filePath, encryptedData);
     await fs.chmod(filePath, 0o600);
   }
@@ -502,7 +502,7 @@ export class TokenManager {
 
     const iv = encryptedData.slice(0, 16);
     const encrypted = encryptedData.slice(16);
-    
+
     const decipher = crypto.createDecipher('aes-256-cbc', this.encryptionKey);
     decipher.update(encrypted);
     return decipher.final('utf8');
@@ -514,26 +514,26 @@ export class TokenManager {
   destroy(): void {
     // 强制清理自动刷新定时器
     this.stopAutoRefresh();
-    
+
     // 验证定时器是否确实被清理
     if (this.autoRefreshTimer) {
       console.warn('⚠️ Timer still exists during destroy, forcing cleanup');
       clearInterval(this.autoRefreshTimer);
       this.autoRefreshTimer = undefined;
     }
-    
+
     // 清理刷新Promise防止内存泄漏
     if (this.refreshPromise) {
       this.refreshPromise = null;
     }
-    
+
     // 清理所有缓存数据
     this.accessToken = null;
     this.refreshToken = null;
     this.tokenExpiry = null;
     this.userInfo = null;
     this.encryptionKey = undefined;
-    
+
     console.log('🗑️ TokenManager destroyed and cleaned up');
   }
 }
@@ -551,15 +551,15 @@ export function getTokenManager(config?: TokenManagerConfig): TokenManager {
     globalTokenManager.destroy();
     globalTokenManager = null;
   }
-  
+
   if (!globalTokenManager && config) {
     globalTokenManager = new TokenManager(config);
   }
-  
+
   if (!globalTokenManager) {
     throw new Error('TokenManager not initialized. Call getTokenManager with config first.');
   }
-  
+
   return globalTokenManager;
 }
 
