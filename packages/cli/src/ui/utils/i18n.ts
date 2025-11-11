@@ -294,7 +294,7 @@ export const translations = {
     'token.credits': 'Credits: ',
     'token.cache.read': 'Cache Read: ',
     'token.cache.create': 'Cache Create: ',
-    'token.efficiency': 'Efficiency: ',
+    'token.efficiency': 'Cache Hit Rate: ',
     'token.no.cache': 'No cache hits - all tokens processed fresh',
 
     // SubAgent Stats
