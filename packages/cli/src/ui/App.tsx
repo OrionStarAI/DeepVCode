@@ -1735,7 +1735,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
               {reasoning && reasoning.text && (
                 <Box marginTop={1} paddingX={1}>
                   <Text dimColor>
-                    💭 {t('model.reasoning')}: {formatReasoningText(reasoning.text)}
+                    💭 {t('model.reasoning')}: {reasoning.text}
                   </Text>
                 </Box>
               )}
