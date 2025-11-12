@@ -36,7 +36,7 @@
   },
   "scripts": {
     "start": "node scripts/start.js",
-    "dev": "cross-env FILE_DEBUG=1 LOG_TO_FILE=true DEEPX_SERVER_URL=http://localhost:6699 node scripts/start.js",
+    "dev": "cross-env FILE_DEBUG=1 LOG_TO_FILE=true DEEPX_SERVER_URL=https://api-code.deepvlab.ai node scripts/start.js",
     "debug": "cross-env DEBUG=1  DEEPX_SERVER_URL=https://api-code.deepvlab.ai node --inspect-brk scripts/start.js",
     "auth:npm": "npx google-artifactregistry-auth",
     "auth:docker": "gcloud auth configure-docker us-west1-docker.pkg.dev",
