@@ -294,7 +294,7 @@ export const translations = {
     'token.credits': 'Credits: ',
     'token.cache.read': 'Cache Read: ',
     'token.cache.create': 'Cache Create: ',
-    'token.efficiency': 'Efficiency: ',
+    'token.efficiency': 'Cache Hit Rate: ',
     'token.no.cache': 'No cache hits - all tokens processed fresh',
 
     // SubAgent Stats
@@ -721,7 +721,8 @@ export const translations = {
     'command.privacy.description': 'Display privacy statement',
     'command.corgi.description': 'Toggle corgi mode',
     'command.init.description': 'Analyzes the project and creates a tailored DEEPV.md file',
-    'command.help-ask.description': 'AI-powered help assistant - ask anything about CLI features (使用1积分/每问)',
+    'command.help-ask.description': 'AI-powered help assistant - ask anything about CLI features',
+    'command.help-ask.description.cost-note': '(Uses 1 credit per question)',
     'command.help-ask.no-args': '❌ The /help-ask command does not accept arguments.\n\n✅ Correct usage: Just type /help-ask and press Enter to enter help mode, then ask your questions.',
     'command.refine.description': 'Professional prompt refinement: Clear expression, precise input, make AI understand you better',
     'command.refine.error.no-input': '⚠️  Please provide text to refine.\n\n📖 Usage:\n   /refine <your text>           - Refine inline text\n   /refine --file <path>         - Refine file content\n   echo "text" | deepv /refine --stdin  - Refine from stdin',
@@ -1662,7 +1663,8 @@ export const translations = {
     'command.privacy.description': '显示隐私声明',
     'command.corgi.description': '开启/关闭柯基模式',
     'command.init.description': '分析项目并创建定制的 DEEPV.md 文件',
-    'command.help-ask.description': 'AI 智能帮助助手 - 询问任何关于 CLI 功能的问题（使用1积分/每问）',
+    'command.help-ask.description': 'AI 智能帮助助手 - 询问任何关于 CLI 功能的问题',
+    'command.help-ask.description.cost-note': '（使用1积分/每问）',
     'command.help-ask.no-args': '❌ /help-ask 命令不接受任何参数。\n\n✅ 正确用法：直接输入 /help-ask 并回车进入帮助模式，然后再提出您的问题。',
     'command.refine.description': '输入提示词专业润色：清晰表达，精准投喂，让大模型更懂你',
     'command.refine.error.no-input': '⚠️  请提供需要优化的文本。\n\n📖 使用方法：\n   /refine <文本内容>           - 优化行内文本\n   /refine --file <文件路径>     - 优化文件内容\n   echo "文本" | deepv /refine --stdin  - 从标准输入优化',

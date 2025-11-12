@@ -20,12 +20,13 @@ import {
   ToolCallEvent,
   ToolConfirmationPayload,
 } from '../index.js';
-import { PartListUnion } from '@google/genai';
+import { PartListUnion, Part } from '@google/genai';
 import { convertToFunctionResponse } from './coreToolScheduler.js';
 import {
   ToolSchedulerAdapter,
   ToolExecutionContext,
 } from './toolSchedulerAdapter.js';
+import { MCPResponseGuard } from '../services/mcpResponseGuard.js';
 
 // Re-export ToolExecutionContext for convenience
 export { ToolExecutionContext } from './toolSchedulerAdapter.js';
@@ -199,6 +200,9 @@ export class ToolExecutionEngine {
   private config: Config;
   private getPreferredEditor: () => EditorType | undefined;
 
+  // 🛡️ MCP响应保护
+  private mcpResponseGuard: MCPResponseGuard;
+
   // 用于 Promise 驱动的完成检测，避免轮询竞态条件
   private completionResolvers: Array<(calls: CompletedEngineToolCall[]) => void> = [];
 
@@ -208,6 +212,12 @@ export class ToolExecutionEngine {
     this.adapter = options.adapter;
     this.approvalMode = options.approvalMode ?? ApprovalMode.DEFAULT;
     this.getPreferredEditor = options.getPreferredEditor;
+    // 🛡️ 初始化MCP响应保护器
+    this.mcpResponseGuard = new MCPResponseGuard({
+      maxResponseSize: 100 * 1024, // 100KB - 激进的大小限制，防止一轮请求就消耗完上下文
+      contextLowThreshold: 0.2, // 20%
+      contextCriticalThreshold: 0.1, // 10%
+    });
   }
 
   /**
@@ -838,12 +848,52 @@ export class ToolExecutionEngine {
           return;
         }
 
+        // 🛡️ 应用MCP响应保护（验证、记录大小、智能截断）
+        let guardedLlmContent = toolResult.llmContent || '';
+        let guardDetails = '';
+
+        try {
+          // 只对Part数组类型的响应进行保护（主要是MCP工具）
+          if (Array.isArray(toolResult.llmContent) && toolResult.llmContent.length > 0 &&
+              typeof toolResult.llmContent[0] === 'object' && toolResult.llmContent[0] !== null &&
+              !Array.isArray(toolResult.llmContent[0]) && typeof toolResult.llmContent[0] !== 'string') {
+
+            // 估计当前上下文使用（保守估计：使用默认50%）
+            // TODO: 从client.ts的真实token统计中获取更准确的数据
+            const currentContextUsage = 50;
+
+            const guardResult = await this.mcpResponseGuard.guardResponse(
+              toolResult.llmContent as Part[],
+              this.config,
+              reqInfo.name,
+              currentContextUsage
+            );
+
+            guardedLlmContent = guardResult.parts;
+
+            // 记录保护详情用于日志
+            if (guardResult.wasTruncated) {
+              guardDetails = `[GUARD] ${guardResult.truncationReason || '无原因'} | 原始: ${(guardResult.originalSize / 1024).toFixed(2)}KB -> ${(guardResult.processedSize / 1024).toFixed(2)}KB`;
+              if (guardResult.wasStoredAsFile) {
+                guardDetails += ` | 已存储为: ${guardResult.tempFilePath}`;
+              }
+            } else {
+              guardDetails = `[GUARD] 响应安全 | 大小: ${(guardResult.originalSize / 1024).toFixed(2)}KB`;
+            }
+
+            console.log(`[ToolExecutionEngine] ${guardDetails}`);
+          }
+        } catch (guardError) {
+          console.warn(`[ToolExecutionEngine] MCP响应保护失败: ${guardError}`);
+          // 如果保护失败，继续使用原始响应（不中断工具执行）
+          guardedLlmContent = toolResult.llmContent || '';
+        }
+
         // 转换为响应格式
-        const llmContent = toolResult.llmContent || '';
         const responseParts = convertToFunctionResponse(
           reqInfo.name,
           reqInfo.callId,
-          llmContent,
+          guardedLlmContent,
         );
         const response: ToolCallResponseInfo = {
           callId: reqInfo.callId,
