@@ -1388,6 +1388,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     )));
 
     // Add task completion summary to static area when it should be shown
+    // The hook manages the display duration to prevent overlap with queued prompts
     if (shouldShowSummary && completionElapsedTime > 0) {
       items.push(
         <TaskCompletionSummary
