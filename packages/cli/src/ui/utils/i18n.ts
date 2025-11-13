@@ -821,6 +821,7 @@ export const translations = {
     'model.stats.metric.thoughts': 'Thoughts',
     'model.stats.metric.tool': 'Tool',
     'model.stats.metric.output': 'Output',
+    'model.reasoning': 'Model Thinking',
 
     // Tool Stats Display - Full Format
     'tool.stats.title': 'Tool Stats For Nerds',
@@ -1762,6 +1763,7 @@ export const translations = {
     'model.stats.metric.thoughts': '思考',
     'model.stats.metric.tool': '工具',
     'model.stats.metric.output': '输出',
+    'model.reasoning': '模型思考',
 
     // Tool Stats Display - Full Format
     'tool.stats.title': 'Tool Stats For Nerds',

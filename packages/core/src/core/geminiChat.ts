@@ -84,12 +84,26 @@ function validateHistory(history: Content[]) {
 }
 
 /**
+ * 检查内容是否为 reasoning（思考过程）
+ */
+function isReasoningContent(content: Content | undefined): boolean {
+  return !!(
+    content &&
+    content.role === 'model' &&
+    content.parts &&
+    content.parts.length > 0 &&
+    'reasoning' in content.parts[0]
+  );
+}
+
+/**
  * Extracts the curated (valid) history from a comprehensive history.
  *
  * @remarks
  * The model may sometimes generate invalid or empty contents(e.g., due to safety
  * filters or recitation). Extracting valid turns from the history
  * ensures that subsequent requests could be accepted by the model.
+ * 同时也会过滤掉 reasoning 内容（模型思考过程）
  */
 function extractCuratedHistory(comprehensiveHistory: Content[]): Content[] {
   if (comprehensiveHistory === undefined || comprehensiveHistory.length === 0) {
@@ -106,15 +120,19 @@ function extractCuratedHistory(comprehensiveHistory: Content[]): Content[] {
       const modelOutput: Content[] = [];
       let isValid = true;
       while (i < length && comprehensiveHistory[i].role === MESSAGE_ROLES.MODEL) {
-        modelOutput.push(comprehensiveHistory[i]);
-        if (isValid && !isValidContent(comprehensiveHistory[i])) {
-          isValid = false;
+        const currentContent = comprehensiveHistory[i];
+        // 跳过 reasoning 内容，不加入精选历史
+        if (!isReasoningContent(currentContent)) {
+          modelOutput.push(currentContent);
+          if (isValid && !isValidContent(currentContent)) {
+            isValid = false;
+          }
         }
         i++;
       }
-      if (isValid) {
+      if (isValid && modelOutput.length > 0) {
         curatedHistory.push(...modelOutput);
-      } else {
+      } else if (!isValid) {
         // Remove the last user input when model content is invalid.
         curatedHistory.pop();
       }
@@ -705,16 +723,21 @@ export class GeminiChat {
 
     try {
       for await (const chunk of streamResponse) {
-        // 收集所有有效的块，包括只包含 usageMetadata 的块
-        if (isValidResponse(chunk) || chunk.usageMetadata) {
+        // 先检查是否是 reasoning 内容，如果是就跳过不加入 chunks
+        const content = chunk.candidates?.[0]?.content;
+        const isReasoning = content && this.isReasoningContent(content);
+        const isThought = content && this.isThoughtContent(content);
+
+        // 收集所有有效的块，但排除 thought 和 reasoning
+        if ((isValidResponse(chunk) || chunk.usageMetadata) && !isReasoning && !isThought) {
           chunks.push(chunk);
         }
 
         // 处理包含内容的有效响应
         if (isValidResponse(chunk)) {
-          const content = chunk.candidates?.[0]?.content;
           if (content !== undefined) {
-            if (this.isThoughtContent(content)) {
+            // 跳过 thought 和 reasoning 内容，不加入历史记录
+            if (isThought || isReasoning) {
               yield chunk;
               continue;
             }
@@ -756,8 +779,9 @@ export class GeminiChat {
     modelOutput: Content[],
     automaticFunctionCallingHistory?: Content[],
   ) {
+    // 过滤掉 thought 和 reasoning 内容
     const nonThoughtModelOutput = modelOutput.filter(
-      (content) => !this.isThoughtContent(content),
+      (content) => !this.isThoughtContent(content) && !this.isReasoningContent(content),
     );
 
     let outputContents: Content[] = [];
@@ -794,7 +818,8 @@ export class GeminiChat {
     // 🔧 Enhanced consolidation logic to merge function calls into single messages
     const consolidatedOutputContents: Content[] = [];
     for (const content of outputContents) {
-      if (this.isThoughtContent(content)) {
+      // 跳过 thought 和 reasoning 内容
+      if (this.isThoughtContent(content) || this.isReasoningContent(content)) {
         continue;
       }
       const lastContent =
@@ -871,5 +896,14 @@ export class GeminiChat {
       typeof content.parts[0].thought === 'boolean' &&
       content.parts[0].thought === true
     );
+  }
+
+  /**
+   * 检查内容是否为模型的 reasoning（思考过程）
+   * reasoning 不应该被添加到历史记录中
+   * 直接调用外部函数
+   */
+  private isReasoningContent(content: Content | undefined): boolean {
+    return isReasoningContent(content);
   }
 }

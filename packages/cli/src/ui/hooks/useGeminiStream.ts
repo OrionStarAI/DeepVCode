@@ -25,6 +25,7 @@ import {
   GitService,
   EditorType,
   ThoughtSummary,
+  ReasoningSummary,
   UnauthorizedError,
   UserPromptEvent,
   DEFAULT_GEMINI_FLASH_MODEL,
@@ -291,6 +292,7 @@ export const useGeminiStream = (
   const processingRef = useRef(false); // 同步标志位，防止重入
   const [isResponding, setIsResponding] = useState<boolean>(false);
   const [thought, setThought] = useState<ThoughtSummary | null>(null);
+  const [reasoning, setReasoning] = useState<ReasoningSummary | null>(null);
 
   // 清除预估token的helper函数
   const clearEstimatedTokens = useCallback(() => {
@@ -1143,6 +1145,7 @@ export const useGeminiStream = (
       signal: AbortSignal,
     ): Promise<StreamProcessingStatus> => {
       let geminiMessageBuffer = '';
+      let reasoningBuffer = ''; // 🆕 累积 reasoning 内容
       const toolCallRequests: ToolCallRequestInfo[] = [];
       for await (const event of stream) {
         // 检查abort信号，立即退出
@@ -1153,6 +1156,11 @@ export const useGeminiStream = (
         switch (event.type) {
           case ServerGeminiEventType.Thought:
             setThought(event.value);
+            break;
+          case ServerGeminiEventType.Reasoning:
+            // 🆕 累积 reasoning 内容
+            reasoningBuffer += event.value.text;
+            setReasoning({ text: reasoningBuffer });
             break;
           case ServerGeminiEventType.Content:
             geminiMessageBuffer = handleContentEvent(
@@ -1210,6 +1218,8 @@ export const useGeminiStream = (
           }
         }
       }
+      // 清空 reasoning 状态（思考过程仅在流式传输中显示）
+      setReasoning(null);
       if (toolCallRequests.length > 0) {
         scheduleToolCalls(toolCallRequests, signal);
       }
@@ -1725,6 +1735,7 @@ User question: ${queryStr}`;
     initError,
     pendingHistoryItems,
     thought,
+    reasoning, // 🆕 导出 reasoning 状态
     isCreatingCheckpoint, // 🎯 导出checkpoint创建状态
     isExecutingTools, // 🎯 导出工具执行状态
   };
