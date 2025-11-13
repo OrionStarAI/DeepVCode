@@ -60,6 +60,7 @@ import { tokenUsageEventManager, IDEConnectionStatus } from 'deepv-code-core';
 import { HistoryItemDisplay } from './components/HistoryItemDisplay.js';
 import { ContextSummaryDisplay } from './components/ContextSummaryDisplay.js';
 import { IDEContextDetailDisplay } from './components/IDEContextDetailDisplay.js';
+import { ReasoningDisplay } from './components/ReasoningDisplay.js';
 import { useHistory } from './hooks/useHistoryManager.js';
 import { useSessionRestore, useSessionAutoSave } from './hooks/useSessionRestore.js';
 import process from 'node:process';
@@ -782,6 +783,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     pendingHistoryItems: pendingGeminiHistoryItems,
     thought,
     reasoning, // 🆕 接收 reasoning 状态
+    hasContentStarted, // 🆕 接收内容开始标志
     isCreatingCheckpoint, // 🎯 接收checkpoint创建状态
     isExecutingTools, // 🎯 接收工具执行状态
   } = useGeminiStream(
@@ -1593,7 +1595,14 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
 
         {showHelp && <Help commands={slashCommands} />}
 
-
+        {/* 🆕 显示思考过程框（在pending内容后，一旦开始内容就隐藏） */}
+        {reasoning && !hasContentStarted && (
+          <ReasoningDisplay
+            reasoning={reasoning}
+            terminalHeight={terminalHeight}
+            terminalWidth={terminalWidth}
+          />
+        )}
 
         <Box flexDirection="column" ref={mainControlsRef}>
           {startupWarnings.length > 0 && (
@@ -1732,14 +1741,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                 elapsedTime={elapsedTime}
               />
 
-              {/* 🆕 显示模型思考过程（reasoning） */}
-              {reasoning && reasoning.text && (
-                <Box marginTop={1} paddingX={1}>
-                  <Text dimColor>
-                    💭 {t('model.reasoning')}: {reasoning.text}
-                  </Text>
-                </Box>
-              )}
+
 
               <Box
                 marginTop={1}

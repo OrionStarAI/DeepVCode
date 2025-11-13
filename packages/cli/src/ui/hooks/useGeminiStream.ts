@@ -293,6 +293,7 @@ export const useGeminiStream = (
   const [isResponding, setIsResponding] = useState<boolean>(false);
   const [thought, setThought] = useState<ThoughtSummary | null>(null);
   const [reasoning, setReasoning] = useState<ReasoningSummary | null>(null);
+  const [hasContentStarted, setHasContentStarted] = useState<boolean>(false); // 🆕 追踪是否已开始发送内容
 
   // 清除预估token的helper函数
   const clearEstimatedTokens = useCallback(() => {
@@ -855,6 +856,12 @@ export const useGeminiStream = (
         return '';
       }
 
+      // 🆕 标记内容已开始，清空思考过程
+      if (!hasContentStarted) {
+        setHasContentStarted(true);
+        setReasoning(null);
+      }
+
       // 🎯 累积 AI 的文本回复，用于 Checkpoint 摘要
       aiTextBeforeToolsRef.current += eventValue;
 
@@ -903,7 +910,7 @@ export const useGeminiStream = (
       }
       return newGeminiMessageBuffer;
     },
-    [addItem, pendingHistoryItemRef, setPendingHistoryItem],
+    [addItem, pendingHistoryItemRef, setPendingHistoryItem, setHasContentStarted],
   );
 
   const handleUserCancelledEvent = useCallback(
@@ -1286,6 +1293,8 @@ User question: ${queryStr}`;
       processingRef.current = true;
       // 🎯 立即开始显示加载状态
       setIsResponding(true);
+      // 🆕 重置内容开始标志
+      setHasContentStarted(false);
 
       const userMessageTimestamp = Date.now();
       setShowHelp(false);
@@ -1736,6 +1745,7 @@ User question: ${queryStr}`;
     pendingHistoryItems,
     thought,
     reasoning, // 🆕 导出 reasoning 状态
+    hasContentStarted, // 🆕 导出内容开始标志
     isCreatingCheckpoint, // 🎯 导出checkpoint创建状态
     isExecutingTools, // 🎯 导出工具执行状态
   };
