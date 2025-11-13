@@ -383,7 +383,15 @@ export class DeepVServerAdapter implements ContentGenerator {
         request.model === 'claude-haiku-4-5-20251001' ||
         request.model === 'claude-sonnet-4-20250514' ||
         request.model === 'claude-sonnet-4-5-20250929' ||
-        request.model === 'moonshotai/kimi-k2-thinking'
+        request.model === 'moonshotai/kimi-k2-thinking' ||//🔥Kimi-K2-Thinking openrouter
+        request.model === 'moonshotai/kimi-k2-0905' ||//Kimi-K2-0905 openrouter
+        request.model === 'openai/gpt-5' ||//GPT-5 openrouter
+        request.model === 'openanpmi/gpt-5-codex' ||//GPT-5-Codex openrouter
+        request.model === 'qwen/qwen3-coder:free' ||//🎁Qwen3-Coder openrouter
+        request.model === 'x-ai/grok-code-fast-1' ||//Grok-Code-Fast-1 openrouter
+        request.model === 'z-ai/glm-4.5-air:free' ||//🎁GLM-4.5-Air openrouter
+        request.model === 'z-ai/glm-4.6' ||//GLM-4.6 openrouter
+        request.model === 'ep-r56pg4-1761237547400653462'// 🎁KAT-Coder-Air streamlake
       ) {
       return this._generateContentStream(request, scene);
     } else {
