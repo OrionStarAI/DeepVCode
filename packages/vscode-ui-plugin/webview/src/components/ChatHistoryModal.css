@@ -1,0 +1,341 @@
+.chat-history-modal__overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: transparent;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  z-index: 999;
+  padding-top: 32px;
+  pointer-events: none;
+  animation: fadeIn 0.2s ease-out;
+}
+
+.chat-history-modal__overlay > * {
+  pointer-events: auto;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.chat-history-modal__container {
+  width: 480px;
+  height: 65vh;
+  max-height: calc(100vh - 32px);
+  margin: 0 14px;
+  background-color: var(--vscode-sideBar-background, #3a3a3b);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+  animation: slideIn 0.2s ease-out;
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(58, 58, 59, 0.98) 0%, rgba(48, 48, 49, 0.98) 100%);
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Search - 直接紧贴顶部 */
+.chat-history-modal__search-container {
+  padding: 10px 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  flex-shrink: 0;
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.chat-history-modal__search-input {
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background-color: rgba(255, 255, 255, 0.05);
+  color: var(--vscode-input-foreground, #e0e0e0);
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: inherit;
+  transition: all 0.2s ease;
+}
+
+.chat-history-modal__search-input:focus {
+  outline: none;
+  border-color: var(--vscode-focusBorder, #007acc);
+  background-color: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 0 2px rgba(0, 122, 204, 0.1);
+}
+
+.chat-history-modal__search-input::placeholder {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+/* List */
+.chat-history-modal__list {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0;
+  background-color: var(--vscode-sideBar-background, #252526);
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-history-modal__group {
+  padding: 0;
+}
+
+.chat-history-modal__group-label {
+  padding: 10px 12px 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.55);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  background-color: rgba(255, 255, 255, 0.03);
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  margin-top: 6px;
+}
+
+.chat-history-modal__group:first-child .chat-history-modal__group-label {
+  border-top: none;
+  margin-top: 0;
+}
+
+/* Item */
+.chat-history-modal__item {
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all 0.15s ease;
+  cursor: pointer;
+  border-left: 2px solid transparent;
+  margin: 2px 8px;
+  border-radius: 4px;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
+.chat-history-modal__item:hover {
+  background-color: rgba(255, 255, 255, 0.12);
+  transform: translateX(2px);
+}
+
+.chat-history-modal__item.active {
+  background-color: rgba(0, 122, 204, 0.25);
+  border-left-color: var(--vscode-focusBorder, #007acc);
+  border-left-width: 3px;
+}
+
+.chat-history-modal__item-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-right: 2px;
+}
+
+.chat-history-modal__chat-icon-svg {
+  color: var(--vscode-descriptionForeground, #858585);
+  opacity: 0.7;
+  transition: color 0.15s;
+}
+
+.chat-history-modal__item:hover .chat-history-modal__chat-icon-svg {
+  color: var(--vscode-sideBar-foreground, #cccccc);
+  opacity: 0.9;
+}
+
+.chat-history-modal__item.active .chat-history-modal__chat-icon-svg {
+  color: var(--vscode-list-activeSelectionForeground, #ffffff);
+  opacity: 1;
+}
+
+.chat-history-modal__item-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.chat-history-modal__item-title {
+  font-size: 12px;
+  color: var(--vscode-sideBar-foreground, #cccccc);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  line-height: 1.5;
+  flex: 1;
+  min-width: 0;
+}
+
+.chat-history-modal__item.active .chat-history-modal__item-title {
+  color: var(--vscode-list-activeSelectionForeground, #ffffff);
+  font-weight: 500;
+}
+
+/* Actions - 默认隐藏，hover 时显示 */
+.chat-history-modal__actions {
+  display: none;
+  gap: 3px;
+  flex-shrink: 0;
+  margin-left: 4px;
+}
+
+.chat-history-modal__item:hover .chat-history-modal__actions {
+  display: flex;
+}
+
+.chat-history-modal__action-btn {
+  background: none;
+  border: none;
+  color: var(--vscode-sideBar-foreground, #888888);
+  cursor: pointer;
+  padding: 2px 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 2px;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.chat-history-modal__action-btn:hover {
+  background-color: var(--vscode-list-hoverBackground, #3e3e42);
+  color: var(--vscode-sideBar-foreground, #cccccc);
+}
+
+.chat-history-modal__action-btn.delete:hover {
+  color: #f48771;
+  background-color: rgba(244, 135, 113, 0.15);
+}
+
+/* Edit Actions */
+.chat-history-modal__edit-actions {
+  display: flex;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.chat-history-modal__edit-input {
+  padding: 3px 6px;
+  border: 1px solid var(--vscode-focusBorder, #007acc);
+  background-color: var(--vscode-input-background, #3c3c3c);
+  color: var(--vscode-input-foreground, #cccccc);
+  border-radius: 3px;
+  font-size: 11px;
+  font-family: inherit;
+  min-width: 0;
+  flex: 1;
+}
+
+.chat-history-modal__edit-input:focus {
+  outline: none;
+}
+
+.chat-history-modal__action-btn.confirm {
+  background-color: var(--vscode-button-background, #007acc);
+  color: var(--vscode-button-foreground, #ffffff);
+  padding: 2px 6px;
+  font-size: 11px;
+}
+
+.chat-history-modal__action-btn.confirm:hover {
+  background-color: var(--vscode-button-hoverBackground, #005a9e);
+}
+
+.chat-history-modal__action-btn.cancel {
+  background-color: var(--vscode-button-secondaryBackground, #3e3e42);
+  color: var(--vscode-button-secondaryForeground, #cccccc);
+  padding: 2px 6px;
+  font-size: 11px;
+}
+
+.chat-history-modal__action-btn.cancel:hover {
+  background-color: var(--vscode-button-secondaryHoverBackground, #454545);
+}
+
+/* Empty State */
+.chat-history-modal__empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 13px;
+  text-align: center;
+  padding: 24px 20px;
+  font-weight: 400;
+}
+
+/* Footer - Load More Button */
+.chat-history-modal__footer {
+  padding: 12px 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  background-color: rgba(255, 255, 255, 0.03);
+  flex-shrink: 0;
+}
+
+.chat-history-modal__load-more-btn {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background-color: rgba(255, 255, 255, 0.08);
+  color: var(--vscode-button-secondaryForeground, #e0e0e0);
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.chat-history-modal__load-more-btn:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+.chat-history-modal__load-more-btn:active {
+  transform: scale(0.98);
+}
+
+/* Scrollbar - 优雅的滚动条 */
+.chat-history-modal__list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.chat-history-modal__list::-webkit-scrollbar-track {
+  background-color: transparent;
+  margin: 4px 0;
+}
+
+.chat-history-modal__list::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  min-height: 40px;
+  transition: background-color 0.2s ease;
+}
+
+.chat-history-modal__list::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.35);
+}
