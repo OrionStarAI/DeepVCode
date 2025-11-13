@@ -490,6 +490,27 @@ export class SessionManager {
   }
 
   /**
+   * 更新Session信息（支持修改name等字段）
+   * 用于处理前端的session_update请求
+   */
+  async updateSession(payload: { sessionId: string; updates: { name?: string; type?: string; description?: string } }): Promise<void> {
+    const { sessionId, updates } = payload;
+
+    // 构建元数据更新对象
+    const metadataUpdates: Partial<SessionMetadata> = {
+      lastActiveAt: new Date().toISOString()
+    };
+
+    // 如果提供了name，更新title字段
+    if (updates.name !== undefined) {
+      metadataUpdates.title = updates.name;
+    }
+
+    // 调用私有方法更新元数据
+    await this.updateSessionMetadata(sessionId, metadataUpdates);
+  }
+
+  /**
    * 更新session元数据
    */
   private async updateSessionMetadata(sessionId: string, updates: Partial<SessionMetadata>): Promise<void> {

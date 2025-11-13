@@ -37,6 +37,12 @@ export const McpThinkingDisplayRenderer: React.FC<{ data: McpThinkingDisplay }> 
     ? `步骤 ${data.thoughtNumber}`
     : '';
 
+  // Limit thought content to 5 lines to prevent window flickering
+  const MAX_THOUGHT_LINES = 5;
+  const thoughtLines = data.thought.split('\n');
+  const isTruncated = thoughtLines.length > MAX_THOUGHT_LINES;
+  const displayThought = thoughtLines.slice(0, MAX_THOUGHT_LINES).join('\n');
+
   return (
     <Box flexDirection="column">
       {/* Header with status and progress */}
@@ -50,10 +56,12 @@ export const McpThinkingDisplayRenderer: React.FC<{ data: McpThinkingDisplay }> 
         )}
       </Box>
 
-      {/* Main thought content - use gray color to be less distracting */}
+      {/* Main thought content - use gray color to be less distracting, limited to 5 lines */}
       <Box marginTop={0} marginLeft={2}>
         <Text color={Colors.Gray} wrap="wrap">
-          {data.thought}
+          {displayThought}
+          {isTruncated && <Text color={Colors.Gray} dimColor>
+            {'\n'}... (更多思考内容)</Text>}
         </Text>
       </Box>
 
