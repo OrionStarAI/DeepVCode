@@ -246,13 +246,31 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
+  /* 🎯 Windows/旧版 Electron 兼容性：backdrop-filter 降级方案 */
+  background: rgba(0, 0, 0, 0.6); /* 不支持 backdrop-filter 时的后备方案 */
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 99999; /* 🎯 提高层级，确保在所有元素之上 */
   animation: fadeIn 0.15s ease-out;
+}
+
+/* 🎯 支持 backdrop-filter 时使用毛玻璃效果 */
+@supports (backdrop-filter: blur(4px)) or (-webkit-backdrop-filter: blur(4px)) {
+  .confirm-dialog-overlay {
+    background: rgba(0, 0, 0, 0.5); /* 支持时使用更透明的背景 */
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px); /* Safari/WebKit 支持 */
+  }
+}
+
+/* 🎯 Windows 高对比度模式兼容 */
+@media (prefers-contrast: high) {
+  .confirm-dialog-overlay {
+    background: rgba(0, 0, 0, 0.85); /* 高对比度模式下增强背景 */
+    backdrop-filter: none; /* 禁用模糊效果以提高可读性 */
+    -webkit-backdrop-filter: none;
+  }
 }
 
 .confirm-dialog {
@@ -264,6 +282,15 @@
   width: 85%;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 1px rgba(255, 255, 255, 0.1);
   animation: slideInScale 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+  
+  /* 🎯 Windows 字体渲染优化 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  
+  /* 🎯 确保在高 DPI 下清晰渲染 */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
 }
 
 .confirm-dialog-header {

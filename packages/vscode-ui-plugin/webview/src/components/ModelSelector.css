@@ -84,6 +84,11 @@
   text-overflow: ellipsis;
   flex-shrink: 1;
   min-width: 0;
+  
+  /* 🎯 Windows 字体渲染优化 - 确保文本清晰 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
 .model-tier,
@@ -249,26 +254,37 @@
   margin-left: 8px;
 }
 
-/* 滚动条样式 */
+/* 滚动条样式 - Windows 和 Mac 统一体验 */
 .model-dropdown::-webkit-scrollbar {
-  width: 8px;
+  width: 10px; /* 🎯 Windows 上稍微加宽，便于点击 */
 }
 
 .model-dropdown::-webkit-scrollbar-track {
   background: var(--vscode-scrollbarSlider-background);
+  border-radius: 5px; /* 🎯 圆角优化 */
 }
 
 .model-dropdown::-webkit-scrollbar-thumb {
   background: var(--vscode-scrollbarSlider-background);
-  border-radius: 4px;
+  border-radius: 5px;
+  border: 2px solid transparent; /* 🎯 增加内边距效果 */
+  background-clip: content-box; /* 🎯 背景不延伸到边框 */
 }
 
 .model-dropdown::-webkit-scrollbar-thumb:hover {
   background: var(--vscode-scrollbarSlider-hoverBackground);
+  background-clip: content-box;
 }
 
 .model-dropdown::-webkit-scrollbar-thumb:active {
   background: var(--vscode-scrollbarSlider-activeBackground);
+  background-clip: content-box;
+}
+
+/* 🎯 Firefox 滚动条样式（Windows 上的 Firefox） */
+.model-dropdown {
+  scrollbar-width: thin;
+  scrollbar-color: var(--vscode-scrollbarSlider-background) transparent;
 }
 
 /* 响应式设计 */
@@ -330,7 +346,7 @@
   }
 }
 
-/* 🎯 Tooltip 提示框样式 */
+/* 🎯 Tooltip 提示框样式（增强跨平台兼容性） */
 .model-name-tooltip {
   position: fixed; /* 使用 fixed 定位，避免被父容器裁剪 */
   background: var(--vscode-editorHoverWidget-background);
@@ -346,6 +362,21 @@
   pointer-events: none;
   opacity: 0;
   animation: tooltipFadeIn 0.2s ease-out forwards;
+  
+  /* 🎯 Windows 字体渲染优化 */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  
+  /* 🎯 Windows 高 DPI 渲染优化 - 确保像素对齐 */
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  will-change: transform, opacity;
+  
+  /* 🎯 最大宽度限制，避免超长文本导致布局问题 */
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* 🎯 Tooltip箭头 - 使用伪元素绘制指向元素的三角形 */

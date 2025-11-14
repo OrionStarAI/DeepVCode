@@ -90,6 +90,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   const [showTooltip, setShowTooltip] = useState<{ [key: string]: boolean }>({});
   const [tooltipPosition, setTooltipPosition] = useState<{ [key: string]: { top: number; left: number } }>({});
   const modelNameRefs = useRef<{ [key: string]: HTMLSpanElement | null }>({});
+  const debounceTimerRef = useRef<{ [key: string]: NodeJS.Timeout }>({});
 
   // 获取可用模型列表
   useEffect(() => {
@@ -230,59 +231,144 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
     }
   };
 
-  // 🎯 检测文本是否被截断
+  // 🎯 检测文本是否被截断（增强跨平台兼容性）
   const isTextTruncated = (element: HTMLElement | null): boolean => {
     if (!element) return false;
-    return element.scrollWidth > element.clientWidth;
+    
+    // 🎯 Windows 兼容性：考虑亚像素渲染和 DPI 缩放
+    // 在高 DPI 屏幕上，scrollWidth 和 clientWidth 可能有微小差异
+    const threshold = 2; // 容差阈值，考虑亚像素渲染
+    const scrollWidth = Math.ceil(element.scrollWidth);
+    const clientWidth = Math.floor(element.clientWidth);
+    
+    return scrollWidth > clientWidth + threshold;
   };
 
-  // 🎯 处理鼠标悬停 - 显示 tooltip
+  // 🎯 获取设备像素比率（Windows DPI 缩放支持）
+  const getDevicePixelRatio = (): number => {
+    return window.devicePixelRatio || 1;
+  };
+
+  // 🎯 获取滚动条宽度（Windows 和 Mac 滚动条处理不同）
+  const getScrollbarWidth = (): number => {
+    // 创建一个临时的div来测量滚动条宽度
+    const outer = document.createElement('div');
+    outer.style.visibility = 'hidden';
+    outer.style.overflow = 'scroll';
+    outer.style.width = '100px';
+    outer.style.position = 'absolute';
+    outer.style.top = '-9999px';
+    document.body.appendChild(outer);
+
+    const inner = document.createElement('div');
+    inner.style.width = '100%';
+    outer.appendChild(inner);
+
+    const scrollbarWidth = outer.offsetWidth - inner.offsetWidth;
+    document.body.removeChild(outer);
+
+    return scrollbarWidth;
+  };
+
+  // 🎯 处理鼠标悬停 - 显示 tooltip（增强跨平台兼容性）
   const handleMouseEnter = (modelId: string) => {
-    const element = modelNameRefs.current[modelId];
-    if (!element || !isTextTruncated(element)) return;
-    
-    // 计算tooltip的位置
-    const rect = element.getBoundingClientRect();
-    let tooltipTop = rect.top - 40; // tooltip高度 + 间距
-    let tooltipLeft = rect.left + rect.width / 2 + 20; // 🎯 往右偏移20px
-    
-    // 🎯 边界检测：确保tooltip不会超出视口
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    const tooltipPadding = 10; // 离边界的最小距离
-    
-    // 防止tooltip超出顶部
-    if (tooltipTop < tooltipPadding) {
-      tooltipTop = rect.bottom + 8; // 显示在元素下方
+    // 清除之前的防抖定时器
+    if (debounceTimerRef.current[modelId]) {
+      clearTimeout(debounceTimerRef.current[modelId]);
     }
-    
-    // 防止tooltip超出左右边界（在渲染时通过CSS处理）
-    if (tooltipLeft < tooltipPadding) {
-      tooltipLeft = tooltipPadding;
-    } else if (tooltipLeft > viewportWidth - tooltipPadding) {
-      tooltipLeft = viewportWidth - tooltipPadding;
-    }
-    
-    setTooltipPosition(prev => ({
-      ...prev,
-      [modelId]: { top: tooltipTop, left: tooltipLeft }
-    }));
-    setShowTooltip(prev => ({ ...prev, [modelId]: true }));
+
+    // 🎯 防抖处理：延迟 150ms 显示 tooltip，避免快速滑过时闪烁
+    debounceTimerRef.current[modelId] = setTimeout(() => {
+      const element = modelNameRefs.current[modelId];
+      if (!element || !isTextTruncated(element)) return;
+      
+      // 🎯 Windows DPI 缩放支持：获取实际的设备像素比率
+      const dpr = getDevicePixelRatio();
+      const scrollbarWidth = getScrollbarWidth();
+      
+      // 计算tooltip的位置
+      const rect = element.getBoundingClientRect();
+      
+      // 🎯 考虑 DPI 缩放的位置计算
+      let tooltipTop = rect.top - 40; // tooltip高度 + 间距
+      let tooltipLeft = rect.left + rect.width / 2 + 20; // 🎯 往右偏移20px
+      
+      // 🎯 边界检测：确保tooltip不会超出视口（考虑滚动条宽度）
+      const viewportWidth = window.innerWidth - scrollbarWidth;
+      const viewportHeight = window.innerHeight;
+      const tooltipPadding = 10; // 离边界的最小距离
+      const estimatedTooltipWidth = 250; // 预估 tooltip 最大宽度
+      
+      // 防止tooltip超出顶部
+      if (tooltipTop < tooltipPadding) {
+        tooltipTop = rect.bottom + 8; // 显示在元素下方
+      }
+      
+      // 🎯 防止tooltip超出右边界（考虑 Windows 滚动条）
+      if (tooltipLeft + estimatedTooltipWidth / 2 > viewportWidth - tooltipPadding) {
+        tooltipLeft = viewportWidth - estimatedTooltipWidth / 2 - tooltipPadding;
+      }
+      
+      // 🎯 防止tooltip超出左边界
+      if (tooltipLeft - estimatedTooltipWidth / 2 < tooltipPadding) {
+        tooltipLeft = estimatedTooltipWidth / 2 + tooltipPadding;
+      }
+      
+      // 🎯 Windows 高DPI适配：确保像素对齐，避免模糊
+      tooltipTop = Math.round(tooltipTop * dpr) / dpr;
+      tooltipLeft = Math.round(tooltipLeft * dpr) / dpr;
+      
+      setTooltipPosition(prev => ({
+        ...prev,
+        [modelId]: { top: tooltipTop, left: tooltipLeft }
+      }));
+      setShowTooltip(prev => ({ ...prev, [modelId]: true }));
+    }, 150); // 150ms 防抖延迟
   };
 
-  // 🎯 处理鼠标离开 - 隐藏 tooltip
+  // 🎯 处理鼠标离开 - 隐藏 tooltip（清理防抖定时器）
   const handleMouseLeave = (modelId: string) => {
+    // 🎯 清除防抖定时器，避免内存泄漏
+    if (debounceTimerRef.current[modelId]) {
+      clearTimeout(debounceTimerRef.current[modelId]);
+      delete debounceTimerRef.current[modelId];
+    }
     setShowTooltip(prev => ({ ...prev, [modelId]: false }));
   };
 
-  // 🎯 监听滚动和窗口大小变化，及时隐藏tooltip
+  // 🎯 监听滚动和窗口大小变化，及时隐藏tooltip（增加防抖优化）
   useEffect(() => {
+    let scrollTimer: NodeJS.Timeout | null = null;
+    let resizeTimer: NodeJS.Timeout | null = null;
+
+    // 🎯 滚动事件防抖处理（Windows 滚动事件触发频率可能不同）
     const handleScroll = () => {
-      setShowTooltip({});
+      if (scrollTimer) clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(() => {
+        setShowTooltip({});
+        // 清除所有防抖定时器
+        Object.keys(debounceTimerRef.current).forEach(key => {
+          if (debounceTimerRef.current[key]) {
+            clearTimeout(debounceTimerRef.current[key]);
+          }
+        });
+        debounceTimerRef.current = {};
+      }, 50);
     };
 
+    // 🎯 窗口大小变化防抖处理
     const handleResize = () => {
-      setShowTooltip({});
+      if (resizeTimer) clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        setShowTooltip({});
+        // 清除所有防抖定时器
+        Object.keys(debounceTimerRef.current).forEach(key => {
+          if (debounceTimerRef.current[key]) {
+            clearTimeout(debounceTimerRef.current[key]);
+          }
+        });
+        debounceTimerRef.current = {};
+      }, 100);
     };
 
     window.addEventListener('scroll', handleScroll, true);
@@ -291,13 +377,25 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
     return () => {
       window.removeEventListener('scroll', handleScroll, true);
       window.removeEventListener('resize', handleResize);
+      // 清理定时器
+      if (scrollTimer) clearTimeout(scrollTimer);
+      if (resizeTimer) clearTimeout(resizeTimer);
+      // 清除所有防抖定时器
+      Object.values(debounceTimerRef.current).forEach(timer => {
+        if (timer) clearTimeout(timer);
+      });
     };
   }, []);
 
-  // 🎯 当下拉菜单关闭时，清除所有tooltip
+  // 🎯 当下拉菜单关闭时，清除所有tooltip和防抖定时器
   useEffect(() => {
     if (!isOpen) {
       setShowTooltip({});
+      // 清除所有防抖定时器
+      Object.values(debounceTimerRef.current).forEach(timer => {
+        if (timer) clearTimeout(timer);
+      });
+      debounceTimerRef.current = {};
     }
   }, [isOpen]);
 
