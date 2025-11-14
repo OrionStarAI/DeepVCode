@@ -182,11 +182,10 @@ interface MessageBubbleProps {
   sessionId?: string;  // 🎯 新增：会话ID
   messages?: ChatMessage[]; // 🎯 新增：所有消息列表（用于回退时截断）
   onUpdateMessages?: (messages: ChatMessage[]) => void; // 🎯 新增：更新消息列表回调
-  onRollback?: (messageId: string) => void; // 🎯 新增：回退到此消息回调
+  onRollback?: (messageId: string) => void; // 🎯 新增：回退到此消息回调（保留向后兼容）
 }
 
-export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolConfirm, onStartEdit, onRegenerate , onRollback, canRevert = false, sessionId, messages, onUpdateMessages}) => {
-
+export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolConfirm, onStartEdit, onRegenerate, onRollback, canRevert = false, sessionId, messages, onUpdateMessages}) => {
   const [copySuccess, setCopySuccess] = React.useState(false);
   // 🎯 Like/Dislike 状态管理
   const [feedbackState, setFeedbackState] = React.useState<'none' | 'like' | 'dislike'>('none');
@@ -284,7 +283,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
     setShowRevertConfirm(false);
   };
 
-  // 取消回退操作
+  // 🎯 取消回退操作
   const cancelRevertToMessage = () => {
     setShowRevertConfirm(false);
   };
