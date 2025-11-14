@@ -239,75 +239,82 @@
   }
 }
 
-/* 🎯 编辑确认对话框样式 */
+/* 🎯 编辑确认对话框样式 - 精致紧凑版 */
 .confirm-dialog-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 1000;
-  animation: fadeIn 0.2s ease-out;
+  animation: fadeIn 0.15s ease-out;
 }
 
 .confirm-dialog {
   background: var(--vscode-editor-background);
   border: 1px solid var(--vscode-panel-border);
-  border-radius: 8px;
-  padding: 24px;
-  max-width: 480px;
-  width: 90%;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-  animation: slideInScale 0.2s ease-out;
+  border-radius: 6px;
+  padding: 16px 20px;
+  max-width: 380px;
+  width: 85%;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 1px rgba(255, 255, 255, 0.1);
+  animation: slideInScale 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
 .confirm-dialog-header {
-  margin-bottom: 16px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .confirm-dialog-header h3 {
   margin: 0;
   color: var(--vscode-foreground);
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
+  letter-spacing: 0.2px;
 }
 
 .confirm-dialog-content {
-  margin-bottom: 24px;
-  line-height: 1.5;
+  margin-bottom: 16px;
+  line-height: 1.4;
 }
 
 .confirm-dialog-content p {
-  margin: 0 0 12px 0;
-  color: var(--vscode-foreground);
-  font-size: 14px;
+  margin: 0 0 8px 0;
+  color: var(--vscode-descriptionForeground);
+  font-size: 13px;
 }
 
 .confirm-dialog-content p:last-child {
   margin-bottom: 0;
   font-weight: 500;
   color: var(--vscode-errorForeground);
+  font-size: 12px;
 }
 
 .confirm-dialog-actions {
   display: flex;
-  gap: 12px;
+  gap: 8px;
   justify-content: flex-end;
 }
 
 .confirm-dialog-button {
-  padding: 8px 16px;
+  padding: 6px 14px;
   border-radius: 4px;
   border: 1px solid transparent;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
-  min-width: 80px;
+  transition: all 0.15s ease;
+  min-width: 70px;
+  white-space: nowrap;
 }
 
 .confirm-dialog-button.secondary {
@@ -317,7 +324,8 @@
 }
 
 .confirm-dialog-button.secondary:hover {
-  background: var(--vscode-button-hoverBackground);
+  background: var(--vscode-button-secondaryHoverBackground);
+  transform: translateY(-1px);
 }
 
 .confirm-dialog-button.primary {
@@ -327,6 +335,8 @@
 
 .confirm-dialog-button.primary:hover {
   background: var(--vscode-button-hoverBackground);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 @keyframes slideInScale {
