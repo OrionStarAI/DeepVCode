@@ -85,6 +85,11 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   const [selectedModel, setSelectedModel] = useState<ModelOption | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  
+  // 🎯 Tooltip 状态管理
+  const [showTooltip, setShowTooltip] = useState<{ [key: string]: boolean }>({});
+  const [tooltipPosition, setTooltipPosition] = useState<{ [key: string]: { top: number; left: number } }>({});
+  const modelNameRefs = useRef<{ [key: string]: HTMLSpanElement | null }>({});
 
   // 获取可用模型列表
   useEffect(() => {
@@ -225,6 +230,77 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
     }
   };
 
+  // 🎯 检测文本是否被截断
+  const isTextTruncated = (element: HTMLElement | null): boolean => {
+    if (!element) return false;
+    return element.scrollWidth > element.clientWidth;
+  };
+
+  // 🎯 处理鼠标悬停 - 显示 tooltip
+  const handleMouseEnter = (modelId: string) => {
+    const element = modelNameRefs.current[modelId];
+    if (!element || !isTextTruncated(element)) return;
+    
+    // 计算tooltip的位置
+    const rect = element.getBoundingClientRect();
+    let tooltipTop = rect.top - 40; // tooltip高度 + 间距
+    let tooltipLeft = rect.left + rect.width / 2 + 20; // 🎯 往右偏移20px
+    
+    // 🎯 边界检测：确保tooltip不会超出视口
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const tooltipPadding = 10; // 离边界的最小距离
+    
+    // 防止tooltip超出顶部
+    if (tooltipTop < tooltipPadding) {
+      tooltipTop = rect.bottom + 8; // 显示在元素下方
+    }
+    
+    // 防止tooltip超出左右边界（在渲染时通过CSS处理）
+    if (tooltipLeft < tooltipPadding) {
+      tooltipLeft = tooltipPadding;
+    } else if (tooltipLeft > viewportWidth - tooltipPadding) {
+      tooltipLeft = viewportWidth - tooltipPadding;
+    }
+    
+    setTooltipPosition(prev => ({
+      ...prev,
+      [modelId]: { top: tooltipTop, left: tooltipLeft }
+    }));
+    setShowTooltip(prev => ({ ...prev, [modelId]: true }));
+  };
+
+  // 🎯 处理鼠标离开 - 隐藏 tooltip
+  const handleMouseLeave = (modelId: string) => {
+    setShowTooltip(prev => ({ ...prev, [modelId]: false }));
+  };
+
+  // 🎯 监听滚动和窗口大小变化，及时隐藏tooltip
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowTooltip({});
+    };
+
+    const handleResize = () => {
+      setShowTooltip({});
+    };
+
+    window.addEventListener('scroll', handleScroll, true);
+    window.addEventListener('resize', handleResize);
+    
+    return () => {
+      window.removeEventListener('scroll', handleScroll, true);
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
+  // 🎯 当下拉菜单关闭时，清除所有tooltip
+  useEffect(() => {
+    if (!isOpen) {
+      setShowTooltip({});
+    }
+  }, [isOpen]);
+
   // 根据类别分组模型
   const groupedModels = modelOptions.reduce((groups, model) => {
     if (!groups[model.category]) {
@@ -268,11 +344,31 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                 {getCategoryInfo(selectedModel.category).icon}
               </div>
               <div className="model-info">
-                <span className="model-name">{selectedModel.displayName}</span>
-                <span
-                  className="model-credits"
-                  style={{ color: 'var(--vscode-descriptionForeground)', fontSize: '10px' }}
+                <div 
+                  className="model-name-wrapper"
+                  onMouseEnter={() => handleMouseEnter(`selected-${selectedModel.id}`)}
+                  onMouseLeave={() => handleMouseLeave(`selected-${selectedModel.id}`)}
                 >
+                  <span 
+                    className="model-name"
+                    ref={el => modelNameRefs.current[`selected-${selectedModel.id}`] = el}
+                  >
+                    {selectedModel.displayName}
+                  </span>
+                  {showTooltip[`selected-${selectedModel.id}`] && tooltipPosition[`selected-${selectedModel.id}`] && (
+                    <div 
+                      className="model-name-tooltip"
+                      style={{
+                        top: `${tooltipPosition[`selected-${selectedModel.id}`].top}px`,
+                        left: `${tooltipPosition[`selected-${selectedModel.id}`].left}px`,
+                        transform: 'translateX(-50%)'
+                      }}
+                    >
+                      {selectedModel.displayName}
+                    </div>
+                  )}
+                </div>
+                <span className="model-credits">
                   {selectedModel.creditsPerRequest} credits
                 </span>
               </div>
@@ -316,16 +412,31 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                       </div>
                       <div className="model-details">
                         <div className="model-main">
-                          <span className="model-name">{model.displayName}</span>
-                          <span
-                            className="model-credits"
-                            style={{
-                              color: 'var(--vscode-descriptionForeground)',
-                              opacity: 0.8,
-                              fontSize: '11px',
-                              fontWeight: '400'
-                            }}
+                          <div 
+                            className="model-name-wrapper"
+                            onMouseEnter={() => handleMouseEnter(`option-${model.id}`)}
+                            onMouseLeave={() => handleMouseLeave(`option-${model.id}`)}
                           >
+                            <span 
+                              className="model-name"
+                              ref={el => modelNameRefs.current[`option-${model.id}`] = el}
+                            >
+                              {model.displayName}
+                            </span>
+                            {showTooltip[`option-${model.id}`] && tooltipPosition[`option-${model.id}`] && (
+                              <div 
+                                className="model-name-tooltip"
+                                style={{
+                                  top: `${tooltipPosition[`option-${model.id}`].top}px`,
+                                  left: `${tooltipPosition[`option-${model.id}`].left}px`,
+                                  transform: 'translateX(-50%)'
+                                }}
+                              >
+                                {model.displayName}
+                              </div>
+                            )}
+                          </div>
+                          <span className="model-credits">
                             {model.creditsPerRequest} credits
                           </span>
                         </div>

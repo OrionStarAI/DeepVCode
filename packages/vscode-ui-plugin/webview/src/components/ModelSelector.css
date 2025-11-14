@@ -69,8 +69,9 @@
 
 .model-info {
   display: flex;
+  flex-direction: row;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   min-width: 0;
   flex: 1;
 }
@@ -79,18 +80,25 @@
   color: var(--vscode-foreground);
   font-weight: 500;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   flex-shrink: 1;
   min-width: 0;
 }
 
 .model-tier,
 .model-credits {
-  font-size: 12px;
-  font-weight: 400;
-  opacity: 0.8;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--vscode-badge-foreground);
   white-space: nowrap;
   flex-shrink: 0;
   margin-left: auto;
+  padding: 3px 8px;
+  background: var(--vscode-badge-background);
+  border-radius: 10px;
+  line-height: 1.2;
+  letter-spacing: 0.2px;
 }
 
 /* 下拉箭头 */
@@ -215,14 +223,16 @@
   font-size: 13px;
   font-weight: 500;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   flex-shrink: 1;
   min-width: 0;
 }
 
 .model-option .model-tier,
 .model-option .model-credits {
-  font-size: 12px;
-  font-weight: 400;
+  font-size: 10px;
+  padding: 2px 6px;
 }
 
 .model-description {
@@ -317,5 +327,61 @@
 
   .model-dropdown {
     animation: none;
+  }
+}
+
+/* 🎯 Tooltip 提示框样式 */
+.model-name-tooltip {
+  position: fixed; /* 使用 fixed 定位，避免被父容器裁剪 */
+  background: var(--vscode-editorHoverWidget-background);
+  border: 1px solid var(--vscode-editorHoverWidget-border);
+  color: var(--vscode-editorHoverWidget-foreground);
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 100000;
+  pointer-events: none;
+  opacity: 0;
+  animation: tooltipFadeIn 0.2s ease-out forwards;
+}
+
+/* 🎯 Tooltip箭头 - 使用伪元素绘制指向元素的三角形 */
+.model-name-tooltip::after {
+  content: '';
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  border: 6px solid transparent;
+  border-top-color: var(--vscode-editorHoverWidget-background);
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.2));
+}
+
+@keyframes tooltipFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Tooltip 容器 - 相对定位 */
+.model-name-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1;
+}
+
+/* 减少动画时的 tooltip */
+@media (prefers-reduced-motion: reduce) {
+  .model-name-tooltip {
+    animation: none;
+    opacity: 1;
   }
 }
