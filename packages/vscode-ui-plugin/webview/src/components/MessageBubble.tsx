@@ -182,11 +182,10 @@ interface MessageBubbleProps {
   sessionId?: string;  // 🎯 新增：会话ID
   messages?: ChatMessage[]; // 🎯 新增：所有消息列表（用于回退时截断）
   onUpdateMessages?: (messages: ChatMessage[]) => void; // 🎯 新增：更新消息列表回调
-  onRollback?: (messageId: string) => void; // 🎯 新增：回退到此消息回调
+  onRollback?: (messageId: string) => void; // 🎯 新增：回退到此消息回调（保留向后兼容）
 }
 
-export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolConfirm, onStartEdit, onRegenerate , onRollback, canRevert = false, sessionId, messages, onUpdateMessages}) => {
-
+export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolConfirm, onStartEdit, onRegenerate, onRollback, canRevert = false, sessionId, messages, onUpdateMessages}) => {
   const [copySuccess, setCopySuccess] = React.useState(false);
   // 🎯 Like/Dislike 状态管理
   const [feedbackState, setFeedbackState] = React.useState<'none' | 'like' | 'dislike'>('none');
@@ -259,32 +258,21 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
 
   // 🎯 确认回退操作
   const confirmRevertToMessage = () => {
-    if (!sessionId) return;
-
-    // 🎯 1. 先在前端截断消息列表
-    if (messages && onUpdateMessages) {
-      const messageIndex = messages.findIndex(msg => msg.id === message.id);
-      if (messageIndex !== -1) {
-        // 截断到当前消息（包含当前消息），保留当前消息及之前的所有消息
-        const truncatedMessages = messages.slice(0, messageIndex + 1);
-        console.log(`🎯 回退操作：截断消息列表从 ${messages.length} 条到 ${truncatedMessages.length} 条（保留当前消息）`);
-        onUpdateMessages(truncatedMessages);
-      }
-    }
-
-    // 🎯 2. 然后发送消息到后端处理文件回退
-    window.vscode.postMessage({
-      type: 'revert_to_message',
-      payload: {
-        sessionId,
-        messageId: message.id
-      }
-    });
-    
+    // 关闭确认对话框
     setShowRevertConfirm(false);
+    
+    // 🎯 调用父组件传入的 onRollback 回调（ChatInterface 的 handleRollback）
+    // ChatInterface 的 handleRollback 会处理完整的回退逻辑：
+    // 1. 中止 AI 进程
+    // 2. 截断消息列表
+    // 3. 更新 UI
+    // 4. 发送后端回退请求
+    if (onRollback) {
+      onRollback(message.id);
+    }
   };
 
-  // 取消回退操作
+  // 🎯 取消回退操作
   const cancelRevertToMessage = () => {
     setShowRevertConfirm(false);
   };
@@ -315,7 +303,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
             {onRollback && (
               <button
                 className="rollback-button-inline"
-                onClick={() => onRollback(message.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRevertToMessage();
+                }}
                 title="回退到此消息"
                 aria-label="回退到此消息"
               >

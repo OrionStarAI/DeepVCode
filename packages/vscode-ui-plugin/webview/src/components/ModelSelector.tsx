@@ -232,6 +232,8 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   };
 
   // 🎯 检测文本是否被截断（增强跨平台兼容性）
+  // 注意：由于 CSS text-overflow: ellipsis 的特性，这个函数可能检测不准确
+  // 目前已改为直接显示 tooltip，不依赖此检测
   const isTextTruncated = (element: HTMLElement | null): boolean => {
     if (!element) return false;
     
@@ -280,7 +282,10 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
     // 🎯 防抖处理：延迟 150ms 显示 tooltip，避免快速滑过时闪烁
     debounceTimerRef.current[modelId] = setTimeout(() => {
       const element = modelNameRefs.current[modelId];
-      if (!element || !isTextTruncated(element)) return;
+      
+      // 🎯 简化逻辑：直接显示 tooltip，不检测是否截断
+      // 这样可以避免 CSS text-overflow 导致的检测不准确问题
+      if (!element) return;
       
       // 🎯 Windows DPI 缩放支持：获取实际的设备像素比率
       const dpr = getDevicePixelRatio();

@@ -651,6 +651,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                           ? handleRollback 
                           : undefined
                       }
+                      canRevert={message.type === 'user' && rollbackableMessageIds.includes(message.id) && index < messages.length - 1}
+                      sessionId={sessionId}
+                      messages={messages}
+                      onUpdateMessages={onUpdateMessages}
                     />
                   )}
                 </div>
