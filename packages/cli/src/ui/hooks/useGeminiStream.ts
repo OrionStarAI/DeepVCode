@@ -25,6 +25,7 @@ import {
   GitService,
   EditorType,
   ThoughtSummary,
+  ReasoningSummary,
   UnauthorizedError,
   UserPromptEvent,
   DEFAULT_GEMINI_FLASH_MODEL,
@@ -49,6 +50,7 @@ import { useShellCommandProcessor } from './shellCommandProcessor.js';
 import { handleAtCommand } from './atCommandProcessor.js';
 import { HelpSubagent } from '../../services/HelpSubagent.js';
 import { findLastSafeSplitPoint } from '../utils/markdownUtilities.js';
+import { detectPlanModeChange, isPlanModeExitMarker } from '../utils/planModeDetector.js';
 import { refreshModelsInBackground } from '../commands/modelCommand.js';
 import { LoadedSettings } from '../../config/settings.js';
 import { useStateAndRef } from './useStateAndRef.js';
@@ -290,6 +292,8 @@ export const useGeminiStream = (
   const processingRef = useRef(false); // 同步标志位，防止重入
   const [isResponding, setIsResponding] = useState<boolean>(false);
   const [thought, setThought] = useState<ThoughtSummary | null>(null);
+  const [reasoning, setReasoning] = useState<ReasoningSummary | null>(null);
+  const [hasContentStarted, setHasContentStarted] = useState<boolean>(false); // 🆕 追踪是否已开始发送内容
 
   // 清除预估token的helper函数
   const clearEstimatedTokens = useCallback(() => {
@@ -852,6 +856,12 @@ export const useGeminiStream = (
         return '';
       }
 
+      // 🆕 标记内容已开始，清空思考过程
+      if (!hasContentStarted) {
+        setHasContentStarted(true);
+        setReasoning(null);
+      }
+
       // 🎯 累积 AI 的文本回复，用于 Checkpoint 摘要
       aiTextBeforeToolsRef.current += eventValue;
 
@@ -900,7 +910,7 @@ export const useGeminiStream = (
       }
       return newGeminiMessageBuffer;
     },
-    [addItem, pendingHistoryItemRef, setPendingHistoryItem],
+    [addItem, pendingHistoryItemRef, setPendingHistoryItem, setHasContentStarted],
   );
 
   const handleUserCancelledEvent = useCallback(
@@ -1142,6 +1152,7 @@ export const useGeminiStream = (
       signal: AbortSignal,
     ): Promise<StreamProcessingStatus> => {
       let geminiMessageBuffer = '';
+      let reasoningBuffer = ''; // 🆕 累积 reasoning 内容
       const toolCallRequests: ToolCallRequestInfo[] = [];
       for await (const event of stream) {
         // 检查abort信号，立即退出
@@ -1152,6 +1163,11 @@ export const useGeminiStream = (
         switch (event.type) {
           case ServerGeminiEventType.Thought:
             setThought(event.value);
+            break;
+          case ServerGeminiEventType.Reasoning:
+            // 🆕 累积 reasoning 内容
+            reasoningBuffer += event.value.text;
+            setReasoning({ text: reasoningBuffer });
             break;
           case ServerGeminiEventType.Content:
             geminiMessageBuffer = handleContentEvent(
@@ -1209,6 +1225,8 @@ export const useGeminiStream = (
           }
         }
       }
+      // 清空 reasoning 状态（思考过程仅在流式传输中显示）
+      setReasoning(null);
       if (toolCallRequests.length > 0) {
         scheduleToolCalls(toolCallRequests, signal);
       }
@@ -1248,7 +1266,16 @@ export const useGeminiStream = (
 
       // Plan模式特殊处理 - 只修改发送给AI的内容，不影响历史记录
       let modifiedQuery = query;
-      if (config.getPlanModeActive() && !options?.isContinuation) {
+      // 🎯 检测来自 VS Code 的 Plan 模式标记消息
+      const queryStr = typeof query === 'string' ? query : JSON.stringify(query);
+      const planModeDetection = detectPlanModeChange(queryStr);
+
+      // 🎯 如果检测到 Plan 模式退出标记，自动同步后端状态
+      if (planModeDetection.modeChanged && !planModeDetection.newMode) {
+        console.log('[Plan Mode] Detected plan mode exit marker from VS Code, syncing state...');
+        config.setPlanModeActive(false);
+        // 不注入Plan模式提示，因为用户已经明确退出
+      } else if (config.getPlanModeActive() && !options?.isContinuation) {
         const planPrompt = `[PLAN MODE ACTIVE]
 The user is currently in Plan mode, focusing on requirements discussion and solution design. Please:
 1. You may use analytical tools: read_file, read_many_files, list_directory, grep, glob, web_fetch, task, etc.
@@ -1257,7 +1284,7 @@ The user is currently in Plan mode, focusing on requirements discussion and solu
 4. Provide detailed planning and recommendations, but do not perform modification operations
 5. If modification operations are needed, remind the user to first use /plan off to exit Plan mode
 
-User question: ${typeof query === 'string' ? query : JSON.stringify(query)}`;
+User question: ${queryStr}`;
 
         modifiedQuery = planPrompt;
       }
@@ -1266,6 +1293,8 @@ User question: ${typeof query === 'string' ? query : JSON.stringify(query)}`;
       processingRef.current = true;
       // 🎯 立即开始显示加载状态
       setIsResponding(true);
+      // 🆕 重置内容开始标志
+      setHasContentStarted(false);
 
       const userMessageTimestamp = Date.now();
       setShowHelp(false);
@@ -1363,7 +1392,7 @@ User question: ${typeof query === 'string' ? query : JSON.stringify(query)}`;
                 });
                 // 更新预估token显示
                 setEstimatedInputTokens(tokenResponse.totalTokens || 0);
-                console.log(`[Token Estimation] 预估输入token: ${tokenResponse.totalTokens || 0}`);
+                console.log(`[Token Estimation] Estimated input tokens: ${tokenResponse.totalTokens || 0}`);
               }
             }
           } catch (error) {
@@ -1715,6 +1744,8 @@ User question: ${typeof query === 'string' ? query : JSON.stringify(query)}`;
     initError,
     pendingHistoryItems,
     thought,
+    reasoning, // 🆕 导出 reasoning 状态
+    hasContentStarted, // 🆕 导出内容开始标志
     isCreatingCheckpoint, // 🎯 导出checkpoint创建状态
     isExecutingTools, // 🎯 导出工具执行状态
   };

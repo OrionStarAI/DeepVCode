@@ -9,7 +9,8 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import rehypeHighlight from 'rehype-highlight';
 import rehypeRaw from 'rehype-raw';
-import { Copy, Check, ThumbsUp, ThumbsDown, RefreshCw, ChevronDown, ChevronUp, Undo2, AlertTriangle } from 'lucide-react';
+import { Copy, Check, ThumbsUp, ThumbsDown, RefreshCw, ChevronDown, ChevronUp, Undo2, AlertTriangle, Pencil, Undo } from 'lucide-react';
+
 import { ChatMessage } from '../types';
 
 import { ToolCallList } from './ToolCallList';
@@ -176,13 +177,16 @@ interface MessageBubbleProps {
   onToolConfirm?: (toolCallId: string, confirmed: boolean, userInput?: string) => void;
   onStartEdit?: (messageId: string) => void; // 🎯 新增：开始编辑回调
   onRegenerate?: (messageId: string) => void; // 🎯 新增：重新生成回调
+
   canRevert?: boolean; // 🎯 新增：是否可以回退到此消息
   sessionId?: string;  // 🎯 新增：会话ID
   messages?: ChatMessage[]; // 🎯 新增：所有消息列表（用于回退时截断）
   onUpdateMessages?: (messages: ChatMessage[]) => void; // 🎯 新增：更新消息列表回调
+  onRollback?: (messageId: string) => void; // 🎯 新增：回退到此消息回调
 }
 
-export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolConfirm, onStartEdit, onRegenerate ,canRevert = false, sessionId, messages, onUpdateMessages}) => {
+export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolConfirm, onStartEdit, onRegenerate , onRollback, canRevert = false, sessionId, messages, onUpdateMessages}) => {
+
   const [copySuccess, setCopySuccess] = React.useState(false);
   // 🎯 Like/Dislike 状态管理
   const [feedbackState, setFeedbackState] = React.useState<'none' | 'like' | 'dislike'>('none');
@@ -289,76 +293,33 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
     <div className={getMessageClass(message.type)}>
       <div className="message-content">
         {message.type === 'user' ? (
-          <div
-            style={{
-              position: 'relative',
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: '8px',
-              wordBreak: 'break-word',
-              maxWidth: '100%'
-            }}
-          >
-            <div
-              className="user-content"
+          <div className="user-content">
+            <span 
               onClick={() => onStartEdit?.(message.id)}
               style={{
-                cursor: onStartEdit ? 'pointer' : 'default',
-                transition: 'background-color 0.2s ease',
-                flex: 1,
-                minWidth: 0  // 🎯 允许 flex 容器内的文本换行
-              }}
-              title={onStartEdit ? '点击编辑消息' : undefined}
-              onMouseEnter={(e) => {
-                if (onStartEdit) {
-                  e.currentTarget.style.backgroundColor = 'var(--vscode-list-hoverBackground)';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (onStartEdit) {
-                  e.currentTarget.style.backgroundColor = 'transparent';
-                }
+                cursor: onStartEdit ? 'pointer' : 'default'
               }}
             >
               {messageContentToString(message.content)}
-            </div>
-
-            {/* 🎯 回退按钮 */}
-            {canRevert && (
+            </span>
+            {onStartEdit && (
               <button
-                className="message-revert-btn-inline"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleRevertToMessage();
-                }}
-                title="回退"
-                style={{
-                  flexShrink: 0,
-                  width: '28px',
-                  height: '28px',
-                  padding: '4px',
-                  background: 'transparent',
-                  border: 'none',
-                  borderRadius: '4px',
-                  color: 'var(--vscode-descriptionForeground)',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  opacity: 0.6,
-                  transition: 'all 0.2s ease',
-                  marginTop: '2px'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.opacity = '1';
-                  e.currentTarget.style.background = 'var(--vscode-toolbar-hoverBackground)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.opacity = '0.6';
-                  e.currentTarget.style.background = 'transparent';
-                }}
+                className="edit-button-inline"
+                onClick={() => onStartEdit(message.id)}
+                title="编辑消息"
+                aria-label="编辑消息"
               >
-                <Undo2 size={16} />
+                <Pencil size={14} />
+              </button>
+            )}
+            {onRollback && (
+              <button
+                className="rollback-button-inline"
+                onClick={() => onRollback(message.id)}
+                title="回退到此消息"
+                aria-label="回退到此消息"
+              >
+                <Undo size={14} />
               </button>
             )}
           </div>

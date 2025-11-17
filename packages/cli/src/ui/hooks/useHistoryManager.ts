@@ -24,7 +24,7 @@ export interface UseHistoryManagerReturn {
 }
 
 export interface UseHistoryOptions {
-  onMessageCountMilestone?: (count: number) => void;
+  // No additional options currently
 }
 
 /**
@@ -36,7 +36,6 @@ export interface UseHistoryOptions {
 export function useHistory(options?: UseHistoryOptions): UseHistoryManagerReturn {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const messageIdCounterRef = useRef(0);
-  const { onMessageCountMilestone } = options || {};
 
   // Generates a unique message ID based on a timestamp and a counter.
   const getNextMessageId = useCallback((baseTimestamp: number): number => {
@@ -67,21 +66,11 @@ export function useHistory(options?: UseHistoryOptions): UseHistoryManagerReturn
             return prevHistory; // Don't add the duplicate user message
           }
         }
-        const newHistory = [...prevHistory, newItem];
-
-        // Check if we've reached a milestone (every 30 messages)
-        // Use setTimeout to avoid calling callback during state update
-        if (onMessageCountMilestone && newHistory.length > 0 && newHistory.length % 100 === 0) {
-          setTimeout(() => {
-            onMessageCountMilestone(newHistory.length);
-          }, 0);
-        }
-
-        return newHistory;
+        return [...prevHistory, newItem];
       });
       return id; // Return the generated ID (even if not added, to keep signature)
     },
-    [getNextMessageId, onMessageCountMilestone],
+    [getNextMessageId],
   );
 
   /**

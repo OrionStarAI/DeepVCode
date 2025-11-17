@@ -67,7 +67,10 @@ interface MultiSessionMessageFromExtension {
        'open_rules_management' |
        'rules_list_response' |
        'rules_save_response' |
-       'rules_delete_response';
+       'rules_delete_response' |
+       // 🎯 文本优化命令（/refine）
+       'refine_result' |
+       'refine_error';
   payload: Record<string, unknown> & {
     sessionId?: string; // 大部分消息都包含sessionId
   };
@@ -80,6 +83,7 @@ export interface MultiSessionMessageToExtension {
        'tool_cancel_all' |
        'chat_message' |
        'edit_message_and_regenerate' |
+       'rollback_to_message' |          // 🎯 新增：回退到指定消息
        'get_context' |
        'ready' |
        // 🎯 新增流程控制消息类型
@@ -397,6 +401,21 @@ export class MultiSessionMessageService {
         messageId,
         newContent,
         originalMessages, // 🎯 新增：传递完整的原始消息历史用于文件回滚分析
+        timestamp: Date.now()
+      }
+    });
+  }
+
+  /**
+   * 🎯 发送回退到指定消息请求
+   */
+  sendRollbackToMessage(sessionId: string, messageId: string, originalMessages?: any[]) {
+    this.sendMessage({
+      type: 'rollback_to_message',
+      payload: {
+        sessionId,
+        messageId,
+        originalMessages, // 🎯 传递完整的原始消息历史用于文件回滚分析
         timestamp: Date.now()
       }
     });
@@ -827,6 +846,25 @@ export class MultiSessionMessageService {
       payload: { ruleId }
     });
   }
+
+  // =============================================================================
+  // 🎯 文本优化命令（/refine）
+  // =============================================================================
+
+  /**
+   * 🎯 监听文本优化结果
+   */
+  onRefineResult(callback: (data: { original: string; refined: string }) => void): () => void {
+    return this.addMessageHandler('refine_result', callback);
+  }
+
+  /**
+   * 🎯 监听文本优化错误
+   */
+  onRefineError(callback: (data: { error: string }) => void): () => void {
+    return this.addMessageHandler('refine_error', callback);
+  }
+
   // =============================================================================
   // 公共方法
   // =============================================================================

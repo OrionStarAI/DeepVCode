@@ -16,11 +16,14 @@ import { VersionControlManager } from './services/versionControlManager';
 import { SimpleRevertService } from './services/simpleRevertService';
 import { CursorStyleRevertService } from './services/cursorStyleRevertService';
 import { DeepVInlineCompletionProvider } from './services/inlineCompletionProvider';
+import { CompletionCache } from './services/completionCache';
+import { CompletionScheduler } from './services/completionScheduler';
 import { RuleService } from './services/ruleService';
 import { ContextBuilder } from './services/contextBuilder';
 import { Logger } from './utils/logger';
 import { startupOptimizer } from './utils/startupOptimizer';
 import { EnvironmentOptimizer } from './utils/environmentOptimizer';
+import { ROLLBACK_MESSAGES } from './i18n/messages';
 import { ClipboardCacheService } from './services/clipboardCacheService';
 
 let logger: Logger;
@@ -34,6 +37,8 @@ let versionControlManager: VersionControlManager;
 let simpleRevertService: SimpleRevertService;
 let cursorStyleRevertService: CursorStyleRevertService;
 let inlineCompletionProvider: DeepVInlineCompletionProvider;
+let completionCache: CompletionCache;
+let completionScheduler: CompletionScheduler;
 let ruleService: RuleService;
 let inlineCompletionStatusBar: vscode.StatusBarItem;
 let extensionContext: vscode.ExtensionContext;
@@ -136,8 +141,9 @@ export async function activate(context: vscode.ExtensionContext) {
     // 🎯 设置版本控制管理器到SessionManager
     sessionManager.setVersionControlManager(versionControlManager);
 
-    // 🎯 初始化行内补全提供者
-    inlineCompletionProvider = new DeepVInlineCompletionProvider(logger);
+    // 🎯 初始化行内补全系统（推-拉分离架构）
+    completionCache = new CompletionCache();
+    inlineCompletionProvider = new DeepVInlineCompletionProvider(completionCache, logger);
 
     // 🎯 注册行内补全提供者（支持所有编程语言）
     const completionProviderDisposable = vscode.languages.registerInlineCompletionItemProvider(
@@ -145,7 +151,7 @@ export async function activate(context: vscode.ExtensionContext) {
       inlineCompletionProvider
     );
     context.subscriptions.push(completionProviderDisposable);
-    logger.info('InlineCompletionProvider registered for all file types');
+    logger.info('InlineCompletionProvider registered (cache-only, pull mode)');
 
     // 🎯 创建状态栏项，用于控制代码补全开关
     inlineCompletionStatusBar = vscode.window.createStatusBarItem(
@@ -240,6 +246,9 @@ export async function deactivate(): Promise<void> {
 }
 
 function setupServiceCommunication() {
+
+  // 🎯 设置 /refine 命令处理器（文本优化功能，需在登录前立即注册）
+  setupRefineCommandHandler();
 
   // 🎯 设置基础消息处理器（通过SessionManager分发到对应session）
   setupBasicMessageHandlers();
@@ -377,6 +386,146 @@ function setupBasicMessageHandlers() {
       logger.error('❌ 处理编辑消息失败:', error instanceof Error ? error : undefined);
       communicationService.sendChatError(payload.sessionId, error instanceof Error ? error.message : String(error));
     }
+  });
+
+  /**
+   * 🎯 回退到指定消息处理器
+   *
+   * 功能说明：
+   * - 回退操作是破坏性的，会删除目标消息之后的所有消息和文件修改
+   * - 前端会先截断UI中的消息历史，提供即时反馈
+   * - 后端负责分析并回滚文件系统到目标消息时的状态
+   *
+   * 处理流程：
+   * 1. 获取AI服务实例
+   * 2. 分析目标消息之后的所有文件修改
+   * 3. 逐个回滚这些文件到原始状态
+   * 4. 通知前端回滚结果
+   *
+   * @param payload.sessionId - 会话ID
+   * @param payload.messageId - 目标消息ID（回退到此消息）
+   * @param payload.originalMessages - 完整的原始消息历史（用于分析文件修改）
+   */
+    communicationService.onRollbackToMessage(async (payload: any) => {
+      logger.info(`📥 ${ROLLBACK_MESSAGES.ROLLBACK_INITIATED}`, {
+        sessionId: payload.sessionId,
+        messageId: payload.messageId,
+        originalMessagesCount: payload.originalMessages?.length || 0
+      });
+
+    try {
+      // ✅ 步骤1: 获取AI服务实例（延迟初始化）
+      const aiService = await sessionManager.getInitializedAIService(payload.sessionId);
+
+        // ✅ 步骤2: 执行文件回滚到目标消息状态
+        logger.info(`🔄 ${ROLLBACK_MESSAGES.FILE_ROLLBACK_STARTED}`);
+
+      // 获取工作区根目录（文件回滚需要绝对路径）
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+
+        if (!workspaceRoot) {
+          logger.warn(`⚠️ ${ROLLBACK_MESSAGES.WORKSPACE_NOT_FOUND}`);
+        }
+
+      // 🎯 使用前端传递的原始完整消息历史
+      // 为什么需要完整历史？
+      // - fileRollbackService 需要分析目标消息之后所有的文件修改
+      // - 每条消息可能包含多个文件操作（创建、修改、删除）
+      // - 需要追踪每个文件的 originalContent 来进行回滚
+      const messagesForRollback = payload.originalMessages || [];
+
+      logger.info('📋 准备分析消息历史进行文件回滚:', {
+        总消息数: messagesForRollback.length,
+        目标消息ID: payload.messageId,
+        工作区根目录: workspaceRoot || '未设置'
+      });
+
+      try {
+        // 🔍 调用文件回滚服务
+        // 此服务会：
+        // 1. 从目标消息的下一条开始分析所有消息
+        // 2. 提取所有文件修改操作（通过 associatedToolCalls）
+        // 3. 对于每个修改的文件，恢复到 firstOriginalContent
+        // 4. 对于新建的文件，删除它们
+        // 5. 对于删除的文件，恢复它们
+        const rollbackResult = await fileRollbackService.rollbackFilesToMessage(
+          messagesForRollback,
+          payload.messageId,
+          workspaceRoot
+        );
+
+        logger.info('📊 文件回滚执行结果:', {
+          是否全部成功: rollbackResult.success,
+          成功回滚文件数: rollbackResult.rolledBackFiles.length,
+          失败文件数: rollbackResult.failedFiles.length,
+          总文件数: rollbackResult.totalFiles,
+          成功的文件列表: rollbackResult.rolledBackFiles,
+          失败的文件详情: rollbackResult.failedFiles.map(f => ({
+            文件名: f.fileName,
+            错误: f.error
+          }))
+        });
+
+        // ✅ 步骤3: 通知前端文件回滚完成
+        if (rollbackResult.totalFiles > 0) {
+          communicationService.sendMessage({
+            type: 'file_rollback_complete',
+            payload: {
+              sessionId: payload.sessionId,
+              result: rollbackResult,
+              targetMessageId: payload.messageId
+            }
+          });
+
+          // 如果有文件回滚失败，额外发送警告
+          if (rollbackResult.failedFiles.length > 0) {
+            logger.warn('⚠️ 部分文件回滚失败', {
+              失败数量: rollbackResult.failedFiles.length,
+              失败文件: rollbackResult.failedFiles.map(f => f.fileName)
+            });
+          }
+          } else {
+            logger.info(`ℹ️ ${ROLLBACK_MESSAGES.NO_FILES_TO_ROLLBACK}`);
+          }
+
+      } catch (fileRollbackError) {
+        // 文件回滚失败不应该阻止整个回退流程
+        // 记录错误并通知前端，但继续执行
+        logger.error('❌ 文件回滚过程出错:', fileRollbackError instanceof Error ? fileRollbackError : undefined);
+
+        // 通知前端文件回滚失败
+        communicationService.sendMessage({
+          type: 'file_rollback_failed',
+          payload: {
+            sessionId: payload.sessionId,
+            error: fileRollbackError instanceof Error ? fileRollbackError.message : String(fileRollbackError),
+            targetMessageId: payload.messageId
+          }
+        });
+      }
+
+      // ✅ 步骤4: AI历史回滚说明
+      // 注意：AI的对话历史回滚由前端控制
+      // - 前端已经截断了消息列表
+      // - AI服务会在下次对话时自动使用更新后的消息历史
+      // - 因此这里不需要显式调用AI服务的历史回滚方法
+      logger.info('ℹ️ AI历史回滚由前端消息截断控制，后端无需额外处理');
+
+        logger.info(`✅ ${ROLLBACK_MESSAGES.ROLLBACK_COMPLETED}`, {
+          sessionId: payload.sessionId,
+          targetMessageId: payload.messageId
+        });
+
+      } catch (error) {
+        // 回退操作的顶层错误处理
+        logger.error(`❌ ${ROLLBACK_MESSAGES.ROLLBACK_FAILED}:`, error instanceof Error ? error : undefined);
+
+        // 发送错误消息到前端
+        communicationService.sendChatError(
+          payload.sessionId,
+          `${ROLLBACK_MESSAGES.ROLLBACK_FAILED}: ${error instanceof Error ? error.message : String(error)}`
+        );
+      }
   });
 
   // 处理工具执行请求
@@ -1087,6 +1236,148 @@ function setupLoginHandlers() {
   });
 }
 
+/**
+ * 🎯 设置 /refine 命令处理器
+ * 文本优化功能：使用 AI 服务对文本进行优化
+ */
+function setupRefineCommandHandler() {
+  communicationService.addMessageHandler('execute_slash_command', async (payload: any) => {
+    try {
+      const { command, args } = payload;
+      logger.info(`📝 Executing slash command: /${command} with args:`, args);
+
+      if (command === 'refine') {
+        // 🎯 处理 /refine 命令，使用 AI 服务优化文本
+        await handleRefineCommand(args);
+      } else {
+        logger.warn(`⚠️ Unknown slash command: ${command}`);
+        communicationService.sendGenericMessage('refine_error', {
+          error: `Unknown command: /${command}`,
+        });
+      }
+    } catch (error) {
+      logger.error('❌ Failed to execute slash command', error instanceof Error ? error : undefined);
+      communicationService.sendGenericMessage('refine_error', {
+        error: error instanceof Error ? error.message : 'Failed to execute command',
+      });
+    }
+  });
+
+  logger.info('🎯 Refine command handler registered');
+}
+
+/**
+ * 处理 /refine 命令的实际逻辑
+ * 构造优化提示词并通过 AI 服务发送请求
+ */
+async function handleRefineCommand(originalText: string) {
+  try {
+    if (!originalText || !originalText.trim()) {
+      communicationService.sendGenericMessage('refine_error', {
+        error: 'Input text cannot be empty',
+      });
+      return;
+    }
+
+    logger.info('🎯 Starting text refinement...', { textLength: originalText.length });
+
+    // 🎯 获取已初始化的 AI 服务（自动处理初始化）
+    const aiService = await sessionManager.getCurrentInitializedAIService();
+    const geminiClient = aiService.getGeminiClient();
+
+    if (!geminiClient) {
+      logger.error('Gemini client not available');
+      communicationService.sendGenericMessage('refine_error', {
+        error: 'AI client not available.',
+      });
+      return;
+    }
+
+    // 🎯 构造优化提示词 - 一次性请求，不带任何上下文
+    const refinePrompt = `⚠️ NO TOOLS ALLOWED ⚠️
+
+Here is an instruction that I'd like to give you, but it needs to be improved. Rewrite and enhance this instruction to make it clearer, more specific, less ambiguous, and correct any mistakes. Do not use any tools: reply immediately with your answer, even if you're not sure. Consider the context of our conversation history when enhancing the prompt. If there is code in triple backticks (\`\`\`) consider whether it is a code sample and should remain unchanged.Reply with the following format:
+### BEGIN RESPONSE ###
+Here is an enhanced version of the original instruction that is more specific and clear:
+<dvcode-refine-prompt>enhanced prompt goes here</dvcode-refine-prompt>
+### END RESPONSE ###
+
+Here is my original instruction:
+
+ ${originalText}`;
+
+    // 收集完整的响应
+    let refinedText = '';
+    const abortController = new AbortController();
+
+    try {
+      const stream = geminiClient.sendMessageStream(
+        [{ text: refinePrompt }],
+        abortController.signal,
+        `refine - ${Date.now()}`
+      );
+
+      // 设置超时保护
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => {
+          abortController.abort();
+          reject(new Error('Refinement timeout'));
+        }, 30000);
+      });
+
+      const streamPromise = (async () => {
+        try {
+          for await (const event of stream) {
+            if (event.type === 'content') {
+              refinedText += event.value;
+            }
+          }
+        } catch (error) {
+          if (error instanceof Error && error.message.includes('aborted')) {
+            throw new Error('Refinement timeout');
+          }
+          throw error;
+        }
+      })();
+
+      await Promise.race([streamPromise, timeoutPromise]);
+
+      logger.info('✅ Text refinement completed');
+
+      // 🎯 清理AI响应，提取 <dvcode-refine-prompt> 标签内的内容
+      let cleanedText = refinedText.trim();
+
+      // 尝试提取 <dvcode-refine-prompt>...</dvcode-refine-prompt> 标签内的内容
+      const tagMatch = cleanedText.match(/<dvcode-refine-prompt>([\s\S]*?)<\/dvcode-refine-prompt>/);
+      if (tagMatch && tagMatch[1]) {
+        cleanedText = tagMatch[1].trim();
+      } else {
+        // 如果没有标签，则删除常见的前缀和后缀
+        cleanedText = cleanedText.replace(/^### BEGIN RESPONSE ###\n+/i, '');
+        cleanedText = cleanedText.replace(/\n+### END RESPONSE ###$/i, '');
+        cleanedText = cleanedText.replace(/^Here is an enhanced version[\s\S]*?:\n+/i, '');
+        cleanedText = cleanedText.trim();
+      }
+
+      communicationService.sendGenericMessage('refine_result', {
+        original: originalText,
+        refined: cleanedText,
+      });
+
+    } catch (error) {
+      throw new Error(`AI service error: ${error instanceof Error ? error.message : String(error)}`);
+    }
+
+  } catch (error) {
+    logger.error('❌ Text refinement failed', error instanceof Error ? error : undefined);
+    communicationService.sendGenericMessage('refine_error', {
+      error: error instanceof Error ? error.message : 'Failed to refine text',
+    });
+  }
+}
+
+
+
 function setupMultiSessionHandlers() {
   // 处理Session创建请求
   communicationService.onSessionCreate(async (payload) => {
@@ -1440,7 +1731,7 @@ function registerCommands(context: vscode.ExtensionContext) {
         // 发送预填充消息到webview
         const editor = vscode.window.activeTextEditor;
         const fileName = editor?.document.fileName || 'selected code';
-        const message = `请解释以下代码:\n\n\`\`\`\n${selectedText}\n\`\`\`\n\n来自文件: ${fileName}`;
+        const message = `请解释以下代码: \n\n\`\`\`\n${selectedText}\n\`\`\`\n\n来自文件: ${fileName}`;
 
         // 🎯 发送消息（webview 已 ready 或进入队列）
         communicationService.sendMessage({
@@ -1575,7 +1866,7 @@ function registerCommands(context: vscode.ExtensionContext) {
     // 🎯 测试行内补全功能
     vscode.commands.registerCommand('deepv.testInlineCompletion', async () => {
       const config = vscode.workspace.getConfiguration('deepv');
-      const isEnabled = config.get<boolean>('enableInlineCompletion', true);
+      const isEnabled = config.get<boolean>('enableInlineCompletion', false);
 
       if (!isEnabled) {
         const action = await vscode.window.showWarningMessage(
@@ -1597,31 +1888,30 @@ function registerCommands(context: vscode.ExtensionContext) {
         return;
       }
 
-      const stats = inlineCompletionProvider.getStats();
+      const providerStats = inlineCompletionProvider.getStats();
+      const schedulerStats = completionScheduler ? completionScheduler.getStats() : null;
 
       // 获取当前使用的模型
-      const completionService = inlineCompletionProvider.getCompletionService();
-      const actualModel = completionService?.getCurrentModel() || 'gemini-2.5-flash';
       const modelConfig = config.get<string>('inlineCompletionModel', 'auto');
 
-      // 🎯 根据配置显示友好的模型名称
-      let displayConfig = modelConfig;
-      if (modelConfig === 'auto') {
-        displayConfig = `Auto (${actualModel})`;
-      }
+      const message = `📊 行内补全统计（推-拉分离架构）：
 
-      const message = `📊 行内补全统计：
+⚙️  配置策略: ${modelConfig}
 
-🤖 当前使用模型: ${actualModel}
-⚙️  配置策略: ${displayConfig}
+📥 Provider (拉模式 - 只读缓存):
+  • 总调用次数: ${providerStats.totalRequests}
+  • 硬 Key 命中: ${providerStats.hardKeyHits}
+  • 软 Key 命中: ${providerStats.softKeyHits}
+  • 缓存未命中: ${providerStats.cacheMisses}
+  • 命中率: ${providerStats.hitRate}
 
-✅ 总请求数: ${stats.totalRequests}
-✅ 成功补全: ${stats.successfulCompletions}
-⏭️  取消请求: ${stats.canceledRequests}
-❌ 错误数: ${stats.errors}
+📤 Scheduler (推模式 - 后台请求):
+  • API 请求数: ${schedulerStats?.totalRequests || 0}
+  • 跳过请求数: ${schedulerStats?.totalSkipped || 0}
+  • 缓存大小: ${providerStats.cacheStats?.sets || 0}
 
-💡 提示：在任意代码文件中输入，等待补全建议出现（灰色文本）。
-💡 可在设置中修改 "DeepV Code: Inline Completion Model" 以切换模型。`;
+💡 提示：架构采用推-拉分离，Provider 只读缓存（< 10ms），Scheduler 在后台处理防抖和 API 请求。
+💡 命中率高说明缓存策略有效，减少了 API 调用。`;
 
       vscode.window.showInformationMessage(message, { modal: true });
     }),
@@ -1629,7 +1919,7 @@ function registerCommands(context: vscode.ExtensionContext) {
     // 🎯 切换行内补全开关
     vscode.commands.registerCommand('deepv.toggleInlineCompletion', async () => {
       const config = vscode.workspace.getConfiguration('deepv');
-      const isEnabled = config.get<boolean>('enableInlineCompletion', true);
+      const isEnabled = config.get<boolean>('enableInlineCompletion', false);
       const newState = !isEnabled;
 
       await config.update('enableInlineCompletion', newState, vscode.ConfigurationTarget.Global);
@@ -1646,7 +1936,7 @@ function registerCommands(context: vscode.ExtensionContext) {
     // 🎯 从状态栏切换行内补全开关
     vscode.commands.registerCommand('deepv.toggleInlineCompletionFromStatusBar', async () => {
       const config = vscode.workspace.getConfiguration('deepv');
-      const isEnabled = config.get<boolean>('enableInlineCompletion', true);
+      const isEnabled = config.get<boolean>('enableInlineCompletion', false);
       const newState = !isEnabled;
 
       await config.update('enableInlineCompletion', newState, vscode.ConfigurationTarget.Global);
@@ -1899,7 +2189,7 @@ function updateInlineCompletionStatusBar() {
   }
 
   const config = vscode.workspace.getConfiguration('deepv');
-  const isEnabled = config.get<boolean>('enableInlineCompletion', true);
+  const isEnabled = config.get<boolean>('enableInlineCompletion', false);
 
   if (isEnabled) {
     // 开启状态：使用DeepV品牌标识 - "D" + check图标代表DeepV
@@ -1961,8 +2251,14 @@ async function initializeInlineCompletion() {
       logger.info(`Inline completion model override: ${modelOverride}`);
     }
 
-    // 🎯 将服务注入到 provider
-    inlineCompletionProvider.setCompletionService(completionService);
+    // 🎯 创建并初始化 CompletionScheduler（后台调度器）
+    completionScheduler = new CompletionScheduler(
+      completionCache,
+      completionService,
+      logger
+    );
+    completionScheduler.init(extensionContext);
+    logger.info('✅ CompletionScheduler initialized (background push mode, 200ms debounce)');
 
     // 🎯 监听配置变化
     extensionContext.subscriptions.push(
@@ -1981,7 +2277,7 @@ async function initializeInlineCompletion() {
         // 🎯 监听代码补全开关变化，更新状态栏
         if (e.affectsConfiguration('deepv.enableInlineCompletion')) {
           updateInlineCompletionStatusBar();
-          const isEnabled = vscode.workspace.getConfiguration('deepv').get<boolean>('enableInlineCompletion', true);
+          const isEnabled = vscode.workspace.getConfiguration('deepv').get<boolean>('enableInlineCompletion', false);
           logger.info(`Inline completion status bar updated: ${isEnabled ? 'enabled' : 'disabled'}`);
         }
       })
@@ -2275,23 +2571,23 @@ function setupClipboardMonitoring(context: vscode.ExtensionContext) {
           const { editor, selection } = lastSelection;
           const selectedText = editor.document.getText(selection);
 
-        // 如果剪贴板内容和选择的文本匹配
-        if (selectedText.trim() === currentClipboard.trim()) {
-          // 🎯 缓存文件信息
-          clipboardCache.cache({
-            fileName: path.basename(editor.document.uri.fsPath),
-            filePath: editor.document.uri.fsPath,
-            code: selectedText,
-            startLine: selection.start.line + 1,
-            endLine: selection.end.line + 1
-          });
+          // 如果剪贴板内容和选择的文本匹配
+          if (selectedText.trim() === currentClipboard.trim()) {
+            // 🎯 缓存文件信息
+            clipboardCache.cache({
+              fileName: path.basename(editor.document.uri.fsPath),
+              filePath: editor.document.uri.fsPath,
+              code: selectedText,
+              startLine: selection.start.line + 1,
+              endLine: selection.end.line + 1
+            });
 
-          // 🎯 成功缓存后立即停止检查
-          if (clipboardCheckInterval) {
-            clearInterval(clipboardCheckInterval);
-            clipboardCheckInterval = null;
+            // 🎯 成功缓存后立即停止检查
+            if (clipboardCheckInterval) {
+              clearInterval(clipboardCheckInterval);
+              clipboardCheckInterval = null;
+            }
           }
-        }
         }
       } catch (error) {
         // 忽略剪贴板读取错误（可能是权限问题）

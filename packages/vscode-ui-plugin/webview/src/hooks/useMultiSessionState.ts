@@ -1041,6 +1041,28 @@ export const useMultiSessionState = () => {
         newSessions.set(sessionId, updatedSessionData);
 
         console.log(`🎯 [PLAN-MODE] Session ${sessionId} Plan mode toggled to: ${enabled}`);
+
+        // 🎯 当关闭Plan模式时，添加用户消息到上下文，记录模式退出
+        if (!enabled && sessionData.isPlanMode) {
+          const planModeExitMessage: ChatMessage = {
+            id: `plan-mode-exit-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            type: 'user',
+            content: createTextMessageContent(
+              '[PLAN MODE EXITED] The user has exited Plan mode. ' +
+              'You can now use all tools including modification tools ' +
+              '(write_file, replace, run_shell_command, lint_fix, etc.). ' +
+              'Normal operation mode is now active.'
+            ),
+            timestamp: Date.now()
+          };
+
+          // 添加用户消息到消息列表
+          updatedSessionData.messages = [...updatedSessionData.messages, planModeExitMessage];
+          updatedSessionData.info.messageCount = updatedSessionData.messages.length;
+
+          console.log(`✅ [PLAN-MODE-EXIT] Added plan mode exit message to context for session ${sessionId}`);
+        }
+
         return { ...prev, sessions: newSessions };
       });
     }, [updateState]),

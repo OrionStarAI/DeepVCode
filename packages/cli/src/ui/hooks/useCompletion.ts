@@ -53,6 +53,8 @@ export function useCompletion(
   commandContext: CommandContext,
   config?: Config,
   shellModeActive?: boolean,
+  isBusy?: boolean, // AI 正在工作或有队列
+  isInSpecialMode?: boolean, // 正在润色/编辑队列等特殊模式
 ): UseCompletionReturn {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [activeSuggestionIndex, setActiveSuggestionIndex] =
@@ -242,7 +244,19 @@ export function useCompletion(
       }
 
       // Traverse the Command Tree using the tentative completed path
-      let currentLevel: readonly SlashCommand[] | undefined = slashCommands;
+      // 🚀 过滤命令列表：在 AI 忙碌或特殊模式时限制可用命令
+      let availableCommands: readonly SlashCommand[] = slashCommands;
+      if (isBusy && !isInSpecialMode) {
+        // AI 正在工作时，只显示队列管理和退出命令
+        availableCommands = slashCommands.filter(cmd =>
+          cmd.name === 'queue' || cmd.name === 'quit'
+        );
+      } else if (isInSpecialMode) {
+        // 特殊模式（润色确认、队列编辑）时，不提供命令补全
+        availableCommands = [];
+      }
+
+      let currentLevel: readonly SlashCommand[] | undefined = availableCommands;
       let leafCommand: SlashCommand | null = null;
 
       for (const part of commandPathParts) {
@@ -346,12 +360,36 @@ export function useCompletion(
       // Command/Sub-command Completion
       const commandsToSearch = currentLevel || [];
       if (commandsToSearch.length > 0) {
-        let potentialSuggestions = commandsToSearch.filter(
-          (cmd) =>
-            cmd.description &&
-            (cmd.name.startsWith(partial) ||
-              cmd.altNames?.some((alt) => alt.startsWith(partial))),
-        );
+        let potentialSuggestions: SlashCommand[];
+        const potentialSuggestionsWithScore: Array<{ cmd: SlashCommand; fuzzyScore: number }> = [];
+
+        // 只有当用户输入了搜索词时，才使用模糊匹配；否则显示所有命令
+        if (partial) {
+          // 使用模糊匹配替代前缀匹配，支持任意位置的匹配
+          const suggestionsWithScore = commandsToSearch
+            .filter((cmd) => cmd.description)
+            .map((cmd) => {
+              // 获取命令名和别名的匹配结果
+              const nameMatch = fuzzyMatch(cmd.name, partial);
+              const aliasMatches = (cmd.altNames || []).map((alt) => fuzzyMatch(alt, partial));
+
+              // 选择最高分的匹配
+              const allMatches = [nameMatch, ...aliasMatches].filter((m) => m.matched);
+              const bestMatch = allMatches.reduce((best, current) =>
+                current.score > best.score ? current : best,
+                { matched: false, score: 0, indices: [] as number[] },
+              );
+
+              return { cmd, matched: bestMatch.matched, fuzzyScore: bestMatch.score };
+            })
+            .filter((item) => item.matched);
+
+          potentialSuggestions = suggestionsWithScore.map((item) => item.cmd);
+          potentialSuggestionsWithScore.push(...suggestionsWithScore);
+        } else {
+          // 没有搜索词时，显示所有有描述的命令，保持原顺序
+          potentialSuggestions = commandsToSearch.filter((cmd) => cmd.description);
+        }
 
         // If a user's input is an exact match and it is a leaf command,
         // enter should submit immediately.
@@ -361,6 +399,7 @@ export function useCompletion(
           );
           if (perfectMatch && perfectMatch.action) {
             potentialSuggestions = [];
+            potentialSuggestionsWithScore.length = 0;
           }
         }
 
@@ -370,25 +409,40 @@ export function useCompletion(
           description: cmd.description,
         }));
 
-        // 🔧 自定义排序：/help-ask 第一，/help 第二，/about 最后，其他按原顺序
-        finalSuggestions.sort((a, b) => {
-          const getPriority = (name: string): number => {
-            if (name === 'help-ask') return 0;
-            if (name === 'help') return 1;
-            if (name === 'about') return 999;
-            return 500; // 其他命令的默认优先级
-          };
+        // 🔧 自定义排序：只在有搜索词时，按模糊匹配得分和优先级排序
+        if (partial && potentialSuggestionsWithScore.length > 0) {
+          const scoreMap = new Map<string, number>();
+          potentialSuggestionsWithScore.forEach((item) => {
+            scoreMap.set(item.cmd.name, item.fuzzyScore);
+          });
 
-          const priorityA = getPriority(a.value);
-          const priorityB = getPriority(b.value);
+          finalSuggestions.sort((a, b) => {
+            const getPriority = (name: string): number => {
+              if (name === 'help-ask') return 0;
+              if (name === 'help') return 1;
+              if (name === 'about') return 999;
+              return 500; // 其他命令的默认优先级
+            };
 
-          if (priorityA !== priorityB) {
-            return priorityA - priorityB;
-          }
+            const priorityA = getPriority(a.value);
+            const priorityB = getPriority(b.value);
 
-          // 同优先级保持原顺序（通过原始索引）
-          return 0;
-        });
+            if (priorityA !== priorityB) {
+              return priorityA - priorityB;
+            }
+
+            // 同优先级下，按照模糊匹配得分降序排列
+            const scoreA = scoreMap.get(a.value) || 0;
+            const scoreB = scoreMap.get(b.value) || 0;
+
+            if (scoreA !== scoreB) {
+              return scoreB - scoreA; // 降序
+            }
+
+            // 同分数保持原顺序
+            return 0;
+          });
+        }
 
         // 🔧 智能匹配：根据当前输入找到最佳匹配的命令
         let bestMatchIndex = 0;

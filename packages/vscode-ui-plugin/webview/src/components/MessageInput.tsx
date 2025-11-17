@@ -28,9 +28,11 @@ import { ClipboardPlugin } from './MessageInput/plugins/ClipboardPlugin';
 import { FileAutocompletePlugin } from './MessageInput/plugins/FileAutocompletePlugin';
 import { EditorRefPlugin } from './MessageInput/plugins/EditorRefPlugin';
 import { UnifiedFileUploadButton } from './MessageInput/components/UnifiedFileUploadButton';
+import { RefineButton } from './MessageInput/components/RefineButton';
 import { ImageReference, resetImageCounter } from './MessageInput/utils/imageProcessor';
 import { FileUploadResult, FileType } from './MessageInput/utils/fileTypes';
 import { PlanModeToggle } from './PlanModeToggle';
+import { useRefineCommand } from '../hooks/useRefineCommand';
 
 import './MessageInput/MessageInput.css';
 
@@ -131,6 +133,9 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
   const containerRef = useRef<HTMLDivElement>(null);
   const resizeStartY = useRef<number>(0);
   const resizeStartHeight = useRef<number>(0);
+
+  // 🎯 Refine 命令 Hook
+  const { refineResult, isLoading: isRefineLoading, executeRefine, clearRefineResult } = useRefineCommand();
 
   // 🎯 模式判断
   const isEditMode = mode === 'edit';
@@ -693,6 +698,40 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
     }
   }, [isEditMode, initialContent, hasPopulatedContent]);
 
+  // 🎯 监听并处理 refine 结果
+  useEffect(() => {
+    console.log('[MessageInput] refineResult changed:', refineResult);
+
+    if (refineResult && refineResult.refined && !refineResult.error) {
+      console.log('[MessageInput] Updating editor with refined text:', refineResult.refined);
+
+      // 用优化后的文本替换编辑器中的内容
+      if (editorRef.current) {
+        editorRef.current.update(() => {
+          const root = $getRoot();
+          root.clear();
+          const paragraph = $createParagraphNode();
+          paragraph.append($createTextNode(refineResult.refined));
+          root.append(paragraph);
+        });
+
+        // 更新文本状态
+        setTextContent(refineResult.refined);
+
+        // 触发自动扩展
+        setTimeout(() => {
+          checkAndAutoExpand();
+        }, 50);
+
+        // 清除 refine 结果
+        clearRefineResult();
+        console.log('[MessageInput] Refine result cleared');
+      }
+    } else if (refineResult && refineResult.error) {
+      console.log('[MessageInput] Refine error:', refineResult.error);
+    }
+  }, [refineResult]);
+
   // 🎯 处理剪切板图片粘贴
   const handleImagePaste = (imageData: ImageReference) => {
     insertImageReferenceNode(imageData);
@@ -961,6 +1000,16 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
             <ClipboardPlugin onImagePaste={handleImagePaste} />
             <FileAutocompletePlugin onFileSelect={handleFileAutoComplete} />
             <EditorRefPlugin editorRef={editorRef} onEditorReady={handleEditorReady} />
+
+            {/* 🎯 Refine 按钮 - 浮动在编辑框右下角内部 */}
+            <div className="editor-floating-actions">
+              <RefineButton
+                inputText={textContent}
+                disabled={isLoading || isProcessing || isRefineLoading}
+                isLoading={isRefineLoading}
+                onRefine={executeRefine}
+              />
+            </div>
           </div>
         </LexicalComposer>
 

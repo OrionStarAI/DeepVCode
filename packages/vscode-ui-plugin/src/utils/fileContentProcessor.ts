@@ -149,6 +149,8 @@ export async function processFileToPartsList(
     const parts: Part[] = [];
 
     // 第一个 Part：文件信息说明
+    // 🎯 平台兼容性：统一使用 / 作为显示路径分隔符（跨平台标准，AI模型更容易理解）
+    // path.relative() 在 Windows 上会返回 \ 分隔符，需要转换为 /
     const relativePath = workspaceRoot
       ? path.relative(workspaceRoot, filePath).replace(/\\/g, '/')
       : filePath;

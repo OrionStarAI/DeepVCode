@@ -51,6 +51,7 @@ export enum GeminiEventType {
   Error = 'error',
   ChatCompressed = 'chat_compressed',
   Thought = 'thought',
+  Reasoning = 'reasoning',
   MaxSessionTurns = 'max_session_turns',
   Finished = 'finished',
   LoopDetected = 'loop_detected',
@@ -93,6 +94,10 @@ export type ThoughtSummary = {
   description: string;
 };
 
+export type ReasoningSummary = {
+  text: string;
+};
+
 export type ServerGeminiContentEvent = {
   type: GeminiEventType.Content;
   value: string;
@@ -101,6 +106,11 @@ export type ServerGeminiContentEvent = {
 export type ServerGeminiThoughtEvent = {
   type: GeminiEventType.Thought;
   value: ThoughtSummary;
+};
+
+export type ServerGeminiReasoningEvent = {
+  type: GeminiEventType.Reasoning;
+  value: ReasoningSummary;
 };
 
 export type ServerGeminiToolCallRequestEvent = {
@@ -177,6 +187,7 @@ export type ServerGeminiStreamEvent =
   | ServerGeminiErrorEvent
   | ServerGeminiChatCompressedEvent
   | ServerGeminiThoughtEvent
+  | ServerGeminiReasoningEvent
   | ServerGeminiMaxSessionTurnsEvent
   | ServerGeminiFinishedEvent
   | ServerGeminiLoopDetectedEvent
@@ -239,6 +250,22 @@ export class Turn {
             type: GeminiEventType.Thought,
             value: thought,
           };
+          continue;
+        }
+
+        // 🆕 检测 reasoning 字段（模型的思考过程）
+        // 格式: {"candidates":[{"content":{"parts":[{"reasoning":"..."}],"role":"model"},"index":0}]}
+        if (thoughtPart && 'reasoning' in thoughtPart) {
+          const reasoningText = (thoughtPart as any).reasoning || '';
+          const reasoning: ReasoningSummary = {
+            text: reasoningText,
+          };
+
+          yield {
+            type: GeminiEventType.Reasoning,
+            value: reasoning,
+          };
+          // 重要：使用 continue 跳过后续处理，不让 reasoning 进入上下文
           continue;
         }
 
@@ -324,7 +351,7 @@ export class Turn {
       const contextForReport = [...this.chat.getHistory(/*curated*/ true), req];
       await reportError(
         error,
-        'Error when talking to Gemini API',
+        'Error communicating with AI model',
         contextForReport,
         'Turn.run-sendMessageStream',
       );

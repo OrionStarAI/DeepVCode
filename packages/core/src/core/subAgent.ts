@@ -165,7 +165,7 @@ export class SubAgent {
 
     // 简化：SubAgent 状态通过工具调用状态体现，无需中央注册
 
-    this.log(`子Agent启动: ${taskDescription}`);
+    this.log(`SubAgent started: ${taskDescription}`);
     this.sendStatusChange('starting', {
       taskDescription,
     });
@@ -173,12 +173,12 @@ export class SubAgent {
     // 🎯 设置AbortSignal监听器 - 信号驱动清理
     if (this.abortSignal) {
       const handleAbort = () => {
-        console.debug(`[SubAgent] 收到AbortSignal，开始清理: ${this.context.agentId}`);
+        console.debug(`[SubAgent] Received AbortSignal, starting cleanup: ${this.context.agentId}`);
         this.context.isRunning = false;
 
         // 简化：无需清理中央状态
 
-        this.log('SubAgent收到取消信号，正在停止执行');
+        this.log('SubAgent received cancellation signal, stopping execution');
         this.sendStatusChange('cancelled', {
           reason: 'abort_signal',
         });
@@ -192,7 +192,7 @@ export class SubAgent {
       // 如果信号已经被触发，立即处理
       if (this.abortSignal.aborted) {
         handleAbort();
-        throw new Error('任务在启动前已被取消');
+        throw new Error('Task was cancelled before startup');
       }
     }
 
@@ -200,7 +200,7 @@ export class SubAgent {
       // 初始化子agent专用的chat实例
       await this.initializeSubAgentChat(taskDescription);
 
-      this.log(`子Agent chat实例已初始化，可用工具: ${this.getAvailableToolNames().length}个`);
+      this.log(`SubAgent chat instance initialized, available tools: ${this.getAvailableToolNames().length}`);
 
       // 主对话循环
       while (this.context.currentTurn < this.context.maxTurns && this.context.isRunning) {
@@ -247,7 +247,7 @@ export class SubAgent {
       // 清理待处理的工具结果
       this.pendingToolResults = [];
 
-      this.log(`子Agent执行结束 (最终轮次: ${this.context.currentTurn})`);
+      this.log(`SubAgent execution ended (final turn: ${this.context.currentTurn})`);
     }
   }
 
@@ -301,7 +301,7 @@ export class SubAgent {
     }
 
     // 不在初始化时添加任务描述，而是在第一轮callGemini时发送
-    this.log('SubAgent chat实例初始化完成');
+    this.log('SubAgent chat instance initialization completed');
   }
 
   /**
@@ -313,7 +313,7 @@ export class SubAgent {
     this.checkAbortSignal();
 
     this.context.currentTurn++;
-    this.log(`第${this.context.currentTurn}/${this.context.maxTurns}轮对话`);
+    this.log(`Conversation turn ${this.context.currentTurn}/${this.context.maxTurns}`);
 
     // 每轮调用AI，可能携带待处理的工具结果
     const aiResponse = await this.callGemini();
@@ -361,16 +361,16 @@ export class SubAgent {
       ? `${responseText.substring(0, 100)}...`
       : responseText;
 
-    this.log(`AI回复: ${truncatedText} (${hasToolCalls ? '包含' : '不包含'}工具调用)`);
+    this.log(`AI response: ${truncatedText} (${hasToolCalls ? 'with' : 'without'} tool calls)`);
   }
 
   /**
    * 处理任务完成
    */
   private handleTaskCompletion(responseText: string): SubAgentResult {
-    this.log('AI没有调用任何工具，根据规则认为任务已完成');
+    this.log('AI did not call any tools, task completed');
 
-    const summary = responseText.trim() || '任务完成';
+    const summary = responseText.trim() || 'Task completed';
     this.sendStatusChange('completing', { summary });
 
     return this.buildSuccessResult(summary);
@@ -383,7 +383,7 @@ export class SubAgent {
     // 🎯 工具调用前检查 - 这可能是长时间操作
     this.checkAbortSignal();
 
-    this.log(`开始执行${toolCount}个工具调用`);
+    this.log(`Starting execution of ${toolCount} tool calls`);
 
     // 执行工具调用
     const toolCallRequests: ToolCallRequestInfo[] = [];
@@ -404,7 +404,7 @@ export class SubAgent {
         };
         toolCallRequests.push(toolCallRequest);
 
-        this.log(`📋 工具调用请求: ${toolName}(${toolId})`);
+        this.log(`📋 Tool call request: ${toolName}(${toolId})`);
       }
     });
 
@@ -424,12 +424,12 @@ export class SubAgent {
         this.toolExecutionContext,
         this.abortSignal!,
       ).catch(error => {
-        this.log(`工具执行引擎错误: ${error instanceof Error ? error.message : String(error)}`);
+        this.log(`Tool execution engine error: ${error instanceof Error ? error.message : String(error)}`);
       });
 
       // 等待工具完成回调
       const completedCalls = await toolCompletionPromise;
-      this.log(`通过回调收到${completedCalls.length}个工具调用结果`);
+      this.log(`Received ${completedCalls.length} tool call results via callback`);
 
       // 将工具结果转换为function responses并存储到pendingToolResults
       completedCalls.forEach((call: any) => {
@@ -439,9 +439,9 @@ export class SubAgent {
       // 🎯 工具调用后检查
       this.checkAbortSignal();
 
-      this.log(`${completedCalls.length}个工具调用完成，结果已存储到待处理队列`);
+      this.log(`${completedCalls.length} tool calls completed, results stored in pending queue`);
     } catch (error) {
-      this.log(`工具执行失败: ${error instanceof Error ? error.message : String(error)}`);
+      this.log(`Tool execution failed: ${error instanceof Error ? error.message : String(error)}`);
       throw error;
     }
   }
@@ -451,7 +451,7 @@ export class SubAgent {
    */
   private async callGemini(): Promise<Content> {
     if (!this.subAgentChat) {
-      throw new Error('SubAgent chat do not initialized');
+      throw new Error('SubAgent chat not initialized');
     }
 
     // 🎯 在发送AI消息前检查取消信号
@@ -639,12 +639,12 @@ export class SubAgent {
    */
   private buildErrorResult(error: unknown): SubAgentResult {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    this.log(`❌ 执行错误: ${errorMessage}`);
+    this.log(`❌ Execution error: ${errorMessage}`);
 
     const stats = this.getExecutionStats();
     return {
       success: false,
-      summary: `任务执行失败: ${errorMessage}`,
+      summary: `Task execution failed: ${errorMessage}`,
       error: errorMessage,
       executionLog: stats.executionLog,
       filesCreated: stats.filesCreated,
@@ -673,11 +673,13 @@ export class SubAgent {
   }
 
   /**
-   * 兼容性日志方法（只记录到内部日志）
+   * Log method with timestamp prefix
    */
   private log(message: string): void {
-    this.executionLog.push(message);
-    console.log('[SubAgent] ' + message);
+    const timestamp = new Date().toLocaleTimeString('en-US', { hour12: false });
+    const formattedMessage = `[${timestamp}] ${message}`;
+    this.executionLog.push(formattedMessage);
+    console.log('[SubAgent] ' + formattedMessage);
   }
 
   /**
@@ -708,11 +710,11 @@ export class SubAgent {
         // 应用压缩结果：直接设置新的历史记录
         this.subAgentChat.setHistory(compressionResult.newHistory);
 
-        this.log(`📦 对话历史已压缩: ${compressionResult.compressionInfo?.originalTokenCount} -> ${compressionResult.compressionInfo?.newTokenCount} tokens`);
+        this.log(`📦 Conversation history compressed: ${compressionResult.compressionInfo?.originalTokenCount} -> ${compressionResult.compressionInfo?.newTokenCount} tokens`);
       }
     } catch (error) {
       // 压缩失败不应该影响正常执行
-      this.log(`⚠️ 对话历史压缩失败: ${error instanceof Error ? error.message : String(error)}`);
+      this.log(`⚠️ Conversation history compression failed: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 

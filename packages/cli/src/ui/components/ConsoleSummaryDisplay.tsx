@@ -26,7 +26,7 @@ export const ConsoleSummaryDisplay: React.FC<ConsoleSummaryDisplayProps> = ({
     <Box>
       <Text color={Colors.AccentRed}>
         {errorIcon} {errorCount} error{errorCount > 1 ? 's' : ''}{' '}
-        <Text color={Colors.Gray}>(ctrl+o for details)</Text>
+        <Text color={Colors.Gray}>(ctrl+o to toggle, ctrl+s to expand)</Text>
       </Text>
     </Box>
   );

@@ -11,7 +11,7 @@ import { t } from '../utils/i18n.js';
 export const helpAskCommand: SlashCommand = {
   name: 'help-ask',
   altNames: [],
-  description: t('command.help-ask.description'),
+  description: `${t('command.help-ask.description')} ${t('command.help-ask.description.cost-note')}`,
   kind: CommandKind.BUILT_IN,
   action: async (_context, args): Promise<MessageActionReturn> => {
     // 检查是否有参数，如果有则提示错误用法

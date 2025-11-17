@@ -35,7 +35,7 @@ import {
   EditTool,
   ShellTool,
   WriteFileTool,
-  sessionId,
+  getSessionId,
   logUserPrompt,
   AuthType,
   SessionManager,
@@ -52,6 +52,7 @@ import { createConfirmationReadlineInterface } from './ui/utils/readlineOptimize
 import { setupGitErrorMonitoring, canDisableCheckpointing } from './utils/gitErrorHandler.js';
 import { AudioNotification } from './utils/audioNotification.js';
 import { performStartupResize } from './ui/utils/vscodeStartupResize.js';
+import { terminalSizeManager } from './ui/utils/terminalSizeManager.js';
 
 async function listAvailableSessions(config: Config): Promise<void> {
   try {
@@ -253,12 +254,19 @@ export async function main() {
   // Load environment variables early to ensure Claude configuration works
   loadEnvironment();
 
-  // Parse arguments first to check for --workdir, --update flag and enable silent mode early if needed
-  const argv = await parseArguments();
+  // 初始化 TerminalSizeManager 以集中管理 resize 事件
+  // 这样可以避免 MaxListenersExceededWarning，并提升性能
+  // 注意：terminalSizeManager 是单例，此调用确保其在应用启动时初始化
+  terminalSizeManager.getTerminalSize();
+
+  // Need to parse arguments twice:
+  // 1. First pass with minimal setup to get --workdir
+  // This is needed to determine the workspace before loading extensions
+  let tempArgv = await parseArguments([]);
 
   // Handle --workdir parameter before setting up workspace
-  if (argv.workdir) {
-    const workdirPath = processWorkdirParameter(argv.workdir);
+  if (tempArgv.workdir) {
+    const workdirPath = processWorkdirParameter(tempArgv.workdir);
     if (workdirPath) {
       process.chdir(workdirPath);
     }
@@ -266,6 +274,17 @@ export async function main() {
 
   const workspaceRoot = process.cwd();
   const settings = loadSettings(workspaceRoot);
+
+  // Load extensions early (before final argument parsing)
+  // This allows extension commands to be registered dynamically
+  const extensions = await loadExtensions(workspaceRoot);
+
+  // Load prompt extensions (Gemini CLI compatible TOML prompts)
+  const { loadPromptExtensions } = await import('./config/prompt-extensions.js');
+  const promptExtensions = await loadPromptExtensions(extensions);
+
+  // Second pass: parse arguments with extension commands registered
+  const argv = await parseArguments(extensions);
 
   // Enable silent mode early for -p flag to suppress startup logs
 
@@ -428,14 +447,12 @@ export async function main() {
     process.exit(1);
   }
 
-  const extensions = await loadExtensions(workspaceRoot);
-
   // Early check for list-sessions to avoid unnecessary session management
   if (argv.listSessions) {
     const tempConfig = await loadCliConfig(
       settings.merged,
       extensions,
-      sessionId, // Use default session ID
+      getSessionId(), // Use default session ID
       argv,
     );
     await listAvailableSessions(tempConfig);
@@ -462,7 +479,7 @@ export async function main() {
   }
 
   // Initialize session management
-  let finalSessionId = sessionId; // Default session ID
+  let finalSessionId = getSessionId(); // Default session ID
 
   const { SessionManager } = await import('deepv-code-core');
   const sessionManager = new SessionManager(workspaceRoot);
@@ -502,6 +519,7 @@ export async function main() {
 
   // Handle session selection based on command line arguments
   if (argv.session) {
+    // 用户明确指定了要加载的会话
     logIfNotSilent('log', `🔄 Loading session: ${argv.session}`);
     const sessionData = await sessionManager.loadSession(argv.session);
     if (sessionData) {
@@ -514,15 +532,17 @@ export async function main() {
       logIfNotSilent('log', `📝 Created new session: ${finalSessionId}`);
     }
   } else if (argv.continue) {
+    // 用户明确要求继续上一个会话
     logIfNotSilent('log', `🔄 Continuing last session...`);
     const sessionData = await sessionManager.initializeSession(true);
     finalSessionId = sessionData.sessionId as any;
     logIfNotSilent('log', `📝 Continuing last session: ${finalSessionId}`);
   } else {
+    // 直接启动：创建新的独立sessionId，不尝试恢复任何之前的会话
     logIfNotSilent('log', ``);
     const newSession = await sessionManager.createNewSession();
     finalSessionId = newSession.sessionId as any;
-
+    logIfNotSilent('log', `📝 Created new session: ${finalSessionId}`);
   }
 
   // Perform session cleanup after creating/selecting current session (runs in background)
@@ -693,6 +713,7 @@ export async function main() {
           settings={settings}
           startupWarnings={startupWarnings}
           version={version}
+          promptExtensions={promptExtensions}
         />
       </React.StrictMode>,
       { exitOnCtrlC: false },

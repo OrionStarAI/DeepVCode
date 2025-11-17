@@ -73,6 +73,15 @@ export interface Translations {
     editPlaceholder: string;
   };
 
+  command: {
+    refine: {
+      button: {
+        empty_text: string;
+        tooltip: string;
+      };
+    };
+  };
+
   plan: {
     mode: {
       label: string;

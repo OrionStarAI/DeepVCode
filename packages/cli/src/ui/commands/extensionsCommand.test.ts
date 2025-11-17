@@ -13,6 +13,12 @@ import { MessageType } from '../types.js';
 describe('extensionsCommand', () => {
   let mockContext: CommandContext;
 
+  it('should have list and info subcommands', () => {
+    expect(extensionsCommand.subCommands).toHaveLength(2);
+    expect(extensionsCommand.subCommands?.[0].name).toBe('list');
+    expect(extensionsCommand.subCommands?.[1].name).toBe('info');
+  });
+
   it('should display "No active extensions." when none are found', async () => {
     mockContext = createMockCommandContext({
       services: {

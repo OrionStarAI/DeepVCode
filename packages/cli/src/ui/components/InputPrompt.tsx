@@ -48,6 +48,8 @@ export interface InputPromptProps {
   vimHandleInput?: (key: Key) => boolean;
   isModalOpen?: boolean;
   isExecutingTools?: boolean; // 🔧 新增：指示是否有工具正在执行（用于隐藏边框避免闪烁）
+  isBusy?: boolean; // 🚀 新增：AI 正在工作或有队列
+  isInSpecialMode?: boolean; // 🚀 新增：正在润色/编辑队列等特殊模式
 }
 
 export const InputPrompt: React.FC<InputPromptProps> = ({
@@ -70,6 +72,8 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
   setHelpModeActive,
   vimHandleInput,
   isModalOpen = false,
+  isBusy = false,
+  isInSpecialMode = false,
 }) => {
   const [justNavigatedHistory, setJustNavigatedHistory] = useState(false);
   const [renderDebounceId, setRenderDebounceId] = useState(0);
@@ -157,6 +161,8 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
     commandContext,
     config,
     shellModeActive,
+    isBusy,
+    isInSpecialMode,
   );
 
   const resetCompletionState = completion.resetCompletionState;
@@ -252,15 +258,8 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
       // 重构完整消息内容
       const contentToSubmit = reconstructFullMessage(submittedValue);
 
-      // 调试日志：追踪粘贴内容还原
-      if (pasteSegments.length > 0) {
-        console.log(`[InputPrompt] 📋 Paste content restored: ${pasteSegments.length} segment(s)`);
-        console.log(`[InputPrompt] Before restoration: ${submittedValue.length} chars`);
-        console.log(`[InputPrompt] After restoration: ${contentToSubmit.length} chars`);
-        if (submittedValue.includes('[ PASTE #')) {
-          console.log('[InputPrompt] ✅ PASTE placeholder detected and will be restored');
-        }
-      }
+      // Restore pasted content if there are segments
+      // (Paste content will be restored silently)
 
       // 清除所有粘贴片段状态
       setPasteSegments([]);
@@ -377,25 +376,21 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
   // 文本粘贴处理函数 - 处理所有文本粘贴逻辑
   const handleTextPaste = useCallback(async (key: Key) => {
     if (!key.sequence) {
-      console.log('📋 [文本粘贴] 无文本内容，检查是否有图片');
       // 当没有文本内容时，可能是图片粘贴，直接检查图片
       try {
         const hasImage = await clipboardHasImage();
         if (hasImage) {
-          console.log('📋 [文本粘贴] 检测到图片，转发给图片处理');
           await handleClipboardImage();
-        } else {
-          console.log('📋 [文本粘贴] 没有图片，也没有文本，忽略');
         }
       } catch (error) {
-        console.error('📋 [文本粘贴] 图片检测失败:', error);
+        // Silently ignore image detection errors
       }
       return;
     }
 
-    console.log('📋 [文本粘贴] 开始处理文本粘贴:', {
-      长度: key.sequence.length,
-      内容预览: key.sequence.substring(0, 50).replace(/\r?\n/g, '\\n'),
+    console.log('📋 [Paste] Starting text paste handling:', {
+      length: key.sequence.length,
+      contentPreview: key.sequence.substring(0, 50).replace(/\r?\n/g, '\\n'),
       ctrl: key.ctrl,
       shift: key.shift,
       name: key.name
@@ -405,7 +400,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
 
     // 智能合并策略：短时间内的多个粘贴事件可能是同一个大文本被分割
     if (now - lastPasteTimeRef.current < 2000 && pendingPasteContentRef.current) {
-      console.log('📋 [文本粘贴] 检测到可能的分割粘贴，合并内容');
+      console.log('📋 [Paste] Detected possible split paste, merging content');
       pendingPasteContentRef.current += key.sequence;
 
       // 延长等待时间，看是否还有更多片段
@@ -438,39 +433,23 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
   // 统一粘贴处理函数 - 智能检测剪贴板内容类型
   const handleUnifiedPaste = useCallback(async (): Promise<boolean> => {
     try {
-      console.log('🚀 [统一粘贴] =================');
-      console.log('🚀 [统一粘贴] 开始处理粘贴请求');
-      console.log('🚀 [统一粘贴] 平台:', process.platform);
-      console.log('🚀 [统一粘贴] VSCode环境:', !!(process.env.VSCODE_PID || process.env.TERM_PROGRAM === 'vscode'));
-
       // 首先检查剪贴板是否包含图像
-      console.log('🔍 [统一粘贴] 开始检测剪贴板图像...');
       const hasImage = await clipboardHasImage();
-      console.log('🔍 [统一粘贴] 图像检测结果:', hasImage);
 
       if (hasImage) {
-        console.log('🖼️ [统一粘贴] ✅ 检测到图像，转发给图像处理');
         try {
           // 转发给现有的图像处理函数
           await handleClipboardImage();
-          console.log('🖼️ [统一粘贴] ✅ 图像处理完成');
           return true; // 表示已处理
         } catch (imageError) {
-          console.error('🖼️ [统一粘贴] ❌ 图像处理失败:', imageError);
           return false;
         }
       }
 
-      console.log('📄 [统一粘贴] 未检测到图像，尝试文本粘贴');
-
       // 如果没有图像，尝试获取剪贴板文本
-      console.log('🔍 [统一粘贴] 开始获取剪贴板文本...');
       const clipboardText = await getClipboardText();
-      console.log('🔍 [统一粘贴] 文本获取结果:', clipboardText ? `长度 ${clipboardText.length}` : 'null');
 
       if (clipboardText && clipboardText.trim()) {
-        console.log('📄 [统一粘贴] ✅ 检测到文本，开始处理');
-
         // 创建一个伪造的粘贴键盘事件来触发现有的文本粘贴逻辑
         const fakeTextPasteEvent: Key = {
           paste: true,
@@ -483,15 +462,12 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
 
         // 调用现有的文本粘贴处理逻辑
         await handleTextPaste(fakeTextPasteEvent);
-        console.log('📄 [统一粘贴] ✅ 文本处理完成');
         return true; // 表示已处理
       }
 
-      console.log('❌ [统一粘贴] 剪贴板为空或无可用内容');
       return false; // 表示未处理
 
     } catch (error) {
-      console.error('📋 [统一粘贴] 处理错误:', error);
       return false;
     }
   }, [handleClipboardImage, handleTextPaste]);
@@ -726,45 +702,38 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
 
       // Handle Shift+Enter for newline (macOS standard)
       if (key.name === 'return' && key.shift) {
-        console.log('✅ [分支] Shift+Enter换行');
         buffer.newline();
         return;
       }
 
       // Handle Ctrl+Enter for newline (cross-platform)
       if (key.name === 'return' && key.ctrl) {
-        console.log('✅ [分支] Ctrl+Enter换行');
         buffer.newline();
         return;
       }
 
       // Handle Alt+Enter for newline (VSCode compatibility)
       if (key.name === 'return' && key.meta) {
-        console.log('✅ [分支] Alt+Enter换行');
         buffer.newline();
         return;
       }
 
       // Handle Ctrl+J for newline (macOS VSCode compatibility)
       if (key.ctrl && key.name === 'j') {
-        console.log('✅ [分支] Ctrl+J换行 (macOS VSCode)');
         buffer.newline();
         return;
       }
 
       // Handle Enter for submit (only when not using modifiers)
       if (key.name === 'return' && !key.shift && !key.ctrl && !key.meta && !key.paste) {
-        console.log('✅ [分支] 普通Enter提交，内容:', buffer.text.trim());
         if (buffer.text.trim()) {
           const [row, col] = buffer.cursor;
           const line = buffer.lines[row];
           const charBefore = col > 0 ? cpSlice(line, col - 1, col) : '';
           if (charBefore === '\\') {
-            console.log('  └─ 反斜杠换行');
             buffer.backspace();
             buffer.newline();
           } else {
-            console.log('  └─ 正常提交');
             handleSubmitAndClear(buffer.text);
           }
         }
@@ -773,7 +742,6 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
 
       // Handle paste with Enter (for multiline paste)
       if (key.name === 'return' && key.paste) {
-        console.log('✅ [分支] 粘贴Enter换行');
         buffer.newline();
         return;
       }
@@ -826,26 +794,23 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
 
       // 保留 Ctrl+G 作为图像专用快捷键（向后兼容）
       if (key.ctrl && key.name === 'g') {
-        console.log('⌨️ [快捷键] 触发 Ctrl+G，直接处理图像');
         handleClipboardImage().catch(error => {
-          console.error('⌨️ [快捷键] 图像处理失败:', error);
+          // Silently ignore errors
         });
         return;
       }
 
       // 处理终端的自动粘贴事件（空sequence通常表示特殊粘贴模式或图片粘贴）
       if (key.paste && !key.sequence) {
-        console.log('🖼️ [快捷键] 检测到空粘贴事件，很可能是图片粘贴');
         // 空粘贴事件通常意味着终端无法处理的内容（如图片）
         handleClipboardImage().catch(error => {
-          console.error('🖼️ [快捷键] 图片粘贴处理失败:', error);
+          // Silently ignore errors
         });
         return;
       }
 
       // Windows下特殊处理：Ctrl+Enter和Shift+Enter可能被错误标记为paste
       if (key.paste && key.sequence && (key.sequence === '\n' || key.sequence === '\r')) {
-        console.log('🔥 [Windows特殊处理] 检测到paste标记的换行符');
         // 这很可能是Ctrl+Enter或Shift+Enter，不是真正的粘贴
         if (key.shift || (key.sequence === '\n' && !key.ctrl)) {
           // Shift+Enter或者裸露的换行 - 应该换行
@@ -1057,18 +1022,6 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
     });
   }, [linesToRender, cursorVisualRowAbsolute, cursorVisualColAbsolute, scrollVisualRow, inputWidth, focus, buffer.text.length]);
 
-  // 计算顶部和底部边框线的宽度
-  // inputWidth + prompt (2 chars) + paddingX (1 on each side = 2)
-  const borderLineWidth = inputWidth + 4;
-  const borderChar = '─';
-  const topBorder = borderChar.repeat(borderLineWidth);
-  const bottomBorder = borderChar.repeat(borderLineWidth);
-  const borderColor = shellModeActive
-    ? Colors.AccentYellow
-    : helpModeActive
-    ? Colors.AccentGreen
-    : Colors.AccentBlue;
-
   // 根据模式选择合适的 placeholder 文本
   const placeholderText = helpModeActive
     ? t('input.placeholder.help_ask')
@@ -1076,13 +1029,6 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
 
   return (
     <>
-      {/* Top border line - 🔧 工具执行时隐藏边框避免闪烁 */}
-      {!isExecutingTools && (
-        <Box>
-          <Text color={borderColor}>{topBorder}</Text>
-        </Box>
-      )}
-
       {/* Input content */}
       <Box paddingX={1} minHeight={dynamicInputHeight}>
         <Text
@@ -1103,13 +1049,6 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
           )}
         </Box>
       </Box>
-
-      {/* Bottom border line - 🔧 工具执行时隐藏边框避免闪烁 */}
-      {!isExecutingTools && (
-        <Box>
-          <Text color={borderColor}>{bottomBorder}</Text>
-        </Box>
-      )}
 
       {/* 长文本粘贴提示 */}
       {pasteSegments.length > 0 && (

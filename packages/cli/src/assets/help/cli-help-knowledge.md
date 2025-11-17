@@ -422,6 +422,45 @@ prompt = "请重构以下代码为纯函数：{{args}}"
 
 ---
 
+### `/extensions` - 扩展管理
+管理 DeepV Code 的扩展。
+
+**用法：** `/extensions [子命令]`
+
+**子命令：**
+- `list` - 列出所有可用的扩展
+- `info` - 查看扩展的安装和卸载相关知识
+
+**示例：**
+```
+/extensions list
+/extensions info
+```
+
+**功能说明：**
+- `/extensions list`：显示当前可用的所有扩展列表
+- `/extensions info`：获取关于如何安装、配置和卸载扩展的详细信息
+
+---
+
+### `/ext:` - 使用已安装的扩展命令
+调用已安装的 context 类型扩展提供的斜杠命令。
+
+**用法：** `/ext:<扩展名> [参数]`
+
+**说明：**
+- 当安装了扩展后，扩展可能提供自定义的斜杠命令
+- 使用 `/ext:` 前缀可以调用这些已安装的 context 类型扩展
+- 扩展命令会在已安装扩展列表中显示
+
+**示例：**
+```
+/ext:myExtension
+/ext:customCommand --option value
+```
+
+---
+
 ### `/vim` - Vim 模式
 切换 vim 模式。
 
@@ -852,7 +891,52 @@ prompt = "请重构以下代码为纯函数：{{args}}"
 
 ---
 
-、`^` 行首尾；`G`、`gg` 跳行
+### `/extensions` - 扩展管理
+管理 DeepV Code 的扩展。
+
+**用法：** `/extensions [子命令]`
+
+**子命令：**
+- `list` - 列出所有可用的扩展
+- `info` - 查看扩展的安装和卸载相关知识
+
+**示例：**
+```
+/extensions list
+/extensions info
+```
+
+**功能说明：**
+- `/extensions list`：显示当前可用的所有扩展列表
+- `/extensions info`：获取关于如何安装、配置和卸载扩展的详细信息
+
+---
+
+### `/ext:` - 使用已安装的扩展命令
+调用已安装的 context 类型扩展提供的斜杠命令。
+
+**用法：** `/ext:<扩展名> [参数]`
+
+**说明：**
+- 当安装了扩展后，扩展可能提供自定义的斜杠命令
+- 使用 `/ext:` 前缀可以调用这些已安装的 context 类型扩展
+- 扩展命令会在已安装扩展列表中显示
+
+**示例：**
+```
+/ext:myExtension
+/ext:customCommand --option value
+```
+
+---
+
+### `/vim` - Vim 模式
+切换 vim 模式。
+
+**用法：** `/vim`
+
+**功能：**
+- **NORMAL 模式：** `h`、`j`、`k`、`l` 导航；`w`、`b`、`e` 跳词；`0`、`^` 行首尾；`G`、`gg` 跳行
 - **INSERT 模式：** 标准输入，`Esc` 返回 NORMAL
 - **编辑：** `x`（删除）、`d`（删除）、`c`（修改）、`i`、`a`、`o`、`O`（插入）
 - **复合：** `dd`、`cc`、`dw`、`cw`

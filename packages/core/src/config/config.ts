@@ -368,12 +368,12 @@ export class Config {
     // 快速初始化：只加载核心工具和命令行工具，不等待MCP服务器
     this.toolRegistry = await this.createToolRegistry();
 
-    // MCP服务器异步后台加载，延迟启动以避免阻塞UI渲染
-    // 延迟300ms确保UI完全渲染和响应用户输入后再启动MCP服务器进程
-    // MCP进程启动会占用事件循环，即使是异步的也会影响输入响应
-    setTimeout(() => {
+    // MCP服务器异步后台加载，不阻塞初始化
+    // 改进: 移除 300ms 延迟，让 MCP 服务器尽快启动
+    // 但仍在异步后台进行，不阻塞 initialize() 方法返回
+    setImmediate(() => {
       this.discoverMcpToolsAsync();
-    }, 300);
+    });
   }
 
   /**

@@ -381,7 +381,7 @@ describe('fileUtils', () => {
         tempRootDir,
       );
       expect(result.llmContent).toBe(content);
-      expect(result.returnDisplay).toBe('');
+      expect(result.returnDisplay).toBe('(3 lines)');
       expect(result.error).toBeUndefined();
     });
 
@@ -523,7 +523,7 @@ describe('fileUtils', () => {
       expect(result.llmContent).toContain(
         '[File content truncated: showing lines 6-10 of 20 total lines. Use offset/limit parameters to view more.]',
       );
-      expect(result.returnDisplay).toBe('(truncated)');
+      expect(result.returnDisplay).toBe('read lines: 6-10');
       expect(result.isTruncated).toBe(true);
       expect(result.originalLineCount).toBe(20);
       expect(result.linesShown).toEqual([6, 10]);
@@ -542,7 +542,7 @@ describe('fileUtils', () => {
       const expectedContent = lines.join('\n');
 
       expect(result.llmContent).toBe(expectedContent);
-      expect(result.returnDisplay).toBe('');
+      expect(result.returnDisplay).toBe('(2 lines)');
       expect(result.isTruncated).toBe(false);
       expect(result.originalLineCount).toBe(2);
       expect(result.linesShown).toEqual([1, 2]);

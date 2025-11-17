@@ -79,7 +79,7 @@ export class DeepVServerAdapter implements ContentGenerator {
       if (userInfo) {
         // 只在调试模式下显示详细日志
         if (process.env.DEBUG || process.env.NODE_ENV === 'development') {
-          console.log(`[Claude Proxy] User info found: ${userInfo.name} (${userInfo.email || userInfo.openId || 'N/A'})`);
+          console.log(`[DeepV Server] User info found: ${userInfo.name} (${userInfo.email || userInfo.openId || 'N/A'})`);
         }
         return true;
       } else {
@@ -87,7 +87,7 @@ export class DeepVServerAdapter implements ContentGenerator {
         return false;
       }
     } catch (error) {
-      console.error(`[Claude Proxy] Authentication check failed:`, error);
+      console.error(`[DeepV Server] Authentication check failed:`, error);
       return false;
     }
   }
@@ -106,15 +106,9 @@ export class DeepVServerAdapter implements ContentGenerator {
       // 这样固定值场景（如 'gemini-2.5-flash'）会优先，'auto' 场景会回退到用户模型
       const modelToUse = request.model || sceneModel || userModel || 'auto';
 
-      // 详细的模型决策日志 - 帮助验证改动是否正向
-      console.log(`[🎯 Model Resolution] Scene: ${scene}`);
-      console.log(`   1️⃣  request.model: ${request.model || '(not set)'}`);
-      console.log(`   2️⃣  sceneModel: ${sceneModel}`);
-      console.log(`   3️⃣  userModel: ${userModel || '(not set)'}`);
-      console.log(`   ➡️  Final model: ${modelToUse}`);
-
-      if (modelToUse !== sceneModel) {
-        console.log(`   ✅ Using ${modelToUse} instead of scene default ${sceneModel}`);
+      // 详细的模型决策日志 - 仅在调试模式下显示
+      if (process.env.DEBUG || process.env.NODE_ENV === 'development') {
+        console.log(`[🎯 Model Resolution] Using model: ${modelToUse} for scene: ${scene}`);
       }
 
       const unifiedRequest = {
@@ -134,17 +128,7 @@ export class DeepVServerAdapter implements ContentGenerator {
         }
       };
 
-      logger.info('[DeepV Server] Calling unified chat API', {
-        model: modelToUse,
-        scene,
-        endpoint: '/v1/chat/messages',
-        modelDecision: {
-          requestModel: request.model,
-          sceneModel,
-          userModel,
-          selectedModel: modelToUse
-        }
-      });
+      logger.info(`[DeepV Server] Calling unified chat API with model: ${modelToUse}`);
 
       // 2. 统一API调用 - 服务端处理所有模型差异
       const response = await this.callUnifiedChatAPI('/v1/chat/messages', unifiedRequest, request.config?.abortSignal);
@@ -170,12 +154,33 @@ export class DeepVServerAdapter implements ContentGenerator {
     const proxyUrl = `${proxyAuthManager.getProxyServerUrl()}${endpoint}`;
 
     const controller = new AbortController();
+    let abortListener: (() => void) | null = null;
+
     if (abortSignal) {
-      abortSignal.addEventListener('abort', () => {
-        console.log('[DeepV Server] Request cancelled by user');
+      // 🚨 防止内存泄漏：检查传入的signal是否已被中止
+      if (abortSignal.aborted) {
         controller.abort();
-      });
+      } else {
+        const handleAbort = () => {
+          console.log('[DeepV Server] Request cancelled by user');
+          controller.abort();
+        };
+        abortSignal.addEventListener('abort', handleAbort);
+        abortListener = () => abortSignal.removeEventListener('abort', handleAbort);
+      }
     }
+
+    // 🚨 非流式请求的超时保护：两层防御
+    // 第1层（连接层）：300秒内必须收到响应头
+    //   - 保护 TCP 连接建立和首个响应头的接收
+    //   - 防止服务端完全无响应的情况
+    // 第2层（数据层）：响应头后，300秒内必须完成 response.json() 解析
+    //   - 保护完整响应体的接收和 JSON 反序列化
+    //   - 总请求时间 = 连接等待 + 数据接收 + 解析，均有保护
+    const fetchTimeoutId = setTimeout(() => {
+      console.warn('[DeepV Server] API fetch timeout - aborting connection layer after 300s. Try: check your network, or say "continue" to retry.');
+      controller.abort();
+    }, 300000);
 
     const startTime = Date.now();
 
@@ -196,7 +201,16 @@ export class DeepVServerAdapter implements ContentGenerator {
         signal: controller.signal,
       });
 
+      // 🚨 获取响应头后清理连接层超时，启用数据层超时
+      // 响应头已收到说明连接正常，现在保护响应体接收和解析阶段
+      clearTimeout(fetchTimeoutId);
+      const dataTimeoutId = setTimeout(() => {
+        console.warn('[DeepV Server] API data timeout - response.json() taking too long (>300s) in data layer. Try: check your network, say "continue" to retry, or try a different model.');
+        controller.abort();
+      }, 300000);
+
       if (!response.ok) {
+        clearTimeout(dataTimeoutId);
         const errorText = await response.text();
 
         // 401错误特殊处理
@@ -220,7 +234,14 @@ export class DeepVServerAdapter implements ContentGenerator {
         throw new Error(`API request failed (${response.status}): ${errorText}`);
       }
 
-      const responseData = await response.json() as GenerateContentResponse;
+      // 🚨 第三层保护：response.json() 解析也有独立的 300s 超时
+      // 虽然前面有数据层超时保护，但这里再加一层确保 JSON 解析不会卡住
+      const responseData = await this.withTimeout(
+        response.json() as Promise<GenerateContentResponse>,
+        300000,
+        '[DeepV Server] API response parsing timeout after 300s - JSON.parse() or streaming took too long. Try: check your network, say "continue" to retry, or try a different model.'
+      );
+      clearTimeout(dataTimeoutId);
 
       // 确保响应对象有 functionCalls getter
       if (!responseData.functionCalls) {
@@ -260,6 +281,12 @@ export class DeepVServerAdapter implements ContentGenerator {
     } catch (error) {
       const duration = Date.now() - startTime;
 
+      // 🚨 清理资源：移除abort监听器和所有超时定时器
+      if (abortListener) {
+        abortListener();
+      }
+      clearTimeout(fetchTimeoutId);
+
       // 用户取消请求的优雅处理
       if (error instanceof Error &&
           (error.message.includes('cancelled by user') || error.name === 'AbortError')) {
@@ -267,13 +294,34 @@ export class DeepVServerAdapter implements ContentGenerator {
         throw error;
       }
 
-      logger.error('[DeepV Server] API call failed', {
-        endpoint,
-        duration: `${duration}ms`,
-        error: error instanceof Error ? error.message : error
-      });
+      // 超时错误处理
+      if (error instanceof Error && error.message.includes('timeout')) {
+        logger.warn('[DeepV Server] Request timeout', {
+          endpoint,
+          duration: `${duration}ms`,
+          reason: error.message
+        });
+      } else if (error instanceof Error && error.message.includes('abort')) {
+        logger.warn('[DeepV Server] Request aborted', {
+          endpoint,
+          duration: `${duration}ms`,
+          reason: error.message
+        });
+      } else {
+        logger.error('[DeepV Server] API call failed', {
+          endpoint,
+          duration: `${duration}ms`,
+          error: error instanceof Error ? error.message : error
+        });
+      }
 
       throw error;
+    } finally {
+      // 🚨 最终清理：确保资源一定被释放
+      clearTimeout(fetchTimeoutId);
+      if (abortListener) {
+        abortListener();
+      }
     }
   }
 
@@ -322,8 +370,6 @@ export class DeepVServerAdapter implements ContentGenerator {
     const isCloudMode = process.env.DEEPV_CLOUD_MODE === 'true';
 
     if (isCloudMode) {
-      console.log(`[📡 Streaming Decision] Cloud mode: Using non-stream API for ${scene}`);
-      logger.info('[DeepV Server] 云模式下禁用SSE流式传输，使用非流式API', { model: request.model });
       return this._generateContent(request, scene);
     }
 
@@ -333,12 +379,23 @@ export class DeepVServerAdapter implements ContentGenerator {
     // These hardcoded checks are for API capability detection only
     if (request.model === 'claude-sonnet-4@20250514' ||
         request.model === 'claude-sonnet-4-5@20250929' ||
-        request.model === 'claude-haiku-4-5@20251001') {
-      console.log(`[📡 Streaming Decision] Model ${request.model} supports SSE streaming for ${scene}`);
+        request.model === 'claude-haiku-4-5@20251001' ||
+        request.model === 'claude-haiku-4-5-20251001' ||
+        request.model === 'claude-sonnet-4-20250514' ||
+        request.model === 'claude-sonnet-4-5-20250929' ||
+        request.model === 'moonshotai/kimi-k2-thinking' ||//🔥Kimi-K2-Thinking openrouter
+        request.model === 'moonshotai/kimi-k2-0905' ||//Kimi-K2-0905 openrouter
+        request.model === 'openai/gpt-5' ||//GPT-5 openrouter
+        request.model === 'openanpmi/gpt-5-codex' ||//GPT-5-Codex openrouter
+        request.model === 'qwen/qwen3-coder:free' ||//🎁Qwen3-Coder openrouter
+        request.model === 'x-ai/grok-code-fast-1' ||//Grok-Code-Fast-1 openrouter
+        request.model === 'z-ai/glm-4.5-air:free' ||//🎁GLM-4.5-Air openrouter
+        request.model === 'z-ai/glm-4.6' ||//GLM-4.6 openrouter
+        request.model === 'ep-r56pg4-1761237547400653462'// 🎁KAT-Coder-Air streamlake
+      ) {
       return this._generateContentStream(request, scene);
     } else {
       // 其他模型将非流式响应包装为流式格式
-      console.log(`[📡 Streaming Decision] Model ${request.model || '(auto)'} does not support SSE streaming, wrapping non-stream response for ${scene}`);
       return this._generateContent(request, scene);
     }
   }
@@ -364,15 +421,9 @@ export class DeepVServerAdapter implements ContentGenerator {
       // 这样固定值场景（如 'gemini-2.5-flash'）会优先，'auto' 场景会回退到用户模型
       const modelToUse = request.model || sceneModel || userModel || 'auto';
 
-      // 详细的模型决策日志 - 帮助验证改动是否正向
-      console.log(`[🎯 Model Resolution (Stream)] Scene: ${scene}`);
-      console.log(`   1️⃣  request.model: ${request.model || '(not set)'}`);
-      console.log(`   2️⃣  sceneModel: ${sceneModel}`);
-      console.log(`   3️⃣  userModel: ${userModel || '(not set)'}`);
-      console.log(`   ➡️  Final model: ${modelToUse}`);
-
-      if (modelToUse !== sceneModel) {
-        console.log(`   ✅ Using ${modelToUse} instead of scene default ${sceneModel}`);
+      // 详细的模型决策日志 - 仅在调试模式下显示
+      if (process.env.DEBUG || process.env.NODE_ENV === 'development') {
+        console.log(`[🎯 Model Resolution (Stream)] Using model: ${modelToUse} for scene: ${scene}`);
       }
 
       const streamRequest = {
@@ -393,17 +444,7 @@ export class DeepVServerAdapter implements ContentGenerator {
         }
       };
 
-      logger.info('[DeepV Server] Starting stream request', {
-        model: streamRequest.model,
-        scene,
-        endpoint: '/v1/chat/stream',
-        modelDecision: {
-          requestModel: request.model,
-          sceneModel,
-          userModel,
-          selectedModel: modelToUse
-        }
-      });
+      logger.info(`[DeepV Server] Starting stream with model: ${modelToUse}`);
 
       // 调用流式API（错误处理已在callStreamAPI中统一处理）
       const response = await this.callStreamAPI('/v1/chat/stream', streamRequest, request.config?.abortSignal);
@@ -424,28 +465,48 @@ export class DeepVServerAdapter implements ContentGenerator {
     const userHeaders = await proxyAuthManager.getUserHeaders();
     const proxyUrl = `${proxyAuthManager.getProxyServerUrl()}${endpoint}`;
 
-    // 🔍 调试：打印代理相关信息（流式调用）
-    console.log('🔍 [DeepV Debug Stream] Proxy environment variables:');
-    console.log('  HTTP_PROXY:', process.env.HTTP_PROXY);
-    console.log('  HTTPS_PROXY:', process.env.HTTPS_PROXY);
-    console.log('  http_proxy:', process.env.http_proxy);
-    console.log('  https_proxy:', process.env.https_proxy);
-    console.log('  Target URL:', proxyUrl);
+    // 🔍 调试：打印代理相关信息（流式调用）- 仅在调试模式下显示
+    if (process.env.DEBUG || process.env.NODE_ENV === 'development') {
+      console.log('🔍 [DeepV Debug Stream] Proxy environment variables:');
+      console.log('  HTTP_PROXY:', process.env.HTTP_PROXY);
+      console.log('  HTTPS_PROXY:', process.env.HTTPS_PROXY);
+      console.log('  http_proxy:', process.env.http_proxy);
+      console.log('  https_proxy:', process.env.https_proxy);
+      console.log('  Target URL:', proxyUrl);
 
-    // 🔍 检查 undici 全局调度器（流式）
-    const globalDispatcher = getGlobalDispatcher();
-    console.log('🔍 [DeepV Debug Stream] Global dispatcher:', globalDispatcher?.constructor?.name || 'undefined');
-    if (globalDispatcher && 'uri' in globalDispatcher) {
-      console.log('  Dispatcher URI:', (globalDispatcher as any).uri);
+      // 🔍 检查 undici 全局调度器（流式）
+      const globalDispatcher = getGlobalDispatcher();
+      console.log('🔍 [DeepV Debug Stream] Global dispatcher:', globalDispatcher?.constructor?.name || 'undefined');
+      if (globalDispatcher && 'uri' in globalDispatcher) {
+        console.log('  Dispatcher URI:', (globalDispatcher as any).uri);
+      }
     }
 
     const controller = new AbortController();
+    let abortListener: (() => void) | null = null;
+
     if (abortSignal) {
-      abortSignal.addEventListener('abort', () => {
-        console.log('[DeepV Server] Stream request cancelled by user');
+      // 🚨 防止内存泄漏：检查传入的signal是否已被中止
+      if (abortSignal.aborted) {
         controller.abort();
-      });
+      } else {
+        const handleAbort = () => {
+          if (process.env.DEBUG || process.env.NODE_ENV === 'development') {
+            console.log('[DeepV Server] Stream request cancelled by user');
+          }
+          controller.abort();
+        };
+        abortSignal.addEventListener('abort', handleAbort);
+        abortListener = () => abortSignal.removeEventListener('abort', handleAbort);
+      }
     }
+
+    // 注意：不使用全局超时定时器
+    // 原因：
+    // 1. 流式API本身没有明确的时间限制（可能会持续很长时间）
+    // 2. 如果中途没有数据，createStreamGenerator 中的 120秒 read() 超时会生效
+    // 3. 全局定时器易导致定时器泄漏（流完成后无法清理）
+    // 4. 用户可以通过 abortSignal 随时取消请求
 
     const startTime = Date.now();
 
@@ -503,6 +564,11 @@ export class DeepVServerAdapter implements ContentGenerator {
     } catch (error) {
       const duration = Date.now() - startTime;
 
+      // 🚨 清理资源：移除abort监听器
+      if (abortListener) {
+        abortListener();
+      }
+
       // 用户取消请求的优雅处理
       if (error instanceof Error &&
           (error.message.includes('cancelled by user') || error.name === 'AbortError')) {
@@ -510,18 +576,41 @@ export class DeepVServerAdapter implements ContentGenerator {
         throw error;
       }
 
-      logger.error('[DeepV Server] Stream API call failed', {
-        endpoint,
-        duration: `${duration}ms`,
-        error: error instanceof Error ? error.message : error
-      });
+      // 超时错误处理
+      if (error instanceof Error && error.message.includes('abort')) {
+        logger.warn('[DeepV Server] Stream API aborted', {
+          endpoint,
+          duration: `${duration}ms`,
+          reason: error.message
+        });
+      } else {
+        logger.error('[DeepV Server] Stream API call failed', {
+          endpoint,
+          duration: `${duration}ms`,
+          error: error instanceof Error ? error.message : error
+        });
+      }
 
       throw error;
+    } finally {
+      // 清理abort监听器
+      if (abortListener) {
+        abortListener();
+      }
     }
   }
 
   /**
    * 🆕 创建流式生成器
+   *
+   * 超时保护策略（针对 SSE/流式响应）：
+   * - 每次 read() 调用的等待时间不超过 300 秒
+   * - 如果 300 秒内未收到任何数据块，自动中止（防止僵死连接）
+   * - 只要数据块在 300 秒内持续到达，即使总耗时很长也不会超时
+   * - 这支持长时间运行的推理模型（如 o1 系列，思考可能需要几分钟）
+   * - 用户可以通过 abortSignal 随时取消请求
+   *
+   * 设计意图：防止单个数据块卡顿，但允许完整的流式响应任意长
    */
   private async *createStreamGenerator(response: Response, abortSignal?: AbortSignal): AsyncGenerator<GenerateContentResponse> {
     const reader = response.body?.getReader();
@@ -534,13 +623,20 @@ export class DeepVServerAdapter implements ContentGenerator {
 
     try {
       while (true) {
-        // 检查是否被取消
+        // 检查是否被用户中止
         if (abortSignal?.aborted) {
-          console.log('[DeepV Server] Stream generation cancelled');
+          console.log('[DeepV Server] Stream generation cancelled by user');
           break;
         }
 
-        const { done, value } = await reader.read();
+        // ⏱️ 为每个 read() 添加 300 秒的空闲超时
+        // 保护机制：如果 300 秒内没有收到任何数据，认为连接已断或服务无响应
+        // 但流中每来一个数据块，计时器就重置（新的 read() 调用）
+        const { done, value } = await this.withTimeout(
+          reader.read(),
+          300000,
+          '[DeepV Server] Stream read timeout after 300s (no data received in this chunk)'
+        );
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
@@ -704,18 +800,11 @@ export class DeepVServerAdapter implements ContentGenerator {
    */
   async countTokens(request: CountTokensParameters): Promise<CountTokensResponse> {
     try {
-      logger.info('[DeepV Server] Starting token counting via unified API');
-
       // 构建统一的GenAI格式请求
       const unifiedRequest = {
         model: request.model || 'auto', // 让服务端智能选择模型
         contents: request.contents
       };
-
-      logger.debug('[DeepV Server] Token count request', {
-        model: unifiedRequest.model,
-        contentsType: typeof request.contents
-      });
 
       // 调用统一Token计数API
       const response = await this.callUnifiedTokenCountAPI(unifiedRequest);
@@ -728,14 +817,10 @@ export class DeepVServerAdapter implements ContentGenerator {
         timestamp: Date.now(),
       });
 
-      logger.info('[DeepV Server] Token count completed', {
-        totalTokens: response.totalTokens
-      });
-
       return response;
 
     } catch (error) {
-      logger.error('[DeepV Server] Token count error:', error);
+      logger.error('[DeepV Server] Token count failed:', error);
 
       // 回退到估算方法
       return this.estimateTokensAsFailback(request);
@@ -848,7 +933,7 @@ export class DeepVServerAdapter implements ContentGenerator {
         totalTokens: estimatedTokens,
       };
     } catch (error) {
-      console.error('[Claude Proxy] Fallback estimation error:', error);
+      console.error('[DeepV Server] Fallback estimation error:', error);
       return {
         totalTokens: 1000, // Default fallback
       };
@@ -862,5 +947,40 @@ export class DeepVServerAdapter implements ContentGenerator {
    */
   async embedContent(request: EmbedContentParameters): Promise<EmbedContentResponse> {
     throw new Error('Claude models do not support embedding content');
+  }
+
+  /**
+   * ⏱️ 为 Promise 添加超时保护的通用工具
+   *
+   * 超时策略汇总：
+   * ┌─ 非流式请求 (generateContent)
+   * │  ├─ 连接层：300s 等待响应头（TCP 建立 + 首响）
+   * │  ├─ 数据层：300s 接收响应体（response.body）
+   * │  └─ 解析层：300s 解析 JSON（response.json()）
+   * │
+   * └─ 流式请求 (_generateContentStream)
+   *    └─ 读取层：每个 read() 调用 300s 超时
+   *       （若数据块在 300s 内到达则重置，无整体限制）
+   *       用途：防止单个数据块卡顿，支持长推理时间
+   *
+   * 实现：使用 Promise.race 竞速机制 + 显式清理
+   * ⚠️  关键：必须清理超时定时器，否则每次调用都泄漏 300s 的 setTimeout
+   */
+  private withTimeout<T>(promise: Promise<T>, timeoutMs: number, timeoutMessage: string): Promise<T> {
+    let timeoutId: NodeJS.Timeout | null = null;
+
+    const timeoutPromise = new Promise<T>((_, reject) => {
+      timeoutId = setTimeout(() => {
+        reject(new Error(timeoutMessage));
+      }, timeoutMs);
+    });
+
+    return Promise.race([promise, timeoutPromise]).finally(() => {
+      // 🔑 关键清理：如果 promise 先完成，必须清理 timeoutId
+      // 否则会形成幽灵定时器，占用内存 300 秒，高并发下导致严重内存泄漏
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId);
+      }
+    });
   }
 }

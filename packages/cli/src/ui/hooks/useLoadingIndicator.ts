@@ -11,7 +11,7 @@ import { isChineseLocale } from '../utils/i18n.js';
 import { useState, useEffect, useRef } from 'react'; // Added useRef
 
 export const useLoadingIndicator = (
-  streamingState: StreamingState, 
+  streamingState: StreamingState,
   estimatedInputTokens?: number
 ) => {
   const [timerResetKey, setTimerResetKey] = useState(0);
@@ -41,11 +41,11 @@ export const useLoadingIndicator = (
       streamingState === StreamingState.Idle &&
       prevStreamingStateRef.current === StreamingState.Responding
     ) {
-      setTimerResetKey((prevKey) => prevKey + 1); // Reset timer when becoming idle from responding
+      // Reset timer when becoming idle from responding
+      setTimerResetKey((prevKey) => prevKey + 1);
       setRetainedElapsedTime(0);
     } else if (streamingState === StreamingState.WaitingForConfirmation) {
       // Capture the time when entering WaitingForConfirmation
-      // elapsedTimeFromTimer will hold the last value from when isTimerActive was true.
       setRetainedElapsedTime(elapsedTimeFromTimer);
     }
 
@@ -57,7 +57,6 @@ export const useLoadingIndicator = (
       streamingState === StreamingState.WaitingForConfirmation
         ? retainedElapsedTime
         : elapsedTimeFromTimer,
-    // 🎯 额外保护：在返回值中再次确保等待状态下的静态消息
     currentLoadingPhrase: streamingState === StreamingState.WaitingForConfirmation
       ? (isChineseLocale() ? '等待用户确认...' : 'Waiting for user confirmation...')
       : currentLoadingPhrase,

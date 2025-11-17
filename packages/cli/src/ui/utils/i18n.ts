@@ -210,7 +210,22 @@ export const translations = {
     'input.paste.clipboard.image': '🖼️ Pasting image from clipboard...',
     'input.paste.unified.hotkey': 'Ctrl+V for unified paste (image or text)',
     'input.paste.vscode.recommendation': 'In VSCode terminal, use Ctrl+V for unified paste',
+    'input.queue.busy': '🤖 Model is still working; new prompts will be queued automatically.',
+    'input.queue.working': 'Working (esc to interrupt)',
+    'input.queue.edit.hint': 'ctrl + ↑ edit',
+    'input.queue.edit.mode': 'Editing queue #{current}/{total}',
+    'input.queue.edit.actions': 'enter to save • esc to cancel • ctrl+↑ next',
+    'input.queue.item.updated': '✅ Updated queue item #{position}',
+    'input.queue.item.deleted': '🗑️ Deleted queue item #{position}',
+    'input.queue.count': '📝 Queued prompts: {count}',
+    'input.queue.preview': 'Next: {preview}',
+    'input.queue.added': 'Queued #{position}: {preview}',
+    'input.queue.cleared': '✅ Cleared {count} queued prompt(s)',
+    'input.queue.empty': 'ℹ️ Queue is already empty',
     'completion.clipboard.description': 'Paste clipboard content (image or text)',
+
+    // Suggestions Display
+    'suggestions.loading': 'Loading suggestions...',
 
     // Stats Display sections
     'section.interaction.summary': 'Interaction Summary',
@@ -279,7 +294,7 @@ export const translations = {
     'token.credits': 'Credits: ',
     'token.cache.read': 'Cache Read: ',
     'token.cache.create': 'Cache Create: ',
-    'token.efficiency': 'Efficiency: ',
+    'token.efficiency': 'Cache Hit Rate: ',
     'token.no.cache': 'No cache hits - all tokens processed fresh',
 
     // SubAgent Stats
@@ -666,6 +681,8 @@ export const translations = {
     // Slash command descriptions
     'command.help.description': 'Get deepv-code help',
     'command.clear.description': 'Clear terminal screen (keeps conversation context)',
+    'command.queue.description': 'Manage prompt queue',
+    'command.queue.clear.description': 'Clear all queued prompts',
     'command.quit.description': 'Exit command line interface',
     'command.about.description': 'Show version information',
     'command.theme.description': 'Theme',
@@ -691,11 +708,21 @@ export const translations = {
     'command.mcp.description': 'List configured MCP servers and tools, or authenticate with OAuth servers',
     'command.docs.description': 'Open full DeepV Code documentation in browser',
     'command.extensions.description': 'List active extensions',
+    'command.extensions.info.title': 'Extension System',
+    'command.extensions.info.intro': 'DVCode supports Gemini CLI extensions. To manage extensions, use:',
+    'command.extensions.info.install': 'Install extension',
+    'command.extensions.info.list': 'List extensions',
+    'command.extensions.info.validate': 'Validate config',
+    'command.extensions.info.uninstall': 'Remove extension',
+    'command.extensions.info.example': 'Example:',
+    'command.extensions.info.learnmore': 'For more information, visit:',
+    'command.extensions.info.url': 'https://dvcode.deepvlab.ai/extensions',
     'command.login.description': 'Start login server',
     'command.privacy.description': 'Display privacy statement',
     'command.corgi.description': 'Toggle corgi mode',
     'command.init.description': 'Analyzes the project and creates a tailored DEEPV.md file',
-    'command.help-ask.description': 'AI-powered help assistant - ask anything about CLI features (使用1积分/每问)',
+    'command.help-ask.description': 'AI-powered help assistant - ask anything about CLI features',
+    'command.help-ask.description.cost-note': '(Uses 1 credit per question)',
     'command.help-ask.no-args': '❌ The /help-ask command does not accept arguments.\n\n✅ Correct usage: Just type /help-ask and press Enter to enter help mode, then ask your questions.',
     'command.refine.description': 'Professional prompt refinement: Clear expression, precise input, make AI understand you better',
     'command.refine.error.no-input': '⚠️  Please provide text to refine.\n\n📖 Usage:\n   /refine <your text>           - Refine inline text\n   /refine --file <path>         - Refine file content\n   echo "text" | deepv /refine --stdin  - Refine from stdin',
@@ -728,8 +755,6 @@ export const translations = {
     'common.code': 'Code',
     'error.empty.content': 'Empty content',
 
-    // Message count milestone hint
-    'hint.message_count_milestone': '💡 Tip: You have {count} messages in this conversation. Use /clear to refresh the screen and prevent flickering (conversation context is preserved).',
     'command.ide.description': 'Manage IDE integration',
     'command.mcp.auth.description': 'Authenticate with OAuth-enabled MCP servers',
     'command.mcp.list.description': 'List configured MCP servers and tools',
@@ -796,6 +821,7 @@ export const translations = {
     'model.stats.metric.thoughts': 'Thoughts',
     'model.stats.metric.tool': 'Tool',
     'model.stats.metric.output': 'Output',
+    'model.reasoning': 'Model Thinking',
 
     // Tool Stats Display - Full Format
     'tool.stats.title': 'Tool Stats For Nerds',
@@ -1127,7 +1153,22 @@ export const translations = {
     'input.paste.clipboard.image': '🖼️ 正在从剪贴板粘贴图片...',
     'input.paste.unified.hotkey': 'Ctrl+V 统一粘贴（图像或文本）',
     'input.paste.vscode.recommendation': '在 VSCode 终端中，使用 Ctrl+V 进行统一粘贴',
+    'input.queue.busy': '🤖 模型正在思考，新的指令会进入队列。',
+    'input.queue.working': '正在处理 (esc 中断)',
+    'input.queue.edit.hint': 'ctrl + ↑ 编辑',
+    'input.queue.edit.mode': '编辑队列 #{current}/{total}',
+    'input.queue.edit.actions': 'enter 保存 • esc 取消 • ctrl+↑ 下一条',
+    'input.queue.item.updated': '✅ 已更新队列第 {position} 条',
+    'input.queue.item.deleted': '🗑️ 已删除队列第 {position} 条',
+    'input.queue.count': '📝 已排队 {count} 条指令',
+    'input.queue.preview': '下一条：{preview}',
+    'input.queue.added': '已加入队列 (第 {position} 条)：{preview}',
+    'input.queue.cleared': '✅ 已清空 {count} 条排队指令',
+    'input.queue.empty': 'ℹ️ 队列已为空',
     'completion.clipboard.description': '粘贴剪贴板内容（图片或文本）',
+
+    // Suggestions Display
+    'suggestions.loading': '正在加载建议...',
 
     // Stats Display sections
     'section.interaction.summary': '交互总结',
@@ -1582,6 +1623,8 @@ export const translations = {
     // Slash command descriptions
     'command.help.description': '获取 deepv-code 帮助',
     'command.clear.description': '清除终端屏幕（保留对话上下文）',
+    'command.queue.description': '管理提示队列',
+    'command.queue.clear.description': '清空所有排队的提示',
     'command.quit.description': '退出命令行界面',
     'command.about.description': '显示版本信息',
     'command.theme.description': '主题',
@@ -1607,11 +1650,21 @@ export const translations = {
     'command.mcp.description': '列出已配置的 MCP 服务器和工具，或使用 OAuth 服务器进行身份验证',
     'command.docs.description': '在浏览器中打开完整的 DeepV Code 文档',
     'command.extensions.description': '列出活跃的扩展',
+    'command.extensions.info.title': '扩展系统',
+    'command.extensions.info.intro': 'DVCode 支持 Gemini CLI 扩展。要管理扩展，请使用：',
+    'command.extensions.info.install': '安装扩展',
+    'command.extensions.info.list': '列出扩展',
+    'command.extensions.info.validate': '验证配置',
+    'command.extensions.info.uninstall': '卸载扩展',
+    'command.extensions.info.example': '示例：',
+    'command.extensions.info.learnmore': '更多信息，请访问：',
+    'command.extensions.info.url': 'https://dvcode.deepvlab.ai/extensions',
     'command.login.description': '启动登录服务器',
     'command.privacy.description': '显示隐私声明',
     'command.corgi.description': '开启/关闭柯基模式',
     'command.init.description': '分析项目并创建定制的 DEEPV.md 文件',
-    'command.help-ask.description': 'AI 智能帮助助手 - 询问任何关于 CLI 功能的问题（使用1积分/每问）',
+    'command.help-ask.description': 'AI 智能帮助助手 - 询问任何关于 CLI 功能的问题',
+    'command.help-ask.description.cost-note': '（使用1积分/每问）',
     'command.help-ask.no-args': '❌ /help-ask 命令不接受任何参数。\n\n✅ 正确用法：直接输入 /help-ask 并回车进入帮助模式，然后再提出您的问题。',
     'command.refine.description': '输入提示词专业润色：清晰表达，精准投喂，让大模型更懂你',
     'command.refine.error.no-input': '⚠️  请提供需要优化的文本。\n\n📖 使用方法：\n   /refine <文本内容>           - 优化行内文本\n   /refine --file <文件路径>     - 优化文件内容\n   echo "文本" | deepv /refine --stdin  - 从标准输入优化',
@@ -1644,8 +1697,6 @@ export const translations = {
     'common.code': '代码',
     'error.empty.content': '内容为空',
 
-    // Message count milestone hint
-    'hint.message_count_milestone': '💡 提示：当前对话已有 {count} 条消息。可使用 /clear 命令刷新屏幕，预防闪屏（对话上下文会保留）。',
     'command.ide.description': '管理IDE集成',
     'command.mcp.auth.description': '与启用OAuth的MCP服务器进行身份验证',
     'command.mcp.list.description': '列出已配置的MCP服务器和工具',
@@ -1712,6 +1763,7 @@ export const translations = {
     'model.stats.metric.thoughts': '思考',
     'model.stats.metric.tool': '工具',
     'model.stats.metric.output': '输出',
+    'model.reasoning': '模型思考',
 
     // Tool Stats Display - Full Format
     'tool.stats.title': 'Tool Stats For Nerds',

@@ -412,6 +412,20 @@ async function extractExcelContent(filePath: string): Promise<string> {
     const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
     let content = '';
 
+    /**
+     * Clean cell content by removing excess whitespace and control characters
+     */
+    const cleanCellContent = (cell: any): string => {
+      if (cell === null || cell === undefined) return '';
+      let text = String(cell);
+      // Remove control characters (except newlines and tabs)
+      text = text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+      // Normalize multiple spaces to single space
+      text = text.replace(/\s+/g, ' ');
+      // Trim leading and trailing whitespace
+      return text.trim();
+    };
+
     // Process each sheet
     workbook.SheetNames.forEach((sheetName, index) => {
       const worksheet = workbook.Sheets[sheetName];
@@ -430,11 +444,10 @@ async function extractExcelContent(filePath: string): Promise<string> {
 
       // Format as tab-separated values
       jsonData.forEach((row: any[], rowIndex) => {
-        if (row.length > 0) { // Only add non-empty rows
-          const formattedRow = row.map(cell =>
-            cell === null || cell === undefined ? '' : String(cell)
-          ).join('\t');
-          content += formattedRow + '\n';
+        const cleanedRow = row.map(cleanCellContent);
+        // Only add rows that have at least one non-empty cell
+        if (cleanedRow.some(cell => cell.length > 0)) {
+          content += cleanedRow.join('\t') + '\n';
         }
       });
 
@@ -737,9 +750,12 @@ export async function processSingleFileContent(
         }
         llmTextContent += formattedLines.join('\n');
 
+        const displayInfo = isTruncated
+          ? `read lines: ${actualStartLine + 1}-${endLine}`
+          : `(${endLine} lines)`;
         return {
           llmContent: llmTextContent,
-          returnDisplay: isTruncated ? '(truncated)' : '',
+          returnDisplay: displayInfo,
           isTruncated,
           originalLineCount,
           linesShown: [actualStartLine + 1, endLine],
@@ -799,9 +815,12 @@ export async function processSingleFileContent(
           }
           llmTextContent += formattedLines.join('\n');
 
+          const displayInfo = isTruncated
+            ? `read lines: ${actualStartLine + 1}-${endLine}`
+            : `${endLine} lines`;
           return {
             llmContent: llmTextContent,
-            returnDisplay: `Read Excel file: ${relativePathForDisplay}${isTruncated ? ' (truncated)' : ''}`,
+            returnDisplay: `Read Excel file: ${relativePathForDisplay} (${displayInfo})`,
             isTruncated,
             originalLineCount,
             linesShown: [actualStartLine + 1, endLine],
@@ -848,9 +867,12 @@ export async function processSingleFileContent(
           }
           llmTextContent += formattedLines.join('\n');
 
+          const displayInfo = isTruncated
+            ? `read lines: ${actualStartLine + 1}-${endLine}`
+            : `${endLine} lines`;
           return {
             llmContent: llmTextContent,
-            returnDisplay: `Read Word document: ${relativePathForDisplay}${isTruncated ? ' (truncated)' : ''}`,
+            returnDisplay: `Read Word document: ${relativePathForDisplay} (${displayInfo})`,
             isTruncated,
             originalLineCount,
             linesShown: [actualStartLine + 1, endLine],
@@ -898,9 +920,12 @@ export async function processSingleFileContent(
           }
           llmTextContent += formattedLines.join('\n');
 
+          const displayInfo = isTruncated
+            ? `read lines: ${actualStartLine + 1}-${endLine}`
+            : `${endLine} lines`;
           return {
             llmContent: llmTextContent, // Return as plain text, not inlineData
-            returnDisplay: `Read PDF as text: ${relativePathForDisplay}${isTruncated ? ' (truncated)' : ''}`,
+            returnDisplay: `Read PDF as text: ${relativePathForDisplay} (${displayInfo})`,
             isTruncated,
             originalLineCount,
             linesShown: [actualStartLine + 1, endLine],

@@ -45,6 +45,13 @@ export interface FeishuUserInfo {
   avatar?: string;
 }
 
+/**
+ * Token 刷新阈值常量
+ * 针对 10+ 天有效期的 token，提前 3 天发起刷新
+ * 这符合业界最佳实践，避免用户离线后 token 过期
+ */
+const TOKEN_REFRESH_THRESHOLD_SECONDS = 259200; // 3 天
+
 export class ProxyAuthManager {
   private static instance: ProxyAuthManager | null = null;
   private config: ProxyAuthConfig;
@@ -53,8 +60,8 @@ export class ProxyAuthManager {
   private userInfoFilePath: string;
   private jwtTokenFilePath: string;
   private refreshPromise: Promise<string> | null = null;
-  private lastStatusLogTime: number = 0;
   private cliVersion: string = 'unknown';
+  private periodicStatusCheckIntervalId: NodeJS.Timeout | null = null;
 
   /**
    * 获取CLI版本号
@@ -130,9 +137,10 @@ export class ProxyAuthManager {
 
   /**
    * 启动定期状态检查
+   * ⚠️ 关键：保存 intervalId 以支持后续清理，防止内存泄漏
    */
   private startPeriodicStatusCheck(): void {
-    setInterval(() => {
+    this.periodicStatusCheckIntervalId = setInterval(() => {
       if (this.jwtTokenData) {
         const now = Date.now();
         const timeRemaining = this.jwtTokenData.expiresAt - now;
@@ -140,7 +148,7 @@ export class ProxyAuthManager {
         const expiresAtFormatted = this.formatAbsoluteTime(this.jwtTokenData.expiresAt);
 
         if (timeRemaining > 0) {
-          const nextRefreshFormatted = this.formatAbsoluteTime(this.jwtTokenData.expiresAt - 300 * 1000);
+          const nextRefreshFormatted = this.formatAbsoluteTime(this.jwtTokenData.expiresAt - TOKEN_REFRESH_THRESHOLD_SECONDS * 1000);
           console.log(`[Login Check] 📊 Periodic status check - Credential remaining: ${timeRemainingFormatted} (until ${expiresAtFormatted}), next renewal: ${nextRefreshFormatted}`);
         } else {
           console.log(`[Login Check] ⚠️  Periodic status check - Credential expired at: ${expiresAtFormatted}`);
@@ -328,7 +336,7 @@ export class ProxyAuthManager {
 
     const timeRemainingFormatted = this.formatTimeRemaining(tokenData.expiresIn * 1000);
     const expiresAtFormatted = this.formatAbsoluteTime(expiresAt);
-    const nextRefreshFormatted = this.formatAbsoluteTime(expiresAt - 300 * 1000);
+    const nextRefreshFormatted = this.formatAbsoluteTime(expiresAt - TOKEN_REFRESH_THRESHOLD_SECONDS * 1000);
     const hasRefreshToken = !!tokenData.refreshToken;
     const autoRenewal = hasRefreshToken ? ', will auto-renew' : ', manual login required';
 
@@ -347,11 +355,11 @@ export class ProxyAuthManager {
     const now = Date.now();
     const timeRemaining = this.jwtTokenData.expiresAt - now;
     const timeRemainingFormatted = this.formatTimeRemaining(timeRemaining);
-    const nextRefreshTime = this.jwtTokenData.expiresAt - 300 * 1000; // 提前5分钟
+    const nextRefreshTime = this.jwtTokenData.expiresAt - TOKEN_REFRESH_THRESHOLD_SECONDS * 1000;
     const nextRefreshFormatted = this.formatAbsoluteTime(nextRefreshTime);
 
-    // 检查token是否即将过期（提前5分钟刷新）
-    if (this.isTokenNearExpiry(300)) {
+    // 检查token是否即将过期（提前3天刷新的主要检查）
+    if (this.isTokenNearExpiry()) {
       console.log(`[Login Check] Access credential expiring soon (remaining: ${timeRemainingFormatted}), starting auto-renewal...`);
       try {
         const newToken = await this.refreshAccessToken();
@@ -360,13 +368,6 @@ export class ProxyAuthManager {
         console.error('[Login Check] Credential renewal failed:', error);
         return null;
       }
-    }
-
-    // 每次获取token时显示状态（但限制频率，避免日志过多）
-    const timeSinceLastLog = now - (this.lastStatusLogTime || 0);
-    if (timeSinceLastLog > 60000) { // 每分钟最多打印一次状态
-      console.log(`[Login Check] Credential status: valid for ${timeRemainingFormatted}, next renewal at ${nextRefreshFormatted}`);
-      this.lastStatusLogTime = now;
     }
 
     return this.jwtTokenData.accessToken;
@@ -384,8 +385,10 @@ export class ProxyAuthManager {
 
   /**
    * 检查token是否即将过期
+   * 阈值为 3 天（259200 秒）- 针对10+天有效期的token提前3天renew
+   * 符合业界最佳实践：长期token应提前足够的时间renew，避免用户离线后token过期
    */
-  private isTokenNearExpiry(thresholdSeconds: number = 300): boolean {
+  private isTokenNearExpiry(thresholdSeconds: number = TOKEN_REFRESH_THRESHOLD_SECONDS): boolean {
     if (!this.jwtTokenData) {
       return true;
     }
@@ -474,7 +477,7 @@ export class ProxyAuthManager {
 
       const newTimeRemainingFormatted = this.formatTimeRemaining((result.data.expiresIn || 900) * 1000);
       const newExpiresAtFormatted = this.formatAbsoluteTime(this.jwtTokenData.expiresAt);
-      const newNextRefreshFormatted = this.formatAbsoluteTime(this.jwtTokenData.expiresAt - 300 * 1000);
+      const newNextRefreshFormatted = this.formatAbsoluteTime(this.jwtTokenData.expiresAt - TOKEN_REFRESH_THRESHOLD_SECONDS * 1000);
 
       console.log(`[Login Check] ✅ Credential renewed successfully - valid for: ${newTimeRemainingFormatted} (until ${newExpiresAtFormatted}), next renewal: ${newNextRefreshFormatted}${hasNewRefreshToken ? ' (refresh credential updated)' : ' (reusing existing refresh credential)'}`);
       return this.jwtTokenData.accessToken;
@@ -583,11 +586,18 @@ export class ProxyAuthManager {
   }
 
   /**
-   * 清除认证信息
+   * 清除认证信息及资源
+   * ⚠️ 关键：清理 periodicStatusCheckIntervalId 防止内存泄漏
    */
   clear(): void {
     this.userInfo = null;
     this.jwtTokenData = null;
+
+    // 🔑 清理定期检查的 interval
+    if (this.periodicStatusCheckIntervalId !== null) {
+      clearInterval(this.periodicStatusCheckIntervalId);
+      this.periodicStatusCheckIntervalId = null;
+    }
 
     // 删除本地用户信息文件
     try {

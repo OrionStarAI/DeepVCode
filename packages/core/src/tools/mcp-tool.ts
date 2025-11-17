@@ -37,7 +37,7 @@ export class DiscoveredMCPTool extends BaseTool<ToolParams, ToolResult> {
     nameOverride?: string,
   ) {
     super(
-      nameOverride ?? generateValidName(serverName, serverToolName),
+      nameOverride ?? generateValidName(serverToolName),
       `${serverToolName} (${serverName} MCP Server)`,
       description,
       Icon.Hammer,
@@ -273,16 +273,21 @@ function getStringifiedResultForDisplay(result: Part[]) {
 }
 
 /** Visible for testing */
-export function generateValidName(serverName: string , name: string) {
-  // Replace invalid characters (based on 400 error message from Gemini API) with underscores
-  let validServerName = serverName.replace(/[^a-zA-Z0-9_.-]/g, '_');
-  let validToolname = name.replace(/[^a-zA-Z0-9_.-]/g, '_');
+export function generateValidName(name: string) {
+  // Replace invalid characters (compatible with both Gemini and Claude)
+  // Valid characters: a-z, A-Z, 0-9, underscore (_), hyphen (-)
+  // Note: Claude does NOT allow dots (.), only Gemini allows them
+  // Max length: 128 characters (Gemini limit)
+  let validToolname = name.replace(/[^a-zA-Z0-9_-]/g, '_');
 
-  // If longer than 63 characters, replace middle with '___'
-  // (Gemini API says max length 64, but actual limit seems to be 63)
-  if (validToolname.length > 63) {
-    validToolname =
-      validToolname.slice(0, 28) + '___' + validToolname.slice(-32);
+  // Ensure it starts with a letter or underscore (Gemini requirement)
+  if (!/^[a-zA-Z_]/.test(validToolname)) {
+    validToolname = '_' + validToolname;
   }
-  return validServerName + '_' + validToolname;
+
+  // If longer than 128 characters, truncate
+  if (validToolname.length > 128) {
+    validToolname = validToolname.slice(0, 128);
+  }
+  return validToolname;
 }

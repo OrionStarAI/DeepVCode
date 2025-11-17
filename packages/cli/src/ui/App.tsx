@@ -21,6 +21,8 @@ import { useTerminalSize } from './hooks/useTerminalSize.js';
 import { useGeminiStream } from './hooks/useGeminiStream.js';
 import { t, tp } from './utils/i18n.js';
 import { useLoadingIndicator } from './hooks/useLoadingIndicator.js';
+import { useTaskCompletionSummary } from './hooks/useTaskCompletionSummary.js';
+import { TaskCompletionSummary } from './components/TaskCompletionSummary.js';
 import { useThemeCommand } from './hooks/useThemeCommand.js';
 import { useModelCommand } from './hooks/useModelCommand.js';
 import { useAuthCommand } from './hooks/useAuthCommand.js';
@@ -58,6 +60,7 @@ import { tokenUsageEventManager, IDEConnectionStatus } from 'deepv-code-core';
 import { HistoryItemDisplay } from './components/HistoryItemDisplay.js';
 import { ContextSummaryDisplay } from './components/ContextSummaryDisplay.js';
 import { IDEContextDetailDisplay } from './components/IDEContextDetailDisplay.js';
+import { ReasoningDisplay } from './components/ReasoningDisplay.js';
 import { useHistory } from './hooks/useHistoryManager.js';
 import { useSessionRestore, useSessionAutoSave } from './hooks/useSessionRestore.js';
 import process from 'node:process';
@@ -105,6 +108,7 @@ import ansiEscapes from 'ansi-escapes';
 import { OverflowProvider } from './contexts/OverflowContext.js';
 import { ShowMoreLines } from './components/ShowMoreLines.js';
 import { PaginatedDebugConsole } from './components/PaginatedDebugConsole.js';
+import { ScrollingDebugConsole } from './components/ScrollingDebugConsole.js';
 import { PrivacyNotice } from './privacy/PrivacyNotice.js';
 import { appEvents, AppEvent } from '../utils/events.js';
 import { AudioNotification } from '../utils/audioNotification.js';
@@ -157,6 +161,7 @@ interface AppProps {
   settings: LoadedSettings;
   startupWarnings?: string[];
   version: string;
+  promptExtensions?: any[]; // PromptExtension[] - imported from prompt-extensions
 }
 
 export const AppWrapper = (props: AppProps) => {
@@ -176,7 +181,7 @@ export const AppWrapper = (props: AppProps) => {
   );
 };
 
-const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
+const App = ({ config, settings, startupWarnings = [], version, promptExtensions = [] }: AppProps) => {
   const isFocused = useFocus();
   useBracketedPaste();
 
@@ -275,21 +280,22 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
     };
   }, []);
 
+  // MCP tools are now discovered during Config.initialize() via setImmediate()
+  // We removed the duplicate discovery call here to avoid redundant initialization
+  // The tools will be available shortly after app startup
+  // Monitor status changes to detect when tools become available
+  useEffect(() => {
+    // This effect just monitors MCP status changes, actual discovery happens in Config
+    if (config.getDebugMode()) {
+      console.log('[MCP] Config initialized, MCP tools discovery in progress');
+    }
+  }, [config]);
+
   useEffect(() => {
     checkForUpdates().then(setUpdateMessage);
   }, []);
 
-  // Message count milestone hint state
-  const [messageCountHint, setMessageCountHint] = useState<string | null>(null);
-
-  const handleMessageCountMilestone = useCallback((count: number) => {
-    // Show hint when message count reaches multiples of 30
-    setMessageCountHint(tp('hint.message_count_milestone', { count }));
-  }, []);
-
-  const { history, addItem, clearItems, loadHistory } = useHistory({
-    onMessageCountMilestone: handleMessageCountMilestone,
-  });
+  const { history, addItem, clearItems, loadHistory } = useHistory();
   const {
     consoleMessages,
     handleNewMessage,
@@ -360,10 +366,6 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
   const [ctrlDPressedOnce, setCtrlDPressedOnce] = useState(false);
   const ctrlDTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [constrainHeight, setConstrainHeight] = useState<boolean>(true);
-  // Debug panel pagination states
-  const [debugPanelPage, setDebugPanelPage] = useState(0);
-  const [debugPanelViewMode, setDebugPanelViewMode] = useState<'constrained' | 'paged'>('constrained');
-  const [isManuallyBrowsing, setIsManuallyBrowsing] = useState(false);
   const [ideConnectionStatus, setIdeConnectionStatus] = useState<IDEConnectionStatus>(
     IDEConnectionStatus.Disconnected
   );
@@ -383,6 +385,10 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
     options: Record<string, any>;
   } | null>(null);
   const [refineLoading, setRefineLoading] = useState<boolean>(false);
+  const [queuedPrompts, setQueuedPrompts] = useState<string[]>([]);
+  const [queuePaused, setQueuePaused] = useState<boolean>(false); // 队列暂停标志
+  const [queueEditMode, setQueueEditMode] = useState<boolean>(false); // 队列编辑模式
+  const [queueEditIndex, setQueueEditIndex] = useState<number>(0); // 当前编辑的队列索引
 
   // 调试：监听 refineResult 变化
   useEffect(() => {
@@ -705,6 +711,7 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
   const { rows: terminalHeight, columns: terminalWidth } = useTerminalSize();
   const { stdin, setRawMode } = useStdin();
   const isInitialMount = useRef(true);
+  const completionSummaryCounterRef = useRef(0);
 
   const widthFraction = 0.9;
   const inputWidth = Math.max(
@@ -775,6 +782,8 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
     initError,
     pendingHistoryItems: pendingGeminiHistoryItems,
     thought,
+    reasoning, // 🆕 接收 reasoning 状态
+    hasContentStarted, // 🆕 接收内容开始标志
     isCreatingCheckpoint, // 🎯 接收checkpoint创建状态
     isExecutingTools, // 🎯 接收工具执行状态
   } = useGeminiStream(
@@ -796,8 +805,111 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
     settings, // 传递设置对象以支持异步模型配置更新
   );
 
+  const sendPromptImmediately = useCallback(
+    (promptText: string, pauseQueueUntilResponse = false) => {
+      if (logoShows) {
+        clearScreenWithScrollBuffer(stdout);
+        setLogoShows(false);
+      }
+      setCumulativeCredits(0);
+
+      // 如果需要暂停队列直到响应开始
+      if (pauseQueueUntilResponse) {
+        setQueuePaused(true);
+      }
+
+      submitQuery(promptText);
+    },
+    [logoShows, stdout, submitQuery],
+  );
+
+  const queuePrompt = useCallback((promptText: string) => {
+    setQueuedPrompts((prev) => [...prev, promptText]);
+  }, []);
+
+  const updateQueueItem = useCallback((index: number, newContent: string) => {
+    const trimmed = newContent.trim();
+    if (trimmed === '') {
+      // 空内容 = 删除该项
+      setQueuedPrompts((prev) => prev.filter((_, i) => i !== index));
+      addItem(
+        {
+          type: MessageType.INFO,
+          text: tp('input.queue.item.deleted', { position: index + 1 }),
+        },
+        Date.now(),
+      );
+      // 如果删除后队列为空，退出编辑模式
+      setQueuedPrompts((prev) => {
+        if (prev.length === 0) {
+          setQueueEditMode(false);
+          setQueuePaused(false);
+        }
+        return prev;
+      });
+    } else {
+      // 更新内容
+      setQueuedPrompts((prev) =>
+        prev.map((item, i) => (i === index ? trimmed : item)),
+      );
+      addItem(
+        {
+          type: MessageType.INFO,
+          text: tp('input.queue.item.updated', { position: index + 1 }),
+        },
+        Date.now(),
+      );
+    }
+  }, [addItem, tp]);
+
+  const handlePromptOrQueue = useCallback(
+    (promptText: string, pauseQueueUntilResponse = false) => {
+      const sanitizedPrompt = promptText.trim();
+      if (!sanitizedPrompt) {
+        return;
+      }
+
+      if (streamingState !== StreamingState.Idle) {
+        queuePrompt(sanitizedPrompt);
+        // 不再显示 "ℹ️Queued #X:" 的 INFO 消息，队列在输入框上方显示
+        return;
+      }
+
+      sendPromptImmediately(sanitizedPrompt, pauseQueueUntilResponse);
+    },
+    [addItem, queuePrompt, queuedPrompts.length, sendPromptImmediately, streamingState],
+  );
+
   // Session自动保存 - 监听streaming状态变化
   useSessionAutoSave(config, history, streamingState);
+
+  // 队列自动执行逻辑
+  useEffect(() => {
+    if (
+      streamingState !== StreamingState.Idle ||
+      queuedPrompts.length === 0 ||
+      refineResult ||
+      queuePaused || // 队列暂停时不执行
+      queueEditMode // 编辑模式下不执行
+    ) {
+      return;
+    }
+
+    const [nextPrompt] = queuedPrompts;
+    if (!nextPrompt) {
+      return;
+    }
+
+    setQueuedPrompts((prev) => prev.slice(1));
+    sendPromptImmediately(nextPrompt);
+  }, [queuedPrompts, refineResult, sendPromptImmediately, streamingState, queuePaused, queueEditMode]);
+
+  // 当 AI 开始响应时，解除队列暂停
+  useEffect(() => {
+    if (queuePaused && streamingState !== StreamingState.Idle) {
+      setQueuePaused(false);
+    }
+  }, [queuePaused, streamingState]);
 
 
 
@@ -806,9 +918,6 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
     async (submittedValue: string) => {
       const trimmedValue = submittedValue.trim();
       if (trimmedValue.length > 0) {
-        // Clear message count hint when user submits new message
-        setMessageCountHint(null);
-
         // Clear screen once when user first submits message after logo is shown
         if (logoShows) {
           clearScreenWithScrollBuffer(stdout);
@@ -817,6 +926,30 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
 
         // 首先检查是否是slash命令
         if (trimmedValue.startsWith('/')) {
+          // 特殊处理：/queue clear 命令
+          if (trimmedValue === '/queue clear') {
+            if (queuedPrompts.length > 0) {
+              const clearedCount = queuedPrompts.length;
+              setQueuedPrompts([]);
+              addItem(
+                {
+                  type: MessageType.INFO,
+                  text: tp('input.queue.cleared', { count: clearedCount }),
+                },
+                Date.now(),
+              );
+            } else {
+              addItem(
+                {
+                  type: MessageType.INFO,
+                  text: t('input.queue.empty'),
+                },
+                Date.now(),
+              );
+            }
+            return;
+          }
+
           // 如果是润色命令，显示 loading 状态
           const isRefineCommand = trimmedValue.startsWith('/refine');
           if (isRefineCommand) {
@@ -837,10 +970,7 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
               return;
             } else if (slashCommandResult.type === 'submit_prompt') {
               // Slash命令返回需要提交的内容
-              setCumulativeCredits(0);
-
-              // 正常提交查询，历史记录会保持原文（确保AI上下文完整）
-              submitQuery(slashCommandResult.content);
+              handlePromptOrQueue(slashCommandResult.content);
               return;
             } else if (slashCommandResult.type === 'schedule_tool') {
               // Slash命令要求执行工具，这里可以扩展处理
@@ -886,12 +1016,10 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
           // 如果slashCommandResult为false，说明不是有效的slash命令，继续正常处理
         }
 
-        // 重置当前回合的累计credits
-        setCumulativeCredits(0);
-        submitQuery(trimmedValue);
+        handlePromptOrQueue(trimmedValue);
       }
     },
-    [submitQuery, logoShows, stdout, handleSlashCommand],
+    [handlePromptOrQueue, logoShows, stdout, handleSlashCommand],
   );
 
   const buffer = useTextBuffer({
@@ -910,6 +1038,25 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
   const { elapsedTime, currentLoadingPhrase, estimatedInputTokens: loadingEstimatedTokens } =
     useLoadingIndicator(streamingState, estimatedInputTokens);
 
+  // When transitioning from Responding to Idle, capture the elapsed time for printing
+  const lastElapsedTimeBeforeIdleRef = useRef<number>(0);
+  useEffect(() => {
+    if (streamingState === StreamingState.Responding) {
+      lastElapsedTimeBeforeIdleRef.current = elapsedTime;
+    }
+  }, [elapsedTime, streamingState]);
+
+  const { shouldShowSummary, completionElapsedTime } = useTaskCompletionSummary(
+    streamingState,
+    lastElapsedTimeBeforeIdleRef.current
+  );
+
+  // Track completion summary counter for unique keys
+  useEffect(() => {
+    if (shouldShowSummary) {
+      completionSummaryCounterRef.current += 1;
+    }
+  }, [shouldShowSummary]);
 
   const showAutoAcceptIndicator = useAutoAcceptIndicator({ config });
 
@@ -953,6 +1100,61 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
                        (isIDEATerminal && key.ctrl && input === 'q') ||
                        (process.platform === 'darwin' && key.meta && input === 'q');
 
+    // 处理队列编辑模式
+    if (queueEditMode) {
+      if (key.return) {
+        // Enter: 保存编辑
+        const newContent = buffer.text;
+        updateQueueItem(queueEditIndex, newContent);
+        setQueueEditMode(false);
+        setQueuePaused(false);
+        buffer.setText('');
+        return;
+      } else if (isCancelKey) {
+        // Esc: 取消编辑
+        setQueueEditMode(false);
+        setQueuePaused(false);
+        buffer.setText('');
+        return;
+      } else if (key.ctrl && key.upArrow) {
+        // Ctrl+↑: 保存当前并切换到下一条
+        const currentContent = buffer.text;
+        const originalContent = queuedPrompts[queueEditIndex];
+
+        // 只有内容改变时才更新
+        if (currentContent.trim() !== originalContent) {
+          updateQueueItem(queueEditIndex, currentContent);
+        }
+
+        // 切换到下一条（需要在更新后重新获取队列长度）
+        setQueuedPrompts((currentQueue) => {
+          if (currentQueue.length === 0) {
+            // 队列已空，退出编辑模式
+            setQueueEditMode(false);
+            setQueuePaused(false);
+            buffer.setText('');
+            return currentQueue;
+          }
+
+          const nextIndex = (queueEditIndex + 1) % currentQueue.length;
+          setQueueEditIndex(nextIndex);
+          buffer.setText(currentQueue[nextIndex] || '');
+          return currentQueue;
+        });
+        return;
+      }
+      // 其他按键继续正常的输入处理
+    } else {
+      // 非编辑模式下，Ctrl+↑ 进入队列编辑模式
+      if (key.ctrl && key.upArrow && queuedPrompts.length > 0) {
+        setQueueEditMode(true);
+        setQueuePaused(true); // 暂停队列执行
+        setQueueEditIndex(0);
+        buffer.setText(queuedPrompts[0]);
+        return;
+      }
+    }
+
     // 处理润色结果的确认
     if (refineResult) {
       console.log('[App useInput] refineResult存在，处理按键:', { input, return: key.return });
@@ -962,8 +1164,8 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
         const refinedText = refineResult.refined;
         setRefineResult(null);
         buffer.setText('');
-        setCumulativeCredits(0);
-        submitQuery(refinedText);
+        // 润色发送后暂停队列，直到 AI 开始响应
+        handlePromptOrQueue(refinedText, true);
         return;
       } else if (input.toLowerCase() === 'r') {
         // R：再次润色
@@ -1041,7 +1243,14 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
     }
 
     if (key.ctrl && input === 'o') {
+      // Toggle small console panel open/closed
       setShowErrorDetails((prev) => !prev);
+    } else if (key.ctrl && input === 's') {
+      // Toggle between small and large panel (only when open)
+      if (showErrorDetails) {
+        // If already open, toggle between constrained and full height
+        setConstrainHeight((prev) => !prev);
+      }
     } else if (key.ctrl && input === 't') {
       const newValue = !showToolDescriptions;
       setShowToolDescriptions(newValue);
@@ -1060,49 +1269,6 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
         return;
       }
       handleExit(ctrlDPressedOnce, setCtrlDPressedOnce, ctrlDTimerRef);
-    } else if (key.ctrl && input === 's' && !enteringConstrainHeightMode) {
-      // Toggle debug panel view mode when debug panel is shown
-      if (showErrorDetails) {
-        if (debugPanelViewMode === 'constrained') {
-          setDebugPanelViewMode('paged');
-          setIsManuallyBrowsing(false); // Start in auto-follow mode
-          // Will auto-jump to latest page via useEffect
-        } else {
-          setDebugPanelViewMode('constrained');
-          setIsManuallyBrowsing(false); // Reset state
-        }
-      } else {
-        // Original behavior when debug panel is not shown
-        setConstrainHeight(false);
-      }
-    } else if (showErrorDetails && debugPanelViewMode === 'paged') {
-      // Handle pagination in debug panel
-      if ((key as any).name === 'pageup') {
-        setIsManuallyBrowsing(true);
-        setDebugPanelPage(prev => Math.max(0, prev - 1));
-      } else if ((key as any).name === 'pagedown') {
-        const debugPanelPageSize = Math.floor(terminalHeight * 0.6);
-        const totalPages = Math.ceil(filteredConsoleMessages.length / debugPanelPageSize);
-        const newPage = Math.min(totalPages - 1, debugPanelPage + 1);
-
-        // If user is going to the last page, resume auto-follow
-        if (newPage === totalPages - 1) {
-          setIsManuallyBrowsing(false);
-        } else {
-          setIsManuallyBrowsing(true);
-        }
-        setDebugPanelPage(newPage);
-      } else if ((key as any).name === 'home') {
-        // Jump to first page - enter manual browsing mode
-        setIsManuallyBrowsing(true);
-        setDebugPanelPage(0);
-      } else if ((key as any).name === 'end') {
-        // Jump to last page (live view) - exit manual browsing mode
-        setIsManuallyBrowsing(false);
-        const debugPanelPageSize = Math.floor(terminalHeight * 0.6);
-        const totalPages = Math.ceil(filteredConsoleMessages.length / debugPanelPageSize);
-        setDebugPanelPage(Math.max(0, totalPages - 1));
-      }
     }
   });
 
@@ -1151,12 +1317,11 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
     fetchUserMessages();
   }, [history, logger]);
 
-  const isInputActive = streamingState === StreamingState.Idle && !initError;
+  const shouldRenderInputPrompt = !refineResult && !initError;
 
   const handleClearScreen = useCallback(() => {
     clearItems();
     clearConsoleMessagesState();
-    setMessageCountHint(null); // Clear message count hint
     clearScreenWithScrollBuffer(stdout);
     refreshStatic();
   }, [clearItems, clearConsoleMessagesState, stdout, refreshStatic]);
@@ -1214,19 +1379,31 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
     // 现代终端和计算机完全可以处理几百条消息的渲染
 
     // 添加所有历史项，使用staticKey确保/chat resume后强制重新渲染
-    items.push(...history.map((h, index) => (
+    items.push(...history.map((h) => (
       <HistoryItemDisplay
         terminalWidth={mainAreaWidth}
         availableTerminalHeight={staticAreaMaxItemHeight}
-        key={`${staticKey}-${h.id}-${index}`} // Linus fix: 使用staticKey确保/chat resume后强制重新渲染
+        key={`${staticKey}-${h.id}`} // 使用 staticKey 和 item ID 确保稳定的组件复用
         item={h}
         isPending={false}
         config={config}
       />
     )));
 
+    // Add task completion summary to static area when it should be shown
+    // The hook manages the display duration to prevent overlap with queued prompts
+    if (shouldShowSummary && completionElapsedTime > 0) {
+      items.push(
+        <TaskCompletionSummary
+          key={`completion-${completionSummaryCounterRef.current}`}
+          elapsedTime={completionElapsedTime}
+          isVisible={true}
+        />
+      );
+    }
+
     return items;
-  }, [history, mainAreaWidth, staticAreaMaxItemHeight, staticKey, terminalWidth, settings.merged.hideBanner, settings.merged.hideTips, config]); // 🚀 保留关键依赖：terminalWidth 对响应式布局重要
+  }, [history, mainAreaWidth, staticAreaMaxItemHeight, staticKey, terminalWidth, settings.merged.hideBanner, settings.merged.hideTips, config, shouldShowSummary, completionElapsedTime, completionSummaryCounterRef]); // 🚀 保留关键依赖：terminalWidth 对响应式布局重要
 
   useEffect(() => {
     // skip refreshing Static during first mount
@@ -1280,6 +1457,16 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
 
   const initialPrompt = useMemo(() => config.getQuestion(), [config]);
   const geminiClient = config.getGeminiClient();
+  const queuedPromptPreview = useMemo(() => {
+    if (queuedPrompts.length === 0) {
+      return '';
+    }
+    const normalized = queuedPrompts[0].replace(/\s+/g, ' ').trim();
+    if (!normalized) {
+      return '';
+    }
+    return normalized.length > 80 ? `${normalized.slice(0, 80)}...` : normalized;
+  }, [queuedPrompts]);
 
   useEffect(() => {
     if (
@@ -1295,14 +1482,11 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
       !showPrivacyNotice &&
       geminiClient?.isInitialized?.()
     ) {
-      // 重置当前回合的累计credits
-      setCumulativeCredits(0);
-      submitQuery(initialPrompt);
+      sendPromptImmediately(initialPrompt);
       initialPromptSubmitted.current = true;
     }
   }, [
     initialPrompt,
-    submitQuery,
     isAuthenticating,
     isPreparingEnvironment,
     isAuthDialogOpen,
@@ -1312,6 +1496,7 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
     isEditorDialogOpen,
     showPrivacyNotice,
     geminiClient,
+    sendPromptImmediately,
   ]);
 
   // Store quitting render content but don't return early to avoid hooks order issues
@@ -1333,51 +1518,29 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
   ) : null;
   const debugConsoleMaxHeight = Math.floor(Math.max(terminalHeight * 0.2, 5));
   const debugPanelPageSize = Math.floor(Math.max(terminalHeight * 0.6, 10)); // 60% of terminal height for paged mode
+  // Calculate debug panel height based on constrainHeight state
+  const debugPanelHeight = constrainHeight ? debugConsoleMaxHeight : debugPanelPageSize;
   const placeholder = planModeActive
     ? "  计划模式：可读取代码分析，禁止修改 (/plan off 退出)"
     : vimModeEnabled
       ? "  按 'i' 进入插入模式，按 'Esc' 进入普通模式。"
       : '  输入您的消息或 @文件路径';
 
-  // Auto-navigate to latest page when new messages arrive in paged mode (only if not manually browsing)
-  useEffect(() => {
-    if (debugPanelViewMode === 'paged' && filteredConsoleMessages.length > 0 && !isManuallyBrowsing) {
-      const totalPages = Math.ceil(filteredConsoleMessages.length / debugPanelPageSize);
-      const lastPageIndex = Math.max(0, totalPages - 1);
 
-      setDebugPanelPage(lastPageIndex);
-    }
-  }, [filteredConsoleMessages.length, debugPanelViewMode, debugPanelPageSize, isManuallyBrowsing]);
 
-  // Helper function to render debug panel based on current view mode
+  // Helper function to render debug panel with scrolling display
   const renderDebugPanel = () => {
-    if (!showErrorDetails) return null;
-
+    if (!showErrorDetails) {
+      return null;
+    }
     return (
-      <OverflowProvider>
-        <Box flexDirection="column">
-          {debugPanelViewMode === 'paged' ? (
-            <PaginatedDebugConsole
-              messages={filteredConsoleMessages}
-              currentPage={debugPanelPage}
-              pageSize={debugPanelPageSize}
-              width={inputWidth}
-              isManuallyBrowsing={isManuallyBrowsing}
-            />
-          ) : (
-            <>
-              <DetailedMessagesDisplay
-                messages={filteredConsoleMessages}
-                maxHeight={
-                  constrainHeight ? debugConsoleMaxHeight : undefined
-                }
-                width={inputWidth}
-              />
-              <ShowMoreLines constrainHeight={constrainHeight} />
-            </>
-          )}
-        </Box>
-      </OverflowProvider>
+      <Box flexDirection="column">
+        <ScrollingDebugConsole
+          messages={filteredConsoleMessages}
+          height={debugPanelHeight}
+          width={inputWidth}
+        />
+      </Box>
     );
   };
 
@@ -1432,7 +1595,14 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
 
         {showHelp && <Help commands={slashCommands} />}
 
-
+        {/* 🆕 显示思考过程框（在pending内容后，一旦开始内容就隐藏） */}
+        {reasoning && !hasContentStarted && (
+          <ReasoningDisplay
+            reasoning={reasoning}
+            terminalHeight={terminalHeight}
+            terminalWidth={terminalWidth}
+          />
+        )}
 
         <Box flexDirection="column" ref={mainControlsRef}>
           {startupWarnings.length > 0 && (
@@ -1500,7 +1670,6 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
                   openAuthDialog();
                 }}
               />
-              {renderDebugPanel()}
             </>
           ) : isPreparingEnvironment ? (
             <>
@@ -1512,7 +1681,6 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
                   openAuthDialog();
                 }}
               />
-              {renderDebugPanel()}
             </>
           ) : isAuthDialogOpen ? (
             <Box flexDirection="column">
@@ -1573,8 +1741,11 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
                 elapsedTime={elapsedTime}
               />
 
+
+
               <Box
                 marginTop={1}
+                marginBottom={1}
                 display="flex"
                 justifyContent="space-between"
                 width="100%"
@@ -1617,7 +1788,6 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
               {showIDEContextDetail && (
                 <IDEContextDetailDisplay openFiles={openFiles} />
               )}
-              {renderDebugPanel()}
 
               {/* Token Usage Display - 显示在输入框上方 */}
               {lastTokenUsage && streamingState !== StreamingState.Responding && (
@@ -1628,10 +1798,34 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
                 />
               )}
 
-              {/* Message count milestone hint - 显示在统计框下方 */}
-              {messageCountHint && (
-                <Box paddingLeft={1} paddingBottom={1}>
-                  <Text color={Colors.AccentOrange}>ℹ {messageCountHint}</Text>
+              {/* 队列消息显示 - 简洁模式（无Queued标签） */}
+              {queuedPrompts.length > 0 && !initError && (
+                <Box marginY={1} flexDirection="column" gap={0}>
+                  {queuedPrompts.map((prompt, index) => {
+                    const preview = prompt.length > 60 ? `${prompt.slice(0, 60)}...` : prompt;
+                    return (
+                      <Text key={index} dimColor>
+                        {index === 0 ? '↓' : ' '} {preview}
+                      </Text>
+                    );
+                  })}
+                  {queuedPrompts.length > 0 && (
+                    <Text dimColor>
+                      {t('input.queue.edit.hint')}
+                    </Text>
+                  )}
+                </Box>
+              )}
+
+              {/* 队列编辑模式界面 */}
+              {queueEditMode && (
+                <Box marginY={1}>
+                  <Text color={Colors.AccentBlue}>
+                    🔄 {tp('input.queue.edit.mode', {
+                      current: queueEditIndex + 1,
+                      total: queuedPrompts.length
+                    })} • {t('input.queue.edit.actions')}
+                  </Text>
                 </Box>
               )}
 
@@ -1685,7 +1879,7 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
                 </Box>
               )}
 
-              {isInputActive && !refineResult && (
+              {shouldRenderInputPrompt && (
                 <InputPrompt
                   buffer={buffer}
                   inputWidth={inputWidth}
@@ -1706,6 +1900,8 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
                   placeholder={placeholder}
                   isModalOpen={isModelDialogOpen || isAuthDialogOpen || isThemeDialogOpen || isEditorDialogOpen}
                   isExecutingTools={isExecutingTools}
+                  isBusy={streamingState !== StreamingState.Idle || queuedPrompts.length > 0}
+                  isInSpecialMode={!!refineResult || queueEditMode}
                 />
               )}
             </>
@@ -1743,6 +1939,8 @@ const App = ({ config, settings, startupWarnings = [], version }: AppProps) => {
               )}
             </Box>
           )}
+          {/* Debug Console - Fixed at bottom before Footer */}
+          {renderDebugPanel()}
           <Footer
             model={currentModel}
             targetDir={config.getTargetDir()}

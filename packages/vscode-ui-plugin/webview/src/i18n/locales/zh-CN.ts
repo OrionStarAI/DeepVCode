@@ -75,6 +75,15 @@ export const zhCN: Translations = {
     editPlaceholder: '编辑你的消息...',
   },
 
+  command: {
+    refine: {
+      button: {
+        empty_text: '请输入要优化的文本',
+        tooltip: '用 AI 优化文本（提高清晰度、语法、语气）',
+      },
+    },
+  },
+
   plan: {
     mode: {
       label: '规划',

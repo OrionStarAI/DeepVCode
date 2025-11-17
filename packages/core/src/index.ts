@@ -73,6 +73,7 @@ export { AuthServer } from './auth/login/authServer.js';
 export * from './services/fileDiscoveryService.js';
 export * from './services/gitService.js';
 export * from './services/sessionManager.js';
+export * from './services/mcpResponseGuard.js';
 
 // Export IDE specific logic
 export * from './ide/ide-client.js';
@@ -118,5 +119,5 @@ export { OAuthUtils } from './mcp/oauth-utils.js';
 
 // Export telemetry functions
 export * from './telemetry/index.js';
-export { sessionId } from './utils/session.js';
+export { sessionId, getSessionId, setSessionId, resetSessionId } from './utils/session.js';
 export * from './utils/browser.js';

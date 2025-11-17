@@ -10,99 +10,133 @@ import { useSmallWindowOptimization, getOptimalRefreshInterval, shouldSkipAnimat
 
 // Knowledge tips (higher probability)
 export const KNOWLEDGE_TIPS_EN = [
-  '💡 Use dvcode -c to continue your last conversation',
-  '💡 Press Esc to abort tasks and send new instructions',
-  '💡 Use dvcode -y for auto-confirm mode',
-  '💡 Use dvcode -u to force check for version updates',
-  '💡 Use dvcode --cloud-mode to connect to cloud server for remote access',
-  '💡 Hold Ctrl/Alt/Shift + Enter to add line breaks in input',
-  '💡 Type /help in chat to see more tips',
-  '💡 Type /theme in chat to change color themes',
-  '💡 Type /memory in chat to manage memory',
-  '💡 Type /compress in chat to compress context',
-  '💡 Type /session list to browse all your conversation sessions',
-  '💡 Type /session select <number> to switch between conversations',
-  '💡 Use /session new to start a fresh conversation anytime',
-  // Programming prompt tips
-  '💡 Say "Please focus on this specific issue" to improve AI focus',
-  '💡 Use "Please print logs and wait for my input" for better debugging',
-  '💡 Use @filename to help AI locate problems more precisely',
-  '💡 Start with "Step by step:" for complex problem solving',
-  '💡 Say "Show me the minimal example" to get concise solutions',
-  '💡 Use "Explain your reasoning" to understand AI\'s thought process',
-  '💡 Say "Check edge cases" to improve code robustness',
-  '💡 Use "Follow existing code patterns" for consistent style',
-  '💡 Say "Add error handling" to make code more reliable',
-  '💡 Use "Write tests first" for better code quality',
-  '💡 Say "Optimize for readability" over clever solutions',
-  '💡 Use "Break this into smaller functions" for better design',
-  '💡 Say "Add comments explaining why, not what"',
-  '💡 Use "Show me alternatives" to explore different approaches',
-  '💡 Say "Make it configurable" for flexible solutions',
-  '💡 Use "Consider performance implications" for efficient code',
-  '💡 Say "Follow SOLID principles" for better architecture',
-  '💡 Use "Add input validation" to prevent bugs',
-  '💡 Say "Make it type-safe" for better code reliability',
-  '💡 Use "Extract common logic" to reduce duplication',
-  '💡 Say "Add logging for debugging" to track execution',
-  '💡 Use "Handle async operations properly" for robust code',
-  '💡 Say "Consider memory usage" for resource efficiency',
-  '💡 Use "Make it testable" for better code design',
-  '💡 Say "Add documentation" for future maintainers',
-  '💡 Use "Follow naming conventions" for code clarity',
-  '💡 Say "Consider thread safety" for concurrent code',
-  '💡 Use "Implement graceful degradation" for better UX',
-  '💡 Say "Add monitoring and metrics" for production code',
-  '💡 Use "Consider security implications" for safe code',
-  '💡 Say "Make it backwards compatible" for stable APIs',
+  // CLI Shortcuts
+  'Press Ctrl+L to quickly switch AI models',
+  'Press Ctrl+T to toggle tool descriptions',
+  'Press Ctrl+V (macOS/Linux) or Ctrl+G (Windows) to paste screenshots',
+  'Press Alt+Left/Right to move cursor by word',
+  'Press Esc to abort tasks and send new instructions',
+  'Use dvcode -c to continue your last conversation',
+  'Use dvcode -y for auto-confirm mode',
+  'Use dvcode -u to force check for version updates',
+  'Use dvcode --cloud-mode for remote access',
+  'Hold Ctrl/Alt/Shift + Enter to add line breaks in input',
+  // Slash Commands
+  'Type /model to switch AI models interactively',
+  'Type /clear to clear screen',
+  'Type /restore to rollback to a checkpoint',
+  'Type /session list to browse all conversations',
+  'Type /session new to start a fresh conversation',
+  'Type /session select <number> to switch conversations',
+  'Type /memory show to view loaded project context',
+  'Type /memory refresh to reload all DEEPV.md files',
+  'Type /memory add <text> to add to AI memory',
+  'Type /compress to compress context and save tokens',
+  'Type /stats to view token usage and session stats',
+  'Type /stats tools to view tool usage statistics',
+  'Type /mcp to list configured MCP servers',
+  'Type /mcp desc to show detailed tool descriptions',
+  'Type /tools to list all available tools',
+  'Type /tools nodesc to show only tool names',
+  'Type /extensions list to view available extensions',
+  'Type /extensions info to learn about installing/uninstalling extensions',
+  'Type /ext: to use installed context-type extension commands',
+  'Type /theme to change color themes',
+  'Type /plan to enable read-only analysis mode',
+  'Type /plan off to exit read-only mode',
+  'Type /plan status to check current mode',
+  'Type /init to auto-generate DEEPV.md for your project',
+  'Type /auth to re-authenticate if session expired',
+  'Type /help to view traditional help',
+  'Type /help-ask to ask AI questions about CLI features',
+  'Type /copy to copy AI\'s last response',
+  'Type /editor to select editor for viewing diffs',
+  // File Inclusion (@) Commands
+  'Use @filepath to include files in conversations',
+  'Use @filename question to help AI understand your problem',
+  'Use @directory to include entire directories',
+  'Use @report.pdf to analyze PDF documents',
+  'Use @data.xlsx to analyze Excel spreadsheets',
+  'Use @document.docx to work with Word documents',
+  'Use @clipboard to paste text or screenshots from clipboard',
+  // Shell Commands (!)
+  'Use !command to run shell commands directly',
+  'Use ! alone to switch to shell mode',
+  'Examples: !npm run build, !git status, !python script.py',
+  // Custom Commands & Configuration
+  'Create custom slash commands in ~/.deepv/commands/',
+  'Use {{args}} in custom commands to inject parameters',
+  'Configure MCP servers in .deepv/settings.json',
+  'Set preferredEditor in settings.json for diff viewing',
+  'Use DEEPV.md for project-specific AI instructions',
+  // Advanced Features
+  'Try @src/ followed by your question for whole codebase analysis',
+  'Combine @ and ! commands for powerful workflows',
 ];
 
 export const KNOWLEDGE_TIPS_ZH = [
-  '💡 使用dvcode -c启动，可以继续上次的对话',
-  '💡 按esc键可以中止任务并允许发新的指令',
-  '💡 使用dvcode -y启动，可以免确认模式',
-  '💡 使用dvcode -u启动，可以强制检查版本更新',
-  '💡 使用 dvcode --cloud-mode 连接云端服务器进行远程访问',
-  '💡 按住Ctrl/Alt/Shift+回车可以输入框换行',
-  '💡 对话框内打 /help 可以看到更多技巧',
-  '💡 对话框内打 /theme可以更换主题配色',
-  '💡 对话框内打 /memory 可以管理记忆',
-  '💡 在与模型的对话框内打 /compress 可以压缩上下文',
-  '💡 输入 /session list 可以浏览所有对话会话',
-  '💡 输入 /session select <编号> 可以切换不同对话',
-  '💡 使用 /session new 可以随时开始全新对话',
-  // 编程提示词技巧
-  '💡 说"请专注这个具体问题"可以提高AI专注度',
-  '💡 使用"请打印日志并等待我提供"可以更好地调试',
-  '💡 使用@文件名可以让AI更精确地定位问题',
-  '💡 以"一步一步："开始可以解决复杂问题',
-  '💡 说"给我最简示例"可以得到简洁方案',
-  '💡 使用"解释你的推理过程"来理解AI思路',
-  '💡 说"检查边界情况"可以提高代码健壮性',
-  '💡 使用"遵循现有代码模式"保持风格一致',
-  '💡 说"添加错误处理"让代码更可靠',
-  '💡 使用"先写测试"提高代码质量',
-  '💡 说"优化可读性"胜过巧妙方案',
-  '💡 使用"拆分成小函数"改善设计',
-  '💡 说"添加注释解释为什么，不是做什么"',
-  '💡 使用"给我看替代方案"探索不同思路',
-  '💡 说"让它可配置"获得灵活方案',
-  '💡 使用"考虑性能影响"编写高效代码',
-  '💡 说"遵循SOLID原则"改善架构',
-  '💡 使用"添加输入验证"预防bug',
-  '💡 说"让它类型安全"提高代码可靠性',
-  '💡 使用"提取公共逻辑"减少重复',
-  '💡 说"添加调试日志"跟踪执行过程',
-  '💡 使用"正确处理异步操作"编写健壮代码',
-  '💡 说"考虑内存使用"提高资源效率',
-  '💡 使用"让它可测试"改善代码设计',
-  '💡 说"添加文档"为未来维护者考虑',
-  '💡 使用"遵循命名约定"提高代码清晰度',
-  '💡 说"考虑线程安全"处理并发代码',
-  '💡 使用"实现优雅降级"改善用户体验',
-  '💡 说"添加监控和指标"用于生产代码',
-  '💡 使用"考虑安全隐患"编写安全代码',
-  '💡 说"保持向后兼容"维护稳定API',
+  // 快捷键
+  '按 Ctrl+L 快速打开模型切换菜单',
+  '按 Ctrl+T 切换工具描述显示',
+  '按 Ctrl+V (macOS/Linux) 或 Ctrl+G (Windows) 粘贴截图',
+  '按 Alt+Left/Right 按单词移动光标',
+  '按 Esc 可以中止任务并允许发新的指令',
+  '使用 dvcode -c 启动，可以继续上次的对话',
+  '使用 dvcode -y 启动，可以免确认模式',
+  '使用 dvcode -u 启动，可以强制检查版本更新',
+  '使用 dvcode --cloud-mode 连接云端服务器进行远程访问',
+  '按住 Ctrl/Alt/Shift+回车 可以输入框换行',
+  // 斜杠命令
+  '输入 /model 可以交互式切换 AI 模型',
+  '输入 /clear 可以清空屏幕',
+  '输入 /restore 可以回滚到检查点',
+  '输入 /session list 可以浏览所有对话会话',
+  '输入 /session new 可以随时开始全新对话',
+  '输入 /session select <编号> 可以切换不同对话',
+  '输入 /memory show 可以查看已加载的项目上下文',
+  '输入 /memory refresh 可以重新加载所有 DEEPV.md 文件',
+  '输入 /memory add <文本> 可以添加到 AI 记忆',
+  '输入 /compress 可以压缩上下文并节省 token',
+  '输入 /stats 可以查看 token 用量和会话统计',
+  '输入 /stats tools 可以查看工具使用统计',
+  '输入 /mcp 可以列出配置的 MCP 服务器',
+  '输入 /mcp desc 可以显示详细的工具描述',
+  '输入 /tools 可以列出所有可用工具',
+  '输入 /tools nodesc 可以只显示工具名称',
+  '输入 /extensions list 可以查看可用的扩展',
+  '输入 /extensions info 可以了解扩展的安装和卸载知识',
+  '输入 /ext: 可以使用已安装的 context 类型扩展命令',
+  '输入 /theme 可以更换主题配色',
+  '输入 /plan 可以启用只读分析模式',
+  '输入 /plan off 可以退出只读模式',
+  '输入 /plan status 可以检查当前模式',
+  '输入 /init 可以自动为项目生成 DEEPV.md',
+  '输入 /auth 可以在会话过期时重新认证',
+  '输入 /help 可以查看传统帮助',
+  '输入 /help-ask 可以询问 AI 关于 CLI 功能的问题',
+  '输入 /copy 可以复制 AI 的最后一条回复',
+  '输入 /editor 可以选择编辑器查看 diff',
+  // @ 文件包含命令
+  '使用 @文件路径 可以在对话中包含文件内容',
+  '使用 @文件名 加问题可以帮助 AI 理解问题',
+  '使用 @目录 可以包含整个目录',
+  '使用 @报告.pdf 可以分析 PDF 文档',
+  '使用 @数据.xlsx 可以分析 Excel 电子表格',
+  '使用 @文档.docx 可以处理 Word 文档',
+  '使用 @clipboard 可以粘贴剪贴板中的文本或截图',
+  // ! Shell 命令
+  '使用 !命令 可以直接运行 shell 命令',
+  '单独输入 ! 可以切换到 shell 模式',
+  '示例：!npm run build, !git status, !python script.py',
+  // 自定义命令和配置
+  '可以在 ~/.deepv/commands/ 创建自定义斜杠命令',
+  '在自定义命令中使用 {{args}} 注入参数',
+  '在 .deepv/settings.json 中配置 MCP 服务器',
+  '在 settings.json 中设置 preferredEditor 用于 diff 查看',
+  '使用 DEEPV.md 文件为项目编写 AI 特定指令',
+  // 高级功能
+  '试试 @src/ 加上你的问题来分析整个代码库',
+  '结合 @ 和 ! 命令可以建立强大的工作流',
 ];
 
 export const WITTY_LOADING_PHRASES_EN = [
@@ -175,13 +209,13 @@ export const usePhraseCycler = (isActive: boolean, isWaiting: boolean) => {
         clearInterval(phraseIntervalRef.current);
         phraseIntervalRef.current = null;
       }
-      
+
       // 设置静态等待消息
       const waitingMessage = isChineseLocale()
         ? '等待用户确认...'
         : 'Waiting for user confirmation...';
       setCurrentLoadingPhrase(waitingMessage);
-      
+
       // 强制返回，不执行任何其他逻辑
       return () => {
         if (phraseIntervalRef.current) {
@@ -189,25 +223,25 @@ export const usePhraseCycler = (isActive: boolean, isWaiting: boolean) => {
           phraseIntervalRef.current = null;
         }
       };
-    } 
-    
+    }
+
     if (isActive) {
       // 清除之前的定时器
       if (phraseIntervalRef.current) {
         clearInterval(phraseIntervalRef.current);
         phraseIntervalRef.current = null;
       }
-      
+
       // 选择初始随机短语（使用新的随机选择逻辑）
       setCurrentLoadingPhrase(getRandomPhrase());
 
       // 🎯 小窗口优化：在极小窗口下禁用短语切换
       if (!shouldSkipAnimation(smallWindowConfig, 'phrase')) {
         // 🎯 小窗口优化：根据窗口大小调整刷新间隔
-        const refreshInterval = smallWindowConfig.sizeLevel === 'normal' 
-          ? PHRASE_CHANGE_INTERVAL_MS 
+        const refreshInterval = smallWindowConfig.sizeLevel === 'normal'
+          ? PHRASE_CHANGE_INTERVAL_MS
           : getOptimalRefreshInterval(smallWindowConfig.sizeLevel) * 3; // 小窗口下延长3倍间隔
-          
+
         // 启动新的定时器
         phraseIntervalRef.current = setInterval(() => {
           setCurrentLoadingPhrase(getRandomPhrase());

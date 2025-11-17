@@ -17,7 +17,7 @@ import { copyCommand } from '../ui/commands/copyCommand.js';
 // import { corgiCommand } from '../ui/commands/corgiCommand.js'; // 已禁用
 // import { docsCommand } from '../ui/commands/docsCommand.js'; // 已禁用
 import { editorCommand } from '../ui/commands/editorCommand.js';
-// import { extensionsCommand } from '../ui/commands/extensionsCommand.js'; // 已删除
+import { extensionsCommand } from '../ui/commands/extensionsCommand.js';
 import { helpCommand } from '../ui/commands/helpCommand.js';
 import { helpAskCommand } from '../ui/commands/helpAskCommand.js';
 import { ideCommand } from '../ui/commands/ideCommand.js';
@@ -39,6 +39,7 @@ import { mcpCommand } from '../ui/commands/mcpCommand.js';
 import { planCommand } from '../ui/commands/planCommand.js';
 import { accountCommand } from '../ui/commands/accountCommand.js';
 import { refineCommand } from '../ui/commands/refineCommand.js';
+import { queueCommand } from '../ui/commands/queueCommand.js';
 
 /**
  * Loads the core, hard-coded slash commands that are an integral part
@@ -66,7 +67,7 @@ export class BuiltinCommandLoader implements ICommandLoader {
       // corgiCommand, // 已禁用柯基模式命令
       // docsCommand, // 已禁用文档命令
       editorCommand,
-      // extensionsCommand, // 已删除
+      extensionsCommand,
       helpCommand,
       helpAskCommand,
       ideCommand(this.config),
@@ -76,6 +77,7 @@ export class BuiltinCommandLoader implements ICommandLoader {
       // privacyCommand, // 已删除
       mcpCommand, // 已删除
       planCommand,
+      queueCommand,
       quitCommand,
       refineCommand,
       restoreCommand(this.config),
