@@ -155,12 +155,44 @@ export class SessionPersistenceService {
 
       // 1. 保存 metadata.json
       // 🎯 复用之前已经获取的firstUserMessage，避免重复计算
+
+      // 🎯 读取已有的 metadata，检查是否有手动修改过的标题
+      let existingMetadata: SessionMetadata | null = null;
+      try {
+        const metadataPath = path.join(sessionDir, 'metadata.json');
+        const metadataContent = await fs.readFile(metadataPath, 'utf-8');
+        existingMetadata = JSON.parse(metadataContent);
+      } catch {
+        // 文件不存在或读取失败，忽略
+      }
+
+      // 🎯 决定标题：优先使用 sessionState.info.name（包含用户手动修改的标题）
+      // 只有当 name 是默认值且没有已有 title 时，才用第一条消息自动生成
+      let title: string = sessionState.info.name;  // 默认使用 sessionState.info.name
+
+      const isDefaultName = sessionState.info.name === 'New Chat' || sessionState.info.name === 'Untitled Chat';
+      const hasExistingTitle = existingMetadata?.title &&
+                               existingMetadata.title !== 'New Chat' &&
+                               existingMetadata.title !== 'Untitled Chat';
+
+      // 只在以下情况才自动生成标题：
+      // 1. 当前 name 是默认值
+      // 2. 没有已有的 title（新 session）或已有 title 也是默认值
+      // 3. 有第一条用户消息
+      if (isDefaultName && !hasExistingTitle && firstUserMessage && firstUserMessage.trim()) {
+        // 使用第一条用户消息自动生成标题
+        title = firstUserMessage.length > 50
+          ? firstUserMessage.substring(0, 50) + '...'
+          : firstUserMessage.trim();
+      } else if (isDefaultName && hasExistingTitle) {
+        // 保持已有的标题
+        title = existingMetadata!.title;
+      }
+      // 否则使用 sessionState.info.name（包括用户手动修改的）
+
       const metadata: SessionMetadata = {
         sessionId,
-        // 🎯 优先使用第一条用户消息作为标题，如果没有则使用 session 名称
-        title: firstUserMessage && firstUserMessage.trim()
-          ? (firstUserMessage.length > 50 ? firstUserMessage.substring(0, 50) + '...' : firstUserMessage.trim())
-          : sessionState.info.name,
+        title,
         createdAt: typeof sessionState.info.createdAt === 'string' ? sessionState.info.createdAt : new Date(sessionState.info.createdAt).toISOString(),
         lastActiveAt: sessionState.info.lastActivity ? new Date(sessionState.info.lastActivity).toISOString() : new Date().toISOString(),
         messageCount: sessionState.messages.length,
@@ -732,6 +764,85 @@ export class SessionPersistenceService {
   }
 
   /**
+   * 🎯 获取所有session的元数据（用于历史列表）
+   * 只返回轻量级的metadata，不加载完整session数据
+   */
+  async getAllSessionMetadata(): Promise<SessionMetadata[]> {
+    try {
+      const index = await this.loadSessionIndex();
+      // 按创建时间倒序排序（最新的在前面）
+      return index.sessions.sort((a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+    } catch (error) {
+      this.logger.error('Failed to get all session metadata', error instanceof Error ? error : undefined);
+      return [];
+    }
+  }
+
+  /**
+   * 🎯 分页获取session历史（用于历史列表的按需加载）
+   */
+  async getSessionHistory(options: {
+    offset: number;
+    limit: number;
+    searchQuery?: string;
+  }): Promise<{
+    sessions: SessionMetadata[];
+    total: number;
+    hasMore: boolean;
+  }> {
+    try {
+      const index = await this.loadSessionIndex();
+      let allSessions = index.sessions;
+
+      // 搜索过滤
+      if (options.searchQuery && options.searchQuery.trim()) {
+        const query = options.searchQuery.toLowerCase();
+        allSessions = allSessions.filter(s =>
+          s.title.toLowerCase().includes(query)  // 🔥 修复：使用 title
+        );
+      }
+
+      // 排序（最新的在前）
+      allSessions.sort((a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+
+      // 分页
+      const total = allSessions.length;
+      const pagedSessions = allSessions.slice(
+        options.offset,
+        options.offset + options.limit
+      );
+
+      this.logger.info(`📄 Session history: offset=${options.offset}, limit=${options.limit}, total=${total}, returned=${pagedSessions.length}`);
+
+      return {
+        sessions: pagedSessions,
+        total: total,
+        hasMore: (options.offset + options.limit) < total
+      };
+
+    } catch (error) {
+      this.logger.error('Failed to get session history', error instanceof Error ? error : undefined);
+      return {
+        sessions: [],
+        total: 0,
+        hasMore: false
+      };
+    }
+  }
+
+  /**
+   * 加载单个session的完整状态（用于SessionManager）
+   * 这是loadSingleSession的公开包装，保持原有私有方法不变
+   */
+  async loadSessionState(sessionId: string): Promise<SessionState | null> {
+    return this.loadSingleSession(sessionId);
+  }
+
+  /**
    * 更新session索引
    */
   private async updateSessionIndex(metadata: SessionMetadata): Promise<void> {
@@ -770,7 +881,7 @@ export class SessionPersistenceService {
   }
 
   /**
-   * 加载单个session数据
+   * 加载单个session数据（内部使用）
    */
   private async loadSingleSession(sessionId: string): Promise<SessionState | null> {
     const sessionDir = this.getSessionDir(sessionId);

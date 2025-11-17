@@ -22,6 +22,8 @@ import { startupOptimizer } from './utils/startupOptimizer';
 import { EnvironmentOptimizer } from './utils/environmentOptimizer';
 import { ROLLBACK_MESSAGES } from './i18n/messages';
 import { ClipboardCacheService } from './services/clipboardCacheService';
+import { SessionType, SessionStatus } from './constants/sessionConstants';
+import { SessionInfo } from './types/sessionTypes';
 
 let logger: Logger;
 let webviewService: WebViewService;
@@ -1348,19 +1350,128 @@ function setupMultiSessionHandlers() {
     }
   });
 
-  // 处理Session列表请求
-  communicationService.onSessionListRequest(async () => {
+  // 处理Session列表请求（兼容历史分页请求）
+  communicationService.onSessionListRequest(async (payload: any) => {
     try {
-      logger.info('Received session_list_request');
-      const sessions = sessionManager.getAllSessionsInfo();
+      logger.info(`📥 Received session_list_request:`, payload);
+
+      // 验证 sessionManager 是否已初始化
+      if (!sessionManager) {
+        logger.error('Session manager not initialized');
+        communicationService.sendMessage({
+          type: 'session_list_update',
+          payload: { sessions: [], currentSessionId: null }
+        });
+        return;
+      }
+
+      if (payload && typeof payload.offset === 'number' && typeof payload.limit === 'number') {
+        logger.info(`📋 History pagination: offset=${payload.offset}, limit=${payload.limit}`);
+
+        try {
+          // 获取持久化服务
+          const persistenceService = sessionManager.getPersistenceService?.();
+          if (!persistenceService) {
+            throw new Error('Persistence service not available');
+          }
+
+          // 请求分页数据
+          const result = await persistenceService.getSessionHistory({
+            offset: payload.offset,
+            limit: payload.limit,
+            searchQuery: payload.searchQuery
+          });
+
+          // 转换元数据为 SessionInfo 格式
+          const sessions = result.sessions.map(metadata => ({
+            id: metadata.sessionId,
+            name: (metadata.title && metadata.title.trim()) || 'New Chat',
+            createdAt: new Date(metadata.createdAt).getTime(),
+            lastActivity: new Date(metadata.lastActiveAt).getTime(),
+            status: SessionStatus.IDLE,
+            type: SessionType.CHAT,
+            messageCount: metadata.messageCount || 0,
+            tokenUsage: { inputTokens: 0, outputTokens: 0, totalTokens: 0, tokenLimit: 0 }
+          }));
+
+          // 发送分页响应
+          communicationService.sendMessage({
+            type: 'session_history_response',
+            payload: {
+              sessions,
+              total: result.total,
+              hasMore: result.hasMore,
+              offset: payload.offset
+            }
+          });
+
+          logger.info(`✅ [PAGINATION] Sent ${sessions.length} sessions, total=${result.total}, hasMore=${result.hasMore}`);
+          console.log(`✅ [PAGINATION] Sent ${sessions.length} sessions, total=${result.total}, hasMore=${result.hasMore}`);
+          return;
+
+        } catch (error) {
+          logger.error('Failed to get session history pagination', error instanceof Error ? error : undefined);
+          console.error('❌ [PAGINATION] Error:', error);
+          // 发送错误响应（空列表）
+          communicationService.sendMessage({
+            type: 'session_history_response',
+            payload: { sessions: [], total: 0, hasMore: false, offset: 0 }
+          });
+          return;
+        }
+      }
+
+      // 原有逻辑：获取session列表（活跃或全部）
+      const includeAll = payload?.includeAll || false;
+      logger.info(`📥 Session list request: includeAll=${includeAll}`);
+
+      let sessions: SessionInfo[] = [];
+
+      if (includeAll) {
+        // 🎯 获取全部历史（从磁盘索引读取，轻量级metadata）
+        try {
+          const persistenceService = sessionManager.getPersistenceService?.();
+          if (!persistenceService) {
+            throw new Error('Persistence service not available');
+          }
+
+          const allMetadata = await persistenceService.getAllSessionMetadata();
+          sessions = allMetadata.map(metadata => ({
+            id: metadata.sessionId,
+            name: (metadata.title && metadata.title.trim()) || 'New Chat',
+            createdAt: new Date(metadata.createdAt).getTime(),
+            lastActivity: new Date(metadata.lastActiveAt).getTime(),
+            status: SessionStatus.IDLE,
+            type: SessionType.CHAT,
+            messageCount: metadata.messageCount || 0,
+            tokenUsage: { inputTokens: 0, outputTokens: 0, totalTokens: 0, tokenLimit: 0 }
+          }));
+          logger.info(`📜 Returning all ${sessions.length} sessions from history`);
+        } catch (error) {
+          logger.error('Failed to get all session metadata', error instanceof Error ? error : undefined);
+          sessions = [];
+        }
+      } else {
+        // 🎯 获取内存中的活跃sessions（最多10个）
+        sessions = sessionManager.getAllSessionsInfo();
+        logger.info(`📋 Returning ${sessions.length} active sessions from memory`);
+      }
+
       const currentSessionId = sessionManager.getCurrentSession()?.info.id || null;
 
       communicationService.sendMessage({
         type: 'session_list_update',
         payload: { sessions, currentSessionId }
       });
+
     } catch (error) {
-      logger.error('Failed to get session list', error instanceof Error ? error : undefined);
+      logger.error('Failed to handle session list request', error instanceof Error ? error : undefined);
+      console.error('❌ Error handling session list request:', error);
+      // 发送空响应避免 WebView 永久挂起
+      communicationService.sendMessage({
+        type: 'session_list_update',
+        payload: { sessions: [], currentSessionId: null }
+      });
     }
   });
 
@@ -2003,6 +2114,18 @@ async function startServices() {
       sessionManager.on('created', async () => {
         logger.info('Session created, reinitializing inline completion...');
         await initializeInlineCompletion();
+      });
+
+      // 🎯 监听 session 更新事件，转发到前端
+      sessionManager.on('updated', async (sessionId: string, data: any) => {
+        const session = sessionManager.getSession(sessionId);
+        if (session) {
+          communicationService.sendMessage({
+            type: 'session_updated',
+            payload: { sessionId, session: session.info }
+          });
+          logger.info(`Session updated event forwarded to frontend: ${sessionId}`);
+        }
       });
 
     } catch (error) {

@@ -127,9 +127,8 @@ export const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
    * 处理Session切换
    */
   const handleSessionSelect = (sessionId: string) => {
-    if (sessionId !== currentSession?.id) {
-      onSessionSwitch(sessionId);
-    }
+    // 总是调用回调，即使是当前 session（用于关闭历史列表等）
+    onSessionSwitch(sessionId);
   };
 
   /**

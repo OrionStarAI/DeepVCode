@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { X, Trash2, Edit2 } from 'lucide-react';
+import { X, Trash2, Edit2, ChevronsDown, Loader2 } from 'lucide-react';
 import { ChatMessage } from '../types';
 import { messageContentToString } from '../utils/messageContentUtils';
 import './ChatHistoryModal.css';
@@ -23,18 +23,25 @@ interface ChatHistoryModalProps {
   onSelectSession: (sessionId: string) => void;
   onDeleteSession?: (sessionId: string) => void;
   onRenameSession?: (sessionId: string, newTitle: string) => void;
+  // 🎯 分页相关
+  hasMore?: boolean;
+  isLoading?: boolean;
+  total?: number;
+  onLoadMore?: () => void;
 }
 
-const ITEMS_PER_PAGE = 50; // 初始显示 50 条
+// 不再使用前端分页，直接显示所有已加载的数据
 
 interface GroupedSession {
   date: string;
-  sessions: typeof sessions;
+  sessions: ChatHistoryModalProps['sessions'];
 }
 
 const getGroupLabel = (timestamp: number): string => {
   const now = new Date();
-  const sessionDate = new Date(timestamp);
+  // 🔥 确保 timestamp 是毫秒单位（如果是秒则乘以 1000）
+  const timestampMs = timestamp > 9999999999 ? timestamp : timestamp * 1000;
+  const sessionDate = new Date(timestampMs);
 
   // 获取今天的起始时间（00:00:00）
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
@@ -63,7 +70,7 @@ const getGroupLabel = (timestamp: number): string => {
 };
 
 const groupSessions = (sessions: ChatHistoryModalProps['sessions']): GroupedSession[] => {
-  const groups: Record<string, typeof sessions> = {};
+  const groups: Record<string, ChatHistoryModalProps['sessions']> = {};
   const dateOrder = ['today', 'yesterday', 'last 7 days', 'last 30 days', 'this month', 'last month', 'last 3 months', 'last 6 months', 'this year', 'older'];
 
   sessions.forEach((session) => {
@@ -78,7 +85,8 @@ const groupSessions = (sessions: ChatHistoryModalProps['sessions']): GroupedSess
     .filter((date) => groups[date])
     .map((date) => ({
       date,
-      sessions: groups[date],
+      // 🔥 每个分组内部也按时间倒序排序（最新的在上面）
+      sessions: groups[date].sort((a, b) => b.timestamp - a.timestamp),
     }));
 };
 
@@ -97,7 +105,7 @@ const getDisplayTitle = (messages: ChatMessage[], title: string): string => {
 
   // 2. 从消息中提取内容
   if (messages && messages.length > 0) {
-    const userMessages = messages.filter((m) => m.role === 'user');
+    const userMessages = messages.filter((m) => m.type === 'user');
     if (userMessages.length > 0) {
       const firstUserMsg = userMessages[0];
       const content = messageContentToString(firstUserMsg.content);
@@ -124,21 +132,62 @@ export const ChatHistoryModal: React.FC<ChatHistoryModalProps> = ({
   onSelectSession,
   onDeleteSession,
   onRenameSession,
+  hasMore,
+  isLoading,
+  total,
+  onLoadMore,
 }) => {
-
   const [searchQuery, setSearchQuery] = useState('');
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState('');
-  const [displayCount, setDisplayCount] = useState(ITEMS_PER_PAGE);
+  const listRef = React.useRef<HTMLDivElement>(null);
+  const searchInputRef = React.useRef<HTMLInputElement>(null);
 
-  // 搜索时重置分页
+  // 当 modal 打开且有当前 session 时，自动滚动到当前对话位置
   useEffect(() => {
-    setDisplayCount(ITEMS_PER_PAGE);
-  }, [searchQuery]);
+    if (isOpen && currentSessionId) {
+      const timer = setTimeout(() => {
+        const currentItem = document.querySelector(`[data-session-id="${currentSessionId}"]`);
+        if (currentItem) {
+          currentItem.scrollIntoView({
+            behavior: 'smooth',
+            block: 'center'
+          });
+        }
+      }, 200);
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, currentSessionId]);
+
+  // 快捷键支持
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+        return;
+      }
+
+      if (e.key === '/' && !editingSessionId) {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        searchInputRef.current?.focus();
+        return;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose, editingSessionId]);
 
   const groupedSessions = useMemo(() => {
     let filtered = sessions;
-
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       filtered = sessions.filter((session) => {
@@ -150,29 +199,11 @@ export const ChatHistoryModal: React.FC<ChatHistoryModalProps> = ({
         return titleMatch || contentMatch;
       });
     }
-
     return groupSessions(filtered);
   }, [sessions, searchQuery]);
 
-  // 计算过滤后的 sessions 总数（用于判断是否需要"加载更多"）
-  const totalFilteredSessions = useMemo(() => {
-    return groupedSessions.reduce((sum, group) => sum + group.sessions.length, 0);
-  }, [groupedSessions]);
-
-  // 获取要显示的 sessions（分页）
-  const displayedGroupedSessions = useMemo(() => {
-    let count = 0;
-    return groupedSessions.map((group) => ({
-      ...group,
-      sessions: group.sessions.filter(() => {
-        if (count < displayCount) {
-          count++;
-          return true;
-        }
-        return false;
-      }),
-    })).filter((group) => group.sessions.length > 0);
-  }, [groupedSessions, displayCount]);
+  // 直接显示所有已加载的分组数据（不做前端分页）
+  const displayedGroupedSessions = groupedSessions;
 
   const handleRenameClick = (session: ChatHistoryModalProps['sessions'][0]) => {
     setEditingSessionId(session.id);
@@ -180,10 +211,27 @@ export const ChatHistoryModal: React.FC<ChatHistoryModalProps> = ({
   };
 
   const handleSaveRename = (sessionId: string) => {
+    console.log('💾 Saving rename:', { sessionId, oldTitle: sessions.find(s => s.id === sessionId)?.title, newTitle: editingTitle.trim() });
     if (editingTitle.trim() && onRenameSession) {
       onRenameSession(sessionId, editingTitle.trim());
     }
     setEditingSessionId(null);
+  };
+
+  // 高亮搜索关键词
+  const highlightText = (text: string, query: string) => {
+    if (!query || !text) return text;
+
+    try {
+      const parts = text.split(new RegExp(`(${query})`, 'gi'));
+      return parts.map((part, i) =>
+        part.toLowerCase() === query.toLowerCase()
+          ? <mark key={i} className="chat-history-modal__highlight">{part}</mark>
+          : part
+      );
+    } catch {
+      return text;
+    }
   };
 
   if (!isOpen) return null;
@@ -194,9 +242,10 @@ export const ChatHistoryModal: React.FC<ChatHistoryModalProps> = ({
         {/* Search - 直接搜索，节约空间 */}
         <div className="chat-history-modal__search-container">
           <input
+            ref={searchInputRef}
             type="text"
             className="chat-history-modal__search-input"
-            placeholder="Search conversations..."
+            placeholder="Search conversations... (Press / to focus)"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             autoFocus
@@ -204,10 +253,29 @@ export const ChatHistoryModal: React.FC<ChatHistoryModalProps> = ({
         </div>
 
         {/* Sessions List */}
-        <div className="chat-history-modal__list">
-          {displayedGroupedSessions.length === 0 ? (
+        <div className="chat-history-modal__list" ref={listRef}>
+          {/* 首次加载骨架屏 */}
+          {isLoading && sessions.length === 0 ? (
+            <div className="chat-history-modal__skeleton">
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="chat-history-modal__skeleton-item">
+                  <div className="chat-history-modal__skeleton-icon"></div>
+                  <div className="chat-history-modal__skeleton-content">
+                    <div className="chat-history-modal__skeleton-title"></div>
+                    <div className="chat-history-modal__skeleton-subtitle"></div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : displayedGroupedSessions.length === 0 ? (
             <div className="chat-history-modal__empty">
-              {searchQuery ? 'No conversations found' : 'No chat history'}
+              <div className="chat-history-modal__empty-icon">💬</div>
+              <div className="chat-history-modal__empty-title">
+                {searchQuery ? 'No conversations found' : 'No chat history'}
+              </div>
+              <div className="chat-history-modal__empty-subtitle">
+                {searchQuery ? 'Try a different search term' : 'Start a new conversation to see it here'}
+              </div>
             </div>
           ) : (
             displayedGroupedSessions.map((group) => (
@@ -216,6 +284,7 @@ export const ChatHistoryModal: React.FC<ChatHistoryModalProps> = ({
                 {group.sessions.map((session) => (
                   <div
                     key={session.id}
+                    data-session-id={session.id}
                     className={`chat-history-modal__item ${
                       currentSessionId === session.id ? 'active' : ''
                     }`}
@@ -238,7 +307,6 @@ export const ChatHistoryModal: React.FC<ChatHistoryModalProps> = ({
                     <div
                       className="chat-history-modal__item-main"
                       onClick={() => {
-                        // 编辑中时不要跳转
                         if (editingSessionId !== session.id) {
                           onSelectSession(session.id);
                         }
@@ -267,7 +335,7 @@ export const ChatHistoryModal: React.FC<ChatHistoryModalProps> = ({
                         />
                       ) : (
                         <span className="chat-history-modal__item-title" title={session.title}>
-                          {getDisplayTitle(session.messages, session.title)}
+                          {highlightText(getDisplayTitle(session.messages, session.title), searchQuery)}
                         </span>
                       )}
                     </div>
@@ -327,17 +395,36 @@ export const ChatHistoryModal: React.FC<ChatHistoryModalProps> = ({
           )}
         </div>
 
-        {/* Load More Button */}
-        {displayCount < totalFilteredSessions && (
-          <div className="chat-history-modal__footer">
+        {/* 底部统计和加载 */}
+        <div className="chat-history-modal__footer">
+          {/* 统计信息 */}
+          {total !== undefined && total > 0 && (
+            <div className="chat-history-modal__footer-stats">
+              <span className="chat-history-modal__stats-text">
+                {sessions.length} of {total} conversations
+              </span>
+            </div>
+          )}
+
+          {/* 从服务器加载更多 */}
+          {hasMore && !isLoading && (
             <button
               className="chat-history-modal__load-more-btn"
-              onClick={() => setDisplayCount((prev) => prev + ITEMS_PER_PAGE)}
+              onClick={onLoadMore}
             >
-              Show {Math.min(ITEMS_PER_PAGE, totalFilteredSessions - displayCount)} more
+              <ChevronsDown size={16} />
+              <span>Load More ({total && total > sessions.length ? total - sessions.length : 0} remaining)</span>
             </button>
-          </div>
-        )}
+          )}
+
+          {/* 加载中状态 */}
+          {isLoading && (
+            <div className="chat-history-modal__loading">
+              <Loader2 size={14} className="chat-history-modal__loading-icon" />
+              <span>Loading...</span>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

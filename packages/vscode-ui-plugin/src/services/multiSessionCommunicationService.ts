@@ -55,7 +55,7 @@ export class MultiSessionCommunicationService {
     if (this.isWebviewReady) {
       return true;
     }
-    
+
     if (!this.readyPromise) {
       return false;
     }
@@ -405,7 +405,7 @@ export class MultiSessionCommunicationService {
     return this.addMessageHandler('session_import', handler);
   }
 
-  onSessionListRequest(handler: () => void): vscode.Disposable {
+  onSessionListRequest(handler: (payload?: { includeAll?: boolean; offset?: number; limit?: number; searchQuery?: string }) => void): vscode.Disposable {
     return this.addMessageHandler('session_list_request', handler);
   }
 
