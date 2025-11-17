@@ -258,29 +258,18 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
 
   // 🎯 确认回退操作
   const confirmRevertToMessage = () => {
-    if (!sessionId) return;
-
-    // 🎯 1. 先在前端截断消息列表
-    if (messages && onUpdateMessages) {
-      const messageIndex = messages.findIndex(msg => msg.id === message.id);
-      if (messageIndex !== -1) {
-        // 截断到当前消息（包含当前消息），保留当前消息及之前的所有消息
-        const truncatedMessages = messages.slice(0, messageIndex + 1);
-        console.log(`🎯 回退操作：截断消息列表从 ${messages.length} 条到 ${truncatedMessages.length} 条（保留当前消息）`);
-        onUpdateMessages(truncatedMessages);
-      }
-    }
-
-    // 🎯 2. 然后发送消息到后端处理文件回退
-    window.vscode.postMessage({
-      type: 'revert_to_message',
-      payload: {
-        sessionId,
-        messageId: message.id
-      }
-    });
-    
+    // 关闭确认对话框
     setShowRevertConfirm(false);
+    
+    // 🎯 调用父组件传入的 onRollback 回调（ChatInterface 的 handleRollback）
+    // ChatInterface 的 handleRollback 会处理完整的回退逻辑：
+    // 1. 中止 AI 进程
+    // 2. 截断消息列表
+    // 3. 更新 UI
+    // 4. 发送后端回退请求
+    if (onRollback) {
+      onRollback(message.id);
+    }
   };
 
   // 🎯 取消回退操作
@@ -314,7 +303,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
             {onRollback && (
               <button
                 className="rollback-button-inline"
-                onClick={() => onRollback(message.id)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRevertToMessage();
+                }}
                 title="回退到此消息"
                 aria-label="回退到此消息"
               >
