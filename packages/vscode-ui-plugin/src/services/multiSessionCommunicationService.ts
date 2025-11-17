@@ -522,6 +522,19 @@ export class MultiSessionCommunicationService {
     return this.addMessageHandler('rules_delete', handler);
   }
 
+  // 🎯 文件路径跳转监听器
+  onOpenFile(handler: (data: { filePath: string; line?: number; symbol?: string }) => void): vscode.Disposable {
+    return this.addMessageHandler('open_file', handler);
+  }
+
+  onGotoSymbol(handler: (data: { symbol: string }) => void): vscode.Disposable {
+    return this.addMessageHandler('goto_symbol', handler);
+  }
+
+  onGotoLine(handler: (data: { line: number }) => void): vscode.Disposable {
+    return this.addMessageHandler('goto_line', handler);
+  }
+
   // 🎯 发送项目设置响应
   async sendProjectSettingsResponse(settings: { yoloMode: boolean }) {
     await this.sendMessage({

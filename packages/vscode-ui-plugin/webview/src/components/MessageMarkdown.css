@@ -447,6 +447,54 @@
   border-bottom-style: solid;
 }
 
+/* 文件路径链接样式 */
+.file-path-link {
+  color: var(--vscode-textLink-foreground);
+  text-decoration: none;
+  border-bottom: 1px solid var(--vscode-textLink-foreground);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-weight: 500;
+  padding: 0 2px;
+  border-radius: 2px;
+  background-color: rgba(0, 122, 204, 0.1);
+}
+
+.file-path-link:hover {
+  color: var(--vscode-textLink-activeForeground);
+  background-color: rgba(0, 122, 204, 0.2);
+  border-bottom-width: 2px;
+}
+
+.file-path-link:focus {
+  outline: 2px solid var(--vscode-focusBorder);
+  outline-offset: 2px;
+}
+
+/* 方法名链接样式 */
+.method-name-link {
+  color: var(--vscode-symbolIcon-functionForeground, #dcdcaa);
+  text-decoration: none;
+  border-bottom: 1px dotted currentColor;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: var(--vscode-editor-font-family, 'Consolas', 'Monaco', monospace);
+  font-weight: 500;
+  padding: 0 2px;
+  border-radius: 2px;
+  background-color: rgba(220, 220, 170, 0.1);
+}
+
+.method-name-link:hover {
+  background-color: rgba(220, 220, 170, 0.2);
+  border-bottom-style: solid;
+}
+
+.method-name-link:focus {
+  outline: 2px solid var(--vscode-focusBorder);
+  outline-offset: 2px;
+}
+
 /* 分隔线样式 */
 .markdown-hr {
   border: none;

@@ -14,6 +14,7 @@ import { ChatMessage } from '../types';
 
 import { ToolCallList } from './ToolCallList';
 import { messageContentToString } from '../utils/messageContentUtils';
+import { linkifyTextNode } from '../utils/filePathLinkifier';
 import './ToolCalls.css';
 import './MessageMarkdown.css';
 import 'highlight.js/styles/vs2015.css'; // 代码高亮主题
@@ -147,7 +148,7 @@ const CodeBlock: React.FC<any> = ({ node, children, ...props }) => {
         {/* 展开状态：底部显示折叠按钮 */}
         {!isCollapsed && shouldShowCollapse && (
           <div className="code-footer">
-            <button 
+            <button
               className="code-footer-collapse-btn"
               onClick={() => setIsCollapsed(true)}
               title="折叠代码"
@@ -194,7 +195,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
   const handleCopy = async () => {
     try {
       const content = messageContentToString(message.content);
-      
+
       // 方法1: 使用现代 Clipboard API
       await navigator.clipboard.writeText(content);
       setCopySuccess(true);
@@ -212,7 +213,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
         textArea.select();
         const successful = document.execCommand('copy');
         document.body.removeChild(textArea);
-        
+
         if (successful) {
           setCopySuccess(true);
           setTimeout(() => setCopySuccess(false), 2000);
@@ -240,7 +241,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
       <div className="message-content">
         {message.type === 'user' ? (
           <div className="user-content">
-            <span 
+            <span
               onClick={() => onStartEdit?.(message.id)}
               style={{
                 cursor: onStartEdit ? 'pointer' : 'default'
@@ -280,26 +281,26 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
               // 代码块美化 - 使用独立的 CodeBlock 组件
               pre: CodeBlock,
 
-              // 行内代码
+              // 行内代码 - 添加文件路径和方法名链接支持
               code({node, className, children, ...props}: any) {
                 // 如果有 className，说明是代码块中的 code，直接渲染
                 if (className) {
                   return <code className={className} {...props}>{children}</code>;
                 }
-                // 否则是行内代码
+                // 否则是行内代码，支持文件路径点击
                 return (
                   <code className="inline-code" {...props}>
-                    {children}
+                    {linkifyTextNode(children)}
                   </code>
                 );
               },
 
-              // 标题美化
-              h1: ({children}) => <h1 className="markdown-h1">{children}</h1>,
-              h2: ({children}) => <h2 className="markdown-h2">{children}</h2>,
-              h3: ({children}) => <h3 className="markdown-h3">{children}</h3>,
+              // 标题美化 - 添加文件路径和方法名链接支持
+              h1: ({children}) => <h1 className="markdown-h1">{linkifyTextNode(children)}</h1>,
+              h2: ({children}) => <h2 className="markdown-h2">{linkifyTextNode(children)}</h2>,
+              h3: ({children}) => <h3 className="markdown-h3">{linkifyTextNode(children)}</h3>,
 
-              // 列表美化
+              // 列表美化 - 添加文件路径和方法名链接支持
               ul: ({children}) => <ul className="markdown-ul">{children}</ul>,
               ol: ({children}) => <ol className="markdown-ol">{children}</ol>,
               li: ({children, ...props}: any) => {
@@ -309,11 +310,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
                   return (
                     <li className="markdown-task-list-item">
                       <input type="checkbox" checked={checked} disabled readOnly />
-                      <span>{children}</span>
+                      <span>{linkifyTextNode(children)}</span>
                     </li>
                   );
                 }
-                return <li className="markdown-li">{children}</li>;
+                return <li className="markdown-li">{linkifyTextNode(children)}</li>;
               },
 
               // 引用块美化
@@ -337,16 +338,16 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
                 </a>
               ),
 
-              // 段落间距
-              p: ({children}) => <p className="markdown-p">{children}</p>,
+              // 段落间距 - 添加文件路径和方法名链接支持
+              p: ({children}) => <p className="markdown-p">{linkifyTextNode(children)}</p>,
 
               // 分隔线
               hr: () => <hr className="markdown-hr" />,
 
-              // 强调文本
-              strong: ({children}) => <strong className="markdown-strong">{children}</strong>,
-              em: ({children}) => <em className="markdown-em">{children}</em>,
-              del: ({children}) => <del className="markdown-del">{children}</del>,
+              // 强调文本 - 添加文件路径和方法名链接支持
+              strong: ({children}) => <strong className="markdown-strong">{linkifyTextNode(children)}</strong>,
+              em: ({children}) => <em className="markdown-em">{linkifyTextNode(children)}</em>,
+              del: ({children}) => <del className="markdown-del">{linkifyTextNode(children)}</del>,
             }}
           >
             {messageContentToString(message.content)}
@@ -377,7 +378,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
         const shouldShow = message.type === 'assistant' &&
           !message.isStreaming &&
           !(message.isProcessingTools && !message.toolsCompleted);
-        
+
         return shouldShow && (
           <div className="message-actions">
           <button
