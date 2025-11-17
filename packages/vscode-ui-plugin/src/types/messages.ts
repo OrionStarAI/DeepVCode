@@ -221,7 +221,12 @@ export type WebViewToExtensionMessage =
   // 🎯 自定义规则管理
   | { type: 'rules_list_request'; payload: {} }
   | { type: 'rules_save'; payload: { rule: any } }
-  | { type: 'rules_delete'; payload: { ruleId: string } };
+  | { type: 'rules_delete'; payload: { ruleId: string } }
+  | { type: 'open_extension_marketplace'; payload: { extensionId: string } }
+  // 🎯 版本控制相关
+  | { type: 'revert_to_message'; payload: { sessionId: string; messageId: string } }
+  | { type: 'version_timeline_request'; payload: { sessionId: string } }
+  | { type: 'version_revert_previous'; payload: { sessionId: string } };
 
 // Message types from Extension to WebView
 export type ExtensionToWebViewMessage =

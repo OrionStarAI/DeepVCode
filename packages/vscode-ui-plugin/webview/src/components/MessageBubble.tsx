@@ -9,15 +9,24 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import rehypeHighlight from 'rehype-highlight';
 import rehypeRaw from 'rehype-raw';
-import { Copy, Check, ThumbsUp, ThumbsDown, RefreshCw, ChevronDown, ChevronUp, Pencil, Undo } from 'lucide-react';
+import { Copy, Check, ThumbsUp, ThumbsDown, RefreshCw, ChevronDown, ChevronUp, Undo2, AlertTriangle, Pencil, Undo } from 'lucide-react';
+
 import { ChatMessage } from '../types';
 
 import { ToolCallList } from './ToolCallList';
 import { messageContentToString } from '../utils/messageContentUtils';
 import './ToolCalls.css';
 import './MessageMarkdown.css';
+import './ChatInterface.css'; // 🎯 导入确认对话框样式
 import 'highlight.js/styles/vs2015.css'; // 代码高亮主题
 import 'katex/dist/katex.min.css'; // 数学公式样式
+
+// VSCode API
+declare const window: Window & {
+  vscode: {
+    postMessage: (message: any) => void;
+  };
+};
 
 // 代码块组件（提取为独立组件以正确管理状态）
 const CodeBlock: React.FC<any> = ({ node, children, ...props }) => {
@@ -147,7 +156,7 @@ const CodeBlock: React.FC<any> = ({ node, children, ...props }) => {
         {/* 展开状态：底部显示折叠按钮 */}
         {!isCollapsed && shouldShowCollapse && (
           <div className="code-footer">
-            <button 
+            <button
               className="code-footer-collapse-btn"
               onClick={() => setIsCollapsed(true)}
               title="折叠代码"
@@ -168,15 +177,23 @@ interface MessageBubbleProps {
   onToolConfirm?: (toolCallId: string, confirmed: boolean, userInput?: string) => void;
   onStartEdit?: (messageId: string) => void; // 🎯 新增：开始编辑回调
   onRegenerate?: (messageId: string) => void; // 🎯 新增：重新生成回调
+
+  canRevert?: boolean; // 🎯 新增：是否可以回退到此消息
+  sessionId?: string;  // 🎯 新增：会话ID
+  messages?: ChatMessage[]; // 🎯 新增：所有消息列表（用于回退时截断）
+  onUpdateMessages?: (messages: ChatMessage[]) => void; // 🎯 新增：更新消息列表回调
   onRollback?: (messageId: string) => void; // 🎯 新增：回退到此消息回调
 }
 
-export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolConfirm, onStartEdit, onRegenerate, onRollback }) => {
+export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolConfirm, onStartEdit, onRegenerate , onRollback, canRevert = false, sessionId, messages, onUpdateMessages}) => {
+
   const [copySuccess, setCopySuccess] = React.useState(false);
   // 🎯 Like/Dislike 状态管理
   const [feedbackState, setFeedbackState] = React.useState<'none' | 'like' | 'dislike'>('none');
   // 🎯 代码块复制状态管理（使用Map来追踪每个代码块的复制状态）
   const [codeCopyStates, setCodeCopyStates] = React.useState<Map<number, boolean>>(new Map());
+  // 🎯 回退确认对话框状态
+  const [showRevertConfirm, setShowRevertConfirm] = React.useState(false);
 
   const formatTime = (timestamp: number) => {
     return new Date(timestamp).toLocaleTimeString('en-US', {
@@ -194,7 +211,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
   const handleCopy = async () => {
     try {
       const content = messageContentToString(message.content);
-      
+
       // 方法1: 使用现代 Clipboard API
       await navigator.clipboard.writeText(content);
       setCopySuccess(true);
@@ -212,7 +229,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
         textArea.select();
         const successful = document.execCommand('copy');
         document.body.removeChild(textArea);
-        
+
         if (successful) {
           setCopySuccess(true);
           setTimeout(() => setCopySuccess(false), 2000);
@@ -233,6 +250,43 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
   // 🎯 处理 Dislike 点击
   const handleDislike = () => {
     setFeedbackState(current => current === 'dislike' ? 'none' : 'dislike');
+  };
+
+  // 🎯 处理回退到此消息 - 显示确认对话框
+  const handleRevertToMessage = () => {
+    setShowRevertConfirm(true);
+  };
+
+  // 🎯 确认回退操作
+  const confirmRevertToMessage = () => {
+    if (!sessionId) return;
+
+    // 🎯 1. 先在前端截断消息列表
+    if (messages && onUpdateMessages) {
+      const messageIndex = messages.findIndex(msg => msg.id === message.id);
+      if (messageIndex !== -1) {
+        // 截断到当前消息（包含当前消息），保留当前消息及之前的所有消息
+        const truncatedMessages = messages.slice(0, messageIndex + 1);
+        console.log(`🎯 回退操作：截断消息列表从 ${messages.length} 条到 ${truncatedMessages.length} 条（保留当前消息）`);
+        onUpdateMessages(truncatedMessages);
+      }
+    }
+
+    // 🎯 2. 然后发送消息到后端处理文件回退
+    window.vscode.postMessage({
+      type: 'revert_to_message',
+      payload: {
+        sessionId,
+        messageId: message.id
+      }
+    });
+    
+    setShowRevertConfirm(false);
+  };
+
+  // 取消回退操作
+  const cancelRevertToMessage = () => {
+    setShowRevertConfirm(false);
   };
 
   return (
@@ -377,7 +431,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
         const shouldShow = message.type === 'assistant' &&
           !message.isStreaming &&
           !(message.isProcessingTools && !message.toolsCompleted);
-        
+
         return shouldShow && (
           <div className="message-actions">
           <button
@@ -454,6 +508,36 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
         </div>
         );
       })()}
+
+      {/* 🎯 回退确认对话框 */}
+      {showRevertConfirm && (
+        <div className="confirm-dialog-overlay" onClick={cancelRevertToMessage}>
+          <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
+            <div className="confirm-dialog-header">
+              <AlertTriangle size={16} color="var(--vscode-editorWarning-foreground)" />
+              <h3>确认回退操作</h3>
+            </div>
+            <div className="confirm-dialog-content">
+              <p>回退到此消息将会删除此消息之后的所有对话内容。</p>
+              <p>此操作不可撤销，确定要继续吗？</p>
+            </div>
+            <div className="confirm-dialog-actions">
+              <button
+                className="confirm-dialog-button secondary"
+                onClick={cancelRevertToMessage}
+              >
+                取消
+              </button>
+              <button
+                className="confirm-dialog-button primary"
+                onClick={confirmRevertToMessage}
+              >
+                确定回退
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

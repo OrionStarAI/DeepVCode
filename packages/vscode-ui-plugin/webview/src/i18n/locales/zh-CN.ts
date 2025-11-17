@@ -275,4 +275,17 @@ export const zhCN: Translations = {
     newRuleContent: '# 新规则\n\n在此输入规则内容...',
     infoText: '规则文件保存在项目的 .deepvcode/rules/ 目录中，也支持 DEEPV.md 和 AGENTS.md 配置文件',
   },
+
+  versionHistory: {
+    title: '版本历史',
+    tooltip: '查看和管理对话版本历史',
+    showTimeline: '显示时间线',
+    revertPrevious: '回退到上一版本',
+    revertToVersion: '回退到此版本',
+    currentVersion: '当前版本',
+    noHistory: '暂无版本历史',
+    filesChanged: '个文件已修改',
+    linesAdded: '行新增',
+    linesRemoved: '行删除',
+  },
 };

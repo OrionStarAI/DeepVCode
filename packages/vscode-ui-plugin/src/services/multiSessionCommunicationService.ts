@@ -463,6 +463,19 @@ export class MultiSessionCommunicationService {
     return this.addMessageHandler('tool_cancel_all', handler);
   }
 
+  // 🎯 版本控制消息处理
+  onRevertToMessage(handler: (data: { sessionId: string; messageId: string }) => void): vscode.Disposable {
+    return this.addMessageHandler('revert_to_message', handler);
+  }
+
+  onVersionTimelineRequest(handler: (data: { sessionId: string }) => void): vscode.Disposable {
+    return this.addMessageHandler('version_timeline_request', handler);
+  }
+
+  onVersionRevertPrevious(handler: (data: { sessionId: string }) => void): vscode.Disposable {
+    return this.addMessageHandler('version_revert_previous', handler);
+  }
+
   /**
    * 🎯 监听流程中断请求
    */
