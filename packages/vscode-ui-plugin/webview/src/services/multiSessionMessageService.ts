@@ -40,6 +40,7 @@ interface MultiSessionMessageFromExtension {
        'session_switched' |
        'session_export_complete' |
        'session_import_complete' |
+       'session_history_response' |  // 🎯 历史列表分页响应
        // 🎯 UI历史记录相关
        'restore_ui_history' |
        'request_ui_history' |
@@ -284,10 +285,22 @@ export class MultiSessionMessageService {
   /**
    * 请求Session列表
    */
-  requestSessionList() {
+  requestSessionList(options?: { includeAll?: boolean }) {
     this.sendMessage({
       type: 'session_list_request',
-      payload: {}
+      payload: options || {}
+    });
+  }
+
+  /**
+   * 🎯 请求历史列表（分页）
+   * 临时方案：复用 session_list_request，通过 offset/limit 参数区分
+   */
+  requestSessionHistory(options: { offset: number; limit: number; searchQuery?: string }) {
+    console.log('🔥 [TEMP] Sending pagination request via session_list_request:', options);
+    this.sendMessage({
+      type: 'session_list_request',  // 🔥 临时改为复用现有消息类型
+      payload: options as any
     });
   }
 
@@ -535,6 +548,13 @@ export class MultiSessionMessageService {
    */
   onSessionListUpdate(handler: (data: { sessions: SessionInfo[]; currentSessionId: string | null }) => void) {
     this.addMessageHandler('session_list_update', handler);
+  }
+
+  /**
+   * 🎯 监听历史列表分页响应
+   */
+  onSessionHistoryResponse(handler: (data: { sessions: SessionInfo[]; total: number; hasMore: boolean; offset: number }) => void) {
+    this.addMessageHandler('session_history_response', handler);
   }
 
   /**

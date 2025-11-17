@@ -73,6 +73,7 @@ export const MultiSessionApp: React.FC = () => {
 
   // 🎯 聊天历史Modal状态
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  // 🎯 历史列表数据（分页加载）
   const [historySessionsList, setHistorySessionsList] = useState<Array<{
     id: string;
     title: string;
@@ -80,6 +81,9 @@ export const MultiSessionApp: React.FC = () => {
     messageCount: number;
     messages: ChatMessage[];
   }>>([]);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [historyHasMore, setHistoryHasMore] = useState(true);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   // 🎯 BUG FIX: 保存加载超时ID，以便清理
   const loadingTimeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
@@ -155,11 +159,21 @@ export const MultiSessionApp: React.FC = () => {
     };
   }, []);
 
+  // 🎯 加载历史列表（分页）
+  const loadHistoryList = React.useCallback((offset: number, limit: number) => {
+    setIsLoadingHistory(true);
+    getGlobalMessageService().requestSessionHistory({ offset, limit });
+  }, []);
+
   // 🎯 处理历史Modal的打开/关闭和数据加载
   useEffect(() => {
     if (isHistoryModalOpen) {
-      // Modal 打开时，请求最新的 session 列表
-      getGlobalMessageService().requestSessionList();
+      // 🎯 每次打开都重新加载，确保数据最新（性能影响小）
+      setHistorySessionsList([]);
+      setHistoryTotal(0);
+      setHistoryHasMore(true);
+      setIsLoadingHistory(false);
+      loadHistoryList(0, 100);
 
       // 处理 ESC 键关闭
       const handleKeyDown = (e: KeyboardEvent) => {
@@ -171,12 +185,18 @@ export const MultiSessionApp: React.FC = () => {
       document.addEventListener('keydown', handleKeyDown);
       return () => document.removeEventListener('keydown', handleKeyDown);
     }
-  }, [isHistoryModalOpen]);
+  }, [isHistoryModalOpen, loadHistoryList]);
 
   /**
    * 🎯 处理session切换 - 合并所有切换逻辑
    */
   const handleSessionSwitch = React.useCallback(async (sessionId: string) => {
+    // 如果点击的是当前 session，关闭历史列表
+    if (sessionId === state.currentSessionId) {
+      setIsHistoryModalOpen(false);
+      return;
+    }
+
     const session = state.sessions.get(sessionId);
 
     // 1. 🎯 当session被focus且内容未加载时，请求内容
@@ -225,20 +245,9 @@ export const MultiSessionApp: React.FC = () => {
         console.log('🚀 [STARTUP] Received session list:', sessions.length, 'sessions');
 
 
-      // 🎯 同步到历史列表（用于ChatHistoryModal）
-      const backendSessions = sessions.map((sessionInfo) => ({
-        id: sessionInfo.id,
-        title: sessionInfo.name || 'Untitled Chat',
-        timestamp: sessionInfo.createdAt,
-        messageCount: 0,
-        messages: [],
-      }));
-
-      setHistorySessionsList((prevList) => {
-        const backendIds = new Set(backendSessions.map((s) => s.id));
-        const localOnly = prevList.filter((s) => !backendIds.has(s.id));
-        return [...backendSessions, ...localOnly];
-      });
+      // 🎯 注意：这里是活跃session列表（最多10个）
+      // 历史列表应该由 onSessionHistoryResponse 更新，不要在这里覆盖！
+      console.log('📋 [SESSION_LIST] 收到活跃session列表:', sessions.length, '条（最多10条）');
 
       // 🎯 使用ref获取最新状态，避免闭包陷阱
       const currentState = stateRef.current;
@@ -261,6 +270,7 @@ export const MultiSessionApp: React.FC = () => {
           console.log('🆕 [STARTUP] Creating metadata-only session:', sessionInfo.id, sessionInfo.name);
           createSession(sessionInfo, false); // 🎯 false = 不加载内容，保持按需加载
         } else {
+          // 🎯 后端 updateSession 会更新内存，所以这里的数据应该是最新的
           updateSessionInfo(sessionInfo.id, sessionInfo);
         }
       });
@@ -288,17 +298,21 @@ export const MultiSessionApp: React.FC = () => {
       console.log('🆕 [NEW-SESSION] Creating new session with content loaded:', session.id);
       createSession(session, true); // 🎯 新建session立即加载内容
 
-      // 🎯 同步到历史列表（如果历史 Modal 打开）
-      setHistorySessionsList((prev) => [
-        {
+      // 🎯 新建后刷新活跃列表
+      setTimeout(() => {
+        getGlobalMessageService().requestSessionList();
+      }, 100);
+
+      // 🎯 添加到历史列表（无论列表是否已加载）
+      setHistorySessionsList((prev) => {
+        return [{
           id: session.id,
-          title: session.name || 'Untitled Chat',
+          title: session.name || 'New Chat',
           timestamp: session.createdAt,
           messageCount: 0,
-          messages: [],
-        },
-        ...prev,
-      ]);
+          messages: []
+        }, ...prev];
+      });
 
       // 🎯 立即切换到新创建的session，确保用户能第一时间看到
       console.log('🔄 [NEW-SESSION] Auto-switching to newly created session:', session.id);
@@ -316,15 +330,26 @@ export const MultiSessionApp: React.FC = () => {
       console.log('🔄 [BACKEND] Session updated:', sessionId, session);
       // 更新 state（这会更新顶部标签页）
       updateSessionInfo(sessionId, session);
-      // 🎯 同步到历史列表
-      setHistorySessionsList((prev) =>
-        prev.map((s) =>
-          s.id === sessionId
-            ? { ...s, title: session.name || 'Untitled Chat', timestamp: session.createdAt }
-            : s
-        )
-      );
-      console.log('🔄 [BACKEND] Updated history list');
+      // 🎯 如果历史列表已加载，同步更新
+      setHistorySessionsList((prev) => {
+        if (prev.length > 0 && prev.some(s => s.id === sessionId)) {
+          return prev.map((s) => {
+            if (s.id === sessionId) {
+              const sessionState = state.sessions.get(sessionId);
+              return {
+                ...s,
+                title: session.name || 'New Chat',
+                // 🎯 保持原来的 timestamp，不要改变排序
+                timestamp: s.timestamp,
+                messageCount: sessionState?.messages.length ?? 0,
+                messages: sessionState?.messages ?? [],
+              };
+            }
+            return s;
+          });
+        }
+        return prev;
+      });
     });
 
     messageService.onSessionDeleted(({ sessionId }) => {
@@ -332,22 +357,49 @@ export const MultiSessionApp: React.FC = () => {
       // 删除 state 中的 session
       deleteSession(sessionId);
       // 同时从历史列表中移除
-      setHistorySessionsList((prev) => {
-        const filtered = prev.filter((s) => s.id !== sessionId);
-        console.log('🗑️ [BACKEND] Updated history list, remaining:', filtered.length);
-        return filtered;
-      });
+      setHistorySessionsList((prev) => prev.filter((s) => s.id !== sessionId));
+      // 🎯 删除后重新请求列表，确保数据同步
+      setTimeout(() => {
+        getGlobalMessageService().requestSessionList();
+      }, 100);
     });
 
     messageService.onSessionSwitched(({ sessionId, session }) => {
-      // 🎯 只更新前端状态，不要再次调用handleSessionSwitch避免循环
-      console.log('📨 [BACKEND] Session switched to:', sessionId);
+      const existingSession = getSession(sessionId);
+      if (!existingSession && session) {
+        createSession(session, false);
+      }
       switchToSession(sessionId);
-
-      // 如果后端提供了session信息，也更新一下
-      if (session) {
+      if (session && existingSession) {
         updateSessionInfo(sessionId, session);
       }
+    });
+
+    // 🎯 监听历史列表分页响应
+    messageService.onSessionHistoryResponse(({ sessions, total, hasMore, offset }) => {
+      setHistorySessionsList((prev) => {
+        const newItems = sessions.map(s => ({
+          id: s.id,
+          title: s.name,
+          timestamp: s.lastActivity || s.createdAt,
+          messageCount: 0,
+          messages: []
+        }));
+
+        // 如果 offset=0，说明是首次加载或刷新，直接替换
+        if (offset === 0) {
+          return newItems;
+        }
+
+        // 否则是加载更多，去重后追加
+        const existingIds = new Set(prev.map(s => s.id));
+        const uniqueNewItems = newItems.filter(item => !existingIds.has(item.id));
+        return [...prev, ...uniqueNewItems];
+      });
+
+      setHistoryTotal(total);
+      setHistoryHasMore(hasMore);
+      setIsLoadingHistory(false);
     });
 
     // 🎯 监听UI历史恢复
@@ -794,6 +846,10 @@ export const MultiSessionApp: React.FC = () => {
       return;
     }
 
+    // 检查是否是第一条用户消息（在添加消息之前检查）
+    const session = getSession(sessionId);
+    const isFirstUserMessage = session ? session.messages.filter(m => m.type === 'user').length === 0 : false;
+
     // 添加用户消息到当前Session
     const userMessage: ChatMessage = {
       id: `user-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -804,6 +860,9 @@ export const MultiSessionApp: React.FC = () => {
 
     addMessage(sessionId, userMessage);
     setSessionLoading(sessionId, true);
+
+    // 🎯 不在前端手动生成标题，让后端在保存时自动提取第一条消息作为标题
+    // 后端会发送 session_updated 通知前端更新
 
     // 🎯 BUG FIX: 添加超时保护，防止isLoading永远卡住
     // 清除该session的任何已存在的超时
@@ -1024,13 +1083,31 @@ User question: ${contentStr}`;
    */
   const getRecentSessions = React.useCallback((): SessionInfo[] => {
     const allSessions = state.sessionList;
-    // 在UI层面按创建时间排序，然后取前10个
-    const sorted = allSessions
-      .slice() // 创建副本避免修改原数组
+    let sorted = allSessions
+      .slice()
       .sort((a, b) => b.createdAt - a.createdAt)
       .slice(0, 10);
-    return sorted;
-  }, [state.sessionList]);
+
+    // 确保当前 session 总是在顶部标签页显示
+    if (state.currentSessionId) {
+      const currentInList = sorted.find(s => s.id === state.currentSessionId);
+      if (!currentInList) {
+        const currentSession = state.sessions.get(state.currentSessionId);
+        if (currentSession) {
+          sorted = [currentSession.info, ...sorted.slice(0, 9)];
+        }
+      }
+    }
+
+    // 使用 state.sessions 中的最新数据（包括用户刚修改的标题）
+    return sorted.map(sessionInfo => {
+      const sessionState = state.sessions.get(sessionInfo.id);
+      if (sessionState) {
+        return sessionState.info;
+      }
+      return sessionInfo;
+    });
+  }, [state.sessionList, state.currentSessionId, state.sessions]);
 
   // =============================================================================
   // 渲染方法
@@ -1208,12 +1285,17 @@ User question: ${contentStr}`;
 
         <div className="multi-session-app__header-right">
           <button
-            className="multi-session-app__manage-btn"
-            onClick={() => setIsHistoryModalOpen(true)}
+            className="multi-session-app__manage-btn multi-session-app__history-btn"
+            onClick={() => {
+              if (!isLoadingHistory) {
+                setIsHistoryModalOpen(!isHistoryModalOpen);
+              }
+            }}
             title="Chat History"
             style={{ marginRight: '12px' }}
+            disabled={isLoadingHistory}
           >
-            <History size={14} stroke="currentColor" />
+            <History size={16} stroke="currentColor" />
           </button>
           <button
             className="multi-session-app__manage-btn"
@@ -1351,24 +1433,33 @@ User question: ${contentStr}`;
 
       {/* 🎯 聊天历史Modal */}
       <ChatHistoryModal
+        key={`history-${state.sessions.size}-${historySessionsList.length}`}
         isOpen={isHistoryModalOpen}
         sessions={historySessionsList.map((sessionInfo) => {
-          // 从 state 中获取该 session 的完整信息（包括消息）
           const sessionState = state.sessions.get(sessionInfo.id);
+          const messages = sessionState?.messages ?? [];
+          // 优先使用后端返回的最新 title
+          const title = sessionInfo.title || sessionState?.info?.name || 'New Chat';
           return {
             id: sessionInfo.id,
-            title: sessionInfo.title,
+            title,
             timestamp: sessionInfo.timestamp,
-            messageCount: sessionState?.messages.length ?? 0,
-            messages: sessionState?.messages ?? [],
+            messageCount: messages.length,
+            messages,
           };
         })}
         currentSessionId={state.currentSessionId || undefined}
         onClose={() => setIsHistoryModalOpen(false)}
         onSelectSession={(sessionId) => {
-          // 关闭 Modal
+          // 🎯 关键优化：先关闭 Modal，提升体验
           setIsHistoryModalOpen(false);
-          // 切换到选中的 session（handleSessionSwitch 会自动加载内容）
+
+          // 🎯 如果点击的是当前对话，无需切换（已经关闭了 Modal）
+          if (sessionId === state.currentSessionId) {
+            return;
+          }
+
+          // 🎯 切换到选中的 session（handleSessionSwitch 会自动加载内容）
           handleSessionSwitch(sessionId);
         }}
         onDeleteSession={(sessionId) => {
@@ -1376,24 +1467,30 @@ User question: ${contentStr}`;
           handleSessionAction('delete', sessionId);
         }}
         onRenameSession={(sessionId, newTitle) => {
+          console.log(`✏️ [RENAME] Renaming session ${sessionId}: "${newTitle}"`);
+
           // 1. 更新 state（这会更新顶部的标签页）
           updateSessionInfo(sessionId, { name: newTitle });
 
-          // 2. 更新历史列表
-          setHistorySessionsList((prev) => {
-            return prev.map((s) => (s.id === sessionId ? { ...s, title: newTitle } : s));
-          });
+          // 2. 更新历史列表（前端直接修改）
+          setHistorySessionsList((prev) =>
+            prev.map((s) => (s.id === sessionId ? { ...s, title: newTitle } : s))
+          );
 
-          // 3. 发送更新消息到后端
+          // 3. 发送更新消息到后端（后端会保存并发送 session_updated 和 session_list_update）
           getGlobalMessageService().updateSession({
             sessionId,
             updates: { name: newTitle },
           });
-
-          // 4. 刷新列表确保同步
-          setTimeout(() => {
-            getGlobalMessageService().requestSessionList();
-          }, 300);
+        }}
+        // 🎯 分页相关
+        hasMore={historyHasMore}
+        isLoading={isLoadingHistory}
+        total={historyTotal}
+        onLoadMore={() => {
+          if (historyHasMore && !isLoadingHistory) {
+            loadHistoryList(historySessionsList.length, 10);
+          }
         }}
       />
 

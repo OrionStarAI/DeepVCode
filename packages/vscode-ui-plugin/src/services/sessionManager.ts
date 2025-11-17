@@ -515,6 +515,44 @@ export class SessionManager extends EventEmitter {
    */
   async switchToSession(request: SwitchSessionRequest): Promise<void> {
     try {
+      // 🎯 关键修改：如果session不在内存中，从磁盘加载
+      if (!this.sessions.has(request.sessionId)) {
+        this.logger.info(`🔄 Session ${request.sessionId} not in memory, loading from disk...`);
+
+        try {
+          // 1. 从磁盘加载session
+          const sessionState = await this.persistenceService.loadSessionState(request.sessionId);
+
+          if (!sessionState) {
+            throw new Error(`Session ${request.sessionId} not found on disk`);
+          }
+
+          // 2. 检查并自动踢出旧session（如果超过限制）
+          this.validateSessionLimits();
+
+          // 3. 创建AI服务实例
+          const aiService = await this.createAIServiceForSession(sessionState.info.id);
+
+          // 4. 将session恢复到内存（设置为IDLE状态，不设置为当前）
+          sessionState.info.status = SessionStatus.IDLE;
+          this.sessions.set(sessionState.info.id, sessionState);
+          this.aiServices.set(sessionState.info.id, aiService);
+
+          // 5. 恢复AI客户端历史记录
+          const history = sessionState.context?.aiClientHistory;
+          if (history && Array.isArray(history)) {
+            aiService.getGeminiClient()?.setHistory(history as any[]);
+          }
+
+          this.logger.info(`✅ Loaded session from disk: ${sessionState.info.name} (${request.sessionId})`);
+
+        } catch (error) {
+          this.logger.error(`❌ Failed to load session ${request.sessionId} from disk`, error instanceof Error ? error : undefined);
+          throw new Error(`无法加载会话：${error instanceof Error ? error.message : String(error)}`);
+        }
+      }
+
+      // 继续原有的切换逻辑（现在session肯定在内存中了）
       this.validateSessionExists(request.sessionId);
 
       const previousSessionId = this.currentSessionId;
@@ -590,8 +628,11 @@ export class SessionManager extends EventEmitter {
         sessionState.settings = { ...sessionState.settings, ...request.updates.settings };
       }
 
-      // 更新时间戳
-      sessionState.info.lastActivity = Date.now();
+      // 🎯 只在修改 name（重命名）时，不要更新 lastActivity
+      // 其他修改才更新 lastActivity
+      if (request.updates.name === undefined) {
+        sessionState.info.lastActivity = Date.now();
+      }
 
       // 🎯 持久化保存更新后的session
       await this.persistenceService.saveSession(sessionState);
@@ -670,6 +711,13 @@ export class SessionManager extends EventEmitter {
     return Array.from(this.sessions.values())
       .map(session => session.info)
       .sort((a, b) => b.lastActivity - a.lastActivity);
+  }
+
+  /**
+   * 🎯 获取持久化服务（用于访问磁盘上的历史session）
+   */
+  getPersistenceService() {
+    return this.persistenceService;
   }
 
   /**
@@ -806,6 +854,12 @@ export class SessionManager extends EventEmitter {
 
       // 🎯 持久化保存完整的session状态
       await this.persistenceService.saveSession(sessionState);
+
+      // 🎯 发送 session_updated 事件，通知前端标题可能已更新
+      this.emitSessionEvent('updated', sessionId, {
+        original: sessionState.info,
+        updated: sessionState.info
+      });
 
       this.logger.info(`📝 Saved session history for ${sessionId}: UI(${uiHistory.length}) + AI(${aiClientHistory?.length || 0})`);
 

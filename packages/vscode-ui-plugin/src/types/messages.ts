@@ -193,7 +193,7 @@ export type WebViewToExtensionMessage =
   | { type: 'session_clear'; payload: SessionOperationPayload }
   | { type: 'session_export'; payload: SessionExportPayload }
   | { type: 'session_import'; payload: SessionImportPayload }
-  | { type: 'session_list_request'; payload: {} }
+  | { type: 'session_list_request'; payload: { includeAll?: boolean; offset?: number; limit?: number; searchQuery?: string } }
   // 🎯 UI消息保存相关
   | { type: 'save_ui_message'; payload: { sessionId: string; message: ChatMessage } }
   | { type: 'save_session_ui_history'; payload: { sessionId: string; messages: ChatMessage[] } }
@@ -246,6 +246,7 @@ export type ExtensionToWebViewMessage =
   | { type: 'flow_aborted'; payload: { sessionId: string } }
   // 新的多Session响应消息类型
   | { type: 'session_list_update'; payload: SessionListUpdatePayload }
+  | { type: 'session_history_response'; payload: { sessions: SessionInfo[]; total: number; hasMore: boolean; offset: number } }
   | { type: 'session_created'; payload: { session: SessionInfo } }
   | { type: 'session_updated'; payload: { sessionId: string; session: SessionInfo } }
   | { type: 'session_deleted'; payload: { sessionId: string } }

@@ -399,3 +399,24 @@
 .multi-session-app__create-first-btn:disabled:hover {
   background: initial;
 }
+
+/* 历史按钮特殊样式 - 更突出但不突兀 */
+.multi-session-app__history-btn {
+  opacity: 0.95;
+  padding: 4px;
+}
+
+.multi-session-app__history-btn:hover {
+  opacity: 1;
+  background: var(--vscode-titleBar-hoverBackground, rgba(255, 255, 255, 0.1)) !important;
+  transform: scale(1.05);
+}
+
+.multi-session-app__history-btn svg {
+  transition: transform 0.2s ease;
+}
+
+.multi-session-app__history-btn:hover svg {
+  transform: translateY(-1px);
+}
+

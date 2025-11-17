@@ -361,7 +361,12 @@ export const useMultiSessionState = () => {
       const newSessions = new Map(prev.sessions);
       const updatedSessionData = {
         ...sessionData,
-        info: { ...sessionData.info, ...updates, lastActivity: Date.now() }
+        // 🎯 只在非 name 更新时才更新 lastActivity（与后端逻辑一致）
+        info: {
+          ...sessionData.info,
+          ...updates,
+          lastActivity: updates.name !== undefined ? sessionData.info.lastActivity : Date.now()
+        }
       };
       newSessions.set(sessionId, updatedSessionData);
 
