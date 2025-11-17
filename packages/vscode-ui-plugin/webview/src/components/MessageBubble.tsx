@@ -284,7 +284,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
     setShowRevertConfirm(false);
   };
 
-  // 🎯 取消回退操作
+  // 取消回退操作
   const cancelRevertToMessage = () => {
     setShowRevertConfirm(false);
   };
