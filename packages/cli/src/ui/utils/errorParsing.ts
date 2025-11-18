@@ -183,6 +183,8 @@ ${serverMessage || '当前网络（中国大陆）暂不支持访问 DeepV Code 
 
 如果您认为我们的判断不正确，请检查您当前网络设置或反馈问题。
 
+⭐ 小贴士：若刚才还正常，现在异常了，请输入"继续"即可
+
 🔗 获取帮助：https://dvcode.deepvlab.ai/
 ─────────────────────────────────────────────────────`;
   } else {
@@ -194,6 +196,8 @@ ${serverMessage || 'DeepV Code service is not available in your current region.'
 We are expanding service coverage. Thank you for your support!
 
 If you believe this is an error, please check your network settings or report the issue.
+
+⭐ Tip: If it was working before, try typing "continue" to proceed.
 
 🔗 Get help: https://dvcode.deepvlab.ai/
 ─────────────────────────────────────────────────────`;

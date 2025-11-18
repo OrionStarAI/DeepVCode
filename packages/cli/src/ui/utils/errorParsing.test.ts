@@ -571,9 +571,8 @@ describe('parseAndFormatApiError', () => {
 
       expect(result).toContain('🌍 Region Access Restricted (451)');
       expect(result).toContain('Unsupported country or region');
-      expect(result).toContain('We\'re working to expand the availability');
-      expect(result).toContain('Check your network proxy settings');
-      expect(result).toContain('Try connecting from a supported region');
+      expect(result).toContain('We are expanding service coverage');
+      expect(result).toContain('If it was working before, try typing "continue" to proceed');
     });
 
     it('should format a REGION_BLOCKED_451 error with JSON message in Chinese', () => {
@@ -588,8 +587,7 @@ describe('parseAndFormatApiError', () => {
       expect(result).toContain('🌍 地区访问受限 (451)');
       expect(result).toContain('Unsupported country or region');
       expect(result).toContain('我们正在努力扩大服务覆盖范围');
-      expect(result).toContain('检查网络代理设置');
-      expect(result).toContain('尝试接入受支持的区域网络');
+      expect(result).toContain('⭐ 小贴士：若刚才还正常，现在异常了，请输入"继续"即可');
     });
 
     it('should format a REGION_BLOCKED_451 error without JSON message', () => {
@@ -599,7 +597,7 @@ describe('parseAndFormatApiError', () => {
 
       expect(result).toContain('🌍 Region Access Restricted (451)');
       expect(result).toContain('DeepV Code service is not available in your current region');
-      expect(result).toContain('Check your network proxy settings');
+      expect(result).toContain('⭐ Tip: If it was working before, try typing "continue" to proceed');
     });
 
     it('should format a 451 structured error', () => {
