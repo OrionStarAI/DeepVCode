@@ -540,7 +540,22 @@ You are running outside of a sandbox container, directly on the user's system. F
     ? `\n\n---\n\n${userMemory.trim()}`
     : '';
 
-  return `${sandboxContent}${gitContent}${memorySuffix}`.trim();
+  // Skills context (if available)
+  const skillsContent = (function () {
+    try {
+      // Try to load Skills context from CLI package
+      // This uses dynamic require to avoid hard dependency
+      const skillsModule = require('../../../cli/src/services/skill/skills-integration.js');
+      const skillsContext = skillsModule.getSkillsContext();
+      return skillsContext ? `\n\n---\n\n${skillsContext}` : '';
+    } catch {
+      // Skills system not available or failed to load
+      // This is expected if Skills system is not initialized
+      return '';
+    }
+  })();
+
+  return `${sandboxContent}${gitContent}${skillsContent}${memorySuffix}`.trim();
 }
 
 export function getCoreSystemPrompt(userMemory?: string, isVSCode?: boolean): string {

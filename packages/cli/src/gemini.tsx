@@ -254,6 +254,16 @@ export async function main() {
   // Load environment variables early to ensure Claude configuration works
   loadEnvironment();
 
+  // Initialize Skills system context (async, non-blocking)
+  // This loads Skills metadata for AI context injection
+  try {
+    const { initializeSkillsContext } = await import('./services/skill/skills-integration.js');
+    await initializeSkillsContext();
+  } catch (error) {
+    // Skills system is optional, silently continue if not available
+    // console.warn('[Skills] Initialization failed:', error);
+  }
+
   // 初始化 TerminalSizeManager 以集中管理 resize 事件
   // 这样可以避免 MaxListenersExceededWarning，并提升性能
   // 注意：terminalSizeManager 是单例，此调用确保其在应用启动时初始化
