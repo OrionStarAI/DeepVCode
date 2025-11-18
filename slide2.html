@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+html { background: #ffffff; }
+body {
+  width: 720pt; height: 405pt; margin: 0; padding: 0;
+  background: #F4F6F6;
+  font-family: Arial, sans-serif;
+  display: flex;
+  color: #1C2833;
+}
+
+.container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  padding: 40pt;
+  box-sizing: border-box;
+  gap: 30pt;
+}
+
+.left-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.right-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.section-title {
+  font-size: 24pt;
+  font-weight: bold;
+  color: #1C2833;
+  margin-bottom: 20pt;
+  border-left: 6pt solid #F39C12;
+  padding-left: 15pt;
+}
+
+.tech-stack {
+  background: #ffffff;
+  border-radius: 8pt;
+  padding: 20pt;
+  margin-bottom: 20pt;
+  box-shadow: 0 2pt 8pt rgba(0,0,0,0.1);
+}
+
+.tech-item {
+  display: flex;
+  align-items: center;
+  margin-bottom: 10pt;
+  font-size: 14pt;
+}
+
+.tech-icon {
+  width: 8pt;
+  height: 8pt;
+  background: #F39C12;
+  border-radius: 50%;
+  margin-right: 10pt;
+}
+
+.features-grid {
+  background: #ffffff;
+  border-radius: 8pt;
+  padding: 20pt;
+  box-shadow: 0 2pt 8pt rgba(0,0,0,0.1);
+}
+
+.feature-item {
+  margin-bottom: 15pt;
+  font-size: 14pt;
+}
+
+.feature-title {
+  font-weight: bold;
+  color: #2E4053;
+  margin-bottom: 5pt;
+}
+
+.feature-desc {
+  color: #5D6D7E;
+  line-height: 1.4;
+}
+
+.stats-section {
+  background: #1C2833;
+  border-radius: 8pt;
+  padding: 20pt;
+  margin-top: 20pt;
+  color: #ffffff;
+}
+
+.stat-item {
+  text-align: center;
+  margin-bottom: 15pt;
+}
+
+.stat-number {
+  font-size: 28pt;
+  font-weight: bold;
+  color: #F39C12;
+}
+
+.stat-label {
+  font-size: 12pt;
+  color: #AAB7B8;
+}
+</style>
+</head>
+<body>
+<div class="container">
+  <div class="left-column">
+    <h2 class="section-title">技术架构</h2>
+
+    <div class="tech-stack">
+      <ul>
+        <li>Monorepo架构，4个核心包</li>
+        <li>TypeScript + React + Ink</li>
+        <li>Google Gemini AI集成</li>
+        <li>Model Context Protocol (MCP)</li>
+        <li>VSCode双插件策略</li>
+        <li>跨平台Node.js应用</li>
+      </ul>
+    </div>
+
+    <div class="stats-section">
+      <div class="stat-item">
+        <div class="stat-number">4</div>
+        <div class="stat-label">核心包</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-number">20+</div>
+        <div class="stat-label">CLI命令</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-number">40+</div>
+        <div class="stat-label">文档文件</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="right-column">
+    <h2 class="section-title">核心特性</h2>
+
+    <div class="features-grid">
+      <div class="feature-item">
+        <div class="feature-title">🎯 Skills生态系统</div>
+        <div class="feature-desc">三级架构设计，专业能力模块化，Token使用优化40-50%</div>
+      </div>
+
+      <div class="feature-item">
+        <div class="feature-title">🚀 多模型支持</div>
+        <div class="feature-desc">Gemini 2.5 Flash/Pro，智能对话，上下文理解</div>
+      </div>
+
+      <div class="feature-item">
+        <div class="feature-title">🔧 丰富工具集</div>
+        <div class="feature-desc">文件操作、Shell集成、Web功能、Git集成</div>
+      </div>
+
+      <div class="feature-item">
+        <div class="feature-title">💻 VSCode集成</div>
+        <div class="feature-desc">完整UI扩展 + 轻量级伴侣，灵活选择使用方式</div>
+      </div>
+
+      <div class="feature-item">
+        <div class="feature-title">🏢 企业级特性</div>
+        <div class="feature-desc">认证系统、云端模式、遥测系统、多平台支持</div>
+      </div>
+
+      <div class="feature-item">
+        <div class="feature-title">🌟 开源生态</div>
+        <div class="feature-desc">Apache-2.0协议，社区驱动，MCP协议标准化</div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

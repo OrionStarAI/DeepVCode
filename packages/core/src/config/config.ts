@@ -812,6 +812,7 @@ export class Config {
     registerCoreTool(TodoWriteTool, this);
     registerCoreTool(ReadLintsTool, this);
     registerCoreTool(LintFixTool, this);
+    registerCoreTool(UseSkillTool, this);
 
     // TaskTool (SubAgent) is disabled in VSCode plugin mode
     // but remains available in CLI mode and other IDE environments

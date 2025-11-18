@@ -545,12 +545,14 @@ You are running outside of a sandbox container, directly on the user's system. F
     try {
       // Try to load Skills context from CLI package
       // This uses dynamic require to avoid hard dependency
-      const skillsModule = require('../../../cli/src/services/skill/skills-integration.js');
+      // Note: Use dist/src path for compiled code
+      const skillsModule = require('../../../cli/dist/src/services/skill/skills-integration.js');
       const skillsContext = skillsModule.getSkillsContext();
       return skillsContext ? `\n\n---\n\n${skillsContext}` : '';
-    } catch {
+    } catch (error) {
       // Skills system not available or failed to load
       // This is expected if Skills system is not initialized
+      // console.warn('[Skills] Failed to load context in prompts:', error);
       return '';
     }
   })();

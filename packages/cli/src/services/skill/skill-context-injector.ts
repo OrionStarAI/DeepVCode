@@ -57,15 +57,20 @@ export class SkillContextInjector {
   // ============================================================================
 
   /**
-   * 注入启动时的 Skills Context（仅元数据）
+   * 注入启动时的 Skills Context（元数据 + 脚本列表）
    *
-   * 策略: 启动时仅加载 Level 1 元数据，最小化 Token 成本
-   * 平均成本: ~100 tokens/skill
+   * 策略: 启动时加载元数据和脚本列表（不含脚本代码），最小化 Token 成本
+   * 平均成本: ~150 tokens/skill (元数据 ~100 + 脚本列表 ~50)
+   *
+   * 关键优化：
+   * - 只加载脚本文件名，不加载脚本内容（0 tokens for script code）
+   * - 明确告诉 AI 使用现成脚本而不是自己写代码
+   * - 提供"按需加载详细指令"的机制
    */
   async injectStartupContext(): Promise<SkillContextResult> {
     try {
-      // 加载所有已启用的 Skills（仅元数据）
-      const skills = await this.skillLoader.loadEnabledSkills(SkillLoadLevel.METADATA);
+      // 加载所有已启用的 Skills（包含资源信息，但不加载脚本内容）
+      const skills = await this.skillLoader.loadEnabledSkills(SkillLoadLevel.RESOURCES);
 
       // 格式化为 Context 字符串
       const context = this.formatMetadataContext(skills);
@@ -80,7 +85,7 @@ export class SkillContextInjector {
         levelStats: {
           metadata: skills.length,
           full: 0,
-          resources: 0,
+          resources: skills.length, // 包含资源列表，但不含脚本代码
         },
       };
     } catch (error) {
@@ -107,6 +112,8 @@ export class SkillContextInjector {
    *
    * - **skill-name**: skill description
    *   - Allowed Tools: tool1, tool2
+   *   - 📜 Scripts: script1.py, script2.sh (use these instead of writing new code)
+   *   - 📚 To see full instructions: mention or ask about this skill
    * ```
    */
   private formatMetadataContext(skills: Skill[]): string {
@@ -118,6 +125,19 @@ export class SkillContextInjector {
       '# Available Skills',
       '',
       'You have access to the following skills. Use them when appropriate to enhance your capabilities.',
+      '',
+      '**🔥 CRITICAL: How to Use Skills with Scripts:**',
+      '',
+      '1. **Recognize when a skill has scripts** (marked with 📜 below)',
+      '2. **ALWAYS load the skill\'s full instructions first** by saying: "Let me check the [skill-name] skill instructions"',
+      '3. **The skill\'s SKILL.md contains detailed usage examples** - you MUST read them before using scripts',
+      '4. **Execute the scripts** as shown in the skill\'s instructions using `run_shell_command`',
+      '5. **Never write new code** if a skill provides a script for the task',
+      '',
+      '**Why this matters:**',
+      '- Each SKILL.md contains specific command syntax and parameter descriptions for its scripts',
+      '- Scripts save 60-80% tokens (code not in context, only output captured)',
+      '- Scripts are tested and reliable - writing new code risks errors',
       '',
     ];
 
@@ -140,6 +160,22 @@ export class SkillContextInjector {
           if (skill.metadata.allowedTools && skill.metadata.allowedTools.length > 0) {
             lines.push(`  - Allowed Tools: ${skill.metadata.allowedTools.join(', ')}`);
           }
+
+          // 添加脚本信息（如果有）
+          if (skill.scripts && skill.scripts.length > 0) {
+            const scriptNames = skill.scripts.map(s => s.name).join(', ');
+            lines.push(`  - 📜 **Scripts Available**: ${scriptNames}`);
+            lines.push(`  - 🔥 **Before using**: Call \`use_skill(skillName="${skill.name}")\` to load instructions`);
+            lines.push(`  - ⚠️  **Do NOT write new code** - use the provided scripts`);
+          }
+
+          // 添加参考文档信息（如果有）
+          if (skill.references && skill.references.length > 0) {
+            lines.push(`  - 📚 Reference docs available (${skill.references.length} files)`);
+          }
+
+          // 提示如何获取详细信息
+          lines.push(`  - 💡 For full instructions: ask about "${skill.name}" or mention this skill`);
         }
 
         lines.push('');
@@ -184,6 +220,12 @@ export class SkillContextInjector {
 
   /**
    * 格式化完整的 SKILL.md 内容
+   *
+   * 包含：
+   * - Skill 元数据
+   * - 完整的 markdown 指令
+   * - **可用脚本清单和使用示例**
+   * - 参考文档列表
    */
   private formatFullContent(skill: Skill): string {
     const lines: string[] = [
@@ -209,11 +251,70 @@ export class SkillContextInjector {
       lines.push('');
     }
 
+    // ========================================================================
+    // 🔥 关键部分：脚本使用指南
+    // ========================================================================
+    if (skill.scripts && skill.scripts.length > 0) {
+      lines.push('## 📜 Available Scripts');
+      lines.push('');
+      lines.push('**⚠️  IMPORTANT: Use these ready-made scripts instead of writing new code.**');
+      lines.push('');
+      lines.push('These scripts are tested, optimized, and designed for this skill.');
+      lines.push('Using them saves tokens (script code is not loaded into context).');
+      lines.push('');
+
+      for (const script of skill.scripts) {
+        lines.push(`### ${script.name}`);
+        if (script.description) {
+          lines.push(`${script.description}`);
+        }
+        lines.push('');
+
+        // 显示脚本类型和路径
+        lines.push(`**Type**: ${script.type}`);
+        lines.push(`**Path**: \`${script.path}\``);
+        lines.push('');
+
+        // 提供使用示例
+        const executor = script.type === 'python' ? 'python3' : script.type === 'node' ? 'node' : 'bash';
+        lines.push('**Usage Example**:');
+        lines.push('```bash');
+        lines.push(`${executor} "${script.path}" <args>`);
+        lines.push('```');
+        lines.push('');
+
+        // 强调使用 run_shell_command
+        lines.push('**To execute**: Use the `run_shell_command` tool with the above command.');
+        lines.push('');
+      }
+
+      lines.push('---');
+      lines.push('');
+    }
+
     // 添加完整的 Markdown 内容
     if (skill.content) {
       lines.push('## Instructions');
       lines.push('');
       lines.push(skill.content);
+      lines.push('');
+    }
+
+    // 添加参考文档信息
+    if (skill.references && skill.references.length > 0) {
+      lines.push('## 📚 Reference Documents');
+      lines.push('');
+      lines.push('Additional reference documents are available:');
+      lines.push('');
+
+      for (const ref of skill.references) {
+        const refName = ref.split('/').pop() || ref;
+        lines.push(`- \`${refName}\``);
+      }
+
+      lines.push('');
+      lines.push('*Note: These documents contain additional details. Request them if needed.*');
+      lines.push('');
     }
 
     return lines.join('\n');
