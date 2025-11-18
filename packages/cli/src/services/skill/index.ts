@@ -13,6 +13,11 @@ export { MarketplaceManager, marketplaceManager } from './marketplace-manager.js
 export { PluginInstaller, pluginInstaller } from './plugin-installer.js';
 export { SkillLoader, skillLoader } from './skill-loader.js';
 export { SkillContextInjector, skillContextInjector } from './skill-context-injector.js';
+export { ScriptExecutor, scriptExecutor } from './script-executor.js';
+export type {
+  ScriptExecutionOptions,
+  ScriptExecutionResult,
+} from './script-executor.js';
 
 /**
  * Initialize Skills System
