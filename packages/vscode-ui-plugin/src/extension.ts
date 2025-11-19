@@ -1775,7 +1775,6 @@ function setupMultiSessionHandlers() {
         return;
       }
 
-      // 尝试在工作区根目录下查找文件
       const workspaceRoot = workspaceFolders[0].uri.fsPath;
       let targetPath = payload.filePath;
       const fs = require('fs');
@@ -1813,6 +1812,34 @@ function setupMultiSessionHandlers() {
         if (fs.existsSync(tryPath)) {
           resolvedPath = tryPath;
           break;
+        }
+      }
+
+      // 5. 如果标准方式找不到，使用 VSCode 的全局搜索（像搜索框一样）
+      if (!resolvedPath) {
+        logger.info('Standard path resolution failed, attempting global file search...', { filePath: targetPath });
+
+        // 提取文件名（最后一个 / 后面的部分）
+        const fileName = normalizedPath.split(path.sep).pop() || normalizedPath;
+
+        // 使用 VSCode 的 findFiles API 在所有工作区中搜索
+        const foundFiles = await vscode.workspace.findFiles(`**/${fileName}`, null, 5);
+
+        if (foundFiles.length > 0) {
+          // 优先选择路径包含原始路径关键部分的文件
+          let selectedFile = foundFiles[0];
+
+          if (foundFiles.length > 1) {
+            // 如果找到多个同名文件，优先选择路径匹配的
+            const pathParts = normalizedPath.split(path.sep).filter(p => p.length > 0);
+            selectedFile = foundFiles.find(f => {
+              const filePath = f.fsPath;
+              return pathParts.every(part => filePath.includes(part));
+            }) || foundFiles[0];
+          }
+
+          resolvedPath = selectedFile.fsPath;
+          logger.info('File found via global search', { resolvedPath });
         }
       }
 
