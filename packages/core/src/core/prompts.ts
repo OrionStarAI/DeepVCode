@@ -543,16 +543,17 @@ You are running outside of a sandbox container, directly on the user's system. F
   // Skills context (if available)
   const skillsContent = (function () {
     try {
-      // Try to load Skills context from CLI package
-      // This uses dynamic require to avoid hard dependency
-      // Note: Use dist/src path for compiled code
-      const skillsModule = require('../../../cli/dist/src/services/skill/skills-integration.js');
-      const skillsContext = skillsModule.getSkillsContext();
-      return skillsContext ? `\n\n---\n\n${skillsContext}` : '';
+      const { SkillsContextBuilder } = require('../skills/skills-context-builder.js');
+      const builder = new SkillsContextBuilder();
+      const context = builder.buildContext();
+
+      if (context.available && context.summary) {
+        return `\n\n---\n\n${context.summary}`;
+      }
+      return '';
     } catch (error) {
       // Skills system not available or failed to load
-      // This is expected if Skills system is not initialized
-      // console.warn('[Skills] Failed to load context in prompts:', error);
+      // This is expected in environments where skills are not set up
       return '';
     }
   })();

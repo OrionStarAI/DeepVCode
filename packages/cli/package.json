@@ -38,6 +38,7 @@
     "dotenv": "^17.1.0",
     "express": "^5.1.0",
     "glob": "^10.4.1",
+    "gray-matter": "^4.0.3",
     "highlight.js": "^11.11.1",
     "iconv-lite": "^0.7.0",
     "ink": "^6.0.1",

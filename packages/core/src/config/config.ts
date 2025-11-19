@@ -34,6 +34,8 @@ import { ReadLintsTool } from '../tools/read-lints.js';
 import { LintFixTool } from '../tools/lint-fix.js';
 import { TaskTool } from '../tools/task.js';
 import { UseSkillTool } from '../tools/use-skill.js';
+import { ListSkillsTool } from '../tools/list-skills.js';
+import { GetSkillDetailsTool } from '../tools/get-skill-details.js';
 import { ProjectSettingsManager } from './projectSettings.js';
 import { GeminiClient } from '../core/client.js';
 import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
@@ -814,6 +816,8 @@ export class Config {
     registerCoreTool(ReadLintsTool, this);
     registerCoreTool(LintFixTool, this);
     registerCoreTool(UseSkillTool, this);
+    registerCoreTool(ListSkillsTool, this);
+    registerCoreTool(GetSkillDetailsTool, this);
 
     // TaskTool (SubAgent) is disabled in VSCode plugin mode
     // but remains available in CLI mode and other IDE environments

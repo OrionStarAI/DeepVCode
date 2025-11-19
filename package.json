@@ -132,17 +132,9 @@
     "axios": "^1.6.0",
     "fs-extra": "^11.3.1",
     "gradient-string": "^2.0.2",
-    "gray-matter": "^4.0.3",
     "open": "^10.0.0",
     "pidtree": "^0.6.0",
     "pidusage": "^4.0.1",
-    "playwright": "^1.56.1",
-    "pptxgenjs": "^4.0.1",
     "undici": "^7.10.0"
-  },
-  "description": "> ✨ **DeepV Code** 是一款由 **AI大模型驱动** 的 **代码生成 Agent 终端应用**。 我们致力于打造开放、智能的代码助手，帮助开发者更高效地构建未来。 🧡 本项目为 **开源项目**，欢迎社区贡献你的奇思妙想！",
-  "main": "esbuild.config.js",
-  "directories": {
-    "doc": "docs"
   }
 }
