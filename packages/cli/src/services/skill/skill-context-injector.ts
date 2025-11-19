@@ -100,87 +100,60 @@ export class SkillContextInjector {
   /**
    * 格式化元数据 Context
    *
-   * 格式:
-   * ```
-   * # Available Skills
-   *
-   * You have access to the following skills. Use them when appropriate.
-   *
-   * ## marketplace-name
-   *
-   * ### plugin-name
-   *
-   * - **skill-name**: skill description
-   *   - Allowed Tools: tool1, tool2
-   *   - 📜 Scripts: script1.py, script2.sh (use these instead of writing new code)
-   *   - 📚 To see full instructions: mention or ask about this skill
-   * ```
+   * 输出 XML 格式的 skills 列表，类似 Claude Code
    */
   private formatMetadataContext(skills: Skill[]): string {
     if (skills.length === 0) {
-      return '';
+      return '<available_skills>\n(No skills installed)\n</available_skills>';
     }
 
     const lines: string[] = [
-      '# Available Skills',
-      '',
-      'You have access to the following skills. Use them when appropriate to enhance your capabilities.',
-      '',
-      '**🔥 CRITICAL: How to Use Skills with Scripts:**',
-      '',
-      '1. **Recognize when a skill has scripts** (marked with 📜 below)',
-      '2. **ALWAYS load the skill\'s full instructions first** by saying: "Let me check the [skill-name] skill instructions"',
-      '3. **The skill\'s SKILL.md contains detailed usage examples** - you MUST read them before using scripts',
-      '4. **Execute the scripts** as shown in the skill\'s instructions using `run_shell_command`',
-      '5. **Never write new code** if a skill provides a script for the task',
-      '',
-      '**Why this matters:**',
-      '- Each SKILL.md contains specific command syntax and parameter descriptions for its scripts',
-      '- Scripts save 60-80% tokens (code not in context, only output captured)',
-      '- Scripts are tested and reliable - writing new code risks errors',
-      '',
+      '<available_skills>',
     ];
 
-    // 按 Marketplace 和 Plugin 分组
-    const grouped = this.groupSkillsByMarketplaceAndPlugin(skills);
+    // 为每个 skill 生成 XML 格式
+    for (const skill of skills) {
+      lines.push('<skill>');
+      lines.push('<name>');
+      lines.push(skill.id); // 使用完整 ID，如 "plugin-name:skill-name"
+      lines.push('</name>');
+      lines.push('<description>');
 
-    for (const [marketplaceId, plugins] of grouped) {
-      lines.push(`## ${marketplaceId}`);
-      lines.push('');
+      // 构建描述，包含脚本信息
+      let description = skill.description;
 
-      for (const [pluginId, pluginSkills] of plugins) {
-        const pluginName = pluginId.split(':')[1];
-        lines.push(`### ${pluginName}`);
-        lines.push('');
-
-        for (const skill of pluginSkills) {
-          lines.push(`- **${skill.name}**: ${skill.description}`);
-
-          // 添加 allowedTools（如果有）
-          if (skill.metadata.allowedTools && skill.metadata.allowedTools.length > 0) {
-            lines.push(`  - Allowed Tools: ${skill.metadata.allowedTools.join(', ')}`);
-          }
-
-          // 添加脚本信息（如果有）
-          if (skill.scripts && skill.scripts.length > 0) {
-            const scriptNames = skill.scripts.map(s => s.name).join(', ');
-            lines.push(`  - 📜 **Scripts Available**: ${scriptNames}`);
-            lines.push(`  - 🔥 **Before using**: Call \`use_skill(skillName="${skill.name}")\` to load instructions`);
-            lines.push(`  - ⚠️  **Do NOT write new code** - use the provided scripts`);
-          }
-
-          // 添加参考文档信息（如果有）
-          if (skill.references && skill.references.length > 0) {
-            lines.push(`  - 📚 Reference docs available (${skill.references.length} files)`);
-          }
-
-          // 提示如何获取详细信息
-          lines.push(`  - 💡 For full instructions: ask about "${skill.name}" or mention this skill`);
-        }
-
-        lines.push('');
+      // 如果有脚本，在描述中强调
+      if (skill.scripts && skill.scripts.length > 0) {
+        const scriptNames = skill.scripts.map(s => s.name).join(', ');
+        description += ` 📜 **Has executable scripts: ${scriptNames}**. You MUST use the use_skill tool to load instructions before executing any scripts. DO NOT write new code if scripts are available.`;
       }
+
+      // 添加插件信息
+      const pluginInfo = skill.id.split(':')[0];
+      description += ` (plugin:${pluginInfo})`;
+
+      lines.push(description);
+      lines.push('</description>');
+      lines.push('<location>');
+      lines.push('plugin'); // 可以根据实际情况设置为 'local', 'plugin', 'marketplace'
+      lines.push('</location>');
+
+      // 如果有脚本，添加额外的脚本信息标签
+      if (skill.scripts && skill.scripts.length > 0) {
+        lines.push('<has_scripts>');
+        lines.push('true');
+        lines.push('</has_scripts>');
+        lines.push('<scripts>');
+        for (const script of skill.scripts) {
+          lines.push(`  <script>${script.name}</script>`);
+        }
+        lines.push('</scripts>');
+      }
+
+      lines.push('</skill>');
     }
+
+    lines.push('</available_skills>');
 
     return lines.join('\n');
   }

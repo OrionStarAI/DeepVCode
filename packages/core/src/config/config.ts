@@ -33,6 +33,7 @@ import { TodoWriteTool } from '../tools/todo-write.js';
 import { ReadLintsTool } from '../tools/read-lints.js';
 import { LintFixTool } from '../tools/lint-fix.js';
 import { TaskTool } from '../tools/task.js';
+import { UseSkillTool } from '../tools/use-skill.js';
 import { ProjectSettingsManager } from './projectSettings.js';
 import { GeminiClient } from '../core/client.js';
 import { FileDiscoveryService } from '../services/fileDiscoveryService.js';

@@ -53,60 +53,19 @@ export async function initializeSkillsContext(): Promise<void> {
       return;
     }
 
-    // Format for system prompt
+    // Format for system prompt - minimal, since detailed instructions are in use_skill tool
     const formattedContext = `
 # Available Skills
 
-You have access to specialized Skills that provide domain knowledge and workflows.
-Skills are organized as: Marketplace → Plugin → Skill
+You have access to specialized Skills that provide domain knowledge, workflows, and executable scripts.
 
 ${result.context}
 
-**🔥 CRITICAL WORKFLOW for Skills with Scripts:**
+**Important**: Skills marked with 📜 or <has_scripts>true</has_scripts> have executable scripts.
+You MUST use the \`use_skill\` tool to load their instructions before executing any scripts.
+See the \`use_skill\` tool description for complete usage instructions.
 
-When you see a skill has scripts (marked with 📜):
-
-1. **DO NOT write code or execute scripts immediately**
-2. **MUST use the \`use_skill\` tool first** to load full instructions
-   - Call: use_skill(skillName="skill-name")
-   - Example: use_skill(skillName="test-pdf")
-   - This loads the skill's SKILL.md with exact command syntax
-3. **The loaded SKILL.md contains**:
-   - Detailed usage examples for each script
-   - Complete parameter descriptions
-   - Exact command format (python3? bash? node?)
-   - Important notes and best practices
-4. **After loading**: Execute the script using \`run_shell_command\` with the exact syntax from the loaded documentation
-5. **Script code stays out of context** (0 tokens) - only output is captured
-
-**Why you MUST use the \`use_skill\` tool:**
-- It automatically loads the correct SKILL.md file
-- You get exact command syntax - no guessing needed
-- Parameters and their order are clearly documented
-- Special requirements (env vars, dependencies) are noted
-- Using wrong syntax wastes time and tokens
-
-**Example workflow:**
-\`\`\`
-User: "Fill this PDF form"
-AI: "I see the test-pdf skill has fill_form.py. Let me load its instructions..."
-   → use_skill(skillName="test-pdf")
-System: [Returns full SKILL.md]
-AI: [Sees: "python3 scripts/fill_form.py input.pdf data.json output.pdf"]
-AI: [Sees: "Parameters: input.pdf (source), data.json (field values), output.pdf (output)"]
-AI: "Now I'll use the fill_form.py script as documented..."
-   → run_shell_command("python3 /path/to/scripts/fill_form.py application.pdf fields.json filled.pdf")
-\`\`\`
-
-**What NOT to do:**
-- ❌ Guess the script syntax without using \`use_skill\` first
-- ❌ Try to read SKILL.md manually with \`read_file\`
-- ❌ Write new Python/Bash code instead of using the script
-- ❌ Execute a script without loading the skill first
-
-**Token estimate for loaded metadata**: ~${result.estimatedTokens} tokens
-**Loading a skill with \`use_skill\`**: ~1000-2000 tokens (one-time cost)
-**Writing new code instead**: ~5000-10000 tokens (wasteful!)
+**Token cost**: ~${result.estimatedTokens} tokens (metadata only, full instructions loaded on-demand)
 `;
 
     cachedSkillsContext = formattedContext.trim();
