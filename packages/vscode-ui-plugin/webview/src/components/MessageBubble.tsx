@@ -324,12 +324,100 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
                 </blockquote>
               ),
 
-              // 表格美化
+              // 表格美化 - 支持行号点击
               table: ({children}) => (
                 <div className="table-wrapper">
                   <table className="markdown-table">{children}</table>
                 </div>
               ),
+
+              // 表格行 - 支持行号点击（只在表格内生效）
+              tr: ({children}: any) => {
+                const cells = React.Children.toArray(children);
+
+                // 提取单元格的纯文本
+                const extractText = (node: React.ReactNode): string => {
+                  if (typeof node === 'string') return node;
+                  if (typeof node === 'number') return String(node);
+                  if (Array.isArray(node)) return node.map(extractText).join('');
+                  if (React.isValidElement(node) && node.props.children) {
+                    return extractText(node.props.children);
+                  }
+                  return '';
+                };
+
+                // 查找文件路径（遍历所有单元格，找到第一个文件路径）
+                let filePath: string | null = null;
+                const filePathPattern = /^((?:\/|[a-zA-Z]:[\\/])[^\s]+\.(?:php|tsx?|jsx?|pyw?|java|kt|go|rs|c(?:pp)?|h(?:pp)?|vue|rb|swift|cs|scala|json|ya?ml|toml|md|html?))$/;
+
+                for (const cell of cells) {
+                  const cellText = extractText(cell).trim();
+                  const match = cellText.match(filePathPattern);
+                  if (match) {
+                    filePath = match[1];
+                    break;
+                  }
+                }
+
+                // 如果没有找到文件路径，直接返回原始行（不处理行号）
+                if (!filePath) {
+                  return <tr>{children}</tr>;
+                }
+
+                // 处理每个单元格，如果是纯行号则添加文件路径关联
+                const enhancedCells = cells.map((cell, index) => {
+                  if (!React.isValidElement(cell)) return cell;
+
+                  const cellText = extractText(cell).trim();
+                  // 只匹配纯行号格式：L12 或 L150+（单元格内只有行号）
+                  const lineNumberMatch = cellText.match(/^L(\d+)(\+)?$/);
+
+                  if (lineNumberMatch) {
+                    const lineNumber = parseInt(lineNumberMatch[1], 10);
+
+                    return React.cloneElement(cell, {
+                      key: index,
+                      children: (
+                        <span
+                          className="file-path-link"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (window.vscode) {
+                              window.vscode.postMessage({
+                                type: 'open_file',
+                                payload: { filePath, line: lineNumber }
+                              });
+                            }
+                          }}
+                          role="button"
+                          tabIndex={0}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              if (window.vscode) {
+                                window.vscode.postMessage({
+                                  type: 'open_file',
+                                  payload: { filePath, line: lineNumber }
+                                });
+                              }
+                            }
+                          }}
+                          title={`点击打开 ${filePath} (第 ${lineNumber} 行)`}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          {cellText}
+                        </span>
+                      )
+                    });
+                  }
+
+                  // 普通单元格，保持原样
+                  return React.cloneElement(cell, { key: index });
+                });
+
+                return <tr>{enhancedCells}</tr>;
+              },
 
               // 链接美化
               a: ({href, children}) => (
