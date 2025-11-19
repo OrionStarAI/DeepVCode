@@ -148,10 +148,37 @@ export class SkillsContextBuilder {
     const lines: string[] = [
       '# 📦 Available Skills',
       '',
-      'You have access to pre-installed skills. When a user requests functionality covered by these skills, you MUST:',
-      '1. **First**, use `read_file` to read the skill\'s `skill.md` file',
-      '2. **Follow** the exact instructions in `skill.md` to use the provided scripts',
-      '3. **DO NOT** write your own scripts when a skill already provides the functionality',
+      '🚨 **CRITICAL REQUIREMENT - READ THIS CAREFULLY** 🚨',
+      '',
+      'You have access to pre-installed skills. When a user requests functionality covered by these skills, you MUST follow this exact workflow:',
+      '',
+      '## Mandatory Workflow:',
+      '',
+      '1. ✅ **FIRST: Read the COMPLETE skill.md file**',
+      '   - Use `read_file` to read the skill\'s `skill.md` file',
+      '   - **CRITICAL**: Read the ENTIRE file from start to finish',
+      '   - **NEVER set any range limits (offset/limit) when reading skill.md**',
+      '   - The skill.md contains essential instructions, workflows, and script usage details',
+      '   - Example: `read_file(path="/path/to/skill/skill.md")` - NO offset, NO limit',
+      '',
+      '2. ✅ **SECOND: Follow EXACT instructions from skill.md**',
+      '   - Execute the scripts specified in skill.md',
+      '   - Use the exact commands and parameters documented',
+      '   - Follow the workflow steps in the order specified',
+      '   - Pay attention to "MANDATORY", "CRITICAL", and "IMPORTANT" sections',
+      '',
+      '3. ❌ **FORBIDDEN: Do NOT write your own implementation**',
+      '   - DO NOT create new scripts when a skill provides them',
+      '   - DO NOT use alternative libraries or tools',
+      '   - DO NOT skip reading the skill.md file',
+      '   - DO NOT assume you know how to use the skill without reading documentation',
+      '',
+      '## Why This Matters:',
+      '',
+      '- Skills contain **pre-tested, production-ready scripts** that handle edge cases',
+      '- skill.md files often contain **critical warnings and requirements** (300-500+ lines)',
+      '- Skipping documentation leads to **incorrect implementations** and wasted effort',
+      '- Users expect you to use **existing tools correctly**, not reinvent them',
       '',
       '## Installed Skills:',
       '',
@@ -174,19 +201,48 @@ export class SkillsContextBuilder {
       lines.push('');
 
       for (const skill of pluginSkills) {
-        lines.push(`- **${skill.name}**`);
-        lines.push(`  - Path: \`${skill.path}\``);
-        lines.push(`  - Documentation: \`${skill.skillMdPath}\``);
-        lines.push(`  - Usage: Read skill.md first, then execute the scripts specified within`);
+        lines.push(`- **${skill.name}** (ID: \`${skill.id}\`)`);
+        lines.push(`  - 📍 **Skill Path**: \`${skill.path}\``);
+        lines.push(`  - 📖 **Documentation**: \`${skill.skillMdPath}\``);
+        lines.push(`  - 🔧 **Usage Instructions**:`);
+        lines.push(`    1. Read the COMPLETE skill.md: \`read_file("${skill.skillMdPath}")\` (NO offset/limit!)`);
+        lines.push(`    2. Follow ALL instructions, workflows, and requirements in skill.md`);
+        lines.push(`    3. Execute the scripts specified in the documentation`);
+        lines.push(`    4. DO NOT create your own implementation`);
         lines.push('');
       }
     }
 
-    lines.push('## ⚠️ Important:');
-    lines.push('- Always check if a skill exists for the requested functionality');
-    lines.push('- Read the skill.md file to understand how to use the skill');
-    lines.push('- Use `run_shell_command` to execute the scripts specified in skill.md');
-    lines.push('- Only create your own implementation if no suitable skill exists');
+    lines.push('---');
+    lines.push('');
+    lines.push('## 🎯 Example: Correct Workflow');
+    lines.push('');
+    lines.push('```');
+    lines.push('User: "Create a PowerPoint presentation about AI"');
+    lines.push('');
+    lines.push('✅ CORRECT approach:');
+    lines.push('1. AI sees "pptx" skill is available');
+    lines.push('2. AI reads COMPLETE skill.md: read_file("~/.deepv/marketplace/skills/document-skills/pptx/skill.md")');
+    lines.push('3. AI discovers the skill.md contains 300+ lines with detailed workflows');
+    lines.push('4. AI reads sections marked "MANDATORY - READ ENTIRE FILE"');
+    lines.push('5. AI follows the documented workflow (e.g., html2pptx method)');
+    lines.push('6. AI uses the exact scripts specified in skill.md');
+    lines.push('');
+    lines.push('❌ WRONG approach:');
+    lines.push('1. AI sees "pptx" skill exists');
+    lines.push('2. AI assumes it knows how PowerPoint works');
+    lines.push('3. AI writes custom Node.js script using pptxgenjs');
+    lines.push('4. AI violates skill usage requirements');
+    lines.push('```');
+    lines.push('');
+    lines.push('## ⚠️ Critical Reminders:');
+    lines.push('');
+    lines.push('- 📚 **Read skill.md COMPLETELY** - these files are 100-500+ lines with critical details');
+    lines.push('- 🚫 **NEVER use offset/limit** when reading skill.md - you MUST read the entire file');
+    lines.push('- ⚡ **Follow workflows exactly** - skills provide tested, production-ready solutions');
+    lines.push('- 🔍 **Pay attention to warnings** - skill.md files contain "MANDATORY", "CRITICAL", "IMPORTANT" sections');
+    lines.push('- 💡 **Use provided scripts** - do not reinvent what already exists and works');
+    lines.push('- ❌ **Creating your own implementation when a skill exists is a violation of system rules**');
 
     return lines.join('\n');
   }
