@@ -14,6 +14,9 @@ const FILE_EXTENSIONS = 'php|tsx?|jsx?|pyw?|java|kt|go|rs|c(?:pp)?|h(?:pp)?|vue|
 // 相对路径: path/to/file 或 path\to\file
 const PATH_PART = '(?:(?:\/|[a-zA-Z]:[\\\/])[^\\s:]+|(?:[a-zA-Z][a-zA-Z0-9_\\-]*[\\/])+[^\\s:\/\\\\]+)';
 
+// 单个文件名匹配（带常见编程扩展名）
+const SINGLE_FILE_NAME = `[a-zA-Z_][a-zA-Z0-9_\\-]*\\.(?:${FILE_EXTENSIONS})`;
+
 // 文件路径模式（按优先级排序，带行号的优先匹配）
 const FILE_PATH_PATTERNS = [
   // 1. 冒号 + 行号范围：src/main.py:100-200
@@ -37,14 +40,29 @@ const FILE_PATH_PATTERNS = [
   // 7. 括号 + L + 单行号：src/main.py (L655)
   new RegExp(`(${PATH_PART}\\.(?:${FILE_EXTENSIONS}))\\s*\\(L(\\d+)\\)`, 'gi'),
 
-  // 8. 括号 + 中文行：src/main.py (158行)
-  new RegExp(`(${PATH_PART}\\.(?:${FILE_EXTENSIONS}))\\s*\\((\\d+)行\\)`, 'gi'),
+  // 8. 括号 + 中文行：src/main.py (158行) 或 (545行)
+  new RegExp(`(${PATH_PART}\\.(?:${FILE_EXTENSIONS}))\\s*\\(([\\d\\s]+)行\\)`, 'gi'),
 
   // 9. 中文格式：src/main.py 第 128 行
   new RegExp(`(${PATH_PART}\\.(?:${FILE_EXTENSIONS}))\\s+第\\s*(\\d+)\\s*行`, 'gi'),
 
+  // 9.5. 中文格式 + 括号：src/main.py (第 128 行)
+  new RegExp(`(${PATH_PART}\\.(?:${FILE_EXTENSIONS}))\\s*\\(第\\s*(\\d+)\\s*行\\)`, 'gi'),
+
   // 10. 纯路径（最低优先级，不带行号）
-  new RegExp(`(${PATH_PART}\\.(?:${FILE_EXTENSIONS}))(?=\\s|$|[,;:.!?)])`, 'gi')
+  new RegExp(`(${PATH_PART}\\.(?:${FILE_EXTENSIONS}))(?=\\s|$|[,;:.!?)])`, 'gi'),
+
+  // 11. 单个文件名 + L + 行号：tts_service.py L12
+  new RegExp(`(${SINGLE_FILE_NAME})\\s+L(\\d+)`, 'gi'),
+
+  // 12. 单个文件名冒号行号：tts_service.py:12
+  new RegExp(`(${SINGLE_FILE_NAME}):(\\d+)`, 'gi'),
+
+  // 13. 单个文件名粘连：tts_service.pyL12（无空格）
+  new RegExp(`(${SINGLE_FILE_NAME})L(\\d+)`, 'gi'),
+
+  // 14. 纯单个文件名（最低优先级）
+  new RegExp(`\\b(${SINGLE_FILE_NAME})\\b(?=\\s|$|[,;:.!?)])`, 'gi')
 ];
 
 interface FileLinkProps {

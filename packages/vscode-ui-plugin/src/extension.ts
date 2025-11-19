@@ -1785,6 +1785,9 @@ function setupMultiSessionHandlers() {
       // 标准化路径分隔符（统一转换为当前系统的分隔符）
       const normalizedPath = targetPath.replace(/[\/\\]/g, path.sep);
 
+      // 检测是否是纯文件名（没有任何目录分隔符）
+      const isPureFileName = !normalizedPath.includes(path.sep);
+
       // 1. 如果是完整的绝对路径（包含用户目录或 Windows 盘符），直接使用
       const isRealAbsolutePath =
         (process.platform === 'win32' && /^[a-zA-Z]:/.test(normalizedPath)) || // Windows: C:\...
@@ -1796,15 +1799,19 @@ function setupMultiSessionHandlers() {
 
       // 2. 去掉开头的路径分隔符作为相对路径（处理 /src/... 这种格式）
       const trimmedPath = normalizedPath.replace(/^[\/\\]+/, '');
-      if (trimmedPath !== normalizedPath) {
+      if (trimmedPath !== normalizedPath && !isPureFileName) {
         pathsToTry.push(path.join(workspaceRoot, trimmedPath));
       }
 
-      // 3. 直接作为相对路径拼接
-      pathsToTry.push(path.join(workspaceRoot, normalizedPath));
+      // 3. 直接作为相对路径拼接（仅当不是纯文件名时）
+      if (!isPureFileName) {
+        pathsToTry.push(path.join(workspaceRoot, normalizedPath));
+      }
 
       // 4. 原路径（作为最后的尝试）
-      pathsToTry.push(normalizedPath);
+      if (!isPureFileName) {
+        pathsToTry.push(normalizedPath);
+      }
 
       // 尝试所有可能的路径
       let resolvedPath: string | null = null;
@@ -1815,27 +1822,70 @@ function setupMultiSessionHandlers() {
         }
       }
 
-      // 5. 如果标准方式找不到，使用 VSCode 的全局搜索（像搜索框一样）
-      if (!resolvedPath) {
-        logger.info('Standard path resolution failed, attempting global file search...', { filePath: targetPath });
+      // 5. 如果标准方式找不到，或者是纯文件名，使用 VSCode 的全局搜索（像搜索框一样）
+      if (!resolvedPath || isPureFileName) {
+        if (isPureFileName) {
+          logger.info('Pure file name detected, using global file search...', { filePath: targetPath });
+        } else {
+          logger.info('Standard path resolution failed, attempting global file search...', { filePath: targetPath });
+        }
 
         // 提取文件名（最后一个 / 后面的部分）
         const fileName = normalizedPath.split(path.sep).pop() || normalizedPath;
 
         // 使用 VSCode 的 findFiles API 在所有工作区中搜索
-        const foundFiles = await vscode.workspace.findFiles(`**/${fileName}`, null, 5);
+        const foundFiles = await vscode.workspace.findFiles(`**/${fileName}`, null, 10);
 
         if (foundFiles.length > 0) {
-          // 优先选择路径包含原始路径关键部分的文件
           let selectedFile = foundFiles[0];
 
-          if (foundFiles.length > 1) {
-            // 如果找到多个同名文件，优先选择路径匹配的
+          if (foundFiles.length === 1) {
+            // 只有一个文件，直接使用
+            selectedFile = foundFiles[0];
+            logger.info('Single file found, auto-selecting', { resolvedPath: selectedFile.fsPath });
+          } else if (foundFiles.length > 1) {
+            // 多个文件找到，首先尝试根据路径匹配
             const pathParts = normalizedPath.split(path.sep).filter(p => p.length > 0);
-            selectedFile = foundFiles.find(f => {
-              const filePath = f.fsPath;
-              return pathParts.every(part => filePath.includes(part));
-            }) || foundFiles[0];
+
+            let pathMatchedFile: vscode.Uri | undefined;
+
+            // 只有在有多个路径部分且不是纯文件名时才尝试路径匹配
+            if (pathParts.length > 1 && !isPureFileName) {
+              pathMatchedFile = foundFiles.find(f => {
+                const filePath = f.fsPath;
+                return pathParts.every(part => filePath.includes(part));
+              });
+            }
+
+            if (pathMatchedFile) {
+              selectedFile = pathMatchedFile;
+              logger.info('File found via path matching', { resolvedPath: selectedFile.fsPath });
+            } else {
+              // 如果没有路径匹配，显示快速选择菜单让用户选择
+              logger.info('Multiple files found, showing selection menu', { count: foundFiles.length, isPureFileName });
+
+              const selectedItem = await vscode.window.showQuickPick(
+                foundFiles.map((file, index) => ({
+                  label: path.basename(file.fsPath),
+                  description: file.fsPath,
+                  detail: `路径: ${file.fsPath}`,
+                  file: file,
+                  index: index
+                })),
+                {
+                  title: `找到 ${foundFiles.length} 个文件，请选择要打开的:`,
+                  placeHolder: `选择 ${fileName}`
+                }
+              );
+
+              if (!selectedItem) {
+                logger.info('User cancelled file selection');
+                return; // 用户取消了选择
+              }
+
+              selectedFile = selectedItem.file;
+              logger.info('File selected by user', { resolvedPath: selectedFile.fsPath });
+            }
           }
 
           resolvedPath = selectedFile.fsPath;
