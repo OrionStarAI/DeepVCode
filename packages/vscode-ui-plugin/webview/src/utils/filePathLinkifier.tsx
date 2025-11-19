@@ -40,8 +40,8 @@ const FILE_PATH_PATTERNS = [
   // 7. 括号 + L + 单行号：src/main.py (L655)
   new RegExp(`(${PATH_PART}\\.(?:${FILE_EXTENSIONS}))\\s*\\(L(\\d+)\\)`, 'gi'),
 
-  // 8. 括号 + 中文行：src/main.py (158行) 或 (545行)
-  new RegExp(`(${PATH_PART}\\.(?:${FILE_EXTENSIONS}))\\s*\\(([\\d\\s]+)行\\)`, 'gi'),
+  // 8. 括号 + 中文行：src/main.py (158行)
+  new RegExp(`(${PATH_PART}\\.(?:${FILE_EXTENSIONS}))\\s*\\((\\d+)行\\)`, 'gi'),
 
   // 9. 中文格式：src/main.py 第 128 行
   new RegExp(`(${PATH_PART}\\.(?:${FILE_EXTENSIONS}))\\s+第\\s*(\\d+)\\s*行`, 'gi'),
@@ -103,6 +103,33 @@ const FileLink: React.FC<FileLinkProps> = ({ filePath, lineNumber, children }) =
 };
 
 /**
+ * 智能检测文件匹配后面是否有行号
+ * 支持各种格式的行号（无需穷举正则）
+ */
+function extractLineNumberAfter(text: string, matchEndIndex: number): number | undefined {
+  const remainingText = text.substring(matchEndIndex, matchEndIndex + 50); // 向后查找 50 个字符
+
+  // 优先级顺序检测行号
+  const linePatterns = [
+    { pattern: /^\s+L(\d+)/, name: 'L格式' },
+    { pattern: /^\s+:(\d+)/, name: '冒号' },
+    { pattern: /^\s*\(L?第?\s*(\d+)\s*\)/, name: '括号数字' },
+    { pattern: /^\s+第\s*(\d+)\s*行/, name: '中文第N行' },
+    { pattern: /^\s+(\d+)\s*行/, name: '数字行' },
+    { pattern: /^\s+(\d+)-(\d+)/, name: '范围' },
+  ];
+
+  for (const { pattern } of linePatterns) {
+    const match = remainingText.match(pattern);
+    if (match && match[1]) {
+      return parseInt(match[1], 10);
+    }
+  }
+
+  return undefined;
+}
+
+/**
  * 将文本内容转换为带有可点击文件链接的 React 元素
  */
 export function linkifyText(text: string): React.ReactNode {
@@ -129,11 +156,21 @@ export function linkifyText(text: string): React.ReactNode {
 
     while ((match = regex.exec(text)) !== null) {
       const filePath = match[1];
-      const startLine = match[2] ? parseInt(match[2], 10) : undefined;
+      let lineNumber = match[2] ? parseInt(match[2], 10) : undefined;
       const endLine = match[3] ? parseInt(match[3], 10) : undefined;
 
       // 如果有范围，使用起始行号
-      const lineNumber = startLine;
+      if (lineNumber && endLine) {
+        lineNumber = lineNumber;
+      }
+
+      // 如果正则没有捕获行号，尝试智能检测
+      if (!lineNumber) {
+        const detectedLine = extractLineNumberAfter(text, match.index + match[0].length);
+        if (detectedLine) {
+          lineNumber = detectedLine;
+        }
+      }
 
       allMatches.push({
         index: match.index,
