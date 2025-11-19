@@ -273,6 +273,19 @@ export interface Translations {
     newRuleContent: string;
     infoText: string;
   };
+
+  versionHistory: {
+    title: string;
+    tooltip: string;
+    showTimeline: string;
+    revertPrevious: string;
+    revertToVersion: string;
+    currentVersion: string;
+    noHistory: string;
+    filesChanged: string;
+    linesAdded: string;
+    linesRemoved: string;
+  };
 }
 
 export type SupportedLocale = 'zh-CN' | 'en-US';

@@ -3,7 +3,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Loader2, ArrowDown } from 'lucide-react';
+import { Loader2, ArrowDown, AlertTriangle } from 'lucide-react';
 import { ChatMessage, ToolCall, MessageContent } from '../types';
 import { ModifiedFile } from '../types/fileChanges';
 import { extractModifiedFiles } from '../utils/fileChangeExtractor';
@@ -651,6 +651,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                           ? handleRollback 
                           : undefined
                       }
+                      canRevert={message.type === 'user' && rollbackableMessageIds.includes(message.id) && index < messages.length - 1}
+                      sessionId={sessionId}
+                      messages={messages}
+                      onUpdateMessages={onUpdateMessages}
                     />
                   )}
                 </div>
@@ -697,9 +701,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
       {/* 🎯 编辑确认对话框 */}
       {showConfirmDialog && (
-        <div className="confirm-dialog-overlay">
-          <div className="confirm-dialog">
+        <div className="confirm-dialog-overlay" onClick={handleCancelEditConfirm}>
+          <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
             <div className="confirm-dialog-header">
+              <AlertTriangle size={16} color="var(--vscode-editorWarning-foreground)" />
               <h3>确认编辑操作</h3>
             </div>
             <div className="confirm-dialog-content">

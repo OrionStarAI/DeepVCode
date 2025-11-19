@@ -228,42 +228,73 @@ Expectation for required parameters:
         raw: `File not found: ${params.file_path}`,
       };
     } else if (currentContent !== null) {
-      // Editing an existing file
-      const correctedEdit = await ensureCorrectEdit(
-        params.file_path,
-        currentContent,
-        params,
-        this.config.getGeminiClient(),
-        abortSignal,
-      );
-      finalOldString = correctedEdit.params.old_string;
-      finalNewString = correctedEdit.params.new_string;
-      occurrences = correctedEdit.occurrences;
+      // 编辑已存在的文件
 
-      if (params.old_string === '') {
-        // Error: Trying to create a file that already exists
-        error = {
-          display: `Failed to edit. Attempted to create a file that already exists.`,
-          raw: `File already exists, cannot create: ${params.file_path}`,
-        };
-      } else if (occurrences === 0) {
-        error = {
-          display: `[HINT: Read File First] Failed to edit, could not find the string to replace.`,
-          raw: `Failed to edit, 0 occurrences found for old_string in ${params.file_path}. No edits made. The exact text in old_string was not found. Ensure you're not escaping content incorrectly and check whitespace, indentation, and context. Use ${ReadFileTool.Name} tool to verify.`,
-        };
-      } else if (occurrences !== expectedReplacements) {
-        const occurrenceTerm =
-          expectedReplacements === 1 ? 'occurrence' : 'occurrences';
+      // 本地快速检查：如果 old_string 明确不存在，避免调用昂贵的 API
+      let quickCheckFailed = false;
+      if (params.old_string !== '') {
+        const unescapedOldString = params.old_string
+          .replace(/\\n/g, '\n')
+          .replace(/\\r/g, '\r')
+          .replace(/\\t/g, '\t');
 
-        error = {
-          display: `Failed to edit, expected ${expectedReplacements} ${occurrenceTerm} but found ${occurrences}.`,
-          raw: `Failed to edit, Expected ${expectedReplacements} ${occurrenceTerm} but found ${occurrences} for old_string in file: ${params.file_path}`,
-        };
-      } else if (finalOldString === finalNewString) {
-        error = {
-          display: `No changes to apply. The old_string and new_string are identical.`,
-          raw: `No changes to apply. The old_string and new_string are identical in file: ${params.file_path}`,
-        };
+        const foundInContent = currentContent.includes(params.old_string);
+        const foundInUnescaped = currentContent.includes(unescapedOldString);
+
+        if (!foundInContent && !foundInUnescaped) {
+          console.log(`[EditTool] Quick check: old_string not found in file, skipping API call`);
+          error = {
+            display: `[HINT: Read File First] Failed to edit, could not find the string to replace.`,
+            raw: `Failed to edit, 0 occurrences found for old_string in ${params.file_path}. No edits made. The exact text in old_string was not found. Ensure you're not escaping content incorrectly and check whitespace, indentation, and context. Use ${ReadFileTool.Name} tool to verify.`,
+          };
+          occurrences = 0;
+          quickCheckFailed = true;
+        } else {
+          // 字符串找到，继续进行 API 纠正
+          console.log(`[EditTool] Quick check: old_string found, proceeding with API correction if needed`);
+        }
+      }
+
+      if (!quickCheckFailed) {
+        console.log(`[EditTool] Calling ensureCorrectEdit for string matching/correction in ${params.file_path}`);
+        const correctedEdit = await ensureCorrectEdit(
+          params.file_path,
+          currentContent,
+          params,
+          this.config.getGeminiClient(),
+          abortSignal,
+        );
+        console.log(`[EditTool] ensureCorrectEdit completed, found ${correctedEdit.occurrences} occurrences`);
+        finalOldString = correctedEdit.params.old_string;
+        finalNewString = correctedEdit.params.new_string;
+        occurrences = correctedEdit.occurrences;
+
+        if (params.old_string === '') {
+          error = {
+            display: `Failed to edit. Attempted to create a file that already exists.`,
+            raw: `File already exists, cannot create: ${params.file_path}`,
+          };
+        } else if (occurrences === 0) {
+          // 未找到匹配的字符串
+          error = {
+            display: `[HINT: Read File First] Failed to edit, could not find the string to replace.`,
+            raw: `Failed to edit, 0 occurrences found for old_string in ${params.file_path}. No edits made. The exact text in old_string was not found. Ensure you're not escaping content incorrectly and check whitespace, indentation, and context. Use ${ReadFileTool.Name} tool to verify.`,
+          };
+        } else if (occurrences !== expectedReplacements) {
+          // 找到的匹配数与期望数不符
+          const occurrenceTerm =
+            expectedReplacements === 1 ? 'occurrence' : 'occurrences';
+
+          error = {
+            display: `Failed to edit, expected ${expectedReplacements} ${occurrenceTerm} but found ${occurrences}.`,
+            raw: `Failed to edit, Expected ${expectedReplacements} ${occurrenceTerm} but found ${occurrences} for old_string in file: ${params.file_path}`,
+          };
+        } else if (finalOldString === finalNewString) {
+          error = {
+            display: `No changes to apply. The old_string and new_string are identical.`,
+            raw: `No changes to apply. The old_string and new_string are identical in file: ${params.file_path}`,
+          };
+        }
       }
     } else {
       // Should not happen if fileExists and no exception was thrown, but defensively:

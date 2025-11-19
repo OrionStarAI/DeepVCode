@@ -8,6 +8,7 @@
 
 import { SessionStatus, SessionType, SessionAction } from '../constants/sessionConstants';
 import { ToolCall, ContextInfo } from './messages';
+import { TurnVersionMetadata } from './versionControl';
 
 // =============================================================================
 // 核心Session接口
@@ -124,6 +125,9 @@ export interface SessionMessage {
 
   /** 消息元数据 */
   metadata?: MessageMetadata;
+
+  /** 🎯 版本控制元数据（增量挂载，不影响原有字段） */
+  versionMetadata?: TurnVersionMetadata;
 }
 
 /** 消息元数据 */

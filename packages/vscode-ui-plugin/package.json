@@ -2,7 +2,7 @@
   "name": "deepv-code-vscode-ui-plugin",
   "displayName": "DeepV Code for VSCode",
   "description": "AI-powered programming assistant with visual interface for VS Code",
-  "version": "1.0.183",
+  "version": "1.0.184",
   "publisher": "DeepX",
   "icon": "assets/icon.png",
   "repository": {
@@ -96,6 +96,18 @@
         "title": "Manage Custom Rules",
         "category": "DeepV Code",
         "icon": "$(book)"
+      },
+      {
+        "command": "deepv.revertToPrevious",
+        "title": "Revert to Previous Version",
+        "category": "DeepV Code",
+        "icon": "$(history)"
+      },
+      {
+        "command": "deepv.showVersionTimeline",
+        "title": "Show Version Timeline",
+        "category": "DeepV Code",
+        "icon": "$(timeline-view-icon)"
       }
     ],
     "viewsContainers": {

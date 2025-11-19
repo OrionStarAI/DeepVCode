@@ -3,7 +3,7 @@
 .message-input-container {
   border-top: 1px solid var(--vscode-panel-border);
   background-color: var(--vscode-editor-background);
-  padding: 12px 8px 0; /* 🎯 减少左右padding，提供更多输入空间 */
+  padding: 4px 12px 12px 12px; /* 🎯 减少左右padding，提供更多输入空间 */
   width: 100%; /* 🎯 确保占据全宽 */
   max-width: 100%;
   position: relative;
@@ -12,23 +12,27 @@
   flex-shrink: 0;
   /* 🎯 平滑的高度变化动画 */
   transition: height 0.2s ease-out;
-  box-sizing: border-box; /* 🎯 确保padding包含在宽度内 */
+  box-sizing: border-box; /* 🎯 包含padding在宽度计算内 */
 }
 
 /* 🎯 编辑模式的特殊样式 */
 .message-input-container.edit-mode {
   /* 适配消息气泡的样式 */
-  margin: 8px 0;
-  border-radius: 12px;
+  margin: 8px 0 8px 0;
+  border-radius: 8px;
   background: var(--vscode-input-background);
-  border: 2px solid var(--vscode-focusBorder);
-  border-top: 2px solid var(--vscode-focusBorder); /* 覆盖默认border-top */
+  border: 1px solid var(--vscode-focusBorder);
   padding: 8px;
+  height: auto;  /* 🎯 自动高度，不固定 */
+  min-height: 80px;  /* 🎯 最小高度 */
+  max-height: 200px;  /* 🎯 最大高度限制 */
 }
 
 .message-input-container.edit-mode.compact {
-  /* 紧凑模式样式 - 与底部输入框保持一致的高度 */
-  margin: 4px 0;
+  /* 紧凑模式样式 */
+  margin: 4px 0 4px 0;
+  height: auto;
+  min-height: 70px;
 }
 
 /* 🎯 当正在调整大小时禁用动画，避免拖拽时的延迟 */
