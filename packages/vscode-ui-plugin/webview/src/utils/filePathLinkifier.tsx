@@ -58,18 +58,11 @@ const FileLink: React.FC<FileLinkProps> = ({ filePath, lineNumber, children }) =
     e.preventDefault();
     e.stopPropagation();
 
-    // 调试日志
-    console.log('🔍 FileLink 点击:', { filePath, lineNumber });
-
     if (window.vscode) {
-      const message = {
-        type: 'open_file' as const,
+      window.vscode.postMessage({
+        type: 'open_file',
         payload: { filePath, line: lineNumber }
-      };
-      console.log('📤 发送消息给 VSCode:', message);
-      window.vscode.postMessage(message);
-    } else {
-      console.warn('❌ window.vscode 不存在');
+      });
     }
   };
 
