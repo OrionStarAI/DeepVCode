@@ -114,7 +114,7 @@ Important:
       // Dynamic import with runtime path resolution to avoid TypeScript compile-time errors
       // This works because at runtime, both packages are compiled
       const path = await import('path');
-      const { fileURLToPath } = await import('url');
+      const { fileURLToPath, pathToFileURL } = await import('url');
 
       // Get current file's directory
       const __filename = fileURLToPath(import.meta.url);
@@ -129,7 +129,7 @@ Important:
         SettingsManager,
         MarketplaceManager,
         SkillLoadLevel,
-      } = await import(skillModulePath);
+      } = await import(pathToFileURL(skillModulePath).href);
 
       // Initialize Skills system
       const settings = new SettingsManager();

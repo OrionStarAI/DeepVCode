@@ -7,6 +7,7 @@
 import type { CommandModule } from 'yargs';
 import * as fs from 'fs';
 import * as path from 'path';
+import { pathToFileURL } from 'url';
 import { Extension } from './extension.js';
 
 /**
@@ -71,7 +72,7 @@ export async function loadExtensionCommands(
 
         // Dynamically import the command module
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const module = await import(modulePath) as any;
+        const module = await import(pathToFileURL(modulePath).href) as any;
         const commandModule = module.default || module.command;
 
         if (!commandModule) {
