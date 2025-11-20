@@ -465,6 +465,11 @@ export class MarketplaceManager {
       }
     }
 
+    // 检查是否已安装
+    const installedPlugin = await this.settingsManager.getInstalledPlugin(pluginId);
+    const isInstalled = !!installedPlugin;
+    const isEnabled = installedPlugin?.enabled ?? false;
+
     const plugin: Plugin = {
       id: pluginId,
       name: pluginDef.name,
@@ -473,8 +478,8 @@ export class MarketplaceManager {
       source: pluginDef.source,
       strict: pluginDef.strict,
       skillPaths,
-      installed: false,
-      enabled: false,
+      installed: isInstalled,
+      enabled: isEnabled,
     };
 
     return plugin;
