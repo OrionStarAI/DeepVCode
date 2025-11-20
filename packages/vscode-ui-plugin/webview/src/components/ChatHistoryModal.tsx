@@ -211,10 +211,25 @@ export const ChatHistoryModal: React.FC<ChatHistoryModalProps> = ({
   };
 
   const handleSaveRename = (sessionId: string) => {
-    console.log('💾 Saving rename:', { sessionId, oldTitle: sessions.find(s => s.id === sessionId)?.title, newTitle: editingTitle.trim() });
-    if (editingTitle.trim() && onRenameSession) {
-      onRenameSession(sessionId, editingTitle.trim());
+    const trimmedTitle = editingTitle.trim();
+
+    // 🔥 验证：标题不能为空
+    if (!trimmedTitle) {
+      console.warn('⚠️ Cannot save empty title');
+      // 恢复原标题
+      const originalSession = sessions.find(s => s.id === sessionId);
+      if (originalSession) {
+        setEditingTitle(originalSession.title);
+      }
+      return;
     }
+
+    console.log('💾 Saving rename:', { sessionId, oldTitle: sessions.find(s => s.id === sessionId)?.title, newTitle: trimmedTitle });
+
+    if (onRenameSession) {
+      onRenameSession(sessionId, trimmedTitle);
+    }
+
     setEditingSessionId(null);
   };
 
