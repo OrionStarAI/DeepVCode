@@ -107,23 +107,19 @@ const FileLink: React.FC<FileLinkProps> = ({ filePath, lineNumber, children }) =
  * 支持各种格式的行号（无需穷举正则）
  */
 function extractLineNumberAfter(text: string, matchEndIndex: number): number | undefined {
-  const remainingText = text.substring(matchEndIndex, matchEndIndex + 50); // 向后查找 50 个字符
+  const remainingText = text.substring(matchEndIndex, matchEndIndex + 100);
 
-  // 优先级顺序检测行号
-  const linePatterns = [
-    { pattern: /^\s+L(\d+)/, name: 'L格式' },
-    { pattern: /^\s+:(\d+)/, name: '冒号' },
-    { pattern: /^\s*\(L?第?\s*(\d+)\s*\)/, name: '括号数字' },
-    { pattern: /^\s+第\s*(\d+)\s*行/, name: '中文第N行' },
-    { pattern: /^\s+(\d+)\s*行/, name: '数字行' },
-    { pattern: /^\s+(\d+)-(\d+)/, name: '范围' },
-  ];
+  // 支持各种行号格式：
+  // - " 第315行" / " 第315-323行"（取起始行 315）
+  // - " 315行" / " 315-323行"
+  // - " L315" / " :315" / " (315)" 等
+  // - 路径后只跟空白 + 结束/标点：" 315, some text" → 315
+  const numberMatch = remainingText.match(
+    /^[\s([{:：:_lL第-]*(\d+)(?=\s*(?:-\d+)?\s*行|\s*(?:$|[,.;:)\]}]))/
+  );
 
-  for (const { pattern } of linePatterns) {
-    const match = remainingText.match(pattern);
-    if (match && match[1]) {
-      return parseInt(match[1], 10);
-    }
+  if (numberMatch && numberMatch[1]) {
+    return parseInt(numberMatch[1], 10);
   }
 
   return undefined;
