@@ -559,12 +559,14 @@ export class ToolExecutionEngine {
         };
 
         if (!toolInstance) {
+          const availableTools = toolRegistry.getAllTools().map((t) => t.name).join(', ');
+          const errorMessage = `Tool "${reqInfo.name}" not found in registry. Available tools: ${availableTools}`;
           return {
             status: 'error',
             request: reqInfo,
             response: createErrorResponse(
               reqInfo,
-              new Error(`Tool "${reqInfo.name}" not found in registry.`),
+              new Error(errorMessage),
             ),
             durationMs: 0,
             agentContext,
@@ -657,6 +659,9 @@ export class ToolExecutionEngine {
 
     // 尝试执行已调度的工具
     await this.attemptExecutionOfScheduledCalls(signal, context);
+
+    // 检查并通知完成（处理没有调度工具但有错误工具的情况）
+    this.checkAndNotifyCompletion(context);
 
     // 等待工具完成通知
     return completionPromise;
