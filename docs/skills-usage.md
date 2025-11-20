@@ -7,8 +7,11 @@
 Skills 系统采用三层架构设计，旨在模块化扩展 AI 的能力：
 
 1.  **Marketplace (市场)**: 顶层容器，通常是一个 Git 仓库或本地目录，包含多个 Plugin。
-2.  **Plugin (插件)**: 逻辑分组，包含一组相关的 Skills。
-3.  **Skill (技能)**: 最小的功能单元，由 `SKILL.md` 定义，可包含可执行脚本。
+2.  **Plugin (插件)**: 逻辑分组，包含一组相关的 Skills、Commands 或 Agents。
+3.  **Item (项)**: 最小的功能单元，分为三种类型：
+    *   **Skill (技能)**: 由 `SKILL.md` 定义的复杂能力，可包含脚本。
+    *   **Command (命令)**: 单个 Markdown 文件定义的指令，通常用于特定任务。
+    *   **Agent (代理)**: 定义特定角色的 Markdown 文件，用于指导 AI 的行为模式。
 
 ## 2. CLI 命令使用说明
 
@@ -35,7 +38,7 @@ DeepV Code CLI 新增了 `/skill` 命令族，用于管理整个生命周期。
     /skill marketplace update <marketplace-name>
     ```
 *   **浏览市场内容**:
-    查看市场中可用的插件。
+    查看市场中可用的插件。支持通过插件名称、描述或关键词（keywords）进行搜索。
     ```bash
     /skill marketplace browse <marketplace-name> [search-query]
     ```
@@ -98,16 +101,24 @@ DeepV Code CLI 新增了 `/skill` 命令族，用于管理整个生命周期。
 
 ```text
 my-plugin/
-└── my-skill/
-    ├── SKILL.md          # 核心定义文件 (必需)
-    ├── scripts/          # 可执行脚本目录 (可选)
-    │   ├── script.py
-    │   └── tool.js
-    ├── LICENSE.txt       # 许可证 (可选)
-    └── README.md         # 补充文档 (可选)
+├── plugin.json           # 插件元数据 (可选，Strict模式下必需)
+├── commands/             # Command 类型文件
+│   └── my-command.md
+├── agents/               # Agent 类型文件
+│   └── my-agent.md
+└── skills/               # Skill 类型目录
+    └── my-skill/
+        ├── SKILL.md      # 核心定义文件 (必需)
+        ├── scripts/      # 可执行脚本目录 (可选)
+        │   ├── script.py
+        │   └── tool.js
+        ├── LICENSE.txt   # 许可证 (可选)
+        └── README.md     # 补充文档 (可选)
 ```
 
-### 3.2 SKILL.md 格式
+### 3.2 定义文件格式
+
+#### SKILL.md (Skill 类型)
 
 `SKILL.md` 文件由 YAML Frontmatter 和 Markdown 正文组成。
 
@@ -122,15 +133,21 @@ dependencies: []              # 依赖的其他 Skills
 ---
 
 # 使用说明
+...
+```
 
-这里是详细的 Markdown 文档，指导 AI 如何使用此技能。
+#### Command/Agent Markdown (Command/Agent 类型)
 
-## Workflow (工作流)
+Command 和 Agent 类型通常是单个 Markdown 文件，也支持 YAML Frontmatter。
 
-如果包含脚本，必须在此处详细说明如何调用脚本。
+```markdown
+---
+description: 这是一个命令的描述
+---
 
-Example:
-run_shell_command("python3 scripts/script.py --input ...")
+# Command Title
+
+这里是命令的具体指令...
 ```
 
 ### 3.3 脚本支持
