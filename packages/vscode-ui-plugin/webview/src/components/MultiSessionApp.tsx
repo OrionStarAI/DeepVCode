@@ -327,19 +327,25 @@ export const MultiSessionApp: React.FC = () => {
     });
 
     messageService.onSessionUpdated(({ sessionId, session }) => {
-      console.log('🔄 [BACKEND] Session updated:', sessionId, session);
+      console.log('🔄 [BACKEND] Session updated:', sessionId, 'session.name:', session.name);
       // 更新 state（这会更新顶部标签页）
       updateSessionInfo(sessionId, session);
       // 🎯 如果历史列表已加载，同步更新
       setHistorySessionsList((prev) => {
-        if (prev.length > 0 && prev.some(s => s.id === sessionId)) {
+        console.log('📋 [HISTORY] Updating history list, prev.length:', prev.length, 'has session:', prev.some(s => s.id === sessionId));
+
+        const sessionExists = prev.some(s => s.id === sessionId);
+
+        if (sessionExists) {
+          // 更新已存在的session
           return prev.map((s) => {
             if (s.id === sessionId) {
               const sessionState = state.sessions.get(sessionId);
+              const newTitle = session.name || 'New Chat';
+              console.log('✏️ [HISTORY] Updating title for', sessionId, ':', s.title, '→', newTitle);
               return {
                 ...s,
-                title: session.name || 'New Chat',
-                // 🎯 保持原来的 timestamp，不要改变排序
+                title: newTitle,
                 timestamp: s.timestamp,
                 messageCount: sessionState?.messages.length ?? 0,
                 messages: sessionState?.messages ?? [],
@@ -347,7 +353,20 @@ export const MultiSessionApp: React.FC = () => {
             }
             return s;
           });
+        } else if (prev.length > 0) {
+          // 🔥 关键修复：如果历史列表已加载但不包含这个session，添加到开头
+          console.log('➕ [HISTORY] Adding new session to history list:', sessionId);
+          const sessionState = state.sessions.get(sessionId);
+          return [{
+            id: sessionId,
+            title: session.name || 'New Chat',
+            timestamp: session.lastActivity || session.createdAt || Date.now(),
+            messageCount: sessionState?.messages.length ?? 0,
+            messages: sessionState?.messages ?? [],
+          }, ...prev];
         }
+
+        console.log('⚠️ [HISTORY] Not updating - list empty');
         return prev;
       });
     });
@@ -378,13 +397,32 @@ export const MultiSessionApp: React.FC = () => {
     // 🎯 监听历史列表分页响应
     messageService.onSessionHistoryResponse(({ sessions, total, hasMore, offset }) => {
       setHistorySessionsList((prev) => {
-        const newItems = sessions.map(s => ({
-          id: s.id,
-          title: s.name,
-          timestamp: s.lastActivity || s.createdAt,
-          messageCount: 0,
-          messages: []
-        }));
+        const newItems = sessions.map(s => {
+          // 🔥 关键修复：如果内存中有这个session，优先使用内存中的标题
+          const sessionState = state.sessions.get(s.id);
+          let title = s.name;
+
+          if (sessionState?.info?.name) {
+            const memoryTitle = sessionState.info.name;
+            const isDefaultTitle = !memoryTitle ||
+                                   memoryTitle === 'New Session' ||
+                                   memoryTitle === 'New Chat' ||
+                                   memoryTitle === 'Untitled Chat';
+
+            // 如果内存中的标题不是默认值，说明是手动修改过或自动生成的，优先使用
+            if (!isDefaultTitle) {
+              title = memoryTitle;
+            }
+          }
+
+          return {
+            id: s.id,
+            title,
+            timestamp: s.lastActivity || s.createdAt,
+            messageCount: 0,
+            messages: []
+          };
+        });
 
         // 如果 offset=0，说明是首次加载或刷新，直接替换
         if (offset === 0) {
@@ -1045,7 +1083,20 @@ User question: ${contentStr}`;
     const session = state.sessions.get(sessionId);
     if (!session) return '新建会话';
 
-    // 如果内容已加载且有用户消息，使用第一条用户消息
+    // 🔥 关键修复：优先使用手动修改的标题
+    // 如果 session.info.name 不是默认值，说明是手动修改的或自动生成的，直接使用
+    const isDefaultName = !session.info.name ||
+                          session.info.name === 'New Session' ||
+                          session.info.name === 'New Chat' ||
+                          session.info.name === 'Untitled Chat' ||
+                          session.info.name === '新建会话';
+
+    if (!isDefaultName) {
+      // 有明确的标题（手动修改或自动生成），直接使用
+      return session.info.name;
+    }
+
+    // 如果是默认名称，且内容已加载且有用户消息，使用第一条用户消息
     if (session.isContentLoaded) {
       const firstUserMessage = session.messages.find(msg => msg.type === 'user');
       const contentStr = messageContentToString(firstUserMessage?.content || []);
@@ -1055,7 +1106,7 @@ User question: ${contentStr}`;
       }
     }
 
-    // 否则使用后端给的标题（不管是什么）
+    // 否则使用后端给的标题（可能是默认值）
     return session.info.name || '新建会话';
   };
 
