@@ -170,10 +170,13 @@ export class SessionPersistenceService {
       // 只有当 name 是默认值且没有已有 title 时，才用第一条消息自动生成
       let title: string = sessionState.info.name;  // 默认使用 sessionState.info.name
 
-      const isDefaultName = sessionState.info.name === 'New Chat' || sessionState.info.name === 'Untitled Chat';
+      const isDefaultName = sessionState.info.name === 'New Chat' ||
+                            sessionState.info.name === 'Untitled Chat' ||
+                            sessionState.info.name === 'New Session';  // 🔥 添加 'New Session'
       const hasExistingTitle = existingMetadata?.title &&
                                existingMetadata.title !== 'New Chat' &&
-                               existingMetadata.title !== 'Untitled Chat';
+                               existingMetadata.title !== 'Untitled Chat' &&
+                               existingMetadata.title !== 'New Session';  // 🔥 添加 'New Session'
 
       // 只在以下情况才自动生成标题：
       // 1. 当前 name 是默认值
@@ -184,9 +187,13 @@ export class SessionPersistenceService {
         title = firstUserMessage.length > 50
           ? firstUserMessage.substring(0, 50) + '...'
           : firstUserMessage.trim();
+        // 🔥 关键修复：回写到内存中的 sessionState.info.name
+        sessionState.info.name = title;
       } else if (isDefaultName && hasExistingTitle) {
         // 保持已有的标题
         title = existingMetadata!.title;
+        // 🔥 关键修复：同步到内存
+        sessionState.info.name = title;
       }
       // 否则使用 sessionState.info.name（包括用户手动修改的）
 
