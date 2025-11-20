@@ -112,13 +112,13 @@ Commands:
 
 Quick Start:
   1. Add official marketplace:
-     /skill marketplace add https://github.com/anthropics/anthropic-agent-skills.git
+     /skill marketplace add https://github.com/anthropics/skills.git
 
   2. Browse plugins:
-     /skill marketplace browse anthropic-agent-skills
+     /skill marketplace browse skills
 
   3. Install a plugin:
-     /skill plugin install anthropic-agent-skills document-skills
+     /skill plugin install skills example-skills
 
   4. View skills:
      /skill list`;

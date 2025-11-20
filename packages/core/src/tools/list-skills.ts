@@ -127,8 +127,8 @@ export class ListSkillsTool extends BaseTool<ListSkillsParams, ToolResult> {
           lines.push(`- **Documentation**: \`${skill.skillMdPath}\``);
           lines.push('');
           lines.push('**Usage**:');
-          lines.push('1. Use `read_file` to read the skill.md file');
-          lines.push('2. Follow the instructions in skill.md');
+          lines.push(`1. Use \`use_skill(skillName="${skill.name}")\` to load the skill`);
+          lines.push('2. This will show you the exact scripts and commands to use');
           lines.push('3. Execute the specified scripts using `run_shell_command`');
           lines.push('');
         }
@@ -136,7 +136,7 @@ export class ListSkillsTool extends BaseTool<ListSkillsParams, ToolResult> {
 
       lines.push('---');
       lines.push('');
-      lines.push('**Remember**: Always read the skill.md file before using a skill!');
+      lines.push('**Remember**: Always use `use_skill` to activate a skill before using it!');
 
       const output = lines.join('\n');
 
