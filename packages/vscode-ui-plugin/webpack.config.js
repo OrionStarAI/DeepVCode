@@ -75,7 +75,12 @@ module.exports = [
     devtool: 'nosources-source-map',
     infrastructureLogging: {
       level: "log"
-    }
+    },
+    ignoreWarnings: [
+      // 忽略 ws 库的可选依赖警告
+      /Can't resolve 'utf-8-validate'/,
+      /Can't resolve 'bufferutil'/
+    ]
   },
 
   // Core bundle - 保持原有的core打包配置
@@ -168,6 +173,11 @@ module.exports = [
           extractComments: false,
         }),
       ],
-    }
+    },
+    ignoreWarnings: [
+      // 忽略 ws 库的可选依赖警告
+      /Can't resolve 'utf-8-validate'/,
+      /Can't resolve 'bufferutil'/
+    ]
   }
 ];

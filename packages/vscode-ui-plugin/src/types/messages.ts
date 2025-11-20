@@ -222,6 +222,10 @@ export type WebViewToExtensionMessage =
   | { type: 'rules_list_request'; payload: {} }
   | { type: 'rules_save'; payload: { rule: any } }
   | { type: 'rules_delete'; payload: { ruleId: string } }
+  // 🎯 文件路径跳转相关
+  | { type: 'open_file'; payload: { filePath: string; line?: number; symbol?: string } }
+  | { type: 'goto_symbol'; payload: { symbol: string } }
+  | { type: 'goto_line'; payload: { line: number } } // 🎯 跳转到当前文件的指定行
   | { type: 'open_extension_marketplace'; payload: { extensionId: string } }
   // 🎯 版本控制相关
   | { type: 'revert_to_message'; payload: { sessionId: string; messageId: string } }

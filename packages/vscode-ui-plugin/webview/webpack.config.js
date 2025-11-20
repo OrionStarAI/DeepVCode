@@ -43,5 +43,10 @@ module.exports = {
     vscode: 'commonjs vscode'
   },
   target: 'web',
-  devtool: 'inline-source-map'
+  devtool: 'inline-source-map',
+  ignoreWarnings: [
+    // 忽略 ws 库的可选依赖警告（webview 环境中不需要）
+    /Can't resolve 'utf-8-validate'/,
+    /Can't resolve 'bufferutil'/
+  ]
 };

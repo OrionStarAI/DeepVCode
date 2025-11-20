@@ -162,6 +162,9 @@ export interface MessageToExtension {
        'set_current_model' |          // 🎯 新增：设置当前模型
        'get_current_model' |          // 🎯 新增：获取当前模型
        'execute_slash_command' |      // 🎯 新增：执行 slash 命令（如 /refine）
+       'open_file' |                  // 🎯 新增：打开文件并跳转到指定行/方法
+       'goto_symbol' |                // 🎯 新增：跳转到符号（方法名）
+       'goto_line' |                  // 🎯 新增：跳转到当前文件的指定行
        'ready';
   payload: Record<string, unknown>;
 }

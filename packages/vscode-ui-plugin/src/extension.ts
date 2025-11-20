@@ -1762,6 +1762,295 @@ function setupMultiSessionHandlers() {
       await communicationService.sendRulesDeleteResponse(false, errorMessage);
     }
   });
+
+  // 🎯 处理文件打开请求
+  communicationService.onOpenFile(async (payload) => {
+    try {
+      logger.info('Received open_file request', { filePath: payload.filePath, line: payload.line });
+
+      const workspaceFolders = vscode.workspace.workspaceFolders;
+      if (!workspaceFolders || workspaceFolders.length === 0) {
+        logger.warn('No workspace folder found');
+        vscode.window.showWarningMessage('未找到工作区，无法打开文件');
+        return;
+      }
+
+      const workspaceRoot = workspaceFolders[0].uri.fsPath;
+      let targetPath = payload.filePath;
+      const fs = require('fs');
+
+      // 智能路径解析：跨平台兼容（Windows/macOS/Linux）
+      const pathsToTry: string[] = [];
+
+      // 标准化路径分隔符（统一转换为当前系统的分隔符）
+      const normalizedPath = targetPath.replace(/[\/\\]/g, path.sep);
+
+      // 检测是否是纯文件名（没有任何目录分隔符）
+      const isPureFileName = !normalizedPath.includes(path.sep);
+
+      // 1. 如果是完整的绝对路径（包含用户目录或 Windows 盘符），直接使用
+      const isRealAbsolutePath =
+        (process.platform === 'win32' && /^[a-zA-Z]:/.test(normalizedPath)) || // Windows: C:\...
+        (process.platform !== 'win32' && normalizedPath.startsWith(path.sep) && fs.existsSync(normalizedPath)); // Unix: /Users/...
+
+      if (isRealAbsolutePath) {
+        pathsToTry.push(normalizedPath);
+      }
+
+      // 2. 去掉开头的路径分隔符作为相对路径（处理 /src/... 这种格式）
+      const trimmedPath = normalizedPath.replace(/^[\/\\]+/, '');
+      if (trimmedPath !== normalizedPath && !isPureFileName) {
+        pathsToTry.push(path.join(workspaceRoot, trimmedPath));
+      }
+
+      // 3. 直接作为相对路径拼接（仅当不是纯文件名时）
+      if (!isPureFileName) {
+        pathsToTry.push(path.join(workspaceRoot, normalizedPath));
+      }
+
+      // 4. 原路径（作为最后的尝试）
+      if (!isPureFileName) {
+        pathsToTry.push(normalizedPath);
+      }
+
+      // 尝试所有可能的路径
+      let resolvedPath: string | null = null;
+      for (const tryPath of pathsToTry) {
+        if (fs.existsSync(tryPath)) {
+          resolvedPath = tryPath;
+          break;
+        }
+      }
+
+      // 5. 如果标准方式找不到，或者是纯文件名，使用 VSCode 的全局搜索（像搜索框一样）
+      if (!resolvedPath || isPureFileName) {
+        if (isPureFileName) {
+          logger.info('Pure file name detected, using global file search...', { filePath: targetPath });
+        } else {
+          logger.info('Standard path resolution failed, attempting global file search...', { filePath: targetPath });
+        }
+
+        // 提取文件名（最后一个 / 后面的部分）
+        const fileName = normalizedPath.split(path.sep).pop() || normalizedPath;
+
+        // 使用 VSCode 的 findFiles API 在所有工作区中搜索
+        const foundFiles = await vscode.workspace.findFiles(`**/${fileName}`, null, 10);
+
+        if (foundFiles.length > 0) {
+          let selectedFile = foundFiles[0];
+
+          if (foundFiles.length === 1) {
+            // 只有一个文件，直接使用
+            selectedFile = foundFiles[0];
+            logger.info('Single file found, auto-selecting', { resolvedPath: selectedFile.fsPath });
+          } else if (foundFiles.length > 1) {
+            // 多个文件找到，首先尝试根据路径匹配
+            const pathParts = normalizedPath.split(path.sep).filter(p => p.length > 0);
+
+            let pathMatchedFile: vscode.Uri | undefined;
+
+            // 只有在有多个路径部分且不是纯文件名时才尝试路径匹配
+            if (pathParts.length > 1 && !isPureFileName) {
+              pathMatchedFile = foundFiles.find(f => {
+                const filePath = f.fsPath;
+                return pathParts.every(part => filePath.includes(part));
+              });
+            }
+
+            if (pathMatchedFile) {
+              selectedFile = pathMatchedFile;
+              logger.info('File found via path matching', { resolvedPath: selectedFile.fsPath });
+            } else {
+              // 如果没有路径匹配，显示快速选择菜单让用户选择
+              logger.info('Multiple files found, showing selection menu', { count: foundFiles.length, isPureFileName });
+
+              const selectedItem = await vscode.window.showQuickPick(
+                foundFiles.map((file, index) => ({
+                  label: path.basename(file.fsPath),
+                  description: file.fsPath,
+                  detail: `路径: ${file.fsPath}`,
+                  file: file,
+                  index: index
+                })),
+                {
+                  title: `找到 ${foundFiles.length} 个文件，请选择要打开的:`,
+                  placeHolder: `选择 ${fileName}`
+                }
+              );
+
+              if (!selectedItem) {
+                logger.info('User cancelled file selection');
+                return; // 用户取消了选择
+              }
+
+              selectedFile = selectedItem.file;
+              logger.info('File selected by user', { resolvedPath: selectedFile.fsPath });
+            }
+          }
+
+          resolvedPath = selectedFile.fsPath;
+          logger.info('File found via global search', { resolvedPath });
+        }
+      }
+
+      if (!resolvedPath) {
+        logger.warn('File not found', { filePath: payload.filePath, triedPaths: pathsToTry });
+        vscode.window.showWarningMessage(`文件未找到: ${payload.filePath}`);
+        return;
+      }
+
+      targetPath = resolvedPath;
+
+      const uri = vscode.Uri.file(targetPath);
+      const document = await vscode.workspace.openTextDocument(uri);
+
+      // 在新标签页中打开，不替换现有编辑器
+      const editor = await vscode.window.showTextDocument(document, {
+        preview: false, // 不使用预览模式，确保打开新标签
+        preserveFocus: false // 切换焦点到新打开的文件
+      });
+
+      // 如果指定了行号，跳转到对应行
+      if (payload.line !== undefined && payload.line > 0) {
+        const line = payload.line - 1; // VSCode 行号从0开始
+        const position = new vscode.Position(line, 0);
+        editor.selection = new vscode.Selection(position, position);
+        editor.revealRange(
+          new vscode.Range(position, position),
+          vscode.TextEditorRevealType.InCenter
+        );
+      }
+
+      // 如果指定了方法名（symbol），尝试跳转到方法定义
+      if (payload.symbol) {
+        try {
+          const symbols = await vscode.commands.executeCommand<vscode.DocumentSymbol[]>(
+            'vscode.executeDocumentSymbolProvider',
+            document.uri
+          );
+
+          if (symbols && symbols.length > 0) {
+            // 递归查找符号
+            const findSymbol = (symbolList: vscode.DocumentSymbol[], targetName: string): vscode.DocumentSymbol | undefined => {
+              for (const symbol of symbolList) {
+                if (symbol.name === targetName) {
+                  return symbol;
+                }
+                if (symbol.children && symbol.children.length > 0) {
+                  const found = findSymbol(symbol.children, targetName);
+                  if (found) return found;
+                }
+              }
+              return undefined;
+            };
+
+            const targetSymbol = findSymbol(symbols, payload.symbol);
+
+            if (targetSymbol) {
+              const position = targetSymbol.selectionRange.start;
+              editor.selection = new vscode.Selection(position, position);
+              editor.revealRange(
+                targetSymbol.range,
+                vscode.TextEditorRevealType.InCenter
+              );
+            }
+          }
+        } catch (error) {
+          logger.warn('Symbol jump failed', error instanceof Error ? error : undefined);
+        }
+      }
+
+      logger.info('File opened successfully', { targetPath, line: payload.line });
+    } catch (error) {
+      logger.error('Failed to open file', error instanceof Error ? error : undefined);
+      vscode.window.showErrorMessage(`无法打开文件: ${error instanceof Error ? error.message : '未知错误'}`);
+    }
+  });
+
+  // 处理行号跳转请求（跳转到当前文件的指定行）
+  communicationService.onGotoLine(async (payload) => {
+    try {
+
+      const editor = vscode.window.activeTextEditor;
+      if (!editor) {
+        vscode.window.showWarningMessage('没有打开的编辑器，请先打开一个文件');
+        return;
+      }
+
+      const line = payload.line - 1; // VSCode 行号从0开始
+      const position = new vscode.Position(line, 0);
+      editor.selection = new vscode.Selection(position, position);
+      editor.revealRange(
+        new vscode.Range(position, position),
+        vscode.TextEditorRevealType.InCenter
+      );
+    } catch (error) {
+      vscode.window.showErrorMessage(`无法跳转到行 ${payload.line}`);
+    }
+  });
+
+  // 处理符号跳转请求
+  communicationService.onGotoSymbol(async (payload) => {
+    try {
+      logger.info('Received goto_symbol request', { symbol: payload.symbol });
+
+      const editor = vscode.window.activeTextEditor;
+      if (!editor) {
+        logger.warn('No active editor');
+        vscode.window.showWarningMessage('未找到活动的编辑器');
+        return;
+      }
+
+      const document = editor.document;
+
+      // 使用 VSCode 的符号搜索功能
+      const symbols = await vscode.commands.executeCommand<vscode.DocumentSymbol[]>(
+        'vscode.executeDocumentSymbolProvider',
+        document.uri
+      );
+
+      if (!symbols || symbols.length === 0) {
+        logger.warn('No symbols found in document');
+        vscode.window.showWarningMessage('未找到符号信息');
+        return;
+      }
+
+      // 递归查找符号
+      const findSymbol = (symbolList: vscode.DocumentSymbol[], targetName: string): vscode.DocumentSymbol | undefined => {
+        for (const symbol of symbolList) {
+          if (symbol.name === targetName) {
+            return symbol;
+          }
+          if (symbol.children && symbol.children.length > 0) {
+            const found = findSymbol(symbol.children, targetName);
+            if (found) return found;
+          }
+        }
+        return undefined;
+      };
+
+      const targetSymbol = findSymbol(symbols, payload.symbol);
+
+      if (!targetSymbol) {
+        logger.warn('Symbol not found', { symbol: payload.symbol });
+        vscode.window.showWarningMessage(`未找到符号: ${payload.symbol}`);
+        return;
+      }
+
+      // 跳转到符号位置
+      const position = targetSymbol.selectionRange.start;
+      editor.selection = new vscode.Selection(position, position);
+      editor.revealRange(
+        targetSymbol.range,
+        vscode.TextEditorRevealType.InCenter
+      );
+
+      logger.info('Symbol located successfully', { symbol: payload.symbol, line: position.line + 1 });
+    } catch (error) {
+      logger.error('Failed to goto symbol', error instanceof Error ? error : undefined);
+      vscode.window.showErrorMessage(`无法跳转到符号: ${error instanceof Error ? error.message : '未知错误'}`);
+    }
+  });
 }
 
 function registerCommands(context: vscode.ExtensionContext) {
