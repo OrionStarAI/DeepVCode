@@ -21,12 +21,22 @@ import { rmSync, readFileSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { globSync } from 'glob';
+import { execSync } from 'child_process';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');
 
+// Clean compiled .js files first (before we clean node_modules)
+console.log('🧹 Cleaning compiled .js and .js.map files from source directories...');
+try {
+  execSync('node scripts/clean-compiled-js.js', { cwd: root, stdio: 'inherit' });
+} catch (error) {
+  console.error('⚠️  Warning: Failed to clean compiled JS files');
+  console.error(error.message);
+}
+
 // Clean non-node_modules directories first (before we lose access to dependencies)
-console.log('🧹 Cleaning project directories...');
+console.log('\n🧹 Cleaning project directories...');
 
 rmSync(join(root, 'bundle'), { recursive: true, force: true });
 console.log('✅ Cleaned bundle directory');
@@ -50,6 +60,21 @@ for (const workspace of rootPackageJson.workspaces) {
     rmSync(join(pkgDir, 'dist'), RMRF_OPTIONS);
     console.log(`✅ Cleaned ${pkgPath.replace('/package.json', '')}/dist`);
   }
+}
+
+// Clean all .tsbuildinfo files to force TypeScript recompilation
+console.log('🧹 Cleaning TypeScript build info files...');
+const tsbuildinfoFiles = globSync('**/tsconfig.tsbuildinfo', { cwd: root, ignore: ['node_modules/**'] });
+for (const tsbuildinfoFile of tsbuildinfoFiles) {
+  try {
+    rmSync(join(root, tsbuildinfoFile), RMRF_OPTIONS);
+    console.log(`✅ Cleaned ${tsbuildinfoFile}`);
+  } catch (error) {
+    // Silently skip if file doesn't exist (it might have already been deleted with dist)
+  }
+}
+if (tsbuildinfoFiles.length === 0) {
+  console.log('ℹ️  No .tsbuildinfo files to clean');
 }
 
 // Clean up vsix files in vscode-ide-companion
