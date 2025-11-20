@@ -207,9 +207,15 @@ export function linkifyText(text: string): React.ReactNode {
         filePath={item.filePath}
         lineNumber={item.lineNumber}
       >
-        {item.fullMatch}
+        {item.filePath}
       </FileLink>
     );
+
+    // 如果有行号部分（fullMatch 比 filePath 长），添加行号部分为普通文本
+    if (item.fullMatch.length > item.filePath.length) {
+      const lineNumberPart = item.fullMatch.substring(item.filePath.length);
+      elements.push(lineNumberPart);
+    }
 
     lastIndex = item.index + item.length;
   }

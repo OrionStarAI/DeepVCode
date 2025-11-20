@@ -261,7 +261,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
   const confirmRevertToMessage = () => {
     // 关闭确认对话框
     setShowRevertConfirm(false);
-    
+
     // 🎯 调用父组件传入的 onRollback 回调（ChatInterface 的 handleRollback）
     // ChatInterface 的 handleRollback 会处理完整的回退逻辑：
     // 1. 中止 AI 进程
@@ -376,7 +376,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
                 </div>
               ),
 
-              // 表格行 - 支持行号点击（只在表格内生效）
+              // 表格行 - 文件地址用外面的逻辑，行号用独立的智能检测
               tr: ({children}: any) => {
                 const cells = React.Children.toArray(children);
 
@@ -391,36 +391,39 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
                   return '';
                 };
 
-                // 查找文件路径（遍历所有单元格，找到第一个文件路径）
+                // 第一步：先提取文件路径（从原始单元格，不处理）
                 let filePath: string | null = null;
-                const filePathPattern = /^((?:\/|[a-zA-Z]:[\\/])[^\s]+\.(?:php|tsx?|jsx?|pyw?|java|kt|go|rs|c(?:pp)?|h(?:pp)?|vue|rb|swift|cs|scala|json|ya?ml|toml|md|html?))$/;
 
+                // 先找出文件路径（通过检查原始文本是否是文件名）
                 for (const cell of cells) {
+                  if (!React.isValidElement(cell)) continue;
                   const cellText = extractText(cell).trim();
-                  const match = cellText.match(filePathPattern);
-                  if (match) {
-                    filePath = match[1];
+
+                  // 简单检查：是否是文件名（有扩展名）
+                  // 支持 .py .js .ts .tsx .jsx .java .go .rs 等
+                  if (/\.(py|tsx?|jsx?|java|kt|go|rs|c|h|cpp|vue|rb|swift|cs|scala|json|ya?ml|toml|md|html?)$/i.test(cellText)) {
+                    filePath = cellText;
                     break;
                   }
                 }
 
-                // 如果没有找到文件路径，直接返回原始行（不处理行号）
-                if (!filePath) {
-                  return <tr>{children}</tr>;
-                }
-
-                // 处理每个单元格，如果是纯行号则添加文件路径关联
+                // 第二步：处理每个单元格
                 const enhancedCells = cells.map((cell, index) => {
                   if (!React.isValidElement(cell)) return cell;
 
                   const cellText = extractText(cell).trim();
-                  // 只匹配纯行号格式：L12 或 L150+（单元格内只有行号）
-                  const lineNumberMatch = cellText.match(/^L(\d+)(\+)?$/);
 
-                  if (lineNumberMatch) {
-                    const lineNumber = parseInt(lineNumberMatch[1], 10);
+                  // 检测行号：只要单元格中有数字，就认为是行号
+                  const lineNumberMatch = cellText.match(/\d+/);
+                  let lineNumber: number | null = null;
 
-                    return React.cloneElement(cell, {
+                  if (lineNumberMatch && lineNumberMatch[0]) {
+                    lineNumber = parseInt(lineNumberMatch[0], 10);
+                  }
+
+                  // 情况1：找到文件路径 + 检测到行号 → 行号变成可点击蓝色链接
+                  if (filePath && lineNumber !== null) {
+                    return React.cloneElement(cell as React.ReactElement, {
                       key: index,
                       children: (
                         <span
@@ -457,8 +460,16 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
                     });
                   }
 
-                  // 普通单元格，保持原样
-                  return React.cloneElement(cell, { key: index });
+                  // 情况2：不是行号 → 应用 linkifyTextNode（用于文件名链接）
+                  if (lineNumber === null) {
+                    return React.cloneElement(cell as React.ReactElement, {
+                      key: index,
+                      children: linkifyTextNode(cell.props.children)
+                    });
+                  }
+
+                  // 情况3：有行号但没有文件路径 → 保持原样（不处理）
+                  return React.cloneElement(cell as React.ReactElement, { key: index });
                 });
 
                 return <tr>{enhancedCells}</tr>;
