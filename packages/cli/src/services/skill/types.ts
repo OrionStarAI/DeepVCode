@@ -58,6 +58,23 @@ export enum MarketplaceSource {
 }
 
 /**
+ * Skill 类型
+ */
+export enum SkillType {
+  SKILL = 'skill',
+  COMMAND = 'command',
+  AGENT = 'agent',
+}
+
+/**
+ * Plugin Item - 插件包含的具体项（Skill/Command/Agent）
+ */
+export interface PluginItem {
+  path: string;
+  type: SkillType;
+}
+
+/**
  * Plugin - 逻辑组，包含多个相关 Skills
  */
 export interface Plugin {
@@ -70,11 +87,13 @@ export interface Plugin {
   /** 所属 Marketplace ID */
   marketplaceId: string;
   /** Plugin 来源路径（相对于 Marketplace 根目录） */
-  source: string;
+  source: string | PluginSource;
   /** 是否为严格模式 */
   strict: boolean;
-  /** 包含的 Skills 路径列表 */
+  /** 包含的 Skills 路径列表 (Legacy) */
   skillPaths: string[];
+  /** 包含的 Items 列表 (New) */
+  items?: PluginItem[];
   /** 解析后的 Skill 列表 */
   skills?: Skill[];
   /** 安装状态 */
@@ -85,7 +104,35 @@ export interface Plugin {
   installedAt?: Date;
   /** 版本 */
   version?: string;
+  /** 作者信息 */
+  author?: { name: string; email?: string };
+  /** 主页 */
+  homepage?: string;
+  /** 仓库地址 */
+  repository?: string;
+  /** 许可证 */
+  license?: string;
+  /** 关键字 */
+  keywords?: string[];
+  /** 分类 */
+  category?: string;
+  /** 标签 */
+  tags?: string[];
 }
+
+/**
+ * Plugin 来源定义
+ */
+export type PluginSource =
+  | string
+  | {
+      source: 'github';
+      repo: string;
+    }
+  | {
+      source: 'url';
+      url: string;
+    };
 
 /**
  * Skill - 最小工作单位 (SKILL.md + 可选资源和脚本)
@@ -93,6 +140,8 @@ export interface Plugin {
 export interface Skill {
   /** Skill 唯一标识符 (marketplace:plugin:skill-name) */
   id: string;
+  /** Skill 类型 */
+  type?: SkillType;
   /** Skill 名称 (来自 YAML frontmatter 的 name) */
   name: string;
   /** Skill 描述 (来自 YAML frontmatter 的 description) */

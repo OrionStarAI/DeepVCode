@@ -21,6 +21,7 @@ import {
   SkillError,
   SkillErrorCode,
   ValidationError,
+  SkillType,
 } from './types.js';
 import { SettingsManager, SkillsPaths } from './settings-manager.js';
 import { MarketplaceManager } from './marketplace-manager.js';
@@ -123,18 +124,39 @@ export class SkillLoader {
 
       // 加载每个 Skill
       const skills: Skill[] = [];
-      for (const skillPath of plugin.skillPaths) {
-        try {
-          const fullSkillPath = path.join(marketplacePath, skillPath);
-          const skill = await this.parseSkillFile(
-            fullSkillPath,
-            pluginId,
-            marketplaceId,
-            loadLevel,
-          );
-          skills.push(skill);
-        } catch (error) {
-          console.warn(`Failed to parse skill at ${skillPath}:`, error);
+
+      // Use new items structure if available, otherwise fallback to skillPaths
+      if (plugin.items && plugin.items.length > 0) {
+        for (const item of plugin.items) {
+          try {
+            const fullSkillPath = path.join(marketplacePath, item.path);
+            const skill = await this.parseSkillFile(
+              fullSkillPath,
+              pluginId,
+              marketplaceId,
+              loadLevel,
+              item.type // Pass type to parser
+            );
+            skills.push(skill);
+          } catch (error) {
+            console.warn(`Failed to parse ${item.type} at ${item.path}:`, error);
+          }
+        }
+      } else {
+        // Legacy fallback
+        for (const skillPath of plugin.skillPaths) {
+          try {
+            const fullSkillPath = path.join(marketplacePath, skillPath);
+            const skill = await this.parseSkillFile(
+              fullSkillPath,
+              pluginId,
+              marketplaceId,
+              loadLevel,
+            );
+            skills.push(skill);
+          } catch (error) {
+            console.warn(`Failed to parse skill at ${skillPath}:`, error);
+          }
         }
       }
 
@@ -174,18 +196,42 @@ export class SkillLoader {
    * 解析 SKILL.md 文件
    */
   async parseSkillFile(
-    skillDirPath: string,
+    skillPath: string,
     pluginId: string,
     marketplaceId: string,
     loadLevel: SkillLoadLevel = SkillLoadLevel.METADATA,
+    type?: SkillType,
   ): Promise<Skill> {
-    const skillFilePath = path.join(skillDirPath, 'SKILL.md');
+    let skillFilePath = skillPath;
+    let skillDirPath = skillPath;
+
+    // Determine path based on type and file existence
+    try {
+      const stat = await fs.stat(skillPath);
+      if (stat.isDirectory()) {
+        // If it's a directory, it MUST have a SKILL.md (standard skill structure)
+        skillFilePath = path.join(skillPath, 'SKILL.md');
+      } else {
+        // If it's a file, it IS the skill file (command/agent markdown)
+        skillDirPath = path.dirname(skillPath);
+      }
+    } catch (error) {
+      // Path doesn't exist.
+      // If type is COMMAND or AGENT, and it ends in .md, assume it's a missing file.
+      // Otherwise, assume it's a missing directory that should have SKILL.md
+      if ((type === SkillType.COMMAND || type === SkillType.AGENT) && skillPath.endsWith('.md')) {
+         skillFilePath = skillPath;
+         skillDirPath = path.dirname(skillPath);
+      } else {
+         skillFilePath = path.join(skillPath, 'SKILL.md');
+      }
+    }
 
     try {
       // 检查文件是否存在
       if (!(await fs.pathExists(skillFilePath))) {
         throw new SkillError(
-          `SKILL.md not found: ${skillFilePath}`,
+          `Skill file not found: ${skillFilePath}`,
           SkillErrorCode.FILE_NOT_FOUND,
           { path: skillFilePath },
         );
@@ -207,6 +253,7 @@ export class SkillLoader {
       // 构建 Skill 对象（Level 1: 仅元数据）
       const skill: Skill = {
         id: skillId,
+        type: type || SkillType.SKILL,
         name: skillName,
         description: metadata.description,
         pluginId,
@@ -236,7 +283,7 @@ export class SkillLoader {
       return skill;
     } catch (error) {
       throw new SkillError(
-        `Failed to parse SKILL.md: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to parse skill file: ${error instanceof Error ? error.message : String(error)}`,
         SkillErrorCode.SKILL_PARSE_FAILED,
         { path: skillFilePath, originalError: error },
       );

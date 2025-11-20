@@ -17,6 +17,7 @@ import {
   PluginError,
   SkillErrorCode,
   ValidationError,
+  SkillType,
 } from './types.js';
 import { SettingsManager, SkillsPaths } from './settings-manager.js';
 import { MarketplaceManager } from './marketplace-manager.js';
@@ -316,15 +317,67 @@ export class PluginInstaller {
         : marketplace.path!;
 
     // 验证 Skill 路径是否存在
-    for (const skillPath of plugin.skillPaths) {
-      const fullPath = path.join(marketplacePath, skillPath);
-      const skillFile = path.join(fullPath, 'SKILL.md');
+    // Use new items structure if available
+    if (plugin.items && plugin.items.length > 0) {
+      for (const item of plugin.items) {
+        const fullPath = path.join(marketplacePath, item.path);
 
-      if (!(await fs.pathExists(skillFile))) {
-        throw new ValidationError(
-          `Skill file not found: ${skillFile}`,
-          { skillPath },
-        );
+        // Check existence based on type
+        if (item.type === SkillType.SKILL) {
+          // Skills must be directories with SKILL.md
+          const skillFile = path.join(fullPath, 'SKILL.md');
+          if (!(await fs.pathExists(skillFile))) {
+            throw new ValidationError(
+              `Skill file not found: ${skillFile}`,
+              { skillPath: item.path },
+            );
+          }
+        } else {
+          // Commands and Agents can be files or directories
+          // If it's a file path (ends in .md), check file existence
+          // If it's a directory, check for SKILL.md (legacy support)
+
+          let exists = await fs.pathExists(fullPath);
+          if (!exists && fullPath.endsWith('.md')) {
+             // It's a missing file
+             throw new ValidationError(
+              `File not found: ${fullPath}`,
+              { path: item.path },
+            );
+          } else if (exists) {
+             const stat = await fs.stat(fullPath);
+             if (stat.isDirectory()) {
+                const skillFile = path.join(fullPath, 'SKILL.md');
+                if (!(await fs.pathExists(skillFile))) {
+                   throw new ValidationError(
+                    `Skill file not found in directory: ${skillFile}`,
+                    { path: item.path },
+                  );
+                }
+             }
+             // If it's a file and exists, we are good.
+          } else {
+             // Path doesn't exist and doesn't end in .md - assume directory missing SKILL.md
+             const skillFile = path.join(fullPath, 'SKILL.md');
+             throw new ValidationError(
+                `Skill file not found: ${skillFile}`,
+                { path: item.path },
+              );
+          }
+        }
+      }
+    } else {
+      // Legacy validation
+      for (const skillPath of plugin.skillPaths) {
+        const fullPath = path.join(marketplacePath, skillPath);
+        const skillFile = path.join(fullPath, 'SKILL.md');
+
+        if (!(await fs.pathExists(skillFile))) {
+          throw new ValidationError(
+            `Skill file not found: ${skillFile}`,
+            { skillPath },
+          );
+        }
       }
     }
   }

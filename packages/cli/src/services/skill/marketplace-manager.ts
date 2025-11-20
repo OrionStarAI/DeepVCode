@@ -17,6 +17,9 @@ import {
   MarketplaceSource,
   MarketplaceConfig,
   Plugin,
+  PluginSource,
+  PluginItem,
+  SkillType,
   MarketplaceError,
   SkillErrorCode,
   MarketplaceScanResult,
@@ -39,18 +42,36 @@ interface MarketplaceJson {
   owner?: {
     name: string;
     email?: string;
+    url?: string;
   };
   metadata?: {
     description?: string;
     version?: string;
+    pluginRoot?: string;
   };
-  plugins: Array<{
-    name: string;
-    description: string;
-    source: string;
-    strict: boolean;
-    skills: string[];
-  }>;
+  plugins: Array<MarketplacePluginEntry>;
+}
+
+interface MarketplacePluginEntry {
+  name: string;
+  source: PluginSource;
+  description?: string;
+  version?: string;
+  author?: { name: string; email?: string; };
+  homepage?: string;
+  repository?: string;
+  license?: string;
+  keywords?: string[];
+  category?: string;
+  tags?: string[];
+  strict?: boolean;
+  // Component config
+  commands?: string | string[];
+  agents?: string | string[];
+  hooks?: unknown;
+  mcpServers?: unknown;
+  // Legacy/DeepV specific
+  skills?: string[];
 }
 
 /**
@@ -450,20 +471,77 @@ export class MarketplaceManager {
   private async parsePlugin(
     marketplaceId: string,
     marketplacePath: string,
-    pluginDef: MarketplaceJson['plugins'][0],
+    pluginDef: MarketplacePluginEntry,
   ): Promise<Plugin> {
     const pluginId = `${marketplaceId}:${pluginDef.name}`;
+    let finalPluginDef = { ...pluginDef };
 
-    // 检查 skills 是否存在
-    const skillPaths: string[] = [];
-    for (const skillPath of pluginDef.skills) {
-      const fullPath = path.join(marketplacePath, skillPath);
-      if (await fs.pathExists(fullPath)) {
-        skillPaths.push(skillPath);
-      } else {
-        console.warn(`Skill path not found: ${fullPath}`);
+    // 1. Resolve Source Path
+    let sourcePath = '';
+    if (typeof pluginDef.source === 'string') {
+      sourcePath = path.join(marketplacePath, pluginDef.source);
+
+      // Fallback: Check if 'plugins' directory should be 'skills' (common in some marketplaces)
+      if (!(await fs.pathExists(sourcePath)) && pluginDef.source.startsWith('./plugins/')) {
+        const altSource = pluginDef.source.replace('./plugins/', './skills/');
+        const altPath = path.join(marketplacePath, altSource);
+        if (await fs.pathExists(altPath)) {
+          sourcePath = altPath;
+        }
+      }
+    } else {
+      // TODO: Handle remote sources (git/github)
+      // For now, we only support local relative paths or warn
+      console.warn(`Remote plugin sources not fully supported yet: ${pluginDef.name}`);
+    }
+
+    // 2. Handle Strict Mode & plugin.json
+    const isStrict = pluginDef.strict !== false; // Default to true
+
+    if (sourcePath && await fs.pathExists(sourcePath)) {
+      const manifestPath = path.join(sourcePath, 'plugin.json');
+      const hasManifest = await fs.pathExists(manifestPath);
+
+      if (isStrict && !hasManifest) {
+        console.warn(`Missing plugin.json for strict plugin ${pluginDef.name}`);
+      } else if (hasManifest) {
+        try {
+          const manifest = await fs.readJson(manifestPath);
+          // Marketplace definition supplements/overrides manifest?
+          // Doc: "marketplace fields supplement those values" -> Manifest is base
+          finalPluginDef = { ...manifest, ...pluginDef };
+        } catch (e) {
+          console.warn(`Failed to read plugin.json for ${pluginDef.name}`, e);
+        }
       }
     }
+
+    // 3. Resolve Skills/Commands/Agents
+    const skillPaths: string[] = [];
+    const items: PluginItem[] = [];
+    const basePath = sourcePath || marketplacePath;
+
+    const processItems = async (list: string[] | string | undefined, type: SkillType) => {
+      if (!list) return;
+      const candidates = Array.isArray(list) ? list : [list];
+
+      for (const candidate of candidates) {
+        if (typeof candidate !== 'string') continue;
+
+        const fullPath = path.join(basePath, candidate);
+        if (await fs.pathExists(fullPath)) {
+          const relPath = path.relative(marketplacePath, fullPath);
+          skillPaths.push(relPath);
+          items.push({ path: relPath, type });
+        } else {
+          console.warn(`${type} path not found: ${fullPath}`);
+        }
+      }
+    };
+
+    await processItems(finalPluginDef.skills, SkillType.SKILL);
+    await processItems(finalPluginDef.commands, SkillType.COMMAND);
+    await processItems(finalPluginDef.agents, SkillType.AGENT);
 
     // 检查是否已安装
     const installedPlugin = await this.settingsManager.getInstalledPlugin(pluginId);
@@ -472,14 +550,23 @@ export class MarketplaceManager {
 
     const plugin: Plugin = {
       id: pluginId,
-      name: pluginDef.name,
-      description: pluginDef.description,
+      name: finalPluginDef.name,
+      description: finalPluginDef.description || '',
       marketplaceId,
-      source: pluginDef.source,
-      strict: pluginDef.strict,
+      source: finalPluginDef.source,
+      strict: isStrict,
       skillPaths,
+      items,
       installed: isInstalled,
       enabled: isEnabled,
+      version: finalPluginDef.version,
+      author: finalPluginDef.author,
+      homepage: finalPluginDef.homepage,
+      repository: finalPluginDef.repository,
+      license: finalPluginDef.license,
+      keywords: finalPluginDef.keywords,
+      category: finalPluginDef.category,
+      tags: finalPluginDef.tags,
     };
 
     return plugin;
@@ -506,7 +593,8 @@ export class MarketplaceManager {
     return plugins.filter(
       (p) =>
         p.name.toLowerCase().includes(lowerQuery) ||
-        p.description.toLowerCase().includes(lowerQuery),
+        p.description.toLowerCase().includes(lowerQuery) ||
+        (p.keywords && p.keywords.some(k => k.toLowerCase().includes(lowerQuery)))
     );
   }
 

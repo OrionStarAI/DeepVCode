@@ -246,4 +246,42 @@ describe('MarketplaceManager', () => {
       expect(result.hasErrors).toBe(false);
     });
   });
+
+  describe('fallback logic', () => {
+    it('should fallback to skills directory if plugins directory does not exist', async () => {
+      await fs.ensureDir(testMarketplacePath);
+      await fs.ensureDir(path.join(testMarketplacePath, '.claude-plugin'));
+      // Create 'skills' directory instead of 'plugins'
+      await fs.ensureDir(path.join(testMarketplacePath, 'skills', 'my-plugin', 'commands'));
+
+      const marketplaceJson = {
+        name: 'test-marketplace',
+        plugins: [
+          {
+            name: 'my-plugin',
+            source: './plugins/my-plugin', // Points to plugins
+            commands: ['./commands/cmd1.md']
+          },
+        ],
+      };
+
+      await fs.writeFile(
+        path.join(testMarketplacePath, '.claude-plugin', 'marketplace.json'),
+        JSON.stringify(marketplaceJson, null, 2),
+      );
+
+      await fs.writeFile(
+        path.join(testMarketplacePath, 'skills', 'my-plugin', 'commands', 'cmd1.md'),
+        '# Command 1'
+      );
+
+      const marketplace = await manager.addLocalMarketplace(testMarketplacePath);
+      const plugin = marketplace.plugins[0];
+
+      expect(plugin.name).toBe('my-plugin');
+      // Should have resolved to skills directory
+      expect(plugin.skillPaths).toHaveLength(1);
+      expect(plugin.skillPaths[0]).toContain('skills/my-plugin/commands/cmd1.md');
+    });
+  });
 });
