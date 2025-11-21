@@ -96,6 +96,7 @@ export const MultiSessionApp: React.FC = () => {
     updateSessionInfo,
     loadSessionContent, // 🎯 新增：按需加载Session内容
     addMessage,
+    updateMessage, // 🎯 新增：更新消息
     updateMessageContent,
     updateRollbackableIds, // 🎯 添加可回滚ID更新函数
     restoreSessionMessages, // 🎯 添加恢复消息的函数
@@ -552,12 +553,16 @@ export const MultiSessionApp: React.FC = () => {
       }
     });
 
-    messageService.onChatComplete(({ sessionId, messageId }) => {
+    messageService.onChatComplete(({ sessionId, messageId, tokenUsage }) => {
 
       const streamingMsg = streamingMessages.current.get(messageId);
       if (streamingMsg && streamingMsg.sessionId === sessionId) {
-        // 标记消息为完成状态
-        updateMessageContent(sessionId, messageId, streamingMsg.content, false);
+        // 标记消息为完成状态，并更新Token使用情况
+        updateMessage(sessionId, messageId, {
+          content: createTextMessageContent(streamingMsg.content),
+          isStreaming: false,
+          tokenUsage: tokenUsage // 🎯 更新Token使用情况
+        });
 
         // 清理流式消息状态
         streamingMessages.current.delete(messageId);

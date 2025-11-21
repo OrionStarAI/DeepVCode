@@ -662,7 +662,7 @@ export class MultiSessionMessageService {
   /**
    * 监听流式聊天完成事件
    */
-  onChatComplete(handler: (data: { sessionId: string; messageId: string }) => void) {
+  onChatComplete(handler: (data: { sessionId: string; messageId: string; tokenUsage?: any }) => void) {
     this.addMessageHandler('chat_complete', handler);
   }
 

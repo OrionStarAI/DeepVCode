@@ -229,10 +229,10 @@ export class MultiSessionCommunicationService {
   /**
    * 发送聊天结束信号
    */
-  async sendChatComplete(sessionId: string, messageId: string) {
+  async sendChatComplete(sessionId: string, messageId: string, tokenUsage?: any) {
     await this.sendMessage({
       type: 'chat_complete',
-      payload: { messageId, sessionId }
+      payload: { messageId, sessionId, tokenUsage }
     });
   }
 

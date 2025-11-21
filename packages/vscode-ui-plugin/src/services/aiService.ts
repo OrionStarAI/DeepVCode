@@ -74,6 +74,7 @@ export class AIService {
   private currentUserMessageId: string | null = null; // 🎯 新增：当前处理的用户消息ID
   private canAbortFlow: boolean = false;
   private abortController?: AbortController;
+  private currentTokenUsage?: any; // 🎯 新增：当前Token使用情况
 
   // 🎯 通信和工具状态
   private communicationService?: MultiSessionCommunicationService;
@@ -992,7 +993,7 @@ export class AIService {
 
       // 🎯 完成当前阶段，开始新阶段
       if (this.currentProcessingMessageId && this.communicationService && this.sessionId) {
-        await this.communicationService.sendChatComplete(this.sessionId, this.currentProcessingMessageId);
+        await this.communicationService.sendChatComplete(this.sessionId, this.currentProcessingMessageId, this.currentTokenUsage);
       }
 
       const nextStageId = `continuation-${Date.now()}`;
@@ -1177,9 +1178,6 @@ export class AIService {
         responseId
       );
 
-      if (this.communicationService && this.sessionId) {
-        await this.communicationService.sendChatComplete(this.sessionId, responseId);
-      }
     } catch (error) {
       this.logger.error('❌ Failed to process streaming response with parts', error instanceof Error ? error : undefined);
 
@@ -1247,6 +1245,11 @@ export class AIService {
       if (toolCallRequests.length === 0) {
         this.setProcessingState(false, null, false);
 
+        // 🎯 Send chat complete with token usage BEFORE saving history
+        if (this.communicationService && this.sessionId) {
+          await this.communicationService.sendChatComplete(this.sessionId, responseId, this.currentTokenUsage);
+        }
+
         // 🎯 消息处理完成，保存历史记录
         await this.saveSessionHistoryIfAvailable();
       }
@@ -1292,6 +1295,9 @@ export class AIService {
           creditsUsage: tokenUsageInfo.creditsUsage
         }
       };
+
+      // 🎯 保存当前Token使用情况
+      this.currentTokenUsage = tokenUsageUpdate.tokenUsage;
 
       // 更新Session信息
       await this.sessionHistoryManager.updateSessionInfo(this.sessionId, tokenUsageUpdate);

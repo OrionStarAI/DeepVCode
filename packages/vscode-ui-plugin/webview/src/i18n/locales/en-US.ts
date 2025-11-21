@@ -288,4 +288,14 @@ export const enUS: Translations = {
     linesAdded: 'lines added',
     linesRemoved: 'lines removed',
   },
+
+  tokenUsage: {
+    title: 'Token Statistics',
+    totalTokens: 'Total Tokens',
+    credits: 'Credits',
+    input: 'Input',
+    output: 'Output',
+    cacheRead: 'Cache Read',
+    cacheHit: 'Cache Hit',
+  },
 };
