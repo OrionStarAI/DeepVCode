@@ -1282,6 +1282,12 @@ export class AIService {
       // 获取当前模型的token限制
       const currentTokenLimit = tokenLimit(this.config.getModel(), this.config);
 
+      // Calculate cache hit rate
+      let cacheHitRate = 0;
+      if (tokenUsageInfo.inputTokens > 0 && tokenUsageInfo.cacheReadInputTokens) {
+        cacheHitRate = tokenUsageInfo.cacheReadInputTokens / tokenUsageInfo.inputTokens;
+      }
+
       // 构建token使用情况更新
       const tokenUsageUpdate = {
         tokenUsage: {
@@ -1292,7 +1298,8 @@ export class AIService {
           cachedContentTokens: tokenUsageInfo.cachedContentTokens,
           cacheCreationInputTokens: tokenUsageInfo.cacheCreationInputTokens,
           cacheReadInputTokens: tokenUsageInfo.cacheReadInputTokens,
-          creditsUsage: tokenUsageInfo.creditsUsage
+          creditsUsage: tokenUsageInfo.creditsUsage,
+          cacheHitRate: cacheHitRate
         }
       };
 

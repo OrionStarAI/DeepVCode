@@ -64,6 +64,8 @@ export interface SessionInfo {
     cacheReadInputTokens?: number;
     /** 信用消耗 */
     creditsUsage?: number;
+    /** 缓存命中率 */
+    cacheHitRate?: number;
   };
 }
 
