@@ -64,6 +64,8 @@ export interface SessionInfo {
     cacheReadInputTokens?: number;
     /** 信用消耗 */
     creditsUsage?: number;
+    /** 缓存命中率 */
+    cacheHitRate?: number;
   };
 }
 
@@ -152,6 +154,28 @@ export interface MessageMetadata {
 
   /** 编辑时间 */
   editedAt?: number;
+
+  /** Token使用情况 */
+  tokenUsage?: {
+    /** 输入Token数 */
+    inputTokens: number;
+    /** 输出Token数 */
+    outputTokens: number;
+    /** 总Token数 */
+    totalTokens: number;
+    /** 模型Token限制 */
+    tokenLimit: number;
+    /** 缓存Token数 */
+    cachedContentTokens?: number;
+    /** 缓存创建输入Token数 */
+    cacheCreationInputTokens?: number;
+    /** 缓存读取输入Token数 */
+    cacheReadInputTokens?: number;
+    /** 信用消耗 */
+    creditsUsage?: number;
+    /** 缓存命中率 */
+    cacheHitRate?: number;
+  };
 }
 
 // =============================================================================

@@ -3,15 +3,17 @@
  */
 
 import React from 'react';
+import ReactDOM from 'react-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import rehypeHighlight from 'rehype-highlight';
 import rehypeRaw from 'rehype-raw';
-import { Copy, Check, ThumbsUp, ThumbsDown, RefreshCw, ChevronDown, ChevronUp, Undo2, AlertTriangle, Pencil, Undo } from 'lucide-react';
+import { Copy, Check, ThumbsUp, ThumbsDown, RefreshCw, ChevronDown, ChevronUp, Undo2, AlertTriangle, Pencil, Undo, Info } from 'lucide-react';
 
 import { ChatMessage } from '../types';
+import { useTranslation } from '../hooks/useTranslation';
 
 import { ToolCallList } from './ToolCallList';
 import { messageContentToString } from '../utils/messageContentUtils';
@@ -173,6 +175,136 @@ const CodeBlock: React.FC<any> = ({ node, children, ...props }) => {
   );
 };
 
+// 🎯 Token Usage Popup Component (Portal)
+const TokenUsagePopup: React.FC<{
+  tokenUsage: NonNullable<ChatMessage['tokenUsage']>;
+  anchorRect: DOMRect;
+  onClose: () => void;
+  ignoreRef?: React.RefObject<HTMLElement>;
+  t: (key: string) => string;
+}> = ({ tokenUsage, anchorRect, onClose, ignoreRef, t }) => {
+  const popupRef = React.useRef<HTMLDivElement>(null);
+  const [position, setPosition] = React.useState<{ top: number; left: number }>({ top: 0, left: 0 });
+
+  // Calculate position
+  React.useLayoutEffect(() => {
+    if (!popupRef.current) return;
+
+    const popupRect = popupRef.current.getBoundingClientRect();
+    const padding = 10; // Padding from screen edges
+
+    // Initial position: above the button, right-aligned
+    let top = anchorRect.top - popupRect.height - 8;
+    let left = anchorRect.right - popupRect.width;
+
+    // Adjust horizontal position if it goes off-screen
+    if (left < padding) {
+      left = padding; // Stick to left edge
+    } else if (left + popupRect.width > window.innerWidth - padding) {
+      left = window.innerWidth - popupRect.width - padding; // Stick to right edge
+    }
+
+    // Adjust vertical position if it goes off-screen (top)
+    if (top < padding) {
+      // Flip to below the button
+      top = anchorRect.bottom + 8;
+    }
+
+    setPosition({ top, left });
+  }, [anchorRect]);
+
+  // Click outside to close
+  React.useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (popupRef.current && !popupRef.current.contains(event.target as Node)) {
+        // If ignoreRef is provided and click is inside it, do nothing (let the button handle it)
+        if (ignoreRef?.current && ignoreRef.current.contains(event.target as Node)) {
+          return;
+        }
+        onClose();
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [onClose, ignoreRef]);
+
+  return ReactDOM.createPortal(
+    <div
+      ref={popupRef}
+      style={{
+        position: 'fixed',
+        top: position.top,
+        left: position.left,
+        backgroundColor: 'var(--vscode-editorHoverWidget-background)',
+        border: '1px solid var(--vscode-editorHoverWidget-border)',
+        borderRadius: '6px',
+        padding: '12px',
+        zIndex: 9999, // High z-index to be on top of everything
+        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.25)',
+        minWidth: '220px',
+        maxWidth: '300px',
+        fontSize: '12px',
+        color: 'var(--vscode-editorHoverWidget-foreground)',
+        lineHeight: '1.5',
+        fontFamily: 'var(--vscode-font-family)',
+        pointerEvents: 'auto', // Ensure clicks are captured
+      }}
+      onClick={(e) => e.stopPropagation()} // Prevent clicks inside from closing
+    >
+      <div style={{
+        fontWeight: '600',
+        marginBottom: '8px',
+        borderBottom: '1px solid var(--vscode-editorHoverWidget-border)',
+        paddingBottom: '6px',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        opacity: 0.9
+      }}>
+        <span>{t('tokenUsage.title')}</span>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px 16px' }}>
+        {/* Total & Credits - Highlighted */}
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <span style={{ opacity: 0.7, fontSize: '11px' }}>{t('tokenUsage.totalTokens')}</span>
+          <span style={{ fontWeight: 'bold', fontSize: '14px' }}>{tokenUsage.totalTokens.toLocaleString()}</span>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <span style={{ opacity: 0.7, fontSize: '11px' }}>{t('tokenUsage.credits')}</span>
+          <span style={{ fontWeight: 'bold', fontSize: '14px', color: 'var(--vscode-textLink-foreground)' }}>
+            {tokenUsage.creditsUsage?.toFixed(3) || '0.000'}
+          </span>
+        </div>
+
+        {/* Divider */}
+        <div style={{ gridColumn: '1 / -1', height: '1px', backgroundColor: 'var(--vscode-editorHoverWidget-border)', margin: '4px 0' }}></div>
+
+        {/* Details */}
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <span style={{ opacity: 0.7 }}>{t('tokenUsage.input')}:</span>
+          <span style={{ fontFamily: 'var(--vscode-editor-font-family)' }}>{tokenUsage.inputTokens.toLocaleString()}</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <span style={{ opacity: 0.7 }}>{t('tokenUsage.output')}:</span>
+          <span style={{ fontFamily: 'var(--vscode-editor-font-family)' }}>{tokenUsage.outputTokens.toLocaleString()}</span>
+        </div>
+
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <span style={{ opacity: 0.7 }}>{t('tokenUsage.cacheRead')}:</span>
+          <span style={{ fontFamily: 'var(--vscode-editor-font-family)' }}>{tokenUsage.cacheReadInputTokens?.toLocaleString() || '0'}</span>
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+          <span style={{ opacity: 0.7 }}>{t('tokenUsage.cacheHit')}:</span>
+          <span style={{ fontFamily: 'var(--vscode-editor-font-family)' }}>{((tokenUsage.cacheHitRate || 0) * 100).toFixed(1)}%</span>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+};
+
 interface MessageBubbleProps {
   message: ChatMessage;
   onToolConfirm?: (toolCallId: string, confirmed: boolean, userInput?: string) => void;
@@ -187,6 +319,7 @@ interface MessageBubbleProps {
 }
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolConfirm, onStartEdit, onRegenerate, onRollback, canRevert = false, sessionId, messages, onUpdateMessages}) => {
+  const { t } = useTranslation();
   const [copySuccess, setCopySuccess] = React.useState(false);
   // 🎯 Like/Dislike 状态管理
   const [feedbackState, setFeedbackState] = React.useState<'none' | 'like' | 'dislike'>('none');
@@ -194,6 +327,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
   const [codeCopyStates, setCodeCopyStates] = React.useState<Map<number, boolean>>(new Map());
   // 🎯 回退确认对话框状态
   const [showRevertConfirm, setShowRevertConfirm] = React.useState(false);
+  // 🎯 Token Info 状态
+  const [showTokenInfo, setShowTokenInfo] = React.useState(false);
+  const [anchorRect, setAnchorRect] = React.useState<DOMRect | null>(null);
+  const tokenInfoBtnRef = React.useRef<HTMLButtonElement>(null);
 
   const formatTime = (timestamp: number) => {
     return new Date(timestamp).toLocaleTimeString('en-US', {
@@ -595,6 +732,39 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
             >
               <RefreshCw size={16} stroke="currentColor" />
             </button>
+          )}
+
+          {/* 🎯 Token Info 按钮 */}
+          {message.tokenUsage && (
+            <>
+              <button
+                ref={tokenInfoBtnRef}
+                className={`message-action-btn token-info-btn ${showTokenInfo ? 'active' : ''}`}
+                onClick={(e) => {
+                  if (showTokenInfo) {
+                    setShowTokenInfo(false);
+                  } else {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    setAnchorRect(rect);
+                    setShowTokenInfo(true);
+                  }
+                }}
+                title="Token 使用情况"
+                aria-label="查看 Token 使用情况"
+                aria-expanded={showTokenInfo}
+              >
+                <Info size={16} stroke="currentColor" />
+              </button>
+              {showTokenInfo && anchorRect && (
+                <TokenUsagePopup
+                  tokenUsage={message.tokenUsage}
+                  anchorRect={anchorRect}
+                  onClose={() => setShowTokenInfo(false)}
+                  ignoreRef={tokenInfoBtnRef}
+                  t={t}
+                />
+              )}
+            </>
           )}
         </div>
         );

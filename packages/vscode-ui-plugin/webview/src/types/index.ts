@@ -62,6 +62,19 @@ export interface ChatMessage {
   toolStatus?: 'executing' | 'success' | 'error' | 'cancelled';
   toolParameters?: Record<string, any>;
   toolMessageType?: 'status' | 'output';  // 区分状态消息和输出消息
+
+  // 🎯 Token使用情况
+  tokenUsage?: {
+    inputTokens: number;
+    outputTokens: number;
+    totalTokens: number;
+    tokenLimit: number;
+    cachedContentTokens?: number;
+    cacheCreationInputTokens?: number;
+    cacheReadInputTokens?: number;
+    creditsUsage?: number;
+    cacheHitRate?: number;
+  };
 }
 
 // 🎯 增强的工具调用状态枚举

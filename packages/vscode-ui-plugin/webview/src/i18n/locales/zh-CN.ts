@@ -288,4 +288,14 @@ export const zhCN: Translations = {
     linesAdded: '行新增',
     linesRemoved: '行删除',
   },
+
+  tokenUsage: {
+    title: 'Token 使用情况',
+    totalTokens: '总计',
+    credits: '积分',
+    input: '输入',
+    output: '输出',
+    cacheRead: '缓存读取',
+    cacheHit: '缓存命中',
+  },
 };

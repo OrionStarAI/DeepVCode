@@ -286,6 +286,16 @@ export interface Translations {
     linesAdded: string;
     linesRemoved: string;
   };
+
+  tokenUsage: {
+    title: string;
+    totalTokens: string;
+    credits: string;
+    input: string;
+    output: string;
+    cacheRead: string;
+    cacheHit: string;
+  };
 }
 
 export type SupportedLocale = 'zh-CN' | 'en-US';
