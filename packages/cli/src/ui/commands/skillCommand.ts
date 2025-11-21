@@ -10,6 +10,7 @@ import {
   type SlashCommand,
   CommandKind,
 } from './types.js';
+import type { Suggestion } from '../components/SuggestionsDisplay.js';
 import { t } from '../utils/i18n.js';
 import {
   SettingsManager,
@@ -453,6 +454,22 @@ Quick Start:
           description: 'List installed plugins or available plugins',
           kind: CommandKind.BUILT_IN,
 
+          completion: async (context: CommandContext, partialArg: string): Promise<Suggestion[]> => {
+            try {
+              const { marketplace } = await initSkillsSystem();
+              const mps = await marketplace.listMarketplaces();
+              return mps
+                .filter(mp => mp.id.startsWith(partialArg))
+                .map(mp => ({
+                  label: mp.name,
+                  value: mp.id,
+                  description: mp.description || mp.url
+                }));
+            } catch (error) {
+              return [];
+            }
+          },
+
           action: async (context: CommandContext, args?: string) => {
             const marketplaceId = args?.trim();
 
@@ -535,6 +552,48 @@ Quick Start:
           description: 'Install a plugin from marketplace',
           kind: CommandKind.BUILT_IN,
 
+          completion: async (context: CommandContext, partialArg: string): Promise<Suggestion[]> => {
+            try {
+              const { marketplace } = await initSkillsSystem();
+
+              // Find the first space to separate marketplace ID from plugin name
+              const firstSpaceIndex = partialArg.indexOf(' ');
+
+              if (firstSpaceIndex === -1) {
+                // Case 1: Typing Marketplace ID
+                const input = partialArg.toLowerCase();
+                const mps = await marketplace.listMarketplaces();
+                return mps
+                  .filter(mp => mp.id.toLowerCase().startsWith(input))
+                  .map(mp => ({
+                    label: mp.name,
+                    value: mp.id + ' ', // Add space to auto-advance
+                    description: mp.description || mp.url
+                  }));
+              } else {
+                // Case 2: Typing Plugin Name (Marketplace ID is fixed)
+                const marketplaceId = partialArg.substring(0, firstSpaceIndex);
+                // Use trimStart to handle multiple spaces between args
+                const pluginInput = partialArg.substring(firstSpaceIndex).trimStart().toLowerCase();
+
+                try {
+                  const plugins = await marketplace.getPlugins(marketplaceId);
+                  return plugins
+                    .filter(p => p.name.toLowerCase().includes(pluginInput))
+                    .map(p => ({
+                      label: p.name,
+                      value: `${marketplaceId} ${p.name}`,
+                      description: p.description
+                    }));
+                } catch (e) {
+                  return [];
+                }
+              }
+            } catch (error) {
+              return [];
+            }
+          },
+
           action: async (context: CommandContext, args?: string) => {
             const input = args?.trim();
 
@@ -596,6 +655,24 @@ Quick Start:
           description: 'Uninstall a plugin',
           kind: CommandKind.BUILT_IN,
 
+          completion: async (context: CommandContext, partialArg: string): Promise<Suggestion[]> => {
+            try {
+              const { installer } = await initSkillsSystem();
+              const plugins = await installer.getInstalledPlugins();
+              const input = partialArg.trim().toLowerCase();
+
+              return plugins
+                .filter(p => p.id.toLowerCase().includes(input) || p.name.toLowerCase().includes(input))
+                .map(p => ({
+                  label: p.name,
+                  value: p.id,
+                  description: `${p.description} (${p.id})`
+                }));
+            } catch (error) {
+              return [];
+            }
+          },
+
           action: async (context: CommandContext, args?: string) => {
             const pluginId = args?.trim();
 
@@ -646,6 +723,24 @@ Quick Start:
           description: 'Enable a plugin',
           kind: CommandKind.BUILT_IN,
 
+          completion: async (context: CommandContext, partialArg: string): Promise<Suggestion[]> => {
+            try {
+              const { installer } = await initSkillsSystem();
+              const plugins = await installer.getInstalledPlugins();
+              const input = partialArg.trim().toLowerCase();
+
+              return plugins
+                .filter(p => p.id.toLowerCase().includes(input) || p.name.toLowerCase().includes(input))
+                .map(p => ({
+                  label: p.name,
+                  value: p.id,
+                  description: `${p.description} (${p.id})`
+                }));
+            } catch (error) {
+              return [];
+            }
+          },
+
           action: async (context: CommandContext, args?: string) => {
             const pluginId = args?.trim();
 
@@ -691,6 +786,24 @@ Quick Start:
           description: 'Disable a plugin',
           kind: CommandKind.BUILT_IN,
 
+          completion: async (context: CommandContext, partialArg: string): Promise<Suggestion[]> => {
+            try {
+              const { installer } = await initSkillsSystem();
+              const plugins = await installer.getInstalledPlugins();
+              const input = partialArg.trim().toLowerCase();
+
+              return plugins
+                .filter(p => p.id.toLowerCase().includes(input) || p.name.toLowerCase().includes(input))
+                .map(p => ({
+                  label: p.name,
+                  value: p.id,
+                  description: `${p.description} (${p.id})`
+                }));
+            } catch (error) {
+              return [];
+            }
+          },
+
           action: async (context: CommandContext, args?: string) => {
             const pluginId = args?.trim();
 
@@ -735,6 +848,24 @@ Quick Start:
           name: 'info',
           description: 'Show plugin information',
           kind: CommandKind.BUILT_IN,
+
+          completion: async (context: CommandContext, partialArg: string): Promise<Suggestion[]> => {
+            try {
+              const { installer } = await initSkillsSystem();
+              const plugins = await installer.getInstalledPlugins();
+              const input = partialArg.trim().toLowerCase();
+
+              return plugins
+                .filter(p => p.id.toLowerCase().includes(input) || p.name.toLowerCase().includes(input))
+                .map(p => ({
+                  label: p.name,
+                  value: p.id,
+                  description: `${p.description} (${p.id})`
+                }));
+            } catch (error) {
+              return [];
+            }
+          },
 
           action: async (context: CommandContext, args?: string) => {
             const pluginId = args?.trim();
@@ -941,6 +1072,25 @@ Quick Start:
       name: 'info',
       description: 'Show detailed skill information',
       kind: CommandKind.BUILT_IN,
+
+      completion: async (context: CommandContext, partialArg: string): Promise<Suggestion[]> => {
+        try {
+          const { loader } = await initSkillsSystem();
+          // Load metadata only for speed
+          const skills = await loader.loadEnabledSkills(SkillLoadLevel.METADATA);
+          const input = partialArg.trim().toLowerCase();
+
+          return skills
+            .filter(s => s.id.toLowerCase().includes(input) || s.name.toLowerCase().includes(input))
+            .map(s => ({
+              label: s.name,
+              value: s.id,
+              description: `${s.description} (${s.id})`
+            }));
+        } catch (error) {
+          return [];
+        }
+      },
 
       action: async (context: CommandContext, args?: string) => {
         const skillId = args?.trim();

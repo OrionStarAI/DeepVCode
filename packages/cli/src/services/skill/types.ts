@@ -310,6 +310,8 @@ export interface InstalledPluginInfo {
   id: string;
   /** Plugin 名称 */
   name: string;
+  /** Plugin 描述 */
+  description?: string;
   /** Marketplace ID */
   marketplaceId: string;
   /** 安装时间 */
