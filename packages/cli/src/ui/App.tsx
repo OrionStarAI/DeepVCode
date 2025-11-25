@@ -192,6 +192,8 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
 
   // Credits accumulation tracking for current turn/session
   const [cumulativeCredits, setCumulativeCredits] = useState<number>(0);
+  // 🆕 Credits accumulation tracking for the entire session (not reset per turn)
+  const [totalSessionCredits, setTotalSessionCredits] = useState<number>(0);
 
   // Callback to update token usage from API responses
   const handleTokenUsageUpdate = useCallback((tokenUsage: any) => {
@@ -200,6 +202,8 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
 
       // 累加credits到当前回合总计
       setCumulativeCredits(prev => prev + currentCredits);
+      // 🆕 累加到会话总计
+      setTotalSessionCredits(prev => prev + currentCredits);
 
       setLastTokenUsage({
         cache_creation_input_tokens: tokenUsage.cache_creation_input_tokens || 0,
@@ -270,6 +274,8 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     const handleCreditsConsumed = (credits: number) => {
       if (credits > 0) {
         setCumulativeCredits(prev => prev + credits);
+        // 🆕 累加到会话总计
+        setTotalSessionCredits(prev => prev + credits);
         // 🆕 Update persistent usage stats
         ProxyAuthManager.getInstance().updateUsageStats(credits);
       }
@@ -794,6 +800,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     openPrivacyNotice,
     toggleVimEnabled,
     cumulativeCredits, // 🆕 传递 cumulativeCredits
+    totalSessionCredits, // 🆕 传递 totalSessionCredits
   );
 
   const {
