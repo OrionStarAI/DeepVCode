@@ -65,6 +65,7 @@ export interface CommandContext {
   session: {
     stats: SessionStatsState;
     cumulativeCredits: number;
+    totalSessionCredits: number;
   };
 }
 
