@@ -27,6 +27,7 @@ import { Extension, annotateActiveExtensions } from './extension.js';
 import { getCliVersion } from '../utils/version.js';
 import { loadSandboxConfig } from './sandboxConfig.js';
 import { extensionsCommand } from '../commands/extensions.js';
+import { checkpointCommand } from '../commands/checkpoint.js';
 import {
   loadAllExtensionCommands,
   registerExtensionCommands,
@@ -251,7 +252,8 @@ export async function parseArguments(extensions: Extension[] = []): Promise<CliA
       type: 'string',
       description: 'Specify the working directory (supports both Windows and Unix paths)',
     })
-    .command(extensionsCommand);
+    .command(extensionsCommand)
+    .command(checkpointCommand);
 
   // Dynamically load and register extension commands at runtime
   if (extensions.length > 0) {
