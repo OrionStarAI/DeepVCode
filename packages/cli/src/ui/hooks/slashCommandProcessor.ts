@@ -49,6 +49,7 @@ export const useSlashCommandProcessor = (
   setQuittingMessages: (message: HistoryItem[]) => void,
   openPrivacyNotice: () => void,
   toggleVimEnabled: () => Promise<boolean>,
+  cumulativeCredits: number, // 🆕 接收 cumulativeCredits
 ) => {
   const session = useSessionStats();
   const [commands, setCommands] = useState<readonly SlashCommand[]>([]);
@@ -155,6 +156,7 @@ export const useSlashCommandProcessor = (
       },
       session: {
         stats: session.stats,
+        cumulativeCredits, // 🆕 传递 cumulativeCredits
       },
     }),
     [
@@ -167,6 +169,7 @@ export const useSlashCommandProcessor = (
       clearItems,
       refreshStatic,
       session.stats,
+      cumulativeCredits, // 🆕 添加依赖
       onDebugMessage,
       pendingCompressionItemRef,
       setPendingCompressionItem,

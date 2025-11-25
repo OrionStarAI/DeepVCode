@@ -17,6 +17,7 @@ export const quitCommand: SlashCommand = {
     const now = Date.now();
     const { sessionStartTime } = context.session.stats;
     const wallDuration = now - sessionStartTime.getTime();
+    const credits = context.session.cumulativeCredits; // 🆕 获取积分
 
     return {
       type: 'quit',
@@ -29,6 +30,7 @@ export const quitCommand: SlashCommand = {
         {
           type: 'quit',
           duration: formatDuration(wallDuration),
+          credits, // 🆕 传递积分
           id: now,
         },
       ],

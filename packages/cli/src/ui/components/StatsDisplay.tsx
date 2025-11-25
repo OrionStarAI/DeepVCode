@@ -72,7 +72,8 @@ const ModelUsageTable: React.FC<{
   models: Record<string, ModelMetrics>;
   totalCachedTokens: number;
   cacheEfficiency: number;
-}> = ({ models, totalCachedTokens, cacheEfficiency }) => {
+  otherCredits?: number;
+}> = ({ models, totalCachedTokens, cacheEfficiency, otherCredits }) => {
   const requestsWidth = 8;
   const inputTokensWidth = 12;
   const outputTokensWidth = 12;
@@ -152,6 +153,31 @@ const ModelUsageTable: React.FC<{
         );
       })}
 
+      {/* Other Credits Row */}
+      {otherCredits && otherCredits > 0 ? (
+        <Box key="other-credits">
+          <Box width={requestsWidth} justifyContent="flex-end">
+            <Text color={Colors.Gray}>-</Text>
+          </Box>
+          <Box width={inputTokensWidth} justifyContent="flex-end">
+            <Text color={Colors.Gray}>-</Text>
+          </Box>
+          <Box width={outputTokensWidth} justifyContent="flex-end">
+            <Text color={Colors.Gray}>-</Text>
+          </Box>
+          <Box width={cacheWidth} justifyContent="flex-end">
+            <Text color={Colors.Gray}>-</Text>
+          </Box>
+          <Box width={creditsWidth} justifyContent="flex-end">
+            <Text color={Colors.AccentPurple} bold>
+              {otherCredits.toLocaleString()}
+            </Text>
+          </Box>
+          <Box paddingLeft={1}>
+            <Text color={Colors.Gray}>(Other Tools)</Text>
+          </Box>
+        </Box>
+      ) : null}
 
     </Box>
   );
@@ -160,11 +186,13 @@ const ModelUsageTable: React.FC<{
 interface StatsDisplayProps {
   duration: string;
   title?: string;
+  totalCredits?: number;
 }
 
 export const StatsDisplay: React.FC<StatsDisplayProps> = ({
   duration,
   title,
+  totalCredits,
 }) => {
   const smallWindowConfig = useSmallWindowOptimization();
 
@@ -172,6 +200,15 @@ export const StatsDisplay: React.FC<StatsDisplayProps> = ({
   const { metrics } = stats;
   const { models, tools } = metrics;
   const computed = computeSessionStats(metrics);
+
+  // Calculate model credits
+  const modelCredits = Object.values(models).reduce(
+    (sum, model) => sum + model.credits.total,
+    0
+  );
+
+  // Calculate other credits
+  const otherCredits = totalCredits !== undefined ? Math.max(0, totalCredits - modelCredits) : 0;
 
   const successThresholds = {
     green: TOOL_SUCCESS_RATE_HIGH,
@@ -212,10 +249,11 @@ export const StatsDisplay: React.FC<StatsDisplayProps> = ({
       (sum, model) => sum + (model.tokens.cacheRead || 0),
       0
     );
-    const totalCredits = Object.values(models).reduce(
+    const totalModelCredits = Object.values(models).reduce(
       (sum, model) => sum + model.credits.total,
       0
     );
+    const displayTotalCredits = totalCredits !== undefined ? totalCredits : totalModelCredits;
     const cacheEfficiency = computed.cacheEfficiency;
 
     return (
@@ -234,10 +272,10 @@ export const StatsDisplay: React.FC<StatsDisplayProps> = ({
           {t('stats.compact.output')}: <Text color={Colors.AccentYellow}>{totalOutput.toLocaleString()}</Text>
           {' '}
           {t('stats.compact.total')}: <Text color={Colors.AccentYellow}>{totalTokens.toLocaleString()}</Text>
-          {totalCredits > 0 && (
+          {displayTotalCredits > 0 && (
             <>
               {' '}
-              {t('stats.compact.credits')}: <Text color={Colors.AccentPurple}>{totalCredits.toLocaleString()}</Text>
+              {t('stats.compact.credits')}: <Text color={Colors.AccentPurple}>{displayTotalCredits.toLocaleString()}</Text>
             </>
           )}
           {cacheEfficiency > 0 && (
@@ -332,11 +370,12 @@ export const StatsDisplay: React.FC<StatsDisplayProps> = ({
         </SubStatRow>
       </Section>
 
-      {Object.keys(models).length > 0 && (
+      {(Object.keys(models).length > 0 || (otherCredits !== undefined && otherCredits > 0)) && (
         <ModelUsageTable
           models={models}
           totalCachedTokens={computed.totalCachedTokens}
           cacheEfficiency={computed.cacheEfficiency}
+          otherCredits={otherCredits}
         />
       )}
 

@@ -18,6 +18,7 @@ export enum AppEvent {
   TokensUpdated = 'tokens-updated',
   TokensCleared = 'tokens-cleared',
   ModelChanged = 'model-changed',
+  CreditsConsumed = 'credits-consumed',
 }
 
 export const appEvents = new EventEmitter();
