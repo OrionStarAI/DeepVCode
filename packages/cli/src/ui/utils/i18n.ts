@@ -750,6 +750,18 @@ export const translations = {
     'command.refine.loading.title': 'Refining...',
     'command.refine.loading.message': 'AI is refining your text, please wait...',
 
+    // NanoBanana Command
+    'command.nanobanana.description': 'Generate images using NanoBanana. Usage: /NanoBanana <ratio> <prompt>',
+    'nanobanana.usage.error': 'Usage: /NanoBanana <ratio> <prompt>\nExample: /NanoBanana 16:9 A futuristic city',
+    'nanobanana.missing.prompt': 'Missing prompt. Usage: /NanoBanana <ratio> <prompt>',
+    'nanobanana.submitting': '🎨 Submitting image generation task...\nPrompt: "{prompt}"\nRatio: {ratio}',
+    'nanobanana.submitted': '✅ Task submitted (ID: {taskId}).\n💰 Credits used: {credits}\n⏳ Estimated time: {estimatedTime}s. Polling for results...',
+    'nanobanana.timeout': '❌ Image generation timed out after {seconds}s.',
+    'nanobanana.completed': '🎉 Image generation completed!\n{urlText}',
+    'nanobanana.failed': '❌ Image generation failed: {error}',
+    'nanobanana.auth.failed': '❌ Authentication failed. Please run /login or /auth to authenticate first.',
+    'nanobanana.submit.failed': '❌ Failed to submit task: {error}',
+
     // Common terms
     'common.format': 'Format',
     'common.code': 'Code',
@@ -1691,6 +1703,18 @@ export const translations = {
     'command.refine.confirm.hint.cancel': 'Esc  取消',
     'command.refine.loading.title': '正在优化中...',
     'command.refine.loading.message': 'AI 正在为您优化文本，请稍候...',
+
+    // NanoBanana Command
+    'command.nanobanana.description': '使用 NanoBanana 生成图像。用法：/NanoBanana <比例> <提示词>',
+    'nanobanana.usage.error': '用法：/NanoBanana <比例> <提示词>\n示例：/NanoBanana 16:9 A futuristic city',
+    'nanobanana.missing.prompt': '缺少提示词。用法：/NanoBanana <比例> <提示词>',
+    'nanobanana.submitting': '🎨 正在提交图像生成任务...\n提示词："{prompt}"\n比例：{ratio}',
+    'nanobanana.submitted': '✅ 任务已提交 (ID: {taskId})。\n💰 消耗积分：{credits}\n⏳ 预计时间：{estimatedTime}秒。正在轮询结果...',
+    'nanobanana.timeout': '❌ 图像生成在 {seconds} 秒后超时。',
+    'nanobanana.completed': '🎉 图像生成完成！\n{urlText}',
+    'nanobanana.failed': '❌ 图像生成失败：{error}',
+    'nanobanana.auth.failed': '❌ 认证失败。请先运行 /login 或 /auth 进行认证。',
+    'nanobanana.submit.failed': '❌ 提交任务失败：{error}',
 
     // Common terms
     'common.format': '格式',

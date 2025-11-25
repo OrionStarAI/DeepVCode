@@ -8,6 +8,7 @@ import { CommandKind, SlashCommand, CommandContext } from './types.js';
 import { ImageGeneratorAdapter, UnauthorizedError } from 'deepv-code-core';
 import { MessageType } from '../types.js';
 import { appEvents, AppEvent } from '../../utils/events.js';
+import { t, tp } from '../utils/i18n.js';
 import open from 'open';
 
 const ALLOWED_RATIOS = ['auto', '1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'];
@@ -19,7 +20,7 @@ async function runImageGeneration(context: CommandContext, ratio: string, prompt
   try {
     addItem({
       type: MessageType.INFO,
-      text: `🎨 Submitting image generation task...\nPrompt: "${prompt}"\nRatio: ${ratio}`,
+      text: tp('nanobanana.submitting', { prompt, ratio }),
     }, Date.now());
 
     const task = await adapter.submitImageGenerationTask(prompt, ratio);
@@ -35,7 +36,11 @@ async function runImageGeneration(context: CommandContext, ratio: string, prompt
 
     addItem({
       type: MessageType.INFO,
-      text: `✅ Task submitted (ID: ${task.task_id}).\n💰 Credits used: ${task.credits_deducted}\n⏳ Estimated time: ${estimatedTime}s. Polling for results...`,
+      text: tp('nanobanana.submitted', {
+        taskId: task.task_id,
+        credits: task.credits_deducted,
+        estimatedTime
+      }),
     }, Date.now());
 
     // Polling loop
@@ -47,7 +52,7 @@ async function runImageGeneration(context: CommandContext, ratio: string, prompt
           clearInterval(pollInterval);
           addItem({
             type: MessageType.ERROR,
-            text: `❌ Image generation timed out after ${Math.round(elapsedSeconds)}s.`,
+            text: tp('nanobanana.timeout', { seconds: Math.round(elapsedSeconds) }),
           }, Date.now());
           return;
         }
@@ -61,7 +66,7 @@ async function runImageGeneration(context: CommandContext, ratio: string, prompt
 
           addItem({
             type: MessageType.INFO,
-            text: `🎉 Image generation completed!\n${urlText}`,
+            text: tp('nanobanana.completed', { urlText }),
           }, Date.now());
 
           // Automatically open images in browser
@@ -76,7 +81,7 @@ async function runImageGeneration(context: CommandContext, ratio: string, prompt
           clearInterval(pollInterval);
           addItem({
             type: MessageType.ERROR,
-            text: `❌ Image generation failed: ${status.error_message || 'Unknown error'}`,
+            text: tp('nanobanana.failed', { error: status.error_message || 'Unknown error' }),
           }, Date.now());
         } else {
           // For 'pending' or 'processing', show a spinner-like update every 5 seconds
@@ -97,12 +102,12 @@ async function runImageGeneration(context: CommandContext, ratio: string, prompt
     if (error instanceof UnauthorizedError) {
       addItem({
         type: MessageType.ERROR,
-        text: `❌ Authentication failed. Please run /login or /auth to authenticate first.`,
+        text: t('nanobanana.auth.failed'),
       }, Date.now());
     } else {
       addItem({
         type: MessageType.ERROR,
-        text: `❌ Failed to submit task: ${error instanceof Error ? error.message : String(error)}`,
+        text: tp('nanobanana.submit.failed', { error: error instanceof Error ? error.message : String(error) }),
       }, Date.now());
     }
   }
@@ -110,7 +115,8 @@ async function runImageGeneration(context: CommandContext, ratio: string, prompt
 
 export const nanoBananaCommand: SlashCommand = {
   name: 'NanoBanana',
-  description: 'Generate images using NanoBanana. Usage: /NanoBanana <ratio> <prompt>',
+  altNames: ['nanobanana'],
+  description: t('command.nanobanana.description'),
   kind: CommandKind.BUILT_IN,
   action: async (context, args) => {
     const trimmedArgs = args.trim();
@@ -118,7 +124,7 @@ export const nanoBananaCommand: SlashCommand = {
       return {
         type: 'message',
         messageType: 'error',
-        content: 'Usage: /NanoBanana <ratio> <prompt>\nExample: /NanoBanana 16:9 A futuristic city',
+        content: t('nanobanana.usage.error'),
       };
     }
 
@@ -128,7 +134,7 @@ export const nanoBananaCommand: SlashCommand = {
       return {
         type: 'message',
         messageType: 'error',
-        content: 'Missing prompt. Usage: /NanoBanana <ratio> <prompt>',
+        content: t('nanobanana.missing.prompt'),
       };
     }
 
@@ -142,7 +148,7 @@ export const nanoBananaCommand: SlashCommand = {
       return {
         type: 'message',
         messageType: 'error',
-        content: 'Missing prompt. Usage: /NanoBanana <ratio> <prompt>',
+        content: t('nanobanana.missing.prompt'),
       };
     }
 
