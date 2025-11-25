@@ -45,6 +45,11 @@ export interface FeishuUserInfo {
   avatar?: string;
 }
 
+export interface UsageStats {
+  totalCreditsConsumed: number;
+  lastUpdated: string;
+}
+
 /**
  * Token 刷新阈值常量
  * 针对 10+ 天有效期的 token，提前 3 天发起刷新
@@ -57,8 +62,10 @@ export class ProxyAuthManager {
   private config: ProxyAuthConfig;
   private userInfo: FeishuUserInfo | null = null;
   private jwtTokenData: JWTTokenData | null = null;
+  private usageStats: UsageStats = { totalCreditsConsumed: 0, lastUpdated: new Date().toISOString() };
   private userInfoFilePath: string;
   private jwtTokenFilePath: string;
+  private usageStatsFilePath: string;
   private refreshPromise: Promise<string> | null = null;
   private cliVersion: string = 'unknown';
   private periodicStatusCheckIntervalId: NodeJS.Timeout | null = null;
@@ -114,9 +121,11 @@ export class ProxyAuthManager {
     if ( process.env.DEEPX_SERVER_URL?.includes('localhost')) {
       this.userInfoFilePath = path.join(os.homedir(), '.deepv', 'user-info-dev.json');
       this.jwtTokenFilePath = path.join(os.homedir(), '.deepv', 'jwt-token-dev.json');
+      this.usageStatsFilePath = path.join(os.homedir(), '.deepv', 'usage-stats-dev.json');
     } else {
       this.userInfoFilePath = path.join(os.homedir(), '.deepv', 'user-info.json');
       this.jwtTokenFilePath = path.join(os.homedir(), '.deepv', 'jwt-token.json');
+      this.usageStatsFilePath = path.join(os.homedir(), '.deepv', 'usage-stats.json');
     }
 
 
@@ -130,6 +139,7 @@ export class ProxyAuthManager {
     // 启动时加载本地用户信息和JWT token
     this.loadUserInfo();
     this.loadJwtToken();
+    this.loadUsageStats();
 
     // 启动定期状态检查（每10分钟打印一次状态）
     this.startPeriodicStatusCheck();
@@ -259,6 +269,59 @@ export class ProxyAuthManager {
     } catch (error) {
       console.error('[Login Check] Failed to save access credential:', error);
     }
+  }
+
+  /**
+   * 加载使用统计
+   */
+  private loadUsageStats(): void {
+    try {
+      if (fs.existsSync(this.usageStatsFilePath)) {
+        const data = fs.readFileSync(this.usageStatsFilePath, 'utf8');
+        this.usageStats = JSON.parse(data);
+      }
+    } catch (error) {
+      console.warn('[Login Check] Failed to load usage stats from local file:', error);
+      this.usageStats = { totalCreditsConsumed: 0, lastUpdated: new Date().toISOString() };
+    }
+  }
+
+  /**
+   * 保存使用统计到本地
+   */
+  private saveUsageStats(): void {
+    try {
+      // 确保目录存在
+      const dir = path.dirname(this.usageStatsFilePath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+
+      fs.writeFileSync(this.usageStatsFilePath, JSON.stringify(this.usageStats, null, 2));
+      console.log('[Login Check] Usage stats saved to local file');
+    } catch (error) {
+      console.error('[Login Check] Failed to save usage stats:', error);
+    }
+  }
+
+  /**
+   * 更新使用统计
+   * @param credits 消耗的积分
+   */
+  updateUsageStats(credits: number): void {
+    if (credits <= 0) return;
+
+    this.usageStats.totalCreditsConsumed += credits;
+    this.usageStats.lastUpdated = new Date().toISOString();
+    this.saveUsageStats();
+    console.log(`[Usage Stats] Updated total credits consumed: ${this.usageStats.totalCreditsConsumed} (+${credits})`);
+  }
+
+  /**
+   * 获取使用统计
+   */
+  getUsageStats(): UsageStats {
+    return { ...this.usageStats };
   }
 
   /**

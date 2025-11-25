@@ -64,6 +64,7 @@ export interface CommandContext {
   // Session-specific data
   session: {
     stats: SessionStatsState;
+    cumulativeCredits: number;
   };
 }
 

@@ -10,10 +10,12 @@ import { t } from '../utils/i18n.js';
 
 interface SessionSummaryDisplayProps {
   duration: string;
+  credits?: number;
 }
 
 export const SessionSummaryDisplay: React.FC<SessionSummaryDisplayProps> = ({
   duration,
+  credits,
 }) => (
-  <StatsDisplay title={t('agent.powering.down')} duration={duration} />
+  <StatsDisplay title={t('agent.powering.down')} duration={duration} totalCredits={credits} />
 );

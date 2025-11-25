@@ -34,6 +34,7 @@ export { ToolExecutionEngine } from './core/toolExecutionEngine.js';
 export * from './core/mainAgentAdapter.js';
 export * from './core/subAgentAdapter.js';
 export * from './core/sceneManager.js';
+export * from './core/imageGenerator.js';
 
 export * from './code_assist/codeAssist.js';
 // clearCachedCredentialFile removed with OAuth2 - no longer needed for Cheeth OA

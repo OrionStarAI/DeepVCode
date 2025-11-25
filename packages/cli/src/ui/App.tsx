@@ -78,6 +78,7 @@ import {
   ideContext,
   addMCPStatusChangeListener,
   removeMCPStatusChangeListener,
+  ProxyAuthManager,
 } from 'deepv-code-core';
 import { validateAuthMethod } from '../config/auth.js';
 import { useLogger } from './hooks/useLogger.js';
@@ -261,6 +262,23 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
 
     return () => {
       appEvents.off(AppEvent.ModelChanged, handleModelChanged);
+    };
+  }, []);
+
+  // 监听额外的积分消耗事件（如图片生成）
+  useEffect(() => {
+    const handleCreditsConsumed = (credits: number) => {
+      if (credits > 0) {
+        setCumulativeCredits(prev => prev + credits);
+        // 🆕 Update persistent usage stats
+        ProxyAuthManager.getInstance().updateUsageStats(credits);
+      }
+    };
+
+    appEvents.on(AppEvent.CreditsConsumed, handleCreditsConsumed);
+
+    return () => {
+      appEvents.off(AppEvent.CreditsConsumed, handleCreditsConsumed);
     };
   }, []);
 
@@ -464,6 +482,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   const openPrivacyNotice = useCallback(() => {
     setShowPrivacyNotice(true);
   }, []);
+
   const initialPromptSubmitted = useRef(false);
 
   const errorCount = useMemo(
@@ -774,6 +793,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     setQuittingMessages,
     openPrivacyNotice,
     toggleVimEnabled,
+    cumulativeCredits, // 🆕 传递 cumulativeCredits
   );
 
   const {

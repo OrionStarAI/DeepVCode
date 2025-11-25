@@ -116,6 +116,7 @@ export type HistoryItemToolStats = HistoryItemBase & {
 export type HistoryItemQuit = HistoryItemBase & {
   type: 'quit';
   duration: string;
+  credits?: number; // 🆕 积分
 };
 
 export type HistoryItemToolGroup = HistoryItemBase & {

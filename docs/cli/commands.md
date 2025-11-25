@@ -67,6 +67,10 @@ Slash commands provide meta-level control over the CLI itself.
       - **Description:** Reload the hierarchical instructional memory from all `GEMINI.md` files found in the configured locations (global, project/ancestors, and sub-directories). This command updates the model with the latest `GEMINI.md` content.
     - **Note:** For more details on how `GEMINI.md` files contribute to hierarchical memory, see the [CLI Configuration documentation](./configuration.md#4-geminimd-files-hierarchical-instructional-context).
 
+- [**`/nanobanana`**](./nanobanana-command.md)
+  - **Description:** Generate images using NanoBanana.
+  - **Usage:** `/nanobanana <ratio> <prompt>`
+
 - **`/restore`**
   - **Description:** Restores the project files to the state they were in just before a tool was executed. This is particularly useful for undoing file edits made by a tool. If run without a tool call ID, it will list available checkpoints to restore from.
   - **Usage:** `/restore [tool_call_id]`
