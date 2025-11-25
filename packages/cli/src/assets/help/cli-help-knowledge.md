@@ -1488,6 +1488,67 @@ prompt = """
 
 ---
 
+### Q12: 如何在 CLI 中生成图片？
+**A:** 使用 `/nanobanana` 命令可以直接在 CLI 中生成图片。
+
+**语法：** `/nanobanana <宽高比> <提示词描述>`
+
+**支持的宽高比：**
+- `1:1` - 正方形
+- `16:9` - 宽屏横向
+- `9:16` - 竖屏纵向
+- `4:3` - 传统横向
+- `3:4` - 传统纵向
+
+**使用示例：**
+```
+/nanobanana 16:9 一只可爱的柴犬在樱花树下奔跑
+/nanobanana 1:1 赛博朋克风格的城市夜景，霓虹灯闪烁
+/nanobanana 9:16 手机壁纸，星空下的雪山
+```
+
+**注意事项：**
+- 生成后会显示可访问的 URL，如果系统支持也会自动打开浏览器
+- 提示词越详细，生成的图片质量越高
+- 此功能会消耗一定的积分
+
+---
+
+### Q13: 如何清理 Checkpoint 历史记录释放磁盘空间？
+**A:** 使用 `dvcode checkpoint clean` 命令清理所有历史检查点。
+
+**命令用法：**
+```bash
+# 清理所有 checkpoint 历史（会提示确认）
+dvcode checkpoint clean
+
+# 预览将要删除的内容（不实际删除）
+dvcode checkpoint clean --dry-run
+
+# 跳过确认直接删除
+dvcode checkpoint clean --force
+```
+
+**别名：** 可以使用 `dvcode cp clean` 作为简写。
+
+**输出示例：**
+```
+📊 Checkpoint History Summary:
+   Projects: 73
+   Total Size: 4.18 GB
+   Location: C:\Users\username\.deepv\history
+
+⚠️  This will permanently delete all checkpoint history.
+Are you sure? (y/N):
+```
+
+**注意事项：**
+- 此操作会永久删除所有项目的 checkpoint 历史记录
+- 删除后无法恢复，建议先使用 `--dry-run` 预览
+- 如果磁盘空间紧张，这是释放空间的有效方式
+
+---
+
 **DeepV Code 出品方信息：**
 - 官网：https://dvcode.deepvlab.ai/
 - 出品公司：Deep X Corporation Limited
