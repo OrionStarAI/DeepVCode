@@ -11,7 +11,7 @@ import {
   CommandKind,
 } from './types.js';
 import type { Suggestion } from '../components/SuggestionsDisplay.js';
-import { t } from '../utils/i18n.js';
+import { t, tp } from '../utils/i18n.js';
 import {
   SettingsManager,
   MarketplaceManager,
@@ -44,13 +44,13 @@ async function initSkillsSystem() {
 function formatMarketplace(mp: Marketplace): string {
   const lines: string[] = [];
   lines.push(`📦 ${mp.name} (${mp.id})`);
-  lines.push(`   Source: ${mp.source === 'git' ? mp.url : mp.path}`);
-  lines.push(`   Plugins: ${mp.plugins.length}`);
+  lines.push(`   ${t('skill.label.source')}${mp.source === 'git' ? mp.url : mp.path}`);
+  lines.push(`   ${t('skill.label.plugins')}${mp.plugins.length}`);
   if (mp.description) {
-    lines.push(`   Description: ${mp.description}`);
+    lines.push(`   ${t('skill.label.description')}${mp.description}`);
   }
   if (mp.official) {
-    lines.push(`   ⭐ Official`);
+    lines.push(`   ${t('skill.label.official')}`);
   }
   return lines.join('\n');
 }
@@ -62,9 +62,9 @@ function formatPlugin(plugin: Plugin, installed = false): string {
   const lines: string[] = [];
   const status = installed ? '✅' : '❌';
   lines.push(`🔌 ${plugin.name} ${status}`);
-  lines.push(`   ID: ${plugin.id}`);
-  lines.push(`   Description: ${plugin.description}`);
-  lines.push(`   Skills: ${plugin.skillPaths.length}`);
+  lines.push(`   ${t('skill.label.id')}${plugin.id}`);
+  lines.push(`   ${t('skill.label.description')}${plugin.description}`);
+  lines.push(`   ${t('skill.label.skills')}${plugin.skillPaths.length}`);
   return lines.join('\n');
 }
 
@@ -76,58 +76,22 @@ function formatSkill(skill: Skill): string {
   lines.push(`⚡ ${skill.name}`);
   lines.push(`   ${skill.description}`);
   if (skill.metadata.allowedTools && skill.metadata.allowedTools.length > 0) {
-    lines.push(`   Tools: ${skill.metadata.allowedTools.join(', ')}`);
+    lines.push(`   ${t('skill.label.tools')}${skill.metadata.allowedTools.join(', ')}`);
   }
   return lines.join('\n');
 }
 
 export const skillCommand: SlashCommand = {
   name: 'skill',
-  description: 'Manage AI Skills (Marketplace → Plugin → Skill)',
+  description: t('skill.command.description'),
   kind: CommandKind.BUILT_IN,
 
   action: async (context: CommandContext) => {
     // 显示帮助信息
-    const helpText = `DeepV Code Skills System
-
-Manage AI Skills with a three-tier architecture:
-  Marketplace → Plugin → Skill
-
-Commands:
-  /skill marketplace list              - List all marketplaces
-  /skill marketplace add <url> [alias] - Add a marketplace
-  /skill marketplace update <name>     - Update marketplace
-  /skill marketplace remove <name>     - Remove marketplace
-  /skill marketplace browse <name>     - Browse plugins
-
-  /skill plugin list [marketplace]     - List plugins
-  /skill plugin install <mp> <name>    - Install a plugin
-  /skill plugin uninstall <id>         - Uninstall a plugin
-  /skill plugin enable <id>            - Enable a plugin
-  /skill plugin disable <id>           - Disable a plugin
-  /skill plugin info <id>              - Show plugin info
-
-  /skill list                          - List all skills
-  /skill info <id>                     - Show skill details
-  /skill stats                         - Show statistics
-
-Quick Start:
-  1. Add official marketplace:
-     /skill marketplace add https://github.com/anthropics/skills.git
-
-  2. Browse plugins:
-     /skill marketplace browse skills
-
-  3. Install a plugin:
-     /skill plugin install skills example-skills
-
-  4. View skills:
-     /skill list`;
-
     context.ui.addItem(
       {
         type: MessageType.INFO,
-        text: helpText,
+        text: t('skill.help.text'),
       },
       Date.now(),
     );
@@ -139,14 +103,14 @@ Quick Start:
     // ========================================================================
     {
       name: 'marketplace',
-      description: 'Manage Skills marketplaces',
+      description: t('skill.marketplace.description'),
       kind: CommandKind.BUILT_IN,
 
       action: async (context: CommandContext) => {
         context.ui.addItem(
           {
             type: MessageType.INFO,
-            text: 'Usage: /skill marketplace <list|add|update|remove|browse>',
+            text: t('skill.marketplace.usage'),
           },
           Date.now(),
         );
@@ -155,7 +119,7 @@ Quick Start:
       subCommands: [
         {
           name: 'list',
-          description: 'List all marketplaces',
+          description: t('skill.marketplace.list.description'),
           kind: CommandKind.BUILT_IN,
 
           action: async (context: CommandContext) => {
@@ -167,16 +131,15 @@ Quick Start:
                 context.ui.addItem(
                   {
                     type: MessageType.INFO,
-                    text: 'No marketplaces installed.\n\nAdd one:\n  /skill marketplace add https://github.com/anthropics/anthropic-agent-skills.git',
+                    text: t('skill.marketplace.list.empty.hint'),
                   },
                   Date.now(),
                 );
                 return;
               }
 
-              const text = `Found ${marketplaces.length} marketplace(s):\n\n${
-                marketplaces.map(formatMarketplace).join('\n\n')
-              }`;
+              const text = tp('skill.marketplace.list.found', { count: marketplaces.length }) +
+                marketplaces.map(formatMarketplace).join('\n\n');
 
               context.ui.addItem(
                 {
@@ -189,7 +152,7 @@ Quick Start:
               context.ui.addItem(
                 {
                   type: MessageType.ERROR,
-                  text: `Failed to list marketplaces: ${error instanceof Error ? error.message : String(error)}`,
+                  text: tp('skill.marketplace.list.failed', { error: error instanceof Error ? error.message : String(error) }),
                 },
                 Date.now(),
               );
@@ -199,7 +162,7 @@ Quick Start:
 
         {
           name: 'add',
-          description: 'Add a marketplace from Git URL or local path',
+          description: t('skill.marketplace.add.description'),
           kind: CommandKind.BUILT_IN,
 
           action: async (context: CommandContext, args?: string) => {
@@ -209,7 +172,7 @@ Quick Start:
               context.ui.addItem(
                 {
                   type: MessageType.ERROR,
-                  text: 'Usage: /skill marketplace add <url|path> [alias] [--name <name>]',
+                  text: t('skill.marketplace.add.usage'),
                 },
                 Date.now(),
               );
@@ -236,7 +199,7 @@ Quick Start:
               context.ui.addItem(
                 {
                   type: MessageType.INFO,
-                  text: `Adding marketplace from ${url}${name ? ` as ${name}` : ''}...`,
+                  text: tp('skill.marketplace.add.progress', { url, name: name ? ` as ${name}` : '' }),
                 },
                 Date.now(),
               );
@@ -254,7 +217,7 @@ Quick Start:
               context.ui.addItem(
                 {
                   type: MessageType.INFO,
-                  text: `✅ Successfully added: ${mp.name}\n   ID: ${mp.id}\n   Plugins: ${mp.plugins.length}`,
+                  text: tp('skill.marketplace.add.success', { name: mp.name, id: mp.id, count: mp.plugins.length }),
                 },
                 Date.now(),
               );
@@ -262,7 +225,7 @@ Quick Start:
               context.ui.addItem(
                 {
                   type: MessageType.ERROR,
-                  text: `Failed to add marketplace: ${error instanceof Error ? error.message : String(error)}`,
+                  text: tp('skill.marketplace.add.failed', { error: error instanceof Error ? error.message : String(error) }),
                 },
                 Date.now(),
               );
@@ -272,7 +235,7 @@ Quick Start:
 
         {
           name: 'update',
-          description: 'Update a marketplace (git pull)',
+          description: t('skill.marketplace.update.description'),
           kind: CommandKind.BUILT_IN,
 
           action: async (context: CommandContext, args?: string) => {
@@ -282,7 +245,7 @@ Quick Start:
               context.ui.addItem(
                 {
                   type: MessageType.ERROR,
-                  text: 'Usage: /skill marketplace update <name>',
+                  text: t('skill.marketplace.update.usage'),
                 },
                 Date.now(),
               );
@@ -295,7 +258,7 @@ Quick Start:
               context.ui.addItem(
                 {
                   type: MessageType.INFO,
-                  text: `Updating marketplace ${marketplaceId}...`,
+                  text: tp('skill.marketplace.update.progress', { id: marketplaceId }),
                 },
                 Date.now(),
               );
@@ -308,7 +271,7 @@ Quick Start:
               context.ui.addItem(
                 {
                   type: MessageType.INFO,
-                  text: `✅ Successfully updated: ${mp.name}\n   Plugins: ${mp.plugins.length}`,
+                  text: tp('skill.marketplace.update.success', { name: mp.name, count: mp.plugins.length }),
                 },
                 Date.now(),
               );
@@ -316,7 +279,7 @@ Quick Start:
               context.ui.addItem(
                 {
                   type: MessageType.ERROR,
-                  text: `Failed to update marketplace: ${error instanceof Error ? error.message : String(error)}`,
+                  text: tp('skill.marketplace.update.failed', { error: error instanceof Error ? error.message : String(error) }),
                 },
                 Date.now(),
               );
@@ -326,7 +289,7 @@ Quick Start:
 
         {
           name: 'remove',
-          description: 'Remove a marketplace',
+          description: t('skill.marketplace.remove.description'),
           kind: CommandKind.BUILT_IN,
 
           completion: async (context: CommandContext, partialArg: string): Promise<Suggestion[]> => {
@@ -359,16 +322,15 @@ Quick Start:
                   context.ui.addItem(
                     {
                       type: MessageType.INFO,
-                      text: 'No marketplaces installed.',
+                      text: t('skill.marketplace.remove.empty'),
                     },
                     Date.now(),
                   );
                   return;
                 }
 
-                const text = `Please select a marketplace to remove:\n\n${
-                  marketplaces.map(mp => `📦 ${mp.name} (${mp.id})\n   Usage: /skill marketplace remove ${mp.id}`).join('\n\n')
-                }`;
+                const text = t('skill.marketplace.remove.select') +
+                  marketplaces.map(mp => `📦 ${mp.name} (${mp.id})\n   Usage: /skill marketplace remove ${mp.id}`).join('\n\n');
 
                 context.ui.addItem(
                   {
@@ -392,7 +354,7 @@ Quick Start:
               context.ui.addItem(
                 {
                   type: MessageType.INFO,
-                  text: `✅ Successfully removed: ${id}${deleteFiles ? '\n   Files deleted from disk' : ''}`,
+                  text: tp('skill.marketplace.remove.success', { id, files: deleteFiles ? t('skill.marketplace.remove.files_deleted') : '' }),
                 },
                 Date.now(),
               );
@@ -400,7 +362,7 @@ Quick Start:
               context.ui.addItem(
                 {
                   type: MessageType.ERROR,
-                  text: `Failed to remove marketplace: ${error instanceof Error ? error.message : String(error)}`,
+                  text: tp('skill.marketplace.remove.failed', { error: error instanceof Error ? error.message : String(error) }),
                 },
                 Date.now(),
               );
@@ -410,7 +372,7 @@ Quick Start:
 
         {
           name: 'browse',
-          description: 'Browse plugins in a marketplace',
+          description: t('skill.marketplace.browse.description'),
           kind: CommandKind.BUILT_IN,
 
           completion: async (context: CommandContext, partialArg: string): Promise<Suggestion[]> => {
@@ -443,16 +405,15 @@ Quick Start:
                   context.ui.addItem(
                     {
                       type: MessageType.INFO,
-                      text: 'No marketplaces installed.\n\nAdd one:\n  /skill marketplace add https://github.com/anthropics/anthropic-agent-skills.git',
+                      text: t('skill.marketplace.list.empty.hint'),
                     },
                     Date.now(),
                   );
                   return;
                 }
 
-                const text = `Please select a marketplace to browse:\n\n${
-                  marketplaces.map(mp => `📦 ${mp.name} (${mp.id})\n   Usage: /skill marketplace browse ${mp.id}`).join('\n\n')
-                }`;
+                const text = t('skill.marketplace.browse.select') +
+                  marketplaces.map(mp => `📦 ${mp.name} (${mp.id})\n   Usage: /skill marketplace browse ${mp.id}`).join('\n\n');
 
                 context.ui.addItem(
                   {
@@ -474,16 +435,15 @@ Quick Start:
                 context.ui.addItem(
                   {
                     type: MessageType.INFO,
-                    text: `No plugins found in ${marketplaceId}${query ? ` (query: "${query}")` : ''}`,
+                    text: tp('skill.marketplace.browse.empty', { id: marketplaceId, query: query ? ` (query: "${query}")` : '' }),
                   },
                   Date.now(),
                 );
                 return;
               }
 
-              const text = `Found ${plugins.length} plugin(s) in ${marketplaceId}:\n\n${
-                plugins.map(p => formatPlugin(p, p.installed)).join('\n\n')
-              }`;
+              const text = tp('skill.marketplace.browse.found', { count: plugins.length, id: marketplaceId }) +
+                plugins.map(p => formatPlugin(p, p.installed)).join('\n\n');
 
               context.ui.addItem(
                 {
@@ -496,7 +456,7 @@ Quick Start:
               context.ui.addItem(
                 {
                   type: MessageType.ERROR,
-                  text: `Failed to browse marketplace: ${error instanceof Error ? error.message : String(error)}`,
+                  text: tp('skill.marketplace.browse.failed', { error: error instanceof Error ? error.message : String(error) }),
                 },
                 Date.now(),
               );
@@ -511,14 +471,14 @@ Quick Start:
     // ========================================================================
     {
       name: 'plugin',
-      description: 'Manage Skills plugins',
+      description: t('skill.plugin.description'),
       kind: CommandKind.BUILT_IN,
 
       action: async (context: CommandContext) => {
         context.ui.addItem(
           {
             type: MessageType.INFO,
-            text: 'Usage: /skill plugin <list|install|uninstall|enable|disable|info>',
+            text: t('skill.plugin.usage'),
           },
           Date.now(),
         );
@@ -527,7 +487,7 @@ Quick Start:
       subCommands: [
         {
           name: 'list',
-          description: 'List installed plugins or available plugins',
+          description: t('skill.plugin.list.description'),
           kind: CommandKind.BUILT_IN,
 
           completion: async (context: CommandContext, partialArg: string): Promise<Suggestion[]> => {
@@ -560,16 +520,15 @@ Quick Start:
                   context.ui.addItem(
                     {
                       type: MessageType.INFO,
-                      text: `No plugins found in ${marketplaceId}`,
+                      text: tp('skill.plugin.list.marketplace.empty', { id: marketplaceId }),
                     },
                     Date.now(),
                   );
                   return;
                 }
 
-                const text = `Available plugins in ${marketplaceId}:\n\n${
-                  plugins.map(p => formatPlugin(p, p.installed)).join('\n\n')
-                }`;
+                const text = tp('skill.plugin.list.marketplace.found', { id: marketplaceId }) +
+                  plugins.map(p => formatPlugin(p, p.installed)).join('\n\n');
 
                 context.ui.addItem(
                   {
@@ -586,20 +545,20 @@ Quick Start:
                   context.ui.addItem(
                     {
                       type: MessageType.INFO,
-                      text: 'No plugins installed.\n\nInstall one:\n  /skill plugin install <marketplace> <plugin-name>',
+                      text: t('skill.plugin.list.installed.empty'),
                     },
                     Date.now(),
                   );
                   return;
                 }
 
-                const lines = [`Installed plugins (${plugins.length}):\n`];
+                const lines = [tp('skill.plugin.list.installed.found', { count: plugins.length })];
                 for (const p of plugins) {
-                  const status = p.enabled ? '✅ Enabled' : '❌ Disabled';
+                  const status = p.enabled ? t('skill.label.enabled') : t('skill.label.disabled');
                   lines.push(`🔌 ${p.name} (${status})`);
-                  lines.push(`   ID: ${p.id}`);
-                  lines.push(`   Marketplace: ${p.marketplaceId}`);
-                  lines.push(`   Skills: ${p.skillCount}`);
+                  lines.push(`   ${t('skill.label.id')}${p.id}`);
+                  lines.push(`   ${t('skill.label.marketplace')}${p.marketplaceId}`);
+                  lines.push(`   ${t('skill.label.skills')}${p.skillCount}`);
                   lines.push('');
                 }
 
@@ -615,7 +574,7 @@ Quick Start:
               context.ui.addItem(
                 {
                   type: MessageType.ERROR,
-                  text: `Failed to list plugins: ${error instanceof Error ? error.message : String(error)}`,
+                  text: tp('skill.plugin.list.failed', { error: error instanceof Error ? error.message : String(error) }),
                 },
                 Date.now(),
               );
@@ -625,7 +584,7 @@ Quick Start:
 
         {
           name: 'install',
-          description: 'Install a plugin from marketplace',
+          description: t('skill.plugin.install.description'),
           kind: CommandKind.BUILT_IN,
 
           completion: async (context: CommandContext, partialArg: string): Promise<Suggestion[]> => {
@@ -677,7 +636,7 @@ Quick Start:
               context.ui.addItem(
                 {
                   type: MessageType.ERROR,
-                  text: 'Usage: /skill plugin install <marketplace> <plugin-name>',
+                  text: t('skill.plugin.install.usage'),
                 },
                 Date.now(),
               );
@@ -697,7 +656,7 @@ Quick Start:
               context.ui.addItem(
                 {
                   type: MessageType.INFO,
-                  text: `Installing plugin ${pluginName} from ${marketplaceId}...`,
+                  text: tp('skill.plugin.install.progress', { plugin: pluginName, marketplace: marketplaceId }),
                 },
                 Date.now(),
               );
@@ -710,7 +669,7 @@ Quick Start:
               context.ui.addItem(
                 {
                   type: MessageType.INFO,
-                  text: `✅ Successfully installed: ${plugin.name}\n   ID: ${plugin.id}\n   Skills: ${plugin.skillPaths.length}\n   Status: Enabled`,
+                  text: tp('skill.plugin.install.success', { name: plugin.name, id: plugin.id, count: plugin.skillPaths.length }),
                 },
                 Date.now(),
               );
@@ -718,7 +677,7 @@ Quick Start:
               context.ui.addItem(
                 {
                   type: MessageType.ERROR,
-                  text: `Failed to install plugin: ${error instanceof Error ? error.message : String(error)}`,
+                  text: tp('skill.plugin.install.failed', { error: error instanceof Error ? error.message : String(error) }),
                 },
                 Date.now(),
               );
@@ -728,7 +687,7 @@ Quick Start:
 
         {
           name: 'uninstall',
-          description: 'Uninstall a plugin',
+          description: t('skill.plugin.uninstall.description'),
           kind: CommandKind.BUILT_IN,
 
           completion: async (context: CommandContext, partialArg: string): Promise<Suggestion[]> => {
@@ -756,7 +715,7 @@ Quick Start:
               context.ui.addItem(
                 {
                   type: MessageType.ERROR,
-                  text: 'Usage: /skill plugin uninstall <plugin-id> [--delete-files]',
+                  text: t('skill.plugin.uninstall.usage'),
                 },
                 Date.now(),
               );
@@ -778,7 +737,7 @@ Quick Start:
               context.ui.addItem(
                 {
                   type: MessageType.INFO,
-                  text: `✅ Successfully uninstalled: ${id}${deleteFiles ? '\n   Files deleted from disk' : ''}`,
+                  text: tp('skill.plugin.uninstall.success', { id }) + (deleteFiles ? t('skill.marketplace.remove.files_deleted') : ''),
                 },
                 Date.now(),
               );
@@ -786,7 +745,7 @@ Quick Start:
               context.ui.addItem(
                 {
                   type: MessageType.ERROR,
-                  text: `Failed to uninstall plugin: ${error instanceof Error ? error.message : String(error)}`,
+                  text: tp('skill.plugin.uninstall.failed', { error: error instanceof Error ? error.message : String(error) }),
                 },
                 Date.now(),
               );
@@ -796,7 +755,7 @@ Quick Start:
 
         {
           name: 'enable',
-          description: 'Enable a plugin',
+          description: t('skill.plugin.enable.description'),
           kind: CommandKind.BUILT_IN,
 
           completion: async (context: CommandContext, partialArg: string): Promise<Suggestion[]> => {
@@ -824,7 +783,7 @@ Quick Start:
               context.ui.addItem(
                 {
                   type: MessageType.ERROR,
-                  text: 'Usage: /skill plugin enable <plugin-id>',
+                  text: t('skill.plugin.enable.usage'),
                 },
                 Date.now(),
               );
@@ -841,7 +800,7 @@ Quick Start:
               context.ui.addItem(
                 {
                   type: MessageType.INFO,
-                  text: `✅ Successfully enabled: ${pluginId}\n\nSkills from this plugin are now available.`,
+                  text: tp('skill.plugin.enable.success', { id: pluginId }),
                 },
                 Date.now(),
               );
@@ -849,7 +808,7 @@ Quick Start:
               context.ui.addItem(
                 {
                   type: MessageType.ERROR,
-                  text: `Failed to enable plugin: ${error instanceof Error ? error.message : String(error)}`,
+                  text: tp('skill.plugin.enable.failed', { error: error instanceof Error ? error.message : String(error) }),
                 },
                 Date.now(),
               );
@@ -859,7 +818,7 @@ Quick Start:
 
         {
           name: 'disable',
-          description: 'Disable a plugin',
+          description: t('skill.plugin.disable.description'),
           kind: CommandKind.BUILT_IN,
 
           completion: async (context: CommandContext, partialArg: string): Promise<Suggestion[]> => {
@@ -887,7 +846,7 @@ Quick Start:
               context.ui.addItem(
                 {
                   type: MessageType.ERROR,
-                  text: 'Usage: /skill plugin disable <plugin-id>',
+                  text: t('skill.plugin.disable.usage'),
                 },
                 Date.now(),
               );
@@ -904,7 +863,7 @@ Quick Start:
               context.ui.addItem(
                 {
                   type: MessageType.INFO,
-                  text: `✅ Successfully disabled: ${pluginId}\n\nSkills from this plugin are no longer available.`,
+                  text: tp('skill.plugin.disable.success', { id: pluginId }),
                 },
                 Date.now(),
               );
@@ -912,7 +871,7 @@ Quick Start:
               context.ui.addItem(
                 {
                   type: MessageType.ERROR,
-                  text: `Failed to disable plugin: ${error instanceof Error ? error.message : String(error)}`,
+                  text: tp('skill.plugin.disable.failed', { error: error instanceof Error ? error.message : String(error) }),
                 },
                 Date.now(),
               );
