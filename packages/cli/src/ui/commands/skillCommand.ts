@@ -95,7 +95,7 @@ Manage AI Skills with a three-tier architecture:
 
 Commands:
   /skill marketplace list              - List all marketplaces
-  /skill marketplace add <url>         - Add a marketplace
+  /skill marketplace add <url> [alias] - Add a marketplace
   /skill marketplace update <name>     - Update marketplace
   /skill marketplace remove <name>     - Remove marketplace
   /skill marketplace browse <name>     - Browse plugins
@@ -209,7 +209,7 @@ Quick Start:
               context.ui.addItem(
                 {
                   type: MessageType.ERROR,
-                  text: 'Usage: /skill marketplace add <url|path> [--name <name>]',
+                  text: 'Usage: /skill marketplace add <url|path> [alias] [--name <name>]',
                 },
                 Date.now(),
               );
@@ -222,13 +222,21 @@ Quick Start:
               // Parse options
               const parts = location.split(/\s+/);
               const url = parts[0];
+
+              let name: string | undefined;
               const nameIndex = parts.indexOf('--name');
-              const name = nameIndex !== -1 ? parts[nameIndex + 1] : undefined;
+
+              if (nameIndex !== -1 && parts[nameIndex + 1]) {
+                name = parts[nameIndex + 1];
+              } else if (parts.length > 1 && !parts[1].startsWith('--')) {
+                // Support positional alias: /skill marketplace add <url> <alias>
+                name = parts[1];
+              }
 
               context.ui.addItem(
                 {
                   type: MessageType.INFO,
-                  text: `Adding marketplace from ${url}...`,
+                  text: `Adding marketplace from ${url}${name ? ` as ${name}` : ''}...`,
                 },
                 Date.now(),
               );
@@ -321,22 +329,56 @@ Quick Start:
           description: 'Remove a marketplace',
           kind: CommandKind.BUILT_IN,
 
+          completion: async (context: CommandContext, partialArg: string): Promise<Suggestion[]> => {
+            try {
+              const { marketplace } = await initSkillsSystem();
+              const mps = await marketplace.listMarketplaces();
+              return mps
+                .filter(mp => mp.id.startsWith(partialArg))
+                .map(mp => ({
+                  label: mp.name,
+                  value: mp.id,
+                  description: mp.description || mp.url
+                }));
+            } catch (error) {
+              return [];
+            }
+          },
+
           action: async (context: CommandContext, args?: string) => {
             const marketplaceId = args?.trim();
 
-            if (!marketplaceId) {
-              context.ui.addItem(
-                {
-                  type: MessageType.ERROR,
-                  text: 'Usage: /skill marketplace remove <name> [--delete-files]',
-                },
-                Date.now(),
-              );
-              return;
-            }
-
             try {
               const { marketplace } = await initSkillsSystem();
+
+              if (!marketplaceId) {
+                // List available marketplaces for removal
+                const marketplaces = await marketplace.listMarketplaces();
+
+                if (marketplaces.length === 0) {
+                  context.ui.addItem(
+                    {
+                      type: MessageType.INFO,
+                      text: 'No marketplaces installed.',
+                    },
+                    Date.now(),
+                  );
+                  return;
+                }
+
+                const text = `Please select a marketplace to remove:\n\n${
+                  marketplaces.map(mp => `📦 ${mp.name} (${mp.id})\n   Usage: /skill marketplace remove ${mp.id}`).join('\n\n')
+                }`;
+
+                context.ui.addItem(
+                  {
+                    type: MessageType.INFO,
+                    text,
+                  },
+                  Date.now(),
+                );
+                return;
+              }
 
               const parts = marketplaceId.split(/\s+/);
               const id = parts[0];
@@ -371,22 +413,56 @@ Quick Start:
           description: 'Browse plugins in a marketplace',
           kind: CommandKind.BUILT_IN,
 
+          completion: async (context: CommandContext, partialArg: string): Promise<Suggestion[]> => {
+            try {
+              const { marketplace } = await initSkillsSystem();
+              const mps = await marketplace.listMarketplaces();
+              return mps
+                .filter(mp => mp.id.startsWith(partialArg))
+                .map(mp => ({
+                  label: mp.name,
+                  value: mp.id,
+                  description: mp.description || mp.url
+                }));
+            } catch (error) {
+              return [];
+            }
+          },
+
           action: async (context: CommandContext, args?: string) => {
             const input = args?.trim();
 
-            if (!input) {
-              context.ui.addItem(
-                {
-                  type: MessageType.ERROR,
-                  text: 'Usage: /skill marketplace browse <name> [query]',
-                },
-                Date.now(),
-              );
-              return;
-            }
-
             try {
               const { marketplace } = await initSkillsSystem();
+
+              if (!input) {
+                // List available marketplaces for browsing
+                const marketplaces = await marketplace.listMarketplaces();
+
+                if (marketplaces.length === 0) {
+                  context.ui.addItem(
+                    {
+                      type: MessageType.INFO,
+                      text: 'No marketplaces installed.\n\nAdd one:\n  /skill marketplace add https://github.com/anthropics/anthropic-agent-skills.git',
+                    },
+                    Date.now(),
+                  );
+                  return;
+                }
+
+                const text = `Please select a marketplace to browse:\n\n${
+                  marketplaces.map(mp => `📦 ${mp.name} (${mp.id})\n   Usage: /skill marketplace browse ${mp.id}`).join('\n\n')
+                }`;
+
+                context.ui.addItem(
+                  {
+                    type: MessageType.INFO,
+                    text,
+                  },
+                  Date.now(),
+                );
+                return;
+              }
 
               const parts = input.split(/\s+/);
               const marketplaceId = parts[0];
