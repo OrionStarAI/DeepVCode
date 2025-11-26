@@ -472,6 +472,8 @@ export enum Icon {
   Tasks = 'tasks',           // ✅ 用于TodoWrite
   Wrench = 'wrench',         // 🔧 用于LintFix
   Trash = 'trash',           // 🗑️ 用于DeleteFile
+  List = 'list',             // 📜 用于ListSkills
+  Info = 'info',             // ℹ️ 用于GetSkillDetails
 }
 
 export interface ToolLocation {

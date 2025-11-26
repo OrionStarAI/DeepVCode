@@ -540,7 +540,25 @@ You are running outside of a sandbox container, directly on the user's system. F
     ? `\n\n---\n\n${userMemory.trim()}`
     : '';
 
-  return `${sandboxContent}${gitContent}${memorySuffix}`.trim();
+  // Skills context (if available)
+  const skillsContent = (function () {
+    try {
+      const { SkillsContextBuilder } = require('../skills/skills-context-builder.js');
+      const builder = new SkillsContextBuilder();
+      const context = builder.buildContext();
+
+      if (context.available && context.summary) {
+        return `\n\n---\n\n${context.summary}`;
+      }
+      return '';
+    } catch (error) {
+      // Skills system not available or failed to load
+      // This is expected in environments where skills are not set up
+      return '';
+    }
+  })();
+
+  return `${sandboxContent}${gitContent}${skillsContent}${memorySuffix}`.trim();
 }
 
 export function getCoreSystemPrompt(userMemory?: string, isVSCode?: boolean): string {
