@@ -113,11 +113,18 @@ export class SkillsContextBuilder {
 
       // Process each skill in the plugin
       for (const skillRelPath of pluginDef.skills) {
-        const skillPath = path.join(
+        // Construct skill path, taking plugin source into account
+        let skillPath = path.join(
           this.marketplaceDir,
-          marketplace.id,
-          skillRelPath
+          marketplace.id
         );
+
+        // If plugin has a source directory, append it
+        if (pluginDef.source) {
+          skillPath = path.join(skillPath, pluginDef.source);
+        }
+
+        skillPath = path.join(skillPath, skillRelPath);
         const skillMdPath = path.join(skillPath, 'skill.md');
 
         if (!fs.existsSync(skillMdPath)) continue;
