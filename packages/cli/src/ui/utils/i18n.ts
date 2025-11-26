@@ -393,6 +393,22 @@ export const translations = {
     'checkpoint.created.failed': 'Failed to create checkpoint: {error}',
     'checkpoint.creation.skipped': 'Subsequent auto checkpoint attempts will be skipped for this conversation',
 
+    // Checkpoint CLI command
+    'checkpoint.command.description': 'Manage checkpoint history',
+    'checkpoint.command.require.subcommand': 'You need to specify a subcommand. Use --help to see available commands.',
+    'checkpoint.clean.description': 'Clean all checkpoint history to free disk space',
+    'checkpoint.clean.force.description': 'Skip confirmation prompt',
+    'checkpoint.clean.dryrun.description': 'Show what would be deleted without actually deleting',
+    'checkpoint.clean.no.history': '✅ No checkpoint history found. Nothing to clean.',
+    'checkpoint.clean.no.checkpoints': '✅ Checkpoint history directory is empty. Nothing to clean.',
+    'checkpoint.clean.summary': '📊 Checkpoint History Summary:\n   Projects: {count}\n   Total Size: {size}\n   Location: {path}',
+    'checkpoint.clean.dryrun.notice': '\n🔍 Dry run mode - no files were deleted.',
+    'checkpoint.clean.confirm': '\n⚠️  This will permanently delete all checkpoint history.\nAre you sure? (y/N): ',
+    'checkpoint.clean.cancelled': '❌ Operation cancelled.',
+    'checkpoint.clean.deleting': '🗑️  Deleting checkpoint history...',
+    'checkpoint.clean.success': '✅ Successfully cleaned checkpoint history. Freed {size} of disk space.',
+    'checkpoint.clean.error': '❌ Error cleaning checkpoint history: {error}',
+
     // Diff display messages
     'diff.new.file': '📄 New file',
     'diff.delete.file': '🗑️ Delete file',
@@ -1421,6 +1437,22 @@ export const translations = {
     'checkpoint.created.success': '检查点已建立 ({checkpointId})',
     'checkpoint.created.failed': '检查点创建失败: {error}',
     'checkpoint.creation.skipped': '本次对话将跳过后续的自动检查点尝试',
+
+    // Checkpoint CLI command
+    'checkpoint.command.description': '管理检查点历史记录',
+    'checkpoint.command.require.subcommand': '请指定子命令。使用 --help 查看可用命令。',
+    'checkpoint.clean.description': '清理所有检查点历史记录以释放磁盘空间',
+    'checkpoint.clean.force.description': '跳过确认提示',
+    'checkpoint.clean.dryrun.description': '显示将要删除的内容但不实际删除',
+    'checkpoint.clean.no.history': '✅ 未找到检查点历史记录。无需清理。',
+    'checkpoint.clean.no.checkpoints': '✅ 检查点历史目录为空。无需清理。',
+    'checkpoint.clean.summary': '📊 检查点历史概览：\n   项目数量：{count}\n   总大小：{size}\n   存储位置：{path}',
+    'checkpoint.clean.dryrun.notice': '\n🔍 预览模式 - 未删除任何文件。',
+    'checkpoint.clean.confirm': '\n⚠️  此操作将永久删除所有检查点历史记录。\n确定要继续吗？(y/N): ',
+    'checkpoint.clean.cancelled': '❌ 操作已取消。',
+    'checkpoint.clean.deleting': '🗑️  正在删除检查点历史...',
+    'checkpoint.clean.success': '✅ 检查点历史清理完成。已释放 {size} 磁盘空间。',
+    'checkpoint.clean.error': '❌ 清理检查点历史时出错：{error}',
 
     // Diff display messages
     'diff.new.file': '📄 新建文件',
