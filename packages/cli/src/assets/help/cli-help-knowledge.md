@@ -1549,6 +1549,123 @@ Are you sure? (y/N):
 
 ---
 
+### Q14: 如何使用 `/skills` 命令管理 AI Skills？
+**A:** `/skills` 是一套完整的技能管理系统，采用三层架构管理：**Marketplace → Plugin → Skill**。
+
+**核心概念：**
+- **Marketplace（市场）：** 技能仓库源，可从 Git 仓库或本地路径加载
+- **Plugin（插件）：** 技能集合，一个 Plugin 可包含多个 Skill
+- **Skill（技能）：** 最小单位，包含 SKILL.md、可执行脚本等
+
+**快速开始：**
+```
+# 1. 添加官方 Marketplace
+/skill marketplace add https://github.com/anthropics/anthropic-agent-skills.git
+
+# 2. 浏览可用插件
+/skill marketplace browse anthropic-agent-skills
+
+# 3. 安装插件
+/skill plugin install anthropic-agent-skills example-skills
+
+# 4. 查看所有 Skills
+/skill list
+
+# 5. 查看单个 Skill 详情
+/skill info <skill-id>
+```
+
+**Marketplace 管理命令：**
+
+| 命令 | 说明 | 示例 |
+|------|------|------|
+| `/skill marketplace list` | 列出所有已安装的 Marketplace | - |
+| `/skill marketplace add <url>` | 添加 Marketplace（支持 Git 或本地路径） | `/skill marketplace add https://github.com/xxx/skills.git` |
+| `/skill marketplace update <id>` | 更新 Marketplace（执行 git pull） | `/skill marketplace update official` |
+| `/skill marketplace remove <id>` | 移除 Marketplace | `/skill marketplace remove official` |
+| `/skill marketplace browse <id>` | 浏览 Marketplace 中的插件 | `/skill marketplace browse official` |
+
+**Plugin 管理命令：**
+
+| 命令 | 说明 | 示例 |
+|------|------|------|
+| `/skill plugin list` | 列出已安装的插件 | - |
+| `/skill plugin list <marketplace>` | 列出某个 Marketplace 中的插件 | `/skill plugin list official` |
+| `/skill plugin install <mp> <name>` | 安装插件 | `/skill plugin install official my-plugin` |
+| `/skill plugin uninstall <id>` | 卸载插件 | `/skill plugin uninstall official:my-plugin` |
+| `/skill plugin enable <id>` | 启用插件（使其 Skills 可用于 AI） | `/skill plugin enable official:my-plugin` |
+| `/skill plugin disable <id>` | 禁用插件 | `/skill plugin disable official:my-plugin` |
+| `/skill plugin info <id>` | 查看插件详情 | `/skill plugin info official:my-plugin` |
+
+**Skill 查询命令：**
+
+| 命令 | 说明 | 示例 |
+|------|------|------|
+| `/skill list` | 列出所有可用 Skills | - |
+| `/skill list --marketplace <id>` | 按 Marketplace 过滤 | `/skill list --marketplace official` |
+| `/skill list --plugin <id>` | 按 Plugin 过滤 | `/skill list --plugin my-plugin` |
+| `/skill list --search <query>` | 搜索 Skills | `/skill list --search "pdf"` |
+| `/skill info <skill-id>` | 查看 Skill 详情（包含完整文档） | `/skill info official:my-plugin:pdf-tools` |
+| `/skill stats` | 显示 Skills 系统统计信息 | - |
+
+**配置和存储：**
+
+Skills 系统数据存储在：
+- **目录：** `~/.deepv/skills/` 和 `~/.deepv/marketplace/`
+- **配置：** `~/.deepv/skills/settings.json`
+- **已安装记录：** `~/.deepv/skills/installed_plugins.json`
+- **备份：** `~/.deepv/skills/backups/`
+
+**AI 如何使用 Skills：**
+
+启用的 Plugins 中的 Skills 会在启动时自动注入到 AI 上下文中。AI 可以：
+1. 查看所有可用 Skills 的元数据和脚本列表
+2. 通过 `/use_skill` 工具加载完整的 SKILL.md 文档
+3. 执行 Skill 中的脚本（需要先加载文档）
+4. 根据 Skills 提供的工具和指引协助用户
+
+**常见操作示例：**
+
+```bash
+# 查看是否有可用 Marketplace
+/skill marketplace list
+
+# 添加一个新的 Marketplace
+/skill marketplace add https://github.com/my-org/skills.git my-skills
+
+# 查看 my-skills 中有哪些插件
+/skill marketplace browse my-skills
+
+# 安装一个插件
+/skill plugin install my-skills pdf-tools
+
+# 检查 PDF Tools 插件包含的 Skills
+/skill list --plugin my-skills:pdf-tools
+
+# 查看某个 Skill 的完整信息（包括脚本和使用说明）
+/skill info my-skills:pdf-tools:pdf-extract
+
+# 禁用插件（暂时不让 AI 使用）
+/skill plugin disable my-skills:pdf-tools
+
+# 重新启用插件
+/skill plugin enable my-skills:pdf-tools
+
+# 卸载插件
+/skill plugin uninstall my-skills:pdf-tools
+```
+
+**最佳实践：**
+
+1. **开始时：** 先通过 `/skill marketplace list` 了解已有的 Marketplace
+2. **探索：** 使用 `/skill marketplace browse` 浏览可用的插件
+3. **选择安装：** 根据需求 `/skill plugin install` 安装所需插件
+4. **验证：** 通过 `/skill list` 确认 Skills 已可用
+5. **禁用不用的：** 使用 `/skill plugin disable` 减少上下文噪音
+6. **定期更新：** 使用 `/skill marketplace update` 保持 Marketplace 最新
+
+---
+
 **DeepV Code 出品方信息：**
 - 官网：https://dvcode.deepvlab.ai/
 - 出品公司：Deep X Corporation Limited
