@@ -643,11 +643,9 @@ export function useCompletion(
           }
         } else {
           // Original behavior: list files in the specific directory
-          console.log('[DEBUG] Reading directory:', baseDirAbsolute);
           const entries = await fs.readdir(baseDirAbsolute, {
             withFileTypes: true,
           });
-          console.log('[DEBUG] Entries found:', entries.length);
 
           // Filter entries using git-aware filtering
           const filteredEntries = [];
@@ -823,9 +821,16 @@ export function useCompletion(
             const afterAt = query.substring(lastAtIndex + 1);
             // 如果 @ 后面没有空格，替换 @ 及其后面的内容
             if (!afterAt.includes(' ')) {
-              // 构建新值：保留 @ 之前的部分 + @ + 文件路径
+              // 找到最后一个斜杠，保留路径前缀
+              const lastSlashIndex = afterAt.lastIndexOf('/');
+              let prefix = '';
+              if (lastSlashIndex !== -1) {
+                prefix = afterAt.substring(0, lastSlashIndex + 1);
+              }
+
+              // 构建新值：保留 @ 之前的部分 + @ + 路径前缀 + 补全的文件名
               const beforeAt = query.substring(0, lastAtIndex + 1); // 包含 @
-              const newValue = beforeAt + suggestion + ' ';
+              const newValue = beforeAt + prefix + suggestion + ' ';
               buffer.setText(newValue);
               resetCompletionState();
               return;
