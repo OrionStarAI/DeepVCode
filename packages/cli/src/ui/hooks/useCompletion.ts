@@ -223,7 +223,12 @@ export function useCompletion(
       return;
     }
 
-    if (trimmedQuery.startsWith('/')) {
+    // 🚀 优先处理 @ 文件路径补全（即使在命令模式下）
+    // 如果当前正在输入 @ 文件路径，跳过命令补全逻辑，直接使用全局文件补全
+    const lastToken = buffer.text.split(/\s+/).pop() || '';
+    const isAtCompletion = lastToken.startsWith('@');
+
+    if (trimmedQuery.startsWith('/') && !isAtCompletion) {
       // Always reset perfect match at the beginning of processing.
       setIsPerfectMatch(false);
 
@@ -462,7 +467,7 @@ export function useCompletion(
       return;
     }
 
-    // Handle At Command Completion
+    // Handle At Command Completion (也用于斜杠命令中的 @ 文件补全)
     const atIndex = buffer.text.lastIndexOf('@');
     if (atIndex === -1) {
       resetCompletionState();
@@ -638,9 +643,11 @@ export function useCompletion(
           }
         } else {
           // Original behavior: list files in the specific directory
+          console.log('[DEBUG] Reading directory:', baseDirAbsolute);
           const entries = await fs.readdir(baseDirAbsolute, {
             withFileTypes: true,
           });
+          console.log('[DEBUG] Entries found:', entries.length);
 
           // Filter entries using git-aware filtering
           const filteredEntries = [];
@@ -658,16 +665,16 @@ export function useCompletion(
               cwd,
               path.join(baseDirAbsolute, entry.name),
             );
-            if (
-              fileDiscoveryService &&
-              fileDiscoveryService.shouldIgnoreFile(relativePath, filterOptions)
-            ) {
+
+            const shouldIgnore = fileDiscoveryService &&
+              fileDiscoveryService.shouldIgnoreFile(relativePath, filterOptions);
+
+            if (shouldIgnore) {
               continue;
             }
 
             filteredEntries.push({ entry, matchScore: matchResult.score });
           }
-
           fetchedSuggestions = filteredEntries.map(({ entry, matchScore }) => {
             const label = entry.isDirectory() ? entry.name + '/' : entry.name;
             return {
@@ -807,6 +814,25 @@ export function useCompletion(
       }
 
       if (query.trimStart().startsWith('/')) {
+        // 🎯 检查是否是斜杠命令中的 @ 文件路径补全
+        const lastAtIndex = query.lastIndexOf('@');
+        if (lastAtIndex !== -1) {
+          const charBefore = lastAtIndex > 0 ? query[lastAtIndex - 1] : ' ';
+          // 如果 @ 前面是空格，说明是文件路径补全
+          if (charBefore === ' ') {
+            const afterAt = query.substring(lastAtIndex + 1);
+            // 如果 @ 后面没有空格，替换 @ 及其后面的内容
+            if (!afterAt.includes(' ')) {
+              // 构建新值：保留 @ 之前的部分 + @ + 文件路径
+              const beforeAt = query.substring(0, lastAtIndex + 1); // 包含 @
+              const newValue = beforeAt + suggestion + ' ';
+              buffer.setText(newValue);
+              resetCompletionState();
+              return;
+            }
+          }
+        }
+
         const hasTrailingSpace = query.endsWith(' ');
         const parts = query
           .trimStart()

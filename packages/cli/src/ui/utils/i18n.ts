@@ -767,9 +767,9 @@ export const translations = {
     'command.refine.loading.message': 'AI is refining your text, please wait...',
 
     // NanoBanana Command
-    'command.nanobanana.description': 'Generate images using NanoBanana. Usage: /NanoBanana <ratio> <prompt>',
-    'nanobanana.usage.error': 'Usage: /NanoBanana <ratio> <prompt>\nExample: /NanoBanana 16:9 A futuristic city',
-    'nanobanana.missing.prompt': 'Missing prompt. Usage: /NanoBanana <ratio> <prompt>',
+    'command.nanobanana.description': 'Generate images using NanoBanana. Usage: /NanoBanana <ratio> <prompt> [@image]',
+    'nanobanana.usage.error': 'Usage: /NanoBanana <ratio> <prompt> [@image]\nExample: /NanoBanana 16:9 A futuristic city @ref.jpg',
+    'nanobanana.missing.prompt': 'Missing prompt. Usage: /NanoBanana <ratio> <prompt> [@image]',
     'nanobanana.submitting': '🎨 Submitting image generation task...\nPrompt: "{prompt}"\nRatio: {ratio}',
     'nanobanana.submitted': '✅ Task submitted (ID: {taskId}).\n💰 Credits used: {credits}\n⏳ Estimated time: {estimatedTime}s. Polling for results...',
     'nanobanana.timeout': '❌ Image generation timed out after {seconds}s.',
@@ -777,6 +777,11 @@ export const translations = {
     'nanobanana.failed': '❌ Image generation failed: {error}',
     'nanobanana.auth.failed': '❌ Authentication failed. Please run /login or /auth to authenticate first.',
     'nanobanana.submit.failed': '❌ Failed to submit task: {error}',
+    'nanobanana.uploading_image': '📤 Uploading image: {path}...',
+    'nanobanana.image_uploaded': '✅ Image uploaded successfully. URL: {url}',
+    'nanobanana.upload_failed': '❌ Failed to upload image: {error}',
+    'nanobanana.tip.use_at_for_image': 'Use @ to select a reference image',
+    'nanobanana.tip.use_at_for_image.description': 'Type @ followed by a filename to search for images',
 
     // Common terms
     'common.format': 'Format',
@@ -1828,9 +1833,9 @@ export const translations = {
     'command.refine.loading.message': 'AI 正在为您优化文本，请稍候...',
 
     // NanoBanana Command
-    'command.nanobanana.description': '使用 NanoBanana 生成图像。用法：/NanoBanana <比例> <提示词>',
-    'nanobanana.usage.error': '用法：/NanoBanana <比例> <提示词>\n示例：/NanoBanana 16:9 A futuristic city',
-    'nanobanana.missing.prompt': '缺少提示词。用法：/NanoBanana <比例> <提示词>',
+    'command.nanobanana.description': '使用 NanoBanana 生成图像。用法：/NanoBanana <比例> <提示词> [@参考图]',
+    'nanobanana.usage.error': '用法：/NanoBanana <比例> <提示词> [@参考图]\n示例：/NanoBanana 16:9 A futuristic city @ref.jpg',
+    'nanobanana.missing.prompt': '缺少提示词。用法：/NanoBanana <比例> <提示词> [@参考图]',
     'nanobanana.submitting': '🎨 正在提交图像生成任务...\n提示词："{prompt}"\n比例：{ratio}',
     'nanobanana.submitted': '✅ 任务已提交 (ID: {taskId})。\n💰 消耗积分：{credits}\n⏳ 预计时间：{estimatedTime}秒。正在轮询结果...',
     'nanobanana.timeout': '❌ 图像生成在 {seconds} 秒后超时。',
@@ -1838,6 +1843,11 @@ export const translations = {
     'nanobanana.failed': '❌ 图像生成失败：{error}',
     'nanobanana.auth.failed': '❌ 认证失败。请先运行 /login 或 /auth 进行认证。',
     'nanobanana.submit.failed': '❌ 提交任务失败：{error}',
+    'nanobanana.uploading_image': '📤 正在上传图片：{path}...',
+    'nanobanana.image_uploaded': '✅ 图片上传成功。URL: {url}',
+    'nanobanana.upload_failed': '❌ 图片上传失败：{error}',
+    'nanobanana.tip.use_at_for_image': '使用 @ 选择参考图片',
+    'nanobanana.tip.use_at_for_image.description': '输入 @ 后跟文件名来搜索图片',
 
     // Common terms
     'common.format': '格式',
