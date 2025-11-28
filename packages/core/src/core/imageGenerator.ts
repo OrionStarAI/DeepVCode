@@ -85,13 +85,18 @@ export class ImageGeneratorAdapter {
   }
 
   /**
-   * Submit an image generation task
+   * Get upload URL for image
    */
-  async submitImageGenerationTask(prompt: string, size: string): Promise<ImageGenerationTask> {
-    const endpoint = '/web-api/images/generations';
+  async getUploadUrl(filename: string, contentType: string): Promise<{
+    upload_url: string;
+    public_url: string;
+    storage_path: string;
+    expires_in: number;
+  }> {
+    const endpoint = '/web-api/images/upload-url';
     const proxyUrl = `${proxyAuthManager.getProxyServerUrl()}${endpoint}`;
 
-    logger.debug('[ImageGenerator] Submitting task', { prompt, size });
+    logger.debug('[ImageGenerator] Getting upload URL', { filename, contentType });
 
     try {
       const response = await this.fetchWithRetry(proxyUrl, {
@@ -100,10 +105,76 @@ export class ImageGeneratorAdapter {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          prompt,
-          size,
-          // callback_url is optional and not needed for CLI polling
+          filename,
+          content_type: contentType,
         }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        if (response.status === 401) {
+          throw new UnauthorizedError(`Authentication failed: ${errorText}`);
+        }
+        throw new Error(`Failed to get upload URL (${response.status}): ${errorText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      logger.error('[ImageGenerator] Get upload URL error', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Upload image to Google Cloud Storage
+   */
+  async uploadImage(uploadUrl: string, fileBuffer: Buffer | Uint8Array, contentType: string): Promise<void> {
+    logger.debug('[ImageGenerator] Uploading image to GCS');
+
+    try {
+      const response = await fetch(uploadUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': contentType,
+        },
+        body: fileBuffer as any,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to upload image (${response.status}): ${errorText}`);
+      }
+    } catch (error) {
+      logger.error('[ImageGenerator] Upload image error', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Submit an image generation task
+   */
+  async submitImageGenerationTask(prompt: string, size: string, fromImgUrl?: string): Promise<ImageGenerationTask> {
+    const endpoint = '/web-api/images/generations';
+    const proxyUrl = `${proxyAuthManager.getProxyServerUrl()}${endpoint}`;
+
+    logger.debug('[ImageGenerator] Submitting task', { prompt, size, fromImgUrl });
+
+    try {
+      const body: any = {
+        prompt,
+        size,
+      };
+
+      if (fromImgUrl) {
+        body.from_img_url = fromImgUrl;
+      }
+
+      const response = await this.fetchWithRetry(proxyUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
       });
 
       if (!response.ok) {
