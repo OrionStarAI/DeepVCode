@@ -58,6 +58,8 @@ import { DetailedMessagesDisplay } from './components/DetailedMessagesDisplay.js
 import { TokenUsageDisplay, type TokenUsageInfo } from './components/TokenUsageDisplay.js';
 import { tokenUsageEventManager, IDEConnectionStatus } from 'deepv-code-core';
 import { HistoryItemDisplay } from './components/HistoryItemDisplay.js';
+import { ImagePollingSpinner } from './components/ImagePollingSpinner.js';
+import { appEvents, AppEvent } from '../utils/events.js';
 import { ContextSummaryDisplay } from './components/ContextSummaryDisplay.js';
 import { IDEContextDetailDisplay } from './components/IDEContextDetailDisplay.js';
 import { ReasoningDisplay } from './components/ReasoningDisplay.js';
@@ -111,7 +113,6 @@ import { ShowMoreLines } from './components/ShowMoreLines.js';
 import { PaginatedDebugConsole } from './components/PaginatedDebugConsole.js';
 import { ScrollingDebugConsole } from './components/ScrollingDebugConsole.js';
 import { PrivacyNotice } from './privacy/PrivacyNotice.js';
-import { appEvents, AppEvent } from '../utils/events.js';
 import { AudioNotification } from '../utils/audioNotification.js';
 
 const CTRL_EXIT_PROMPT_DURATION_MS = 1000;
@@ -413,6 +414,11 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   const [queuePaused, setQueuePaused] = useState<boolean>(false); // 队列暂停标志
   const [queueEditMode, setQueueEditMode] = useState<boolean>(false); // 队列编辑模式
   const [queueEditIndex, setQueueEditIndex] = useState<number>(0); // 当前编辑的队列索引
+  const [imagePolling, setImagePolling] = useState<{ isVisible: boolean; elapsed: number; estimated: number }>({
+    isVisible: false,
+    elapsed: 0,
+    estimated: 30,
+  });
 
   // 调试：监听 refineResult 变化
   useEffect(() => {
@@ -479,9 +485,40 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     };
     appEvents.on(AppEvent.LogError, logErrorHandler);
 
+    // Handle image polling events
+    const handlePollingStart = (data: { taskId: string; estimatedTime: number }) => {
+      setImagePolling({
+        isVisible: true,
+        elapsed: 0,
+        estimated: data.estimatedTime,
+      });
+    };
+
+    const handlePollingProgress = (data: { elapsed: number; estimated: number }) => {
+      setImagePolling(prev => ({
+        ...prev,
+        elapsed: data.elapsed,
+        estimated: data.estimated,
+      }));
+    };
+
+    const handlePollingEnd = () => {
+      setImagePolling(prev => ({
+        ...prev,
+        isVisible: false,
+      }));
+    };
+
+    appEvents.on(AppEvent.ImagePollingStart, handlePollingStart);
+    appEvents.on(AppEvent.ImagePollingProgress, handlePollingProgress);
+    appEvents.on(AppEvent.ImagePollingEnd, handlePollingEnd);
+
     return () => {
       appEvents.off(AppEvent.OpenDebugConsole, openDebugConsole);
       appEvents.off(AppEvent.LogError, logErrorHandler);
+      appEvents.off(AppEvent.ImagePollingStart, handlePollingStart);
+      appEvents.off(AppEvent.ImagePollingProgress, handlePollingProgress);
+      appEvents.off(AppEvent.ImagePollingEnd, handlePollingEnd);
     };
   }, [handleNewMessage]);
 
@@ -1814,6 +1851,17 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
               </Box>
               {showIDEContextDetail && (
                 <IDEContextDetailDisplay openFiles={openFiles} />
+              )}
+
+              {/* 图片生成轮询动画 - 显示在 ContextSummaryDisplay 上方 */}
+              {imagePolling.isVisible && (
+                <Box marginY={0} marginBottom={1}>
+                  <ImagePollingSpinner
+                    isVisible={imagePolling.isVisible}
+                    elapsed={imagePolling.elapsed}
+                    estimated={imagePolling.estimated}
+                  />
+                </Box>
               )}
 
               {/* Token Usage Display - 显示在输入框上方 */}

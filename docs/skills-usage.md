@@ -35,7 +35,7 @@ Manage skill sources (Marketplaces).
     ```bash
     /skill marketplace add <git-url-or-local-path> [--name <custom-name>]
     # Example
-    /skill marketplace add https://github.com/anthropics/anthropic-agent-skills.git
+    /skill marketplace add https://github.com/anthropics/skills.git
     ```
 *   **Update Marketplace**:
     Pull the latest changes from Git.
@@ -214,7 +214,7 @@ DeepV Code CLI 新增了 `/skill` 命令族，用于管理整个生命周期。
     ```bash
     /skill marketplace add <git-url-or-local-path> [--name <custom-name>]
     # 示例
-    /skill marketplace add https://github.com/anthropics/anthropic-agent-skills.git
+    /skill marketplace add https://github.com/anthropics/skills.git
     ```
 *   **更新市场**:
     从 Git 拉取最新更改。
