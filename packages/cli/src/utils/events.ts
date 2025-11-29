@@ -19,6 +19,9 @@ export enum AppEvent {
   TokensCleared = 'tokens-cleared',
   ModelChanged = 'model-changed',
   CreditsConsumed = 'credits-consumed',
+  ImagePollingStart = 'image-polling-start',
+  ImagePollingProgress = 'image-polling-progress',
+  ImagePollingEnd = 'image-polling-end',
 }
 
 export const appEvents = new EventEmitter();

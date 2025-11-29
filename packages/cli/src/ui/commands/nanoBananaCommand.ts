@@ -79,7 +79,7 @@ async function runImageGeneration(context: CommandContext, ratio: string, prompt
     const task = await adapter.submitImageGenerationTask(prompt, ratio, fromImgUrl);
 
     const estimatedTime = task.task_info.estimated_time || 60;
-    const timeoutSeconds = estimatedTime + 60;
+    const timeoutSeconds = estimatedTime + 120;
     const startTime = Date.now();
 
     // Emit credits consumed event if credits were deducted
@@ -92,11 +92,17 @@ async function runImageGeneration(context: CommandContext, ratio: string, prompt
       text: tp('nanobanana.submitted', {
         taskId: task.task_id,
         credits: task.credits_deducted,
-        estimatedTime
       }),
     }, Date.now());
 
+    // Emit event to show polling spinner
+    appEvents.emit(AppEvent.ImagePollingStart, {
+      taskId: task.task_id,
+      estimatedTime
+    });
+
     // Polling loop
+    let displayedEstimatedTime = estimatedTime; // 用于显示的预估时间，会动态扩展
     const pollInterval = setInterval(async () => {
       try {
         const elapsedSeconds = (Date.now() - startTime) / 1000;
@@ -114,6 +120,8 @@ async function runImageGeneration(context: CommandContext, ratio: string, prompt
 
         if (status.status === 'completed') {
           clearInterval(pollInterval);
+          appEvents.emit(AppEvent.ImagePollingEnd, { success: true });
+
           const resultUrls = status.result_urls || [];
           const urlText = resultUrls.map((url, idx) => `Image ${idx + 1}: ${url}`).join('\n');
 
@@ -132,19 +140,24 @@ async function runImageGeneration(context: CommandContext, ratio: string, prompt
           }
         } else if (status.status === 'failed') {
           clearInterval(pollInterval);
+          appEvents.emit(AppEvent.ImagePollingEnd, { success: false });
+
           addItem({
             type: MessageType.ERROR,
             text: tp('nanobanana.failed', { error: status.error_message || 'Unknown error' }),
           }, Date.now());
         } else {
-          // For 'pending' or 'processing', show a spinner-like update every 5 seconds
-          // to keep the user informed without spamming
-          const elapsed = Math.round(elapsedSeconds);
-          if (elapsed % 5 === 0 && elapsed > 0) {
-             // We could update a status line here if the UI supported it,
-             // but for now we'll just rely on the initial "Polling..." message
-             // or maybe log to debug console
+          // For 'pending' or 'processing', dynamically extend estimated time if elapsed exceeds it
+          if (elapsedSeconds > displayedEstimatedTime) {
+            // 如果超过了预估时间，动态扩展预估时间（每次增加30秒）
+            displayedEstimatedTime = Math.ceil(elapsedSeconds) + 30;
           }
+
+          // Emit polling progress event with dynamic estimated time
+          appEvents.emit(AppEvent.ImagePollingProgress, {
+            elapsed: Math.round(elapsedSeconds),
+            estimated: displayedEstimatedTime
+          });
         }
       } catch (error) {
         console.error('Polling error:', error);
