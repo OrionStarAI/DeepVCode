@@ -136,6 +136,117 @@ export function getModelNameFromDisplayName(displayName: string, modelInfos: Mod
 }
 
 /**
+ * 计算两个字符串的Levenshtein距离（编辑距离）
+ * 用于模糊匹配模型名称
+ */
+function calculateLevenshteinDistance(str1: string, str2: string): number {
+  const len1 = str1.length;
+  const len2 = str2.length;
+  const dp: number[][] = Array(len1 + 1)
+    .fill(null)
+    .map(() => Array(len2 + 1).fill(0));
+
+  for (let i = 0; i <= len1; i++) dp[i][0] = i;
+  for (let j = 0; j <= len2; j++) dp[0][j] = j;
+
+  for (let i = 1; i <= len1; i++) {
+    for (let j = 1; j <= len2; j++) {
+      if (str1[i - 1] === str2[j - 1]) {
+        dp[i][j] = dp[i - 1][j - 1];
+      } else {
+        dp[i][j] = 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1]);
+      }
+    }
+  }
+
+  return dp[len1][len2];
+}
+
+/**
+ * 计算模型名称的相似度分数 (0-100)
+ * 使用多维度评分：编辑距离 + 前缀匹配 + 关键字匹配
+ */
+function calculateModelSimilarity(preferredName: string, availableModel: string): number {
+  const normalizedPreferred = preferredName.toLowerCase();
+  const normalizedAvailable = availableModel.toLowerCase();
+
+  // 完全匹配
+  if (normalizedPreferred === normalizedAvailable) {
+    return 100;
+  }
+
+  // 编辑距离评分 (50% 权重)
+  const maxLen = Math.max(normalizedPreferred.length, normalizedAvailable.length);
+  const distance = calculateLevenshteinDistance(normalizedPreferred, normalizedAvailable);
+  const editDistanceScore = Math.max(0, 100 - (distance / maxLen) * 100);
+
+  // 前缀匹配评分 (30% 权重)
+  let prefixScore = 0;
+  if (normalizedAvailable.startsWith(normalizedPreferred.substring(0, Math.min(5, normalizedPreferred.length)))) {
+    prefixScore = 80; // 前5个字符匹配得高分
+  } else if (normalizedAvailable.includes(normalizedPreferred.substring(0, Math.min(3, normalizedPreferred.length)))) {
+    prefixScore = 40;
+  }
+
+  // 关键字匹配评分 (20% 权重)
+  const preferredWords = normalizedPreferred.split(/[-_.]/);
+  const availableWords = normalizedAvailable.split(/[-_.]/);
+  const matchedWords = preferredWords.filter(word => availableWords.some(w => w.includes(word)));
+  const keywordScore = (matchedWords.length / preferredWords.length) * 100;
+
+  // 加权平均
+  const finalScore = editDistanceScore * 0.5 + prefixScore * 0.3 + keywordScore * 0.2;
+  return Math.round(finalScore);
+}
+
+/**
+ * 根据用户偏好模型名称，从可用模型列表中找到最相似的模型
+ * 如果没有足够相似的模型，返回 'auto'
+ * @param preferredModelName 用户之前选择的模型名称
+ * @param availableModels 当前可用的模型列表
+ * @param similarityThreshold 相似度阈值（0-100），默认60
+ * @returns 最相似的模型名称或 'auto'
+ */
+export function findMostSimilarModel(
+  preferredModelName: string,
+  availableModels: ModelInfo[],
+  similarityThreshold: number = 60
+): string {
+  // 如果列表为空，返回 auto
+  if (!availableModels || availableModels.length === 0) {
+    return 'auto';
+  }
+
+  // 如果用户偏好就是 'auto'，直接返回
+  if (preferredModelName === 'auto' || !preferredModelName) {
+    return 'auto';
+  }
+
+  // 计算每个可用模型与偏好模型的相似度
+  const scores = availableModels.map(model => ({
+    name: model.name,
+    displayName: model.displayName,
+    score: calculateModelSimilarity(preferredModelName, model.name)
+  }));
+
+  // 按相似度降序排序
+  scores.sort((a, b) => b.score - a.score);
+
+  // 按相似度降序排序，便于调试
+  if (process.env.DEBUG_MODEL_MATCHING === 'true') {
+    console.log(`[ModelCommand] Similarity matching for '${preferredModelName}':`, scores.slice(0, 3));
+  }
+
+  // 如果最高分超过阈值，返回该模型
+  if (scores[0].score >= similarityThreshold) {
+    return scores[0].name;
+  }
+
+  // 否则返回 'auto' 让服务端决定
+  return 'auto';
+}
+
+/**
  * 从服务端获取模型列表
  */
 async function fetchModelsFromServer(): Promise<{ models: ModelInfo[]; modelNames: string[] }> {
@@ -207,6 +318,8 @@ function getLocalCachedModels(settings: any): ModelInfo[] {
 /**
  * 异步刷新模型配置到本地（供下次使用）
  * 防止并发：如果已经有一个刷新在进行，等待它完成后返回
+ *
+ * 🆕 当用户选中的偏好模型在云端列表中不再存在时，自动更新为最相似的模型
  */
 export async function refreshModelsInBackground(settings: any, config?: Config): Promise<void> {
   // 如果已经有刷新在进行，等待它完成
@@ -221,6 +334,9 @@ export async function refreshModelsInBackground(settings: any, config?: Config):
       if (models.length > 0) {
         saveCloudModelsToSettings(models, settings, config);
         console.log(`[ModelCommand] Background refresh: Updated local model cache (${models.length} models)`);
+
+        // 🆕 检查并自动更新用户选中的模型
+        await autoUpdateUserPreferredModel(settings, models, config);
       } else {
         console.warn('[ModelCommand] Background refresh: No models returned from server');
       }
@@ -233,6 +349,65 @@ export async function refreshModelsInBackground(settings: any, config?: Config):
   })();
 
   await refreshPromise;
+}
+
+/**
+ * 🆕 自动更新用户选中的模型
+ * 如果用户的偏好模型不在新的可用模型列表中，自动选择最相似的模型
+ * 如果没有足够相似的模型，自动设置为 'auto'
+ */
+async function autoUpdateUserPreferredModel(
+  settings: any,
+  newModels: ModelInfo[],
+  config?: Config
+): Promise<void> {
+  try {
+    // 获取用户当前选中的模型
+    const preferredModel = settings?.merged?.preferredModel;
+
+    // 如果没有设置偏好模型或者是 'auto'，不需要更新
+    if (!preferredModel || preferredModel === 'auto') {
+      return;
+    }
+
+    // 检查偏好模型是否在新的模型列表中
+    const modelExists = newModels.some(m => m.name === preferredModel);
+    if (modelExists) {
+      // 模型仍然可用，无需更新
+      return;
+    }
+
+    // 模型不存在，需要自动更新为最相似的模型
+    const bestMatch = findMostSimilarModel(preferredModel, newModels, 60);
+
+    console.log(`[ModelCommand] User's preferred model '${preferredModel}' no longer exists.`);
+    console.log(`[ModelCommand] Auto-updating to: '${bestMatch}'`);
+
+    // 更新用户设置
+    settings.setValue(SettingScope.User, 'preferredModel', bestMatch);
+
+    // 更新config实例
+    if (config) {
+      config.setModel(bestMatch);
+
+      // 同时更新当前GeminiChat实例的specifiedModel
+      const geminiClient = config.getGeminiClient();
+      if (geminiClient) {
+        const chat = geminiClient.getChat();
+        chat.setSpecifiedModel(bestMatch);
+      }
+
+      // 发出模型变化事件，通知UI更新
+      console.log(`[ModelCommand] Emitting ModelChanged event with model: '${bestMatch}'`);
+      appEvents.emit(AppEvent.ModelChanged, bestMatch);
+    } else {
+      // 即使没有 config，也尝试发出事件（UI仍然应该更新）
+      console.log(`[ModelCommand] No config provided, still emitting ModelChanged event: '${bestMatch}'`);
+      appEvents.emit(AppEvent.ModelChanged, bestMatch);
+    }
+  } catch (error) {
+    console.warn('[ModelCommand] Auto-update preferred model failed:', error);
+  }
 }
 
 /**

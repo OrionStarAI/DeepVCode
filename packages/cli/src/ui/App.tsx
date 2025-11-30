@@ -115,6 +115,7 @@ import { ScrollingDebugConsole } from './components/ScrollingDebugConsole.js';
 import { PrivacyNotice } from './privacy/PrivacyNotice.js';
 import { AudioNotification } from '../utils/audioNotification.js';
 
+
 const CTRL_EXIT_PROMPT_DURATION_MS = 1000;
 
 /**
@@ -260,6 +261,9 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   // 监听模型变化事件
   useEffect(() => {
     const handleModelChanged = (newModel: string) => {
+      if (config.getDebugMode()) {
+        console.log(`[App] ModelChanged event received: '${newModel}'`);
+      }
       setCurrentModel(newModel);
     };
 
@@ -268,7 +272,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     return () => {
       appEvents.off(AppEvent.ModelChanged, handleModelChanged);
     };
-  }, []);
+  }, [config]);
 
   // 监听额外的积分消耗事件（如图片生成）
   useEffect(() => {
@@ -319,6 +323,28 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   useEffect(() => {
     checkForUpdates().then(setUpdateMessage);
   }, []);
+
+  // 🆕 在启动时异步更新云端模型列表
+  useEffect(() => {
+    (async () => {
+      try {
+        const { refreshModelsInBackground } = await import('../ui/commands/modelCommand.js');
+        if (config.getDebugMode()) {
+          console.log('[Startup] Starting async cloud model list update...');
+        }
+        // 异步更新模型列表，不阻塞UI
+        refreshModelsInBackground(settings, config).catch(error => {
+          if (config.getDebugMode()) {
+            console.log('[Startup] Cloud model list update failed:', error);
+          }
+        });
+      } catch (error) {
+        if (config.getDebugMode()) {
+          console.log('[Startup] Failed to import refreshModelsInBackground:', error);
+        }
+      }
+    })();
+  }, [config, settings]);
 
   const { history, addItem, clearItems, loadHistory } = useHistory();
   const {

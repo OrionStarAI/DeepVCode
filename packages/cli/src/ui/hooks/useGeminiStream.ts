@@ -182,8 +182,8 @@ async function generateCheckpointSummary(
 
 只返回摘要。`;
 
-  // 使用 Flash 模型（快速且成本低）
-  const models = ['gemini-2.5-flash'];
+  // 使用 Flash Lite 模型（超快速且成本更低）
+  const models = ['gemini-2.5-flash-lite'];
 
   for (const model of models) {
     try {

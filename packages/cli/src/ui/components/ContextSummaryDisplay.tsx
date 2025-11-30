@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { Text } from 'ink';
 import { Colors } from '../colors.js';
 import {
@@ -15,6 +15,12 @@ import {
   getMCPDiscoveryState,
   MCPDiscoveryState,
 } from 'deepv-code-core';
+
+// 强制恢复终端标题（MCP 启动时 npx 会覆盖标题）
+function forceRestoreTerminalTitle() {
+  const title = process.env.CLI_TITLE || '🚀 DeepV Code';
+  process.stdout.write(`\x1b]2;${title}\x07`);
+}
 
 interface ContextSummaryDisplayProps {
   geminiMdFileCount: number;
@@ -53,6 +59,27 @@ export const ContextSummaryDisplay: React.FC<ContextSummaryDisplayProps> = ({
       status === MCPServerStatus.CONNECTING &&
       (mcpServers && serverName in mcpServers)
   ).length;
+
+  // 追踪是否曾经处于连接状态，以及是否已恢复标题
+  const wasConnectingRef = useRef(false);
+  const titleRestoredRef = useRef(false);
+
+  // 当 MCP 从连接中变为非连接中状态时，强制恢复终端标题
+  useEffect(() => {
+    if (configuredMcpServerCount === 0) {
+      return; // 没有配置 MCP，无需处理
+    }
+
+    const isConnecting = discoveryState === MCPDiscoveryState.IN_PROGRESS || connectingMcpServerCount > 0;
+
+    if (isConnecting) {
+      wasConnectingRef.current = true;
+    } else if (wasConnectingRef.current && !titleRestoredRef.current) {
+      // 从连接中变为非连接中，恢复标题
+      titleRestoredRef.current = true;
+      forceRestoreTerminalTitle();
+    }
+  }, [configuredMcpServerCount, discoveryState, connectingMcpServerCount]);
 
   const blockedMcpServerCount = blockedMcpServers?.length || 0;
 
