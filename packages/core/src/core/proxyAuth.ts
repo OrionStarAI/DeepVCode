@@ -325,6 +325,37 @@ export class ProxyAuthManager {
   }
 
   /**
+   * 启动时检查 token 状态
+   * 用于 CLI 启动预检查，提前发现过期 token 并提示用户
+   * @returns token 状态信息
+   */
+  checkStartupTokenStatus(): {
+    hasToken: boolean;
+    isExpired: boolean;
+    expiresAt: number | null;
+    hasRefreshToken: boolean;
+  } {
+    if (!this.jwtTokenData) {
+      return {
+        hasToken: false,
+        isExpired: true,
+        expiresAt: null,
+        hasRefreshToken: false
+      };
+    }
+
+    const now = Date.now();
+    const isExpired = now >= this.jwtTokenData.expiresAt;
+
+    return {
+      hasToken: true,
+      isExpired,
+      expiresAt: this.jwtTokenData.expiresAt,
+      hasRefreshToken: !!this.jwtTokenData.refreshToken
+    };
+  }
+
+  /**
    * 配置代理认证
    */
   configure(config: Partial<ProxyAuthConfig>): void {

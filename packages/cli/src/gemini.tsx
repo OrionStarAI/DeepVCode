@@ -567,6 +567,18 @@ export async function main() {
     });
   }
 
+  // Startup token expiry pre-check: detect expired tokens early and prompt user to login
+  if (!shouldEnableSilentMode) {
+    const { ProxyAuthManager } = await import('deepv-code-core');
+    const proxyAuthManager = ProxyAuthManager.getInstance();
+    const tokenStatus = proxyAuthManager.checkStartupTokenStatus();
+
+    if (tokenStatus.hasToken && tokenStatus.isExpired) {
+      // Token exists but has expired - prompt user to re-authenticate
+      logIfNotSilent('log', t('auth.tokenExpiredPrompt'));
+    }
+  }
+
   const config = await loadCliConfig(
     settings.merged,
     extensions,
@@ -830,9 +842,9 @@ function setWindowTitle(title: string, settings: LoadedSettings) {
 
 // 手动恢复标题的函数
 function restoreWindowTitle() {
-  if (currentWindowTitle) {
-    process.stdout.write(`\x1b]2;${currentWindowTitle}\x07`);
-  }
+  // 强制恢复标题
+  const title = currentWindowTitle || '🚀 DeepV Code';
+  process.stdout.write(`\x1b]2;${title}\x07`);
 }
 
 /**

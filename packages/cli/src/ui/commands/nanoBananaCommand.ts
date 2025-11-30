@@ -19,7 +19,18 @@ import open from 'open';
 const ALLOWED_RATIOS = ['auto', '1:1', '2:3', '3:2', '3:4', '4:3', '4:5', '5:4', '9:16', '16:9', '21:9'];
 const IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp', '.tiff', '.tif'];
 
-async function runImageGeneration(context: CommandContext, ratio: string, prompt: string, imagePath?: string) {
+// ANSI Color Constants
+const COLOR_GREEN = '\u001b[32m';
+const COLOR_YELLOW = '\u001b[33m';
+const COLOR_RED = '\u001b[31m';
+const COLOR_CYAN = '\u001b[36m';
+const COLOR_BLUE = '\u001b[34m';
+const COLOR_MAGENTA = '\u001b[35m';
+const COLOR_GREY = '\u001b[90m';
+const RESET_COLOR = '\u001b[0m';
+const BOLD = '\u001b[1m';
+
+async function runImageGeneration(context: CommandContext, ratio: string, prompt: string, imagePath?: string, imageSize?: string) {
   const { addItem } = context.ui;
   const adapter = ImageGeneratorAdapter.getInstance();
 
@@ -29,7 +40,7 @@ async function runImageGeneration(context: CommandContext, ratio: string, prompt
     if (imagePath) {
       addItem({
         type: MessageType.INFO,
-        text: tp('nanobanana.uploading_image', { path: imagePath }),
+        text: `${COLOR_CYAN}📤 ${tp('nanobanana.uploading_image', { path: `${BOLD}${imagePath}${RESET_COLOR}${COLOR_CYAN}` })}${RESET_COLOR}`,
       }, Date.now());
 
       try {
@@ -59,13 +70,13 @@ async function runImageGeneration(context: CommandContext, ratio: string, prompt
 
         addItem({
             type: MessageType.INFO,
-            text: tp('nanobanana.image_uploaded', { url: public_url }),
+            text: `${COLOR_GREEN}✅ ${tp('nanobanana.image_uploaded', { url: `${COLOR_CYAN}${public_url}${RESET_COLOR}${COLOR_GREEN}` })}${RESET_COLOR}`,
         }, Date.now());
 
       } catch (error) {
          addItem({
             type: MessageType.ERROR,
-            text: tp('nanobanana.upload_failed', { error: error instanceof Error ? error.message : String(error) }),
+            text: `${COLOR_RED}❌ ${tp('nanobanana.upload_failed', { error: error instanceof Error ? error.message : String(error) })}${RESET_COLOR}`,
           }, Date.now());
           return; // Stop if upload fails
       }
@@ -73,10 +84,12 @@ async function runImageGeneration(context: CommandContext, ratio: string, prompt
 
     addItem({
       type: MessageType.INFO,
-      text: tp('nanobanana.submitting', { prompt, ratio }),
+      text: `${COLOR_CYAN}🎨 ${t('nanobanana.submitting').split('\n')[0]}${RESET_COLOR}\n` +
+            `${BOLD}Prompt:${RESET_COLOR} ${COLOR_CYAN}"${prompt}"${RESET_COLOR}\n` +
+            `${BOLD}Ratio:${RESET_COLOR} ${COLOR_YELLOW}${ratio}${RESET_COLOR}`,
     }, Date.now());
 
-    const task = await adapter.submitImageGenerationTask(prompt, ratio, fromImgUrl);
+    const task = await adapter.submitImageGenerationTask(prompt, ratio, fromImgUrl, imageSize);
 
     const estimatedTime = task.task_info.estimated_time || 60;
     const timeoutSeconds = estimatedTime + 120;
@@ -89,10 +102,9 @@ async function runImageGeneration(context: CommandContext, ratio: string, prompt
 
     addItem({
       type: MessageType.INFO,
-      text: tp('nanobanana.submitted', {
-        taskId: task.task_id,
-        credits: task.credits_deducted,
-      }),
+      text: `${COLOR_GREEN}✅ ${t('nanobanana.submitted').split('\n')[0].replace('{taskId}', `${COLOR_CYAN}${task.task_id}${RESET_COLOR}${COLOR_GREEN}`)}${RESET_COLOR}\n` +
+            `${COLOR_YELLOW}💰 ${t('nanobanana.submitted').split('\n')[1].replace('{credits}', `${BOLD}${task.credits_deducted}${RESET_COLOR}${COLOR_YELLOW}`)}${RESET_COLOR}\n` +
+            `${COLOR_CYAN}⏳ ${t('nanobanana.submitted').split('\n')[2]}${RESET_COLOR}`,
     }, Date.now());
 
     // Emit event to show polling spinner
@@ -103,31 +115,52 @@ async function runImageGeneration(context: CommandContext, ratio: string, prompt
 
     // Polling loop
     let displayedEstimatedTime = estimatedTime; // 用于显示的预估时间，会动态扩展
+    let isFinished = false; // Flag to prevent duplicate completion handling
+
     const pollInterval = setInterval(async () => {
+      if (isFinished) {
+        clearInterval(pollInterval);
+        return;
+      }
+
       try {
         const elapsedSeconds = (Date.now() - startTime) / 1000;
 
         if (elapsedSeconds > timeoutSeconds) {
+          isFinished = true;
           clearInterval(pollInterval);
           addItem({
             type: MessageType.ERROR,
-            text: tp('nanobanana.timeout', { seconds: Math.round(elapsedSeconds) }),
+            text: `${COLOR_RED}❌ ${tp('nanobanana.timeout', { seconds: Math.round(elapsedSeconds) })}${RESET_COLOR}`,
           }, Date.now());
           return;
         }
 
         const status = await adapter.getImageTaskStatus(task.task_id);
 
+        // Double check isFinished after await, in case another interval fired and finished it
+        if (isFinished) {
+            clearInterval(pollInterval);
+            return;
+        }
+
         if (status.status === 'completed') {
+          isFinished = true;
           clearInterval(pollInterval);
           appEvents.emit(AppEvent.ImagePollingEnd, { success: true });
 
           const resultUrls = status.result_urls || [];
-          const urlText = resultUrls.map((url, idx) => `Image ${idx + 1}: ${url}`).join('\n');
+          const urlText = resultUrls.map((url, idx) => `${BOLD}Image ${idx + 1}:${RESET_COLOR} ${COLOR_CYAN}${url}${RESET_COLOR}`).join('\n');
+
+          // Use credits_actual if available, otherwise fallback to credits_deducted
+          // @ts-ignore - credits_actual might not be in the type definition yet
+          const actualCredits = status.credits_actual !== undefined ? status.credits_actual : (status.credits_deducted || 0);
 
           addItem({
             type: MessageType.INFO,
-            text: tp('nanobanana.completed', { urlText }),
+            text: `${COLOR_GREEN}🎉 ${t('nanobanana.completed').split('\n')[0]}${RESET_COLOR}\n` +
+                  `${COLOR_YELLOW}💰 ${t('nanobanana.completed').split('\n')[1].replace('{credits}', `${BOLD}${actualCredits}${RESET_COLOR}${COLOR_YELLOW}`)}${RESET_COLOR}\n` +
+                  `${urlText}`,
           }, Date.now());
 
           // Automatically open images in browser
@@ -139,12 +172,13 @@ async function runImageGeneration(context: CommandContext, ratio: string, prompt
             }
           }
         } else if (status.status === 'failed') {
+          isFinished = true;
           clearInterval(pollInterval);
           appEvents.emit(AppEvent.ImagePollingEnd, { success: false });
 
           addItem({
             type: MessageType.ERROR,
-            text: tp('nanobanana.failed', { error: status.error_message || 'Unknown error' }),
+            text: `${COLOR_RED}❌ ${tp('nanobanana.failed', { error: status.error_message || 'Unknown error' })}${RESET_COLOR}`,
           }, Date.now());
         } else {
           // For 'pending' or 'processing', dynamically extend estimated time if elapsed exceeds it
@@ -168,12 +202,12 @@ async function runImageGeneration(context: CommandContext, ratio: string, prompt
     if (error instanceof UnauthorizedError) {
       addItem({
         type: MessageType.ERROR,
-        text: t('nanobanana.auth.failed'),
+        text: `${COLOR_RED}❌ ${t('nanobanana.auth.failed')}${RESET_COLOR}`,
       }, Date.now());
     } else {
       addItem({
         type: MessageType.ERROR,
-        text: tp('nanobanana.submit.failed', { error: error instanceof Error ? error.message : String(error) }),
+        text: `${COLOR_RED}❌ ${tp('nanobanana.submit.failed', { error: error instanceof Error ? error.message : String(error) })}${RESET_COLOR}`,
       }, Date.now());
     }
   }
@@ -345,30 +379,36 @@ export const nanoBananaCommand: SlashCommand = {
       };
     }
 
-    // Parse @path or --image/-i syntax
+    // Parse: <ratio> <size> <prompt> [@image]
+    // @image can appear anywhere in the command (before, after, or within the prompt)
+    // Example: /nanobanana 16:9 2K "A futuristic city" @ref.jpg
+    // Example: /nanobanana 16:9 2K @ref.jpg "A futuristic city"
+    // Example: /nanobanana @ref.jpg 16:9 2K "A futuristic city"
+
+    // First, extract all @image references and remove them from the string
     let imagePath: string | undefined;
-    let argsToParse = trimmedArgs;
+    const atImageRegex = /(?:^|\s)@(?:"([^"]+)"|([^\s]+))/g;
+    let argsWithoutImage = trimmedArgs;
+    let match;
 
-    // 1. Check for @path syntax first
-    const atImageRegex = /(?:^|\s)@(?:"([^"]+)"|([^\s]+))/;
-    const atMatch = argsToParse.match(atImageRegex);
-
-    if (atMatch) {
-        imagePath = atMatch[1] || atMatch[2];
-        argsToParse = argsToParse.replace(atMatch[0], '').trim();
-    } else {
-        // 2. Fallback to -i / --image syntax
-        const imageFlagRegex = /\s+(-i|--image)\s+(?:"([^"]+)"|([^\s]+))/;
-        const match = argsToParse.match(imageFlagRegex);
-        if (match) {
-            imagePath = match[2] || match[3];
-            argsToParse = argsToParse.replace(match[0], '').trim();
+    // Find all @references and take the first valid image file
+    while ((match = atImageRegex.exec(trimmedArgs)) !== null) {
+      const potentialPath = match[1] || match[2];
+      // Check if it looks like an image file
+      if (isImageFile(potentialPath)) {
+        if (!imagePath) {
+          imagePath = potentialPath;
         }
+        // Remove this @reference from the args string
+        argsWithoutImage = argsWithoutImage.replace(match[0], ' ');
+      }
     }
 
-    // Split by first space to get ratio and prompt
-    const firstSpaceIndex = argsToParse.indexOf(' ');
-    if (firstSpaceIndex === -1) {
+    // Clean up multiple spaces
+    argsWithoutImage = argsWithoutImage.replace(/\s+/g, ' ').trim();
+
+    const parts = argsWithoutImage.split(/\s+/);
+    if (parts.length < 2) {
       return {
         type: 'message',
         messageType: 'error',
@@ -376,11 +416,52 @@ export const nanoBananaCommand: SlashCommand = {
       };
     }
 
-    let ratio = argsToParse.substring(0, firstSpaceIndex).trim();
-    const prompt = argsToParse.substring(firstSpaceIndex + 1).trim();
+    // Find ratio and size in the parts (they can be in any order among the first few tokens)
+    let ratio: string | undefined;
+    let imageSize: string | undefined;
+    let ratioIndex = -1;
+    let sizeIndex = -1;
 
-    // Normalize ratio (1*1 -> 1:1, 1x1 -> 1:1)
-    ratio = ratio.replace(/\*/g, ':').replace(/x/g, ':');
+    for (let i = 0; i < Math.min(parts.length, 3); i++) {
+      const part = parts[i];
+      const normalizedPart = part.replace(/\*/g, ':').replace(/x/g, ':');
+
+      // Check if it's a ratio
+      if (!ratio && ALLOWED_RATIOS.includes(normalizedPart)) {
+        ratio = normalizedPart;
+        ratioIndex = i;
+        continue;
+      }
+
+      // Check if it's a size
+      if (!imageSize && ['1K', '2K'].includes(part.toUpperCase())) {
+        imageSize = part.toUpperCase();
+        sizeIndex = i;
+        continue;
+      }
+    }
+
+    // Validate ratio
+    if (!ratio) {
+      return {
+        type: 'message',
+        messageType: 'error',
+        content: t('nanobanana.usage.error'),
+      };
+    }
+
+    // Validate size
+    if (!imageSize) {
+      return {
+        type: 'message',
+        messageType: 'error',
+        content: t('nanobanana.invalid.size'),
+      };
+    }
+
+    // Extract prompt: everything except ratio and size
+    const promptParts = parts.filter((_, i) => i !== ratioIndex && i !== sizeIndex);
+    const prompt = promptParts.join(' ').trim();
 
     if (!prompt) {
       return {
@@ -391,21 +472,52 @@ export const nanoBananaCommand: SlashCommand = {
     }
 
     // Run in background (fire and forget from the command processor's perspective)
-    runImageGeneration(context, ratio, prompt, imagePath);
+    runImageGeneration(context, ratio, prompt, imagePath, imageSize);
 
     // Return void to indicate handled without specific action return type
     return;
   },
   completion: async (context, partialArg) => {
-    // 如果还没有空格，建议比例选项
-    if (!partialArg.includes(' ')) {
+    const trimmed = partialArg.trim();
+    const parts = trimmed.split(/\s+/).filter((p) => p.length > 0);
+
+    // Check if user has trailing space (e.g., "16:9 " with space)
+    // This indicates they're moving to the next parameter
+    const hasTrailingSpace = partialArg.endsWith(' ') || partialArg.endsWith('\t');
+
+    // First parameter: suggest ratios
+    if (parts.length === 0) {
+      // User just typed the command name, suggest all ratios
+      return ALLOWED_RATIOS;
+    }
+
+    if (parts.length === 1 && !hasTrailingSpace) {
+      // User typed ratio prefix, suggest matching ratios
+      // Normalize for matching (support 1*1, 1x1 formats)
+      const normalizedInput = parts[0].replace(/\*/g, ':').replace(/x/g, ':').toLowerCase();
       const matches = ALLOWED_RATIOS.filter((ratio) =>
-        ratio.startsWith(partialArg.toLowerCase())
+        ratio.toLowerCase().startsWith(normalizedInput)
       );
+
+      // If user input is an exact match for a ratio, also show size options
+      // This handles the case where user typed complete ratio like "16:9" without trailing space
+      if (matches.length === 1 && matches[0].toLowerCase() === normalizedInput) {
+        return ['1K', '2K'];
+      }
+
       return matches;
     }
 
-    // 否则，不提供补全（让全局 @ 补全接管）
+    // Second parameter: suggest image sizes
+    if ((parts.length === 2 && !hasTrailingSpace) || (parts.length === 1 && hasTrailingSpace)) {
+      const sizeOptions = ['1K', '2K'];
+      const searchText = hasTrailingSpace ? '' : (parts[1] || '');
+      return sizeOptions.filter((size) =>
+        size.toLowerCase().startsWith(searchText.toLowerCase())
+      );
+    }
+
+    // Otherwise, let global @ completion handle file suggestions
     return [];
   },
 };

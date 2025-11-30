@@ -153,11 +153,11 @@ export class ImageGeneratorAdapter {
   /**
    * Submit an image generation task
    */
-  async submitImageGenerationTask(prompt: string, size: string, fromImgUrl?: string): Promise<ImageGenerationTask> {
+  async submitImageGenerationTask(prompt: string, size: string, fromImgUrl?: string, imageSize?: string): Promise<ImageGenerationTask> {
     const endpoint = '/web-api/images/generations';
     const proxyUrl = `${proxyAuthManager.getProxyServerUrl()}${endpoint}`;
 
-    logger.debug('[ImageGenerator] Submitting task', { prompt, size, fromImgUrl });
+    logger.debug('[ImageGenerator] Submitting task', { prompt, size, fromImgUrl, imageSize });
 
     try {
       const body: any = {
@@ -167,6 +167,10 @@ export class ImageGeneratorAdapter {
 
       if (fromImgUrl) {
         body.from_img_url = fromImgUrl;
+      }
+
+      if (imageSize) {
+        body.image_size = imageSize;
       }
 
       const response = await this.fetchWithRetry(proxyUrl, {

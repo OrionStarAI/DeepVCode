@@ -14,6 +14,7 @@ import { McpThinkingDisplayRenderer } from './McpThinkingDisplayRenderer.js';
 import { Colors } from '../../colors.js';
 import { MarkdownDisplay } from '../../utils/MarkdownDisplay.js';
 import { GeminiRespondingSpinner } from '../GeminiRespondingSpinner.js';
+import { BlinkingRobotEmoji } from '../BlinkingRobotEmoji.js';
 import { MaxSizedBox } from '../shared/MaxSizedBox.js';
 import { getLocalizedToolName, isChineseLocale } from '../../utils/i18n.js';
 import { useSmallWindowOptimization, WindowSizeLevel } from '../../hooks/useSmallWindowOptimization.js';
@@ -347,7 +348,7 @@ const ToolStatusIndicator: React.FC<ToolStatusIndicatorProps> = ({
       />
     )}
     {status === ToolCallStatus.SubAgentRunning && (
-      <Text color={Colors.AccentBlue}>🤖</Text>
+      <BlinkingRobotEmoji />
     )}
     {status === ToolCallStatus.Success && (
       <Text color={Colors.AccentGreen}>●</Text>

@@ -263,11 +263,11 @@ export function useCompletion(
 
       let currentLevel: readonly SlashCommand[] | undefined = availableCommands;
       let leafCommand: SlashCommand | null = null;
+      let commandDepth = 0; // Track how many parts were consumed as command/subcommand names
 
       for (const part of commandPathParts) {
         if (!currentLevel) {
-          leafCommand = null;
-          currentLevel = [];
+          // No more subcommands to search, remaining parts are arguments
           break;
         }
         const found: SlashCommand | undefined = currentLevel.find(
@@ -275,12 +275,14 @@ export function useCompletion(
         );
         if (found) {
           leafCommand = found;
+          commandDepth++;
           currentLevel = found.subCommands as
             | readonly SlashCommand[]
             | undefined;
         } else {
-          leafCommand = null;
-          currentLevel = [];
+          // Part is not a subcommand, it must be an argument
+          // Keep the current leafCommand and stop searching
+          currentLevel = undefined;
           break;
         }
       }
@@ -320,7 +322,7 @@ export function useCompletion(
         }
       }
 
-      const depth = commandPathParts.length;
+      const depth = commandDepth; // Use actual command depth, not commandPathParts.length
 
       // Provide Suggestions based on the now-corrected context
 
@@ -332,7 +334,8 @@ export function useCompletion(
       ) {
         const fetchAndSetSuggestions = async () => {
           setIsLoadingSuggestions(true);
-          const argString = rawParts.slice(depth).join(' ');
+          // Preserve trailing space so completion function knows user is moving to next parameter
+          const argString = rawParts.slice(depth).join(' ') + (hasTrailingSpace ? ' ' : '');
           const results =
             (await leafCommand!.completion!(commandContext, argString)) || [];
 
