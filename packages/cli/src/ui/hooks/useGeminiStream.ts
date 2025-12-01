@@ -1365,8 +1365,16 @@ User question: ${queryStr}`;
         // 异步获取真实的预估值
         (async () => {
           try {
-            // 构建请求内容
-            const contents: any[] = [];
+            // 获取 GeminiChat 实例以访问完整对话历史和系统指令
+            const chat = geminiClient.getChat();
+
+            // 获取完整的对话历史（使用 curated 版本确保格式正确）
+            const existingHistory = chat.getHistory(true);
+
+            // 构建完整的请求内容：历史记录 + 当前用户输入
+            const contents: any[] = [...existingHistory];
+
+            // 添加当前用户输入
             if (typeof queryToSend === 'string') {
               contents.push({ parts: [{ text: queryToSend }], role: MESSAGE_ROLES.USER });
             } else if (Array.isArray(queryToSend)) {
@@ -1386,13 +1394,28 @@ User question: ${queryStr}`;
               // 通过config获取ContentGenerator
               const contentGenerator = config.getGeminiClient().getContentGenerator();
               if (contentGenerator && 'countTokens' in contentGenerator) {
+                // 获取系统指令和工具声明
+                const systemInstruction = chat.getSystemInstruction();
+                const tools = chat.getTools();
+
+                // 构建 config 对象（仅包含有效值）
+                const countConfig: { systemInstruction?: typeof systemInstruction; tools?: typeof tools } = {};
+                if (systemInstruction) {
+                  countConfig.systemInstruction = systemInstruction;
+                }
+                if (tools && tools.length > 0) {
+                  countConfig.tools = tools;
+                }
+
                 const tokenResponse = await contentGenerator.countTokens({
                   contents,
-                  model: config.getModel()
+                  model: config.getModel(),
+                  // 传递系统指令和工具声明（如果有）
+                  config: Object.keys(countConfig).length > 0 ? countConfig : undefined
                 });
                 // 更新预估token显示
                 setEstimatedInputTokens(tokenResponse.totalTokens || 0);
-                console.log(`[Token Estimation] Estimated input tokens: ${tokenResponse.totalTokens || 0}`);
+                console.log(`[Token Estimation] Estimated input tokens: ${tokenResponse.totalTokens || 0} (history: ${existingHistory.length} messages, hasSystemInstruction: ${!!systemInstruction}, hasTools: ${!!(tools && tools.length > 0)})`);
               }
             }
           } catch (error) {

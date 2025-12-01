@@ -15,6 +15,7 @@ import {
   Part,
   GenerateContentResponseUsageMetadata,
   Tool,
+  ContentUnion,
 } from '@google/genai';
 import { Content, stripUIFieldsFromArray } from '../types/extendedContent.js';
 import { retryWithBackoff } from '../utils/retry.js';
@@ -698,6 +699,22 @@ export class GeminiChat {
 
   setTools(tools: Tool[]): void {
     this.generationConfig.tools = tools;
+  }
+
+  /**
+   * 获取工具声明（用于 token 计数等场景）
+   * @returns 工具列表，如果未设置则返回 undefined
+   */
+  getTools(): typeof this.generationConfig.tools {
+    return this.generationConfig.tools;
+  }
+
+  /**
+   * 获取系统指令（用于 token 计数等场景）
+   * @returns 系统指令内容，如果未设置则返回 undefined
+   */
+  getSystemInstruction(): ContentUnion | undefined {
+    return this.generationConfig.systemInstruction;
   }
 
   getFinalUsageMetadata(

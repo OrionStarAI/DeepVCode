@@ -708,10 +708,6 @@ describe('App UI', () => {
         isCreatingCheckpoint: false,
         isExecutingTools: false,
       });
-        initError: null,
-        pendingHistoryItems: [],
-        thought: null,
-      });
 
       mockConfig.getGeminiClient.mockReturnValue({
         isInitialized: vi.fn(() => true),
