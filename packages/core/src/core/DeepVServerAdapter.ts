@@ -800,11 +800,26 @@ export class DeepVServerAdapter implements ContentGenerator {
    */
   async countTokens(request: CountTokensParameters): Promise<CountTokensResponse> {
     try {
-      // 构建统一的GenAI格式请求
-      const unifiedRequest = {
+      // 构建统一的GenAI格式请求，包含 systemInstruction 和 tools（如果有）
+      const unifiedRequest: {
+        model: string;
+        contents: typeof request.contents;
+        config?: { systemInstruction?: unknown; tools?: unknown };
+      } = {
         model: request.model || 'auto', // 让服务端智能选择模型
         contents: request.contents
       };
+
+      // 从 request.config 中提取 systemInstruction 和 tools
+      if (request.config?.systemInstruction || request.config?.tools) {
+        unifiedRequest.config = {};
+        if (request.config.systemInstruction) {
+          unifiedRequest.config.systemInstruction = request.config.systemInstruction;
+        }
+        if (request.config.tools) {
+          unifiedRequest.config.tools = request.config.tools;
+        }
+      }
 
       // 调用统一Token计数API
       const response = await this.callUnifiedTokenCountAPI(unifiedRequest);
