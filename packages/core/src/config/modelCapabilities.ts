@@ -97,6 +97,17 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapabilities> = {
   },
 
   // High-capability Gemini Pro models
+  'gemini-3-pro-preview': {
+    toolCallReliability: 'high',
+    requiresStrictValidation: true,
+    maxConcurrentTools: 5,
+    needsFormatTolerance: false,
+    proneToIncompleteStream: false,
+    enableMalformedRetry: false,
+    functionCallTimeout: 30000,
+    enableProgressiveDegradation: false,
+  },
+
   'gemini-2.5-pro': {
     toolCallReliability: 'high',
     requiresStrictValidation: true,
