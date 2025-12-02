@@ -39,7 +39,6 @@ const SSE_SUPPORTED_MODELS = [
   'claude-haiku-4-5-20251001',
   'claude-sonnet-4-20250514',
   'claude-sonnet-4-5-20250929',
-  'gemini-3-pro-preview',
   'moonshotai/kimi-k2-thinking', // 🔥Kimi-K2-Thinking openrouter
   'moonshotai/kimi-k2-0905',      // Kimi-K2-0905 openrouter
   'openai/gpt-5',                 // GPT-5 openrouter
@@ -48,7 +47,11 @@ const SSE_SUPPORTED_MODELS = [
   'x-ai/grok-code-fast-1',        // Grok-Code-Fast-1 openrouter
   'z-ai/glm-4.5-air:free',        // 🎁GLM-4.5-Air openrouter
   'z-ai/glm-4.6',                 // GLM-4.6 openrouter
-  'ep-r56pg4-1761237547400653462' // 🎁KAT-Coder-Air streamlake
+  'ep-r56pg4-1761237547400653462', // 🎁KAT-Coder-Air streamlake
+  'gemini-3-pro-preview',
+  'gemini-2.5-flash',
+  'gemini-2.5-pro',
+
 ];
 
 /**
