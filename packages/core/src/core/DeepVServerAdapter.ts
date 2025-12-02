@@ -29,6 +29,29 @@ import { MESSAGE_ROLES } from '../config/messageRoles.js';
 import { getGlobalDispatcher } from 'undici';
 
 /**
+ * Models that support Server-Sent Events (SSE) streaming.
+ * These models have specific API capabilities that allow for real-time data streaming.
+ */
+const SSE_SUPPORTED_MODELS = [
+  'claude-sonnet-4@20250514',
+  'claude-sonnet-4-5@20250929',
+  'claude-haiku-4-5@20251001',
+  'claude-haiku-4-5-20251001',
+  'claude-sonnet-4-20250514',
+  'claude-sonnet-4-5-20250929',
+  'gemini-3-pro-preview',
+  'moonshotai/kimi-k2-thinking', // 🔥Kimi-K2-Thinking openrouter
+  'moonshotai/kimi-k2-0905',      // Kimi-K2-0905 openrouter
+  'openai/gpt-5',                 // GPT-5 openrouter
+  'openanpmi/gpt-5-codex',        // GPT-5-Codex openrouter
+  'qwen/qwen3-coder:free',        // 🎁Qwen3-Coder openrouter
+  'x-ai/grok-code-fast-1',        // Grok-Code-Fast-1 openrouter
+  'z-ai/glm-4.5-air:free',        // 🎁GLM-4.5-Air openrouter
+  'z-ai/glm-4.6',                 // GLM-4.6 openrouter
+  'ep-r56pg4-1761237547400653462' // 🎁KAT-Coder-Air streamlake
+];
+
+/**
  * DeepV服务器适配器 - 精简版
  * 通过统一的聊天API调用所有AI模型，服务端智能处理模型选择和格式转换
  * 支持Claude和Gemini模型的统一接口
@@ -360,6 +383,7 @@ export class DeepVServerAdapter implements ContentGenerator {
       (friendlyError as any).statusCode = 401;
       throw friendlyError;
     }
+    
 
     throw error;
   }
@@ -377,23 +401,7 @@ export class DeepVServerAdapter implements ContentGenerator {
     // This detects which API features are available for the requested model
     // Actual model selection is done by the server based on 'auto' requests
     // These hardcoded checks are for API capability detection only
-    if (request.model === 'claude-sonnet-4@20250514' ||
-        request.model === 'claude-sonnet-4-5@20250929' ||
-        request.model === 'claude-haiku-4-5@20251001' ||
-        request.model === 'claude-haiku-4-5-20251001' ||
-        request.model === 'claude-sonnet-4-20250514' ||
-        request.model === 'claude-sonnet-4-5-20250929' ||
-        request.model === 'gemini-3-pro-preview' ||
-        request.model === 'moonshotai/kimi-k2-thinking' ||//🔥Kimi-K2-Thinking openrouter
-        request.model === 'moonshotai/kimi-k2-0905' ||//Kimi-K2-0905 openrouter
-        request.model === 'openai/gpt-5' ||//GPT-5 openrouter
-        request.model === 'openanpmi/gpt-5-codex' ||//GPT-5-Codex openrouter
-        request.model === 'qwen/qwen3-coder:free' ||//🎁Qwen3-Coder openrouter
-        request.model === 'x-ai/grok-code-fast-1' ||//Grok-Code-Fast-1 openrouter
-        request.model === 'z-ai/glm-4.5-air:free' ||//🎁GLM-4.5-Air openrouter
-        request.model === 'z-ai/glm-4.6' ||//GLM-4.6 openrouter
-        request.model === 'ep-r56pg4-1761237547400653462'// 🎁KAT-Coder-Air streamlake
-      ) {
+    if (SSE_SUPPORTED_MODELS.includes(request.model)) {
       return this._generateContentStream(request, scene);
     } else {
       // 其他模型将非流式响应包装为流式格式
