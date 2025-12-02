@@ -383,6 +383,7 @@ export class DeepVServerAdapter implements ContentGenerator {
         request.model === 'claude-haiku-4-5-20251001' ||
         request.model === 'claude-sonnet-4-20250514' ||
         request.model === 'claude-sonnet-4-5-20250929' ||
+        request.model === 'gemini-3-pro-preview' ||
         request.model === 'moonshotai/kimi-k2-thinking' ||//🔥Kimi-K2-Thinking openrouter
         request.model === 'moonshotai/kimi-k2-0905' ||//Kimi-K2-0905 openrouter
         request.model === 'openai/gpt-5' ||//GPT-5 openrouter

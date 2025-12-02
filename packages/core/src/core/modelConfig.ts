@@ -145,6 +145,28 @@ export const MODEL_CONFIGURATIONS: Record<string, ModelConfiguration> = {
     }
   },
 
+  // Gemini 3 Pro Preview
+  'gemini-3-pro-preview': {
+    name: 'gemini-3-pro-preview',
+    displayName: 'Gemini 3 Pro Preview',
+    provider: 'google',
+    family: 'gemini',
+    version: '3.0-preview',
+    contextWindow: 2_097_152,   // 2M tokens context window
+    maxOutputTokens: 65_536,    // 65K tokens max output
+    pricing: {
+      baseInput: 0.000007,      // Same as 2.5 Pro for now
+      outputTokens: 0.000021,   // Same as 2.5 Pro for now
+      cacheInput: 0.00000031,   // Same as 2.5 Pro for now
+      cacheStorage: 0.0000045,  // Same as 2.5 Pro for now
+    },
+    features: {
+      multimodal: true,
+      caching: true,
+      batchDiscount: 0.5,
+    }
+  },
+
   // Gemini 2.5 Flash
   // 数据来源:
   // - Vertex AI定价: https://cloud.google.com/vertex-ai/generative-ai/pricing?hl=zh-CN
