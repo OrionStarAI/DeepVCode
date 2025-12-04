@@ -1219,6 +1219,17 @@ export class AIService {
             }
             break;
 
+          case GeminiEventType.Reasoning:
+            // 🎯 处理AI思考过程
+            if (this.communicationService && this.sessionId) {
+              await this.communicationService.sendChatReasoning(
+                this.sessionId,
+                event.value.text,
+                responseId
+              );
+            }
+            break;
+
           case GeminiEventType.ToolCallRequest:
             toolCallRequests.push(event.value);
             break;

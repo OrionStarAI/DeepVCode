@@ -26,6 +26,7 @@ interface MultiSessionMessageFromExtension {
        'chat_error' |
        'chat_start' |
        'chat_chunk' |
+       'chat_reasoning' |
        'chat_complete' |
        'context_update' |
        'quick_action' |
@@ -666,6 +667,13 @@ export class MultiSessionMessageService {
     this.addMessageHandler('chat_complete', handler);
   }
 
+  /**
+   * 🎯 监听AI思考过程事件
+   */
+  onChatReasoning(handler: (data: { sessionId: string; content: string; messageId: string }) => void) {
+    this.addMessageHandler('chat_reasoning', handler);
+  }
+
   onContextUpdate(handler: (data: { sessionId?: string; context: any }) => void) {
     this.addMessageHandler('context_update', handler);
   }
@@ -883,6 +891,79 @@ export class MultiSessionMessageService {
    */
   onRefineError(callback: (data: { error: string }) => void): () => void {
     return this.addMessageHandler('refine_error', callback);
+  }
+
+  // =============================================================================
+  // 🎯 NanoBanana 图像生成
+  // =============================================================================
+
+  /**
+   * 🎯 发送NanoBanana图片上传请求
+   */
+  sendNanoBananaUpload(data: { filename: string; contentType: string; fileData: string }) {
+    this.sendMessage({
+      type: 'nanobanana_upload' as any,
+      payload: data
+    });
+  }
+
+  /**
+   * 🎯 监听NanoBanana上传响应
+   */
+  onNanoBananaUploadResponse(callback: (data: { success: boolean; publicUrl?: string; error?: string }) => void) {
+    this.addMessageHandler('nanobanana_upload_response', callback);
+  }
+
+  /**
+   * 🎯 发送NanoBanana生成请求
+   */
+  sendNanoBananaGenerate(data: { prompt: string; aspectRatio: string; imageSize: string; referenceImageUrl?: string }) {
+    this.sendMessage({
+      type: 'nanobanana_generate' as any,
+      payload: data
+    });
+  }
+
+  /**
+   * 🎯 监听NanoBanana生成响应
+   */
+  onNanoBananaGenerateResponse(callback: (data: { success: boolean; taskId?: string; estimatedTime?: number; error?: string }) => void) {
+    this.addMessageHandler('nanobanana_generate_response', callback);
+  }
+
+  /**
+   * 🎯 发送NanoBanana状态查询请求
+   */
+  sendNanoBananaStatus(data: { taskId: string }) {
+    this.sendMessage({
+      type: 'nanobanana_status' as any,
+      payload: data
+    });
+  }
+
+  /**
+   * 🎯 监听NanoBanana状态更新
+   */
+  onNanoBananaStatusUpdate(callback: (data: {
+    taskId: string;
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    progress?: number;
+    resultUrls?: string[];
+    originalUrls?: string[];
+    errorMessage?: string;
+    creditsDeducted?: number;
+  }) => void) {
+    this.addMessageHandler('nanobanana_status_update', callback);
+  }
+
+  /**
+   * 🎯 打开外部URL
+   */
+  openExternalUrl(url: string) {
+    this.sendMessage({
+      type: 'open_external_url' as any,
+      payload: { url }
+    });
   }
 
   // =============================================================================

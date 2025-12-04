@@ -246,6 +246,7 @@ export type ExtensionToWebViewMessage =
   | { type: 'chat_error'; payload: { error: string; sessionId: string } }
   | { type: 'chat_start'; payload: { messageId: string; sessionId: string } }
   | { type: 'chat_chunk'; payload: { content: string; messageId: string; isComplete?: boolean; sessionId: string } }
+  | { type: 'chat_reasoning'; payload: { content: string; messageId: string; sessionId: string } }
   | { type: 'chat_complete'; payload: { messageId: string; sessionId: string; tokenUsage?: any } }
   | { type: 'context_update'; payload: ContextInfo & { sessionId?: string } }
   | { type: 'extension_version_response'; payload: { version: string } }
@@ -296,7 +297,11 @@ export type ExtensionToWebViewMessage =
   | { type: 'rules_list_response'; payload: { rules: any[] } }
   | { type: 'rules_save_response'; payload: { success: boolean; error?: string } }
   | { type: 'rules_delete_response'; payload: { success: boolean; error?: string } }
-  | { type: 'open_rules_management'; payload: {} };
+  | { type: 'open_rules_management'; payload: {} }
+  // 🎯 NanoBanana 图像生成
+  | { type: 'nanobanana_upload_response'; payload: { success: boolean; publicUrl?: string; error?: string } }
+  | { type: 'nanobanana_generate_response'; payload: { success: boolean; taskId?: string; estimatedTime?: number; error?: string } }
+  | { type: 'nanobanana_status_update'; payload: { taskId: string; status: 'pending' | 'processing' | 'completed' | 'failed'; progress?: number; resultUrls?: string[]; originalUrls?: string[]; errorMessage?: string; creditsDeducted?: number } };
 
 
 export type Message = WebViewToExtensionMessage | ExtensionToWebViewMessage;

@@ -51,6 +51,10 @@ export interface ChatMessage {
   // 🎯 流式聊天支持
   isStreaming?: boolean;       // 是否正在流式接收
 
+  // 🎯 AI思考过程（reasoning）支持
+  reasoning?: string;          // AI思考过程内容（流式累积）
+  isReasoning?: boolean;       // 是否正在显示思考过程
+
   // 🎯 AI助手消息专用字段（承载工具调用状态）
   associatedToolCalls?: ToolCall[];  // 🎯 AI消息关联的工具调用列表
   isProcessingTools?: boolean;       // 🎯 是否正在处理工具调用

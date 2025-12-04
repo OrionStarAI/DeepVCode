@@ -16,6 +16,7 @@ import { ChatMessage } from '../types';
 import { useTranslation } from '../hooks/useTranslation';
 
 import { ToolCallList } from './ToolCallList';
+import { ReasoningDisplay } from './ReasoningDisplay';
 import { messageContentToString } from '../utils/messageContentUtils';
 import { linkifyTextNode } from '../utils/filePathLinkifier';
 import './ToolCalls.css';
@@ -456,6 +457,15 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
           // 🎯 工具消息直接显示，不使用Markdown渲染
           <div className="tool-content">{messageContentToString(message.content)}</div>
         ) : (
+          <>
+            {/* 🎯 AI思考过程显示 */}
+            {message.reasoning && (
+              <ReasoningDisplay
+                reasoning={message.reasoning}
+                isActive={message.isReasoning}
+                defaultCollapsed={!message.isReasoning}
+              />
+            )}
           <ReactMarkdown
             remarkPlugins={[remarkGfm, remarkMath]}
             rehypePlugins={[rehypeRaw, rehypeKatex, rehypeHighlight]}
@@ -633,6 +643,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
           >
             {messageContentToString(message.content)}
           </ReactMarkdown>
+          </>
         )}
 
         {/* 🎯 AI消息的工具调用状态显示 */}
