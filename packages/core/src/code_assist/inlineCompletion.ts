@@ -90,26 +90,52 @@ export class InlineCompletionService {
     request: InlineCompletionRequest,
     signal?: AbortSignal
   ): Promise<InlineCompletionResponse | null> {
+    const fileName = request.filePath.split(/[\\/]/).pop() || 'unknown';
+    const startTime = Date.now();
+
+    console.log(`[Core:InlineCompletion] 🚀 generateCompletion started`, JSON.stringify({
+      file: fileName,
+      position: `${request.position.line}:${request.position.character}`,
+      language: request.language,
+      prefixLen: request.prefix.length,
+      suffixLen: request.suffix.length,
+    }));
+
     try {
       // 检查缓存
       const cacheKey = this.getCacheKey(request);
       if (this.cache.has(cacheKey)) {
+        console.log(`[Core:InlineCompletion] ✅ Internal cache HIT`, JSON.stringify({
+          file: fileName,
+          duration: `${Date.now() - startTime}ms`,
+        }));
         return this.cache.get(cacheKey)!;
       }
 
       // 检查是否被取消
       if (signal?.aborted) {
+        console.log(`[Core:InlineCompletion] ⏭️ Request already aborted before API call`, { file: fileName });
         return null;
       }
 
       // 构建提示词
       const prompt = this.buildPrompt(request);
+      console.log(`[Core:InlineCompletion] 📝 Prompt built`, JSON.stringify({
+        file: fileName,
+        promptLen: prompt.length,
+      }));
 
       // 调用 AI 生成补全
       // 🎯 行内补全使用快速模型（优先速度而非复杂推理）
       // 优先使用 Gemini Flash 以获得更快的响应速度
       const currentModel = this.getCurrentModel();
+      console.log(`[Core:InlineCompletion] 📡 Calling AI API...`, JSON.stringify({
+        file: fileName,
+        model: currentModel,
+        scene: 'CONTENT_SUMMARY',
+      }));
 
+      const apiStartTime = Date.now();
       const response = await this.contentGenerator.generateContent({
         model: currentModel,
         contents: [
@@ -120,7 +146,16 @@ export class InlineCompletionService {
         ],
       }, SceneType.CONTENT_SUMMARY); // 使用快速场景而非 CODE_ASSIST（避免强制使用 Claude）
 
+      const apiDuration = Date.now() - apiStartTime;
+      console.log(`[Core:InlineCompletion] 📡 API response received`, JSON.stringify({
+        file: fileName,
+        apiDuration: `${apiDuration}ms`,
+        hasResponse: !!response,
+        hasCandidates: !!response?.candidates?.length,
+      }));
+
       if (signal?.aborted) {
+        console.log(`[Core:InlineCompletion] ⏭️ Request aborted after API response`, { file: fileName });
         return null;
       }
 
@@ -128,6 +163,16 @@ export class InlineCompletionService {
       const completionText = this.extractCompletionText(response);
 
       if (!completionText) {
+        console.log(`[Core:InlineCompletion] ⚠️ extractCompletionText returned null/empty`, JSON.stringify({
+          file: fileName,
+          duration: `${Date.now() - startTime}ms`,
+          responseStructure: response ? {
+            hasCandidates: !!response.candidates,
+            candidateCount: response.candidates?.length || 0,
+            firstCandidateHasContent: !!response.candidates?.[0]?.content,
+            partsCount: response.candidates?.[0]?.content?.parts?.length || 0,
+          } : 'null response',
+        }));
         return null;
       }
 
@@ -138,9 +183,23 @@ export class InlineCompletionService {
       // 缓存结果
       this.addToCache(cacheKey, result);
 
+      console.log(`[Core:InlineCompletion] ✅ Completion generated successfully`, JSON.stringify({
+        file: fileName,
+        totalDuration: `${Date.now() - startTime}ms`,
+        apiDuration: `${apiDuration}ms`,
+        resultLen: completionText.length,
+        resultPreview: completionText.slice(0, 60).replace(/\n/g, '\\n') + (completionText.length > 60 ? '...' : ''),
+        cacheSize: this.cache.size,
+      }));
+
       return result;
     } catch (error) {
-      console.error('[InlineCompletionService] Error generating completion:', error);
+      console.error(`[Core:InlineCompletion] ❌ Error generating completion:`, JSON.stringify({
+        file: fileName,
+        duration: `${Date.now() - startTime}ms`,
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack?.split('\n').slice(0, 3).join('\n') : undefined,
+      }));
       return null;
     }
   }
@@ -204,11 +263,18 @@ ${isCommentIntent ? '- Previous line is a comment describing intent - generate t
     try {
       const candidate = response.candidates?.[0];
       if (!candidate) {
+        console.log(`[Core:InlineCompletion] ⚠️ extractCompletionText: no candidate in response`);
         return null;
       }
 
       const content = candidate.content;
       if (!content?.parts || content.parts.length === 0) {
+        console.log(`[Core:InlineCompletion] ⚠️ extractCompletionText: no parts in content`, JSON.stringify({
+          hasContent: !!content,
+          hasParts: !!content?.parts,
+          partsLength: content?.parts?.length || 0,
+          finishReason: candidate.finishReason,
+        }));
         return null;
       }
 
@@ -221,18 +287,30 @@ ${isCommentIntent ? '- Previous line is a comment describing intent - generate t
       }
 
       if (!text.trim()) {
+        console.log(`[Core:InlineCompletion] ⚠️ extractCompletionText: extracted text is empty`, JSON.stringify({
+          partsCount: content.parts.length,
+          partTypes: content.parts.map((p: any) => Object.keys(p).join(',')),
+        }));
         return null;
       }
 
       // 清理输出（移除可能的 markdown 代码块标记）
+      const originalText = text;
       text = text.trim();
       text = text.replace(/^```[\w]*\n/, ''); // 移除开头的 ```language
       text = text.replace(/\n```$/, ''); // 移除结尾的 ```
       text = text.trim();
 
+      if (originalText !== text) {
+        console.log(`[Core:InlineCompletion] 🧹 Text cleaned (removed markdown blocks)`, JSON.stringify({
+          originalLen: originalText.length,
+          cleanedLen: text.length,
+        }));
+      }
+
       return text;
     } catch (error) {
-      console.error('[InlineCompletionService] Error extracting completion text:', error);
+      console.error('[Core:InlineCompletion] ❌ Error extracting completion text:', error);
       return null;
     }
   }
