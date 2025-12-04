@@ -328,12 +328,12 @@
   width: 85%;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4), 0 0 1px rgba(255, 255, 255, 0.1);
   animation: slideInScale 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-  
+
   /* 🎯 Windows 字体渲染优化 */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-  
+
   /* 🎯 确保在高 DPI 下清晰渲染 */
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
@@ -436,7 +436,9 @@
   color: var(--vscode-foreground);
   max-width: 100%;
   word-break: break-word;
-  white-space: pre-wrap;
+  /* 🎯 修复：移除 pre-wrap，让 ReactMarkdown 的 HTML 结构控制换行
+     pre-wrap 会额外保留原始 Markdown 文本中的空行，导致段落间距过大 */
+  white-space: normal;
 }
 
 .assistant-message .message-footer {
