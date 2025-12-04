@@ -44,14 +44,14 @@ export class CompletionScheduler {
 
   // 主动触发控制
   private lastTriggerAt = 0;
-  private readonly TRIGGER_COOLDOWN_MS = 250;
+  private readonly TRIGGER_COOLDOWN_MS = 100;  // 🆕 从 250 降到 100，更快触发补全显示
 
   // 配置参数（可根据需要调整）
-  // 推荐值：DEBOUNCE_MS=300, THROTTLE_CHARS=6, MIN_INTERVAL_MS=200
-  // 激进值：DEBOUNCE_MS=500, THROTTLE_CHARS=8, MIN_INTERVAL_MS=300
-  private readonly DEBOUNCE_MS = 300;       // 防抖时间（ms）
-  private readonly THROTTLE_CHARS = 6;      // 节流字符数
-  private readonly MIN_INTERVAL_MS = 200;   // 最小间隔（ms）
+  // 🆕 优化：降低防抖时间，让请求更快发出；降低最小间隔，允许更频繁请求
+  // Codestral FIM 模型响应快，可以更激进一些
+  private readonly DEBOUNCE_MS = 150;       // 防抖时间（ms）- 从 300 降到 150
+  private readonly THROTTLE_CHARS = 3;      // 节流字符数 - 从 6 降到 3
+  private readonly MIN_INTERVAL_MS = 100;   // 最小间隔（ms）- 从 200 降到 100
 
   constructor(
     cache: CompletionCache,
@@ -439,7 +439,9 @@ export class CompletionScheduler {
   }
 
   /**
-   * 取消进行中的请求
+   * 取消待处理的防抖定时器
+   * 🆕 优化：不再取消正在进行的 API 请求，让它完成并缓存结果
+   * 这样即使用户快速输入/删除，之前的请求结果仍然可用
    */
   private cancelPending(session: FileSession) {
     if (session.debounceTimer) {
@@ -447,10 +449,13 @@ export class CompletionScheduler {
       session.debounceTimer = null;
     }
 
-    if (session.pendingController) {
-      session.pendingController.abort();
-      session.pendingController = null;
-    }
+    // 🆕 不再取消正在进行的 API 请求
+    // 让请求完成并缓存结果，即使用户已经移动了光标
+    // 这样下次回到相近位置时可以使用缓存
+    // if (session.pendingController) {
+    //   session.pendingController.abort();
+    //   session.pendingController = null;
+    // }
   }
 
   /**

@@ -86,11 +86,7 @@
         "title": "Toggle Inline Completion from Status Bar",
         "category": "DeepV Code"
       },
-      {
-        "command": "deepv.selectInlineCompletionModel",
-        "title": "Select Inline Completion Model",
-        "category": "DeepV Code"
-      },
+
       {
         "command": "deepv.openRulesManagement",
         "title": "Manage Custom Rules",
@@ -229,17 +225,6 @@
           "default": 300,
           "description": "Delay in milliseconds before triggering inline completion",
           "markdownDescription": "Delay (in milliseconds) before AI suggestions appear. Lower values mean faster suggestions but may use more resources. Recommended range: 100-1000ms."
-        },
-        "deepv.inlineCompletionModel": {
-          "type": "string",
-          "enum": [
-            "auto",
-            "gemini-2.5-flash",
-            "gemini-2.5-pro"
-          ],
-          "default": "auto",
-          "description": "Model to use for inline code completion",
-          "markdownDescription": "Choose which AI model to use for inline completions:\n- **auto**: Use the model from your current chat session (default, future-proof)\n- **gemini-2.5-flash**: Fast & economical (recommended for speed)\n- **gemini-2.5-pro**: Higher quality but slower & more expensive"
         }
       }
     }
