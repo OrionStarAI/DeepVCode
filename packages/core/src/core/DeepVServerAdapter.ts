@@ -29,30 +29,41 @@ import { MESSAGE_ROLES } from '../config/messageRoles.js';
 import { getGlobalDispatcher } from 'undici';
 
 /**
- * Models that support Server-Sent Events (SSE) streaming.
- * These models have specific API capabilities that allow for real-time data streaming.
+ * Check if a model supports Server-Sent Events (SSE) streaming.
+ * Uses broad pattern matching to automatically support new model versions.
+ *
+ * @param modelName - The model name/ID to check
+ * @returns true if the model supports SSE streaming
  */
-const SSE_SUPPORTED_MODELS = [
-  'claude-sonnet-4@20250514',
-  'claude-sonnet-4-5@20250929',
-  'claude-haiku-4-5@20251001',
-  'claude-haiku-4-5-20251001',
-  'claude-sonnet-4-20250514',
-  'claude-sonnet-4-5-20250929',
-  'moonshotai/kimi-k2-thinking', // 🔥Kimi-K2-Thinking openrouter
-  'moonshotai/kimi-k2-0905',      // Kimi-K2-0905 openrouter
-  'openai/gpt-5',                 // GPT-5 openrouter
-  'openanpmi/gpt-5-codex',        // GPT-5-Codex openrouter
-  'qwen/qwen3-coder:free',        // 🎁Qwen3-Coder openrouter
-  'x-ai/grok-code-fast-1',        // Grok-Code-Fast-1 openrouter
-  'z-ai/glm-4.5-air:free',        // 🎁GLM-4.5-Air openrouter
-  'z-ai/glm-4.6',                 // GLM-4.6 openrouter
-  'ep-r56pg4-1761237547400653462', // 🎁KAT-Coder-Air streamlake
-  'gemini-3-pro-preview',
-  'gemini-2.5-flash',
-  'gemini-2.5-pro',
+function supportsSSEStreaming(modelName: string): boolean {
+  const name = modelName.toLowerCase();
 
-];
+  // Claude series - all versions support SSE
+  if (name.includes('claude')) return true;
+
+  // Gemini series - all versions support SSE
+  if (name.includes('gemini')) return true;
+
+  // Kimi series (moonshotai)
+  if (name.includes('kimi') || name.includes('moonshot')) return true;
+
+  // GPT series (openai)
+  if (name.includes('gpt')) return true;
+
+  // Qwen series
+  if (name.includes('qwen')) return true;
+
+  // Grok series (x-ai)
+  if (name.includes('grok')) return true;
+
+  // GLM series (zhipu)
+  if (name.includes('glm')) return true;
+
+  // DeepSeek series
+  if (name.includes('deepseek')) return true;
+
+  return false;
+}
 
 /**
  * DeepV服务器适配器 - 精简版
@@ -386,7 +397,7 @@ export class DeepVServerAdapter implements ContentGenerator {
       (friendlyError as any).statusCode = 401;
       throw friendlyError;
     }
-    
+
 
     throw error;
   }
@@ -403,8 +414,8 @@ export class DeepVServerAdapter implements ContentGenerator {
     // 🔍 Model-specific SSE streaming support check (not model selection)
     // This detects which API features are available for the requested model
     // Actual model selection is done by the server based on 'auto' requests
-    // These hardcoded checks are for API capability detection only
-    if (SSE_SUPPORTED_MODELS.includes(request.model)) {
+    // Uses broad pattern matching to automatically support new model versions
+    if (supportsSSEStreaming(request.model)) {
       return this._generateContentStream(request, scene);
     } else {
       // 其他模型将非流式响应包装为流式格式
