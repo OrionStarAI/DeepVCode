@@ -23,6 +23,8 @@ import { UpdatePrompt } from './UpdatePrompt';
 import { MessageInputHandle } from './MessageInput';
 import { PlanModeNotification } from './PlanModeNotification';
 import { ChatHistoryModal } from './ChatHistoryModal';
+import { NanoBananaDialog } from './NanoBananaDialog';
+import { NanoBananaIcon } from './NanoBananaIcon';
 import { SessionType } from '../../../src/constants/sessionConstants';
 import { SessionInfo } from '../../../src/types/sessionTypes';
 import { MessageContent } from '../types/index';
@@ -73,6 +75,8 @@ export const MultiSessionApp: React.FC = () => {
 
   // 🎯 聊天历史Modal状态
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  // 🎯 NanoBanana图像生成对话框状态
+  const [isNanoBananaOpen, setIsNanoBananaOpen] = useState(false);
   // 🎯 历史列表数据（分页加载）
   const [historySessionsList, setHistorySessionsList] = useState<Array<{
     id: string;
@@ -1350,6 +1354,15 @@ User question: ${contentStr}`;
         </div>
 
         <div className="multi-session-app__header-right">
+          {/* 🎯 NanoBanana 图像生成入口 */}
+          <button
+            className="multi-session-app__manage-btn multi-session-app__nanobanana-btn"
+            onClick={() => setIsNanoBananaOpen(true)}
+            title={t('nanoBanana.buttonTooltip', {}, 'Generate images with AI')}
+            style={{ marginRight: '8px' }}
+          >
+            <NanoBananaIcon size={18} />
+          </button>
           <button
             className="multi-session-app__manage-btn multi-session-app__history-btn"
             onClick={() => {
@@ -1558,6 +1571,12 @@ User question: ${contentStr}`;
             loadHistoryList(historySessionsList.length, 10);
           }
         }}
+      />
+
+      {/* 🎯 NanoBanana 图像生成对话框 */}
+      <NanoBananaDialog
+        isOpen={isNanoBananaOpen}
+        onClose={() => setIsNanoBananaOpen(false)}
       />
 
       {/* 🎯 全局拖拽测试组件 - 恢复启用但非干扰模式 */}

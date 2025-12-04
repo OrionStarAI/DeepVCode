@@ -887,6 +887,69 @@ export class MultiSessionCommunicationService {
   }
 
 
+  // =============================================================================
+  // 🎯 NanoBanana 图像生成相关方法
+  // =============================================================================
+
+  /**
+   * 发送NanoBanana上传响应
+   */
+  async sendNanoBananaUploadResponse(data: { success: boolean; publicUrl?: string; error?: string }) {
+    await this.sendMessage({
+      type: 'nanobanana_upload_response',
+      payload: data
+    });
+  }
+
+  /**
+   * 发送NanoBanana生成响应
+   */
+  async sendNanoBananaGenerateResponse(data: { success: boolean; taskId?: string; estimatedTime?: number; error?: string }) {
+    await this.sendMessage({
+      type: 'nanobanana_generate_response',
+      payload: data
+    });
+  }
+
+  /**
+   * 发送NanoBanana状态更新
+   */
+  async sendNanoBananaStatusUpdate(data: {
+    taskId: string;
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    progress?: number;
+    resultUrls?: string[];
+    originalUrls?: string[];
+    errorMessage?: string;
+    creditsDeducted?: number;
+  }) {
+    await this.sendMessage({
+      type: 'nanobanana_status_update',
+      payload: data
+    });
+  }
+
+  /**
+   * 监听NanoBanana上传请求
+   */
+  onNanoBananaUpload(handler: (data: { filename: string; contentType: string; fileData: string }) => void) {
+    return this.addMessageHandler('nanobanana_upload', handler);
+  }
+
+  /**
+   * 监听NanoBanana生成请求
+   */
+  onNanoBananaGenerate(handler: (data: { prompt: string; aspectRatio: string; imageSize: string; referenceImageUrl?: string }) => void) {
+    return this.addMessageHandler('nanobanana_generate', handler);
+  }
+
+  /**
+   * 监听NanoBanana状态查询请求
+   */
+  onNanoBananaStatus(handler: (data: { taskId: string }) => void) {
+    return this.addMessageHandler('nanobanana_status', handler);
+  }
+
   async dispose() {
     this.logger.info('Disposing MultiSessionCommunicationService');
     this.webview = undefined;

@@ -303,6 +303,36 @@ export interface Translations {
     collapse: string;
     lineCount: string;
   };
+
+  nanoBanana: {
+    title: string;
+    buttonTooltip: string;
+    prompt: string;
+    promptPlaceholder: string;
+    aspectRatio: string;
+    imageSize: string;
+    referenceImage: string;
+    pasteHint: string;
+    uploadImage: string;
+    removeReference: string;
+    generate: string;
+    generateAnother: string;
+    uploading: string;
+    generating: string;
+    waitingForResult: string;
+    estimatedTime: string;
+    generationComplete: string;
+    resultsHint: string;
+    credits: string;
+    openInBrowser: string;
+    tryAgain: string;
+    remaining: string;
+    error: {
+      emptyPrompt: string;
+      invalidImageType: string;
+      imageTooLarge: string;
+    };
+  };
 }
 
 export type SupportedLocale = 'zh-CN' | 'en-US';

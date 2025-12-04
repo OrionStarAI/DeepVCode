@@ -1763,6 +1763,170 @@ function setupMultiSessionHandlers() {
     }
   });
 
+  // =============================================================================
+  // 🎯 NanoBanana 图像生成处理
+  // =============================================================================
+
+  // 🎯 处理NanoBanana图片上传请求
+  communicationService.onNanoBananaUpload(async (payload) => {
+    try {
+      logger.info('Received nanobanana_upload request', { filename: payload.filename });
+
+      // 🎯 获取ImageGeneratorAdapter实例（需要从core包导入）
+      const { ImageGeneratorAdapter } = await import('deepv-code-core');
+      const imageGenerator = ImageGeneratorAdapter.getInstance();
+
+      // 1. 获取上传URL
+      const uploadResult = await imageGenerator.getUploadUrl(payload.filename, payload.contentType);
+
+      // 2. 解析base64数据
+      const base64Data = payload.fileData.split(',')[1];
+      const fileBuffer = Buffer.from(base64Data, 'base64');
+
+      // 3. 上传图片到GCS
+      await imageGenerator.uploadImage(uploadResult.upload_url, fileBuffer, payload.contentType);
+
+      // 4. 发送成功响应
+      await communicationService.sendNanoBananaUploadResponse({
+        success: true,
+        publicUrl: uploadResult.public_url
+      });
+
+      logger.info('NanoBanana image uploaded successfully', { publicUrl: uploadResult.public_url });
+    } catch (error) {
+      logger.error('Failed to upload NanoBanana image', error instanceof Error ? error : undefined);
+      await communicationService.sendNanoBananaUploadResponse({
+        success: false,
+        error: error instanceof Error ? error.message : 'Upload failed'
+      });
+    }
+  });
+
+  // 🎯 处理NanoBanana生成请求
+  communicationService.onNanoBananaGenerate(async (payload) => {
+    try {
+      logger.info('Received nanobanana_generate request', {
+        prompt: payload.prompt.substring(0, 50) + '...',
+        aspectRatio: payload.aspectRatio,
+        imageSize: payload.imageSize
+      });
+
+      // 🎯 获取ImageGeneratorAdapter实例
+      const { ImageGeneratorAdapter } = await import('deepv-code-core');
+      const imageGenerator = ImageGeneratorAdapter.getInstance();
+
+      // 提交生成任务
+      const task = await imageGenerator.submitImageGenerationTask(
+        payload.prompt,
+        payload.aspectRatio,
+        payload.referenceImageUrl,
+        payload.imageSize
+      );
+
+      // 发送成功响应
+      await communicationService.sendNanoBananaGenerateResponse({
+        success: true,
+        taskId: task.task_id,
+        estimatedTime: task.task_info?.estimated_time || 60
+      });
+
+      logger.info('NanoBanana generation task created', { taskId: task.task_id });
+    } catch (error) {
+      logger.error('Failed to start NanoBanana generation', error instanceof Error ? error : undefined);
+      await communicationService.sendNanoBananaGenerateResponse({
+        success: false,
+        error: error instanceof Error ? error.message : 'Generation failed'
+      });
+    }
+  });
+
+  // 🎯 处理NanoBanana状态查询请求
+  communicationService.onNanoBananaStatus(async (payload) => {
+    try {
+      // 🎯 获取ImageGeneratorAdapter实例
+      const { ImageGeneratorAdapter } = await import('deepv-code-core');
+      const imageGenerator = ImageGeneratorAdapter.getInstance();
+
+      // 获取任务状态
+      const task = await imageGenerator.getImageTaskStatus(payload.taskId);
+
+      // 🎯 如果任务完成，下载图片并转换为base64 data URL
+      // Webview有跨域限制，无法直接显示外部图片
+      // 同时保留原始URL供用户在浏览器中打开/保存
+      let finalResultUrls: string[] | undefined = task.result_urls || undefined;
+      let originalUrls: string[] | undefined = undefined;
+
+      if (task.status === 'completed' && task.result_urls && task.result_urls.length > 0) {
+        logger.info('Downloading images and converting to data URLs', { taskId: payload.taskId, urlCount: task.result_urls.length });
+
+        // 保存原始URL（用于浏览器打开）
+        originalUrls = [...task.result_urls];
+
+        // 并行下载所有图片并转换为data URL（用于Webview显示）
+        const dataUrls = await Promise.all(
+          task.result_urls.map(async (url) => {
+            try {
+              // 下载图片（跟随重定向）
+              const response = await fetch(url, {
+                method: 'GET',
+                redirect: 'follow'
+              });
+
+              if (!response.ok) {
+                throw new Error(`Failed to fetch image: ${response.status}`);
+              }
+
+              // 获取content-type
+              const contentType = response.headers.get('content-type') || 'image/png';
+
+              // 读取图片数据为ArrayBuffer
+              const arrayBuffer = await response.arrayBuffer();
+              const buffer = Buffer.from(arrayBuffer);
+
+              // 转换为base64 data URL
+              const base64 = buffer.toString('base64');
+              const dataUrl = `data:${contentType};base64,${base64}`;
+
+              logger.debug('Converted image to data URL', {
+                originalUrl: url.substring(0, 50) + '...',
+                size: buffer.length,
+                contentType
+              });
+
+              return dataUrl;
+            } catch (error) {
+              logger.warn('Failed to download image', { url, error });
+              return url; // 如果下载失败，返回原始URL作为fallback
+            }
+          })
+        );
+        finalResultUrls = dataUrls;
+      }
+
+      // 发送状态更新（包含base64用于显示，原始URL用于打开）
+      // 使用 credits_actual（实际扣除）如果存在，否则回退到 credits_deducted（预估）
+      const actualCredits = (task as any).credits_actual !== undefined
+        ? (task as any).credits_actual
+        : task.credits_deducted;
+      await communicationService.sendNanoBananaStatusUpdate({
+        taskId: payload.taskId,
+        status: task.status,
+        progress: task.progress,
+        resultUrls: finalResultUrls,
+        originalUrls: originalUrls,
+        errorMessage: task.error_message || undefined,
+        creditsDeducted: actualCredits
+      });
+    } catch (error) {
+      logger.error('Failed to get NanoBanana task status', error instanceof Error ? error : undefined);
+      await communicationService.sendNanoBananaStatusUpdate({
+        taskId: payload.taskId,
+        status: 'failed',
+        errorMessage: error instanceof Error ? error.message : 'Failed to get status'
+      });
+    }
+  });
+
   // 🎯 处理文件打开请求
   communicationService.onOpenFile(async (payload) => {
     try {

@@ -420,3 +420,24 @@
   transform: translateY(-1px);
 }
 
+/* 🎯 NanoBanana 图像生成按钮样式 */
+.multi-session-app__nanobanana-btn {
+  opacity: 0.95;
+  padding: 2px;
+  transition: all 0.2s ease;
+}
+
+.multi-session-app__nanobanana-btn:hover {
+  opacity: 1;
+  background: rgba(255, 180, 3, 0.15) !important;
+  transform: scale(1.1);
+}
+
+.multi-session-app__nanobanana-btn svg {
+  transition: transform 0.2s ease;
+}
+
+.multi-session-app__nanobanana-btn:hover svg {
+  transform: rotate(-5deg);
+}
+
