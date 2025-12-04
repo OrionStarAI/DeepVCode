@@ -2621,10 +2621,15 @@ async function initializeInlineCompletion() {
       return;
     }
 
-    const aiService = sessionManager.getAIService(currentSession.info.id);
-    logger.info(`AI service check: ${aiService ? 'available' : 'null'}`);
-    if (!aiService) {
-      logger.warn('No AI service available for inline completion');
+    // 🎯 使用 getInitializedAIService 确保 AIService 已完成初始化
+    // 这会触发延迟初始化（如果还没初始化的话）
+    let aiService;
+    try {
+      logger.info('Ensuring AIService is initialized...');
+      aiService = await sessionManager.getInitializedAIService(currentSession.info.id);
+      logger.info('✅ AIService initialization confirmed');
+    } catch (initError) {
+      logger.warn('Failed to initialize AIService for inline completion', initError instanceof Error ? initError : undefined);
       return;
     }
 

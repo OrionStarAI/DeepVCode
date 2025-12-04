@@ -6,7 +6,7 @@
 
 import * as vscode from 'vscode';
 import { InlineCompletionService, InlineCompletionRequest } from 'deepv-code-core';
-import { CompletionCache, buildCacheKeys, CachedCompletion } from './completionCache';
+import { CompletionCache, buildCacheKeys, CachedCompletion, isSoftMatchValid } from './completionCache';
 import { Logger } from '../utils/logger';
 
 /**
@@ -191,15 +191,26 @@ export class CompletionScheduler {
     // === 第三步：缓存检查 ===
 
     const keys = buildCacheKeys(document, position);
-    const hasHardCache = this.cache.has(keys.hard);
-    const hasSoftCache = this.cache.has(keys.soft);
-    if (hasHardCache || hasSoftCache) {
+
+    // 硬缓存：精确匹配，直接跳过
+    if (this.cache.has(keys.hard)) {
       session.cacheHits++;
       session.skippedRequests++;
-      this.logger.debug(`[Scheduler] ⏭️ Skip: cache already exists`, {
+      this.logger.debug(`[Scheduler] ⏭️ Skip: hard cache exists`, {
         file: fileName,
-        hasHardCache,
-        hasSoftCache,
+      });
+      return false;
+    }
+
+    // 软缓存：需要验证有效性（和 Provider 保持一致）
+    const softCached = this.cache.get(keys.soft);
+    if (softCached && isSoftMatchValid(softCached, document, position)) {
+      session.cacheHits++;
+      session.skippedRequests++;
+      this.logger.debug(`[Scheduler] ⏭️ Skip: valid soft cache exists`, {
+        file: fileName,
+        cachedPosition: `${softCached.position.line}:${softCached.position.character}`,
+        currentPosition: `${position.line}:${position.character}`,
       });
       return false;
     }

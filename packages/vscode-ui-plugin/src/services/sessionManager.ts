@@ -1279,7 +1279,12 @@ export class SessionManager extends EventEmitter {
       timestamp: Date.now()
     };
 
+    // 发射通用的 sessionEvent 事件
     this.emit('sessionEvent', event);
+
+    // 🎯 同时发射具体类型的事件（created, switched, deleted 等）
+    // 这样可以用 sessionManager.on('created', ...) 直接监听
+    this.emit(type, sessionId, data);
   }
 
   /**
