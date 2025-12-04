@@ -98,6 +98,7 @@ export const MultiSessionApp: React.FC = () => {
     addMessage,
     updateMessage, // 🎯 新增：更新消息
     updateMessageContent,
+    updateMessageReasoning, // 🎯 新增：更新AI思考过程
     updateRollbackableIds, // 🎯 添加可回滚ID更新函数
     restoreSessionMessages, // 🎯 添加恢复消息的函数
     forceUpdateSessionMessages, // 🎯 添加强制更新消息的函数
@@ -550,6 +551,15 @@ export const MultiSessionApp: React.FC = () => {
 
         // 更新消息内容
         updateMessageContent(sessionId, messageId, streamingMsg.content, !isComplete);
+      }
+    });
+
+    // 🎯 处理AI思考过程（reasoning）
+    messageService.onChatReasoning(({ sessionId, content, messageId }) => {
+      const streamingMsg = streamingMessages.current.get(messageId);
+      if (streamingMsg && streamingMsg.sessionId === sessionId) {
+        // 使用新的 updateMessageReasoning 方法累积思考内容
+        updateMessageReasoning(sessionId, messageId, content);
       }
     });
 

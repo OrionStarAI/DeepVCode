@@ -296,6 +296,13 @@ export interface Translations {
     cacheRead: string;
     cacheHit: string;
   };
+
+  reasoning: {
+    title: string;
+    expand: string;
+    collapse: string;
+    lineCount: string;
+  };
 }
 
 export type SupportedLocale = 'zh-CN' | 'en-US';

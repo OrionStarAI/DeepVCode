@@ -246,6 +246,7 @@ export type ExtensionToWebViewMessage =
   | { type: 'chat_error'; payload: { error: string; sessionId: string } }
   | { type: 'chat_start'; payload: { messageId: string; sessionId: string } }
   | { type: 'chat_chunk'; payload: { content: string; messageId: string; isComplete?: boolean; sessionId: string } }
+  | { type: 'chat_reasoning'; payload: { content: string; messageId: string; sessionId: string } }
   | { type: 'chat_complete'; payload: { messageId: string; sessionId: string; tokenUsage?: any } }
   | { type: 'context_update'; payload: ContextInfo & { sessionId?: string } }
   | { type: 'extension_version_response'; payload: { version: string } }

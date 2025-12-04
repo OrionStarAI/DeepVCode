@@ -456,9 +456,44 @@ export const useMultiSessionState = () => {
   const updateMessageContent = useCallback((sessionId: string, messageId: string, content: string, isStreaming: boolean) => {
     updateMessage(sessionId, messageId, {
       content: createTextMessageContent(content),
-      isStreaming
+      isStreaming,
+      // 🎯 当正式内容开始时，结束思考过程显示
+      isReasoning: false
     });
   }, [updateMessage]);
+
+  /**
+   * 🎯 更新消息的思考过程内容（用于流式AI思考）
+   */
+  const updateMessageReasoning = useCallback((sessionId: string, messageId: string, reasoningContent: string) => {
+    updateState(prev => {
+      const sessionData = prev.sessions.get(sessionId);
+      if (!sessionData) return prev;
+
+      const messageIndex = sessionData.messages.findIndex(m => m.id === messageId);
+      if (messageIndex === -1) return prev;
+
+      const currentMessage = sessionData.messages[messageIndex];
+      const newSessions = new Map(prev.sessions);
+      const updatedMessages = [...sessionData.messages];
+
+      // 🎯 累积思考内容（流式累积）
+      const existingReasoning = currentMessage.reasoning || '';
+      updatedMessages[messageIndex] = {
+        ...currentMessage,
+        reasoning: existingReasoning + reasoningContent,
+        isReasoning: true  // 标记正在思考
+      };
+
+      newSessions.set(sessionId, {
+        ...sessionData,
+        messages: updatedMessages,
+        info: { ...sessionData.info, lastActivity: Date.now() }
+      });
+
+      return { ...prev, sessions: newSessions };
+    });
+  }, [updateState]);
 
   /**
    * 清空指定Session的消息
@@ -898,6 +933,7 @@ export const useMultiSessionState = () => {
     addMessage,
     updateMessage,
     updateMessageContent,
+    updateMessageReasoning,  // 🎯 更新AI思考过程
 
     // 🎯 UI历史恢复 - 智能合并，避免覆盖现有数据
     restoreSessionMessages: useCallback((sessionId: string, messages: ChatMessage[]) => {

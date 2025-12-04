@@ -298,4 +298,11 @@ export const enUS: Translations = {
     cacheRead: 'Cache Read',
     cacheHit: 'Cache Hit',
   },
+
+  reasoning: {
+    title: 'AI Thinking',
+    expand: 'Expand thinking process',
+    collapse: 'Collapse thinking process',
+    lineCount: '{count} lines',
+  },
 };

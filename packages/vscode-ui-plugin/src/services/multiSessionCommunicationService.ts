@@ -217,6 +217,16 @@ export class MultiSessionCommunicationService {
   }
 
   /**
+   * 🎯 发送AI思考过程（reasoning）内容
+   */
+  async sendChatReasoning(sessionId: string, content: string, messageId: string) {
+    await this.sendMessage({
+      type: 'chat_reasoning',
+      payload: { content, messageId, sessionId }
+    });
+  }
+
+  /**
    * 发送聊天开始信号
    */
   async sendChatStart(sessionId: string, messageId: string) {

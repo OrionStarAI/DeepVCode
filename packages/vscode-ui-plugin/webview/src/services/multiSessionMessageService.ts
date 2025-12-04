@@ -26,6 +26,7 @@ interface MultiSessionMessageFromExtension {
        'chat_error' |
        'chat_start' |
        'chat_chunk' |
+       'chat_reasoning' |
        'chat_complete' |
        'context_update' |
        'quick_action' |
@@ -664,6 +665,13 @@ export class MultiSessionMessageService {
    */
   onChatComplete(handler: (data: { sessionId: string; messageId: string; tokenUsage?: any }) => void) {
     this.addMessageHandler('chat_complete', handler);
+  }
+
+  /**
+   * 🎯 监听AI思考过程事件
+   */
+  onChatReasoning(handler: (data: { sessionId: string; content: string; messageId: string }) => void) {
+    this.addMessageHandler('chat_reasoning', handler);
   }
 
   onContextUpdate(handler: (data: { sessionId?: string; context: any }) => void) {

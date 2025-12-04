@@ -298,4 +298,11 @@ export const zhCN: Translations = {
     cacheRead: '缓存读取',
     cacheHit: '缓存命中',
   },
+
+  reasoning: {
+    title: 'AI 思考中',
+    expand: '展开思考过程',
+    collapse: '折叠思考过程',
+    lineCount: '共 {count} 行',
+  },
 };

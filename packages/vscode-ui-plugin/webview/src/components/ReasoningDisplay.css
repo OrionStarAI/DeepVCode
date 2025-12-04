@@ -1,0 +1,196 @@
+/**
+ * Reasoning Display Styles - AI思考过程显示样式
+ *
+ * @license Apache-2.0
+ * Copyright 2025 DeepV Code
+ */
+
+.reasoning-display {
+  margin: 8px 0;
+  border: 1px solid var(--vscode-editorWidget-border, rgba(128, 128, 128, 0.3));
+  border-radius: 6px;
+  background-color: var(--vscode-editorWidget-background, rgba(30, 30, 30, 0.8));
+  overflow: hidden;
+  font-family: var(--vscode-font-family);
+  font-size: 12px;
+  transition: all 0.2s ease;
+}
+
+.reasoning-display.active {
+  border-color: var(--vscode-inputOption-activeBorder, #007acc);
+  box-shadow: 0 0 4px rgba(0, 122, 204, 0.2);
+}
+
+.reasoning-display.completed {
+  opacity: 0.85;
+}
+
+/* 头部样式 */
+.reasoning-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  cursor: pointer;
+  background-color: var(--vscode-editorGroupHeader-tabsBackground, rgba(37, 37, 38, 0.8));
+  border-bottom: 1px solid var(--vscode-editorWidget-border, rgba(128, 128, 128, 0.2));
+  user-select: none;
+  transition: background-color 0.15s ease;
+}
+
+.reasoning-header:hover {
+  background-color: var(--vscode-list-hoverBackground, rgba(255, 255, 255, 0.05));
+}
+
+.reasoning-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.reasoning-indicator {
+  font-size: 10px;
+  color: var(--vscode-inputOption-activeBorder, #007acc);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.reasoning-display.completed .reasoning-indicator {
+  animation: none;
+  color: var(--vscode-textPreformat-foreground, #ce9178);
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.reasoning-icon {
+  color: var(--vscode-inputOption-activeBorder, #007acc);
+}
+
+.reasoning-display.completed .reasoning-icon {
+  color: var(--vscode-textPreformat-foreground, #ce9178);
+}
+
+.reasoning-label {
+  font-weight: 500;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.reasoning-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px;
+  background: transparent;
+  border: none;
+  color: var(--vscode-foreground, #cccccc);
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity 0.15s ease;
+}
+
+.reasoning-toggle:hover {
+  opacity: 1;
+}
+
+/* 内容区域 */
+.reasoning-content {
+  padding: 8px 10px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* 自定义滚动条 */
+.reasoning-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.reasoning-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.reasoning-content::-webkit-scrollbar-thumb {
+  background-color: var(--vscode-scrollbarSlider-background, rgba(121, 121, 121, 0.4));
+  border-radius: 3px;
+}
+
+.reasoning-content::-webkit-scrollbar-thumb:hover {
+  background-color: var(--vscode-scrollbarSlider-hoverBackground, rgba(100, 100, 100, 0.7));
+}
+
+.reasoning-text {
+  margin: 0;
+  padding: 0;
+  font-family: var(--vscode-editor-font-family, 'Consolas', 'Courier New', monospace);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--vscode-editor-foreground, #d4d4d4);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.reasoning-overflow-indicator {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 4px 10px;
+  background: linear-gradient(transparent, var(--vscode-editorWidget-background, rgba(30, 30, 30, 0.95)));
+  text-align: right;
+}
+
+.reasoning-line-count {
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground, #808080);
+  font-style: italic;
+}
+
+/* 折叠状态预览 */
+.reasoning-preview {
+  padding: 4px 10px;
+  background-color: var(--vscode-editorWidget-background, rgba(30, 30, 30, 0.6));
+}
+
+.reasoning-preview-text {
+  font-family: var(--vscode-editor-font-family, 'Consolas', 'Courier New', monospace);
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground, #808080);
+  font-style: italic;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+
+/* 折叠状态 */
+.reasoning-display.collapsed .reasoning-header {
+  border-bottom: none;
+}
+
+/* 响应式调整 */
+@media (max-width: 400px) {
+  .reasoning-header {
+    padding: 4px 8px;
+  }
+
+  .reasoning-content {
+    padding: 6px 8px;
+  }
+
+  .reasoning-label {
+    font-size: 10px;
+  }
+
+  .reasoning-text {
+    font-size: 11px;
+  }
+}
