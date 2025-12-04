@@ -58,9 +58,10 @@ export function ModelDialog({
     const loadModels = async () => {
       try {
         setLoading(true);
-        const { modelNames, modelInfos } = await getAvailableModels(settings, config);
+        const { modelNames, modelInfos, source } = await getAvailableModels(settings, config);
 
-        if (modelNames.length === 0) {
+        // 检查是否需要重新登录（401错误或未登录）
+        if (source === 'auth_required' || modelNames.length === 0) {
           setError(t('model.dialog.error.not.logged.in'));
           return;
         }

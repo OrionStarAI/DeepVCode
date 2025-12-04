@@ -8,7 +8,9 @@ import React, { useState, useRef, useEffect } from 'react';
 import { ChevronDown, Check } from 'lucide-react';
 import { useTranslation } from '../hooks/useTranslation';
 import { webviewModelService } from '../services/webViewModelService';
+import { getProviderIcon } from './ModelProviderIcons';
 import './ModelSelector.css';
+import './ModelProviderIcons.css';
 
 // 模型信息接口（匹配服务端API）
 export interface ModelInfo {
@@ -85,7 +87,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   const [selectedModel, setSelectedModel] = useState<ModelOption | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  
+
   // 🎯 Tooltip 状态管理
   const [showTooltip, setShowTooltip] = useState<{ [key: string]: boolean }>({});
   const [tooltipPosition, setTooltipPosition] = useState<{ [key: string]: { top: number; left: number } }>({});
@@ -182,49 +184,49 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
     switch (category) {
       case 'auto':
         return {
-          icon: '🎯',
+          icon: getProviderIcon('auto', 16),
           color: 'var(--vscode-terminal-ansiGreen)',
           name: 'Auto'
         };
       case 'claude':
         return {
-          icon: '🧠',
+          icon: getProviderIcon('claude', 16),
           color: 'var(--vscode-terminal-ansiMagenta)',
           name: 'Claude'
         };
       case 'gemini':
         return {
-          icon: '⭐',
+          icon: getProviderIcon('gemini', 16),
           color: 'var(--vscode-terminal-ansiBlue)',
           name: 'Gemini'
         };
       case 'gpt':
         return {
-          icon: '🤖',
+          icon: getProviderIcon('gpt', 16),
           color: 'var(--vscode-terminal-ansiGreen)',
           name: 'GPT'
         };
       case 'kimi':
         return {
-          icon: '🌙',
+          icon: getProviderIcon('kimi', 16),
           color: 'var(--vscode-terminal-ansiCyan)',
           name: 'Kimi'
         };
       case 'qwen':
         return {
-          icon: '🔷',
+          icon: getProviderIcon('qwen', 16),
           color: 'var(--vscode-terminal-ansiYellow)',
           name: 'Qwen'
         };
       case 'grok':
         return {
-          icon: '⚡',
+          icon: getProviderIcon('grok', 16),
           color: 'var(--vscode-terminal-ansiRed)',
           name: 'Grok'
         };
       default:
         return {
-          icon: '🤖',
+          icon: getProviderIcon('default', 16),
           color: 'var(--vscode-foreground)',
           name: 'Model'
         };
@@ -236,13 +238,13 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   // 目前已改为直接显示 tooltip，不依赖此检测
   const isTextTruncated = (element: HTMLElement | null): boolean => {
     if (!element) return false;
-    
+
     // 🎯 Windows 兼容性：考虑亚像素渲染和 DPI 缩放
     // 在高 DPI 屏幕上，scrollWidth 和 clientWidth 可能有微小差异
     const threshold = 2; // 容差阈值，考虑亚像素渲染
     const scrollWidth = Math.ceil(element.scrollWidth);
     const clientWidth = Math.floor(element.clientWidth);
-    
+
     return scrollWidth > clientWidth + threshold;
   };
 
@@ -282,47 +284,47 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
     // 🎯 防抖处理：延迟 150ms 显示 tooltip，避免快速滑过时闪烁
     debounceTimerRef.current[modelId] = setTimeout(() => {
       const element = modelNameRefs.current[modelId];
-      
+
       // 🎯 简化逻辑：直接显示 tooltip，不检测是否截断
       // 这样可以避免 CSS text-overflow 导致的检测不准确问题
       if (!element) return;
-      
+
       // 🎯 Windows DPI 缩放支持：获取实际的设备像素比率
       const dpr = getDevicePixelRatio();
       const scrollbarWidth = getScrollbarWidth();
-      
+
       // 计算tooltip的位置
       const rect = element.getBoundingClientRect();
-      
+
       // 🎯 考虑 DPI 缩放的位置计算
       let tooltipTop = rect.top - 40; // tooltip高度 + 间距
       let tooltipLeft = rect.left + rect.width / 2 + 20; // 🎯 往右偏移20px
-      
+
       // 🎯 边界检测：确保tooltip不会超出视口（考虑滚动条宽度）
       const viewportWidth = window.innerWidth - scrollbarWidth;
       const viewportHeight = window.innerHeight;
       const tooltipPadding = 10; // 离边界的最小距离
       const estimatedTooltipWidth = 250; // 预估 tooltip 最大宽度
-      
+
       // 防止tooltip超出顶部
       if (tooltipTop < tooltipPadding) {
         tooltipTop = rect.bottom + 8; // 显示在元素下方
       }
-      
+
       // 🎯 防止tooltip超出右边界（考虑 Windows 滚动条）
       if (tooltipLeft + estimatedTooltipWidth / 2 > viewportWidth - tooltipPadding) {
         tooltipLeft = viewportWidth - estimatedTooltipWidth / 2 - tooltipPadding;
       }
-      
+
       // 🎯 防止tooltip超出左边界
       if (tooltipLeft - estimatedTooltipWidth / 2 < tooltipPadding) {
         tooltipLeft = estimatedTooltipWidth / 2 + tooltipPadding;
       }
-      
+
       // 🎯 Windows 高DPI适配：确保像素对齐，避免模糊
       tooltipTop = Math.round(tooltipTop * dpr) / dpr;
       tooltipLeft = Math.round(tooltipLeft * dpr) / dpr;
-      
+
       setTooltipPosition(prev => ({
         ...prev,
         [modelId]: { top: tooltipTop, left: tooltipLeft }
@@ -378,7 +380,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
 
     window.addEventListener('scroll', handleScroll, true);
     window.addEventListener('resize', handleResize);
-    
+
     return () => {
       window.removeEventListener('scroll', handleScroll, true);
       window.removeEventListener('resize', handleResize);
@@ -447,19 +449,19 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                 {getCategoryInfo(selectedModel.category).icon}
               </div>
               <div className="model-info">
-                <div 
+                <div
                   className="model-name-wrapper"
                   onMouseEnter={() => handleMouseEnter(`selected-${selectedModel.id}`)}
                   onMouseLeave={() => handleMouseLeave(`selected-${selectedModel.id}`)}
                 >
-                  <span 
+                  <span
                     className="model-name"
                     ref={el => modelNameRefs.current[`selected-${selectedModel.id}`] = el}
                   >
                     {selectedModel.displayName}
                   </span>
                   {showTooltip[`selected-${selectedModel.id}`] && tooltipPosition[`selected-${selectedModel.id}`] && (
-                    <div 
+                    <div
                       className="model-name-tooltip"
                       style={{
                         top: `${tooltipPosition[`selected-${selectedModel.id}`].top}px`,
@@ -478,7 +480,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
             </>
           ) : (
             <>
-              <div className="model-icon">🤖</div>
+              <div className="model-icon">{getProviderIcon('default', 16)}</div>
               <div className="model-info">
                 <span className="model-name">{t('model.selector.noModel', undefined, 'No Model')}</span>
               </div>
@@ -515,19 +517,19 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                       </div>
                       <div className="model-details">
                         <div className="model-main">
-                          <div 
+                          <div
                             className="model-name-wrapper"
                             onMouseEnter={() => handleMouseEnter(`option-${model.id}`)}
                             onMouseLeave={() => handleMouseLeave(`option-${model.id}`)}
                           >
-                            <span 
+                            <span
                               className="model-name"
                               ref={el => modelNameRefs.current[`option-${model.id}`] = el}
                             >
                               {model.displayName}
                             </span>
                             {showTooltip[`option-${model.id}`] && tooltipPosition[`option-${model.id}`] && (
-                              <div 
+                              <div
                                 className="model-name-tooltip"
                                 style={{
                                   top: `${tooltipPosition[`option-${model.id}`].top}px`,

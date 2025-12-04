@@ -247,6 +247,16 @@ export function findMostSimilarModel(
 }
 
 /**
+ * 自定义错误类：表示需要重新认证
+ */
+export class AuthenticationRequiredError extends Error {
+  constructor(message: string = 'Authentication required - please re-authenticate') {
+    super(message);
+    this.name = 'AuthenticationRequiredError';
+  }
+}
+
+/**
  * 从服务端获取模型列表
  */
 async function fetchModelsFromServer(): Promise<{ models: ModelInfo[]; modelNames: string[] }> {
@@ -266,7 +276,8 @@ async function fetchModelsFromServer(): Promise<{ models: ModelInfo[]; modelName
 
     if (!response.ok) {
       if (response.status === 401) {
-        throw new Error('Authentication required - please re-authenticate');
+        // 抛出特定的认证错误，让调用方可以区分处理
+        throw new AuthenticationRequiredError();
       }
       throw new Error(`API request failed (${response.status}): ${await response.text()}`);
     }
@@ -320,6 +331,7 @@ function getLocalCachedModels(settings: any): ModelInfo[] {
  * 防止并发：如果已经有一个刷新在进行，等待它完成后返回
  *
  * 🆕 当用户选中的偏好模型在云端列表中不再存在时，自动更新为最相似的模型
+ * 🆕 当遇到 401 认证错误时，会抛出 AuthenticationRequiredError 让调用方处理
  */
 export async function refreshModelsInBackground(settings: any, config?: Config): Promise<void> {
   // 如果已经有刷新在进行，等待它完成
@@ -341,7 +353,12 @@ export async function refreshModelsInBackground(settings: any, config?: Config):
         console.warn('[ModelCommand] Background refresh: No models returned from server');
       }
     } catch (error) {
-      // 静默失败，不影响当前使用
+      // 如果是认证错误，重新抛出让调用方处理
+      if (error instanceof AuthenticationRequiredError) {
+        console.warn('[ModelCommand] Background refresh: Authentication required (401)');
+        throw error;
+      }
+      // 其他错误静默失败，不影响当前使用
       console.warn('[ModelCommand] Background refresh failed:', error);
     } finally {
       refreshPromise = null;
@@ -411,21 +428,47 @@ async function autoUpdateUserPreferredModel(
 }
 
 /**
+ * 清空本地缓存的模型列表
+ */
+function clearLocalCachedModels(settings: any, config?: Config): void {
+  try {
+    console.log('[ModelCommand] Clearing local model cache due to authentication failure...');
+    settings.setValue(SettingScope.User, 'cloudModels', []);
+    if (config && config.setCloudModels) {
+      config.setCloudModels([]);
+    }
+    console.log('[ModelCommand] Local model cache cleared');
+  } catch (error) {
+    console.warn('[ModelCommand] Failed to clear local model cache:', error);
+  }
+}
+
+/**
  * 获取可用模型列表（优先本地缓存，异步刷新）
+ *
+ * 返回值说明：
+ * - source: 'local' 表示从本地缓存读取
+ * - source: 'fallback' 表示降级模式
+ * - source: 'auth_required' 表示需要重新登录（401错误）
  */
 export async function getAvailableModels(settings?: any, config?: Config): Promise<{
   modelNames: string[];
   modelInfos: ModelInfo[];
-  source: 'local' | 'fallback'
+  source: 'local' | 'fallback' | 'auth_required'
 }> {
   // 优先从本地settings读取缓存的模型信息
   const localModels = settings ? getLocalCachedModels(settings) : [];
 
   if (localModels.length > 0) {
-    // 异步刷新配置供下次使用（不等待结果）
+    // 异步刷新配置供下次使用（不等待结果，但需要处理401错误）
     if (settings) {
-      refreshModelsInBackground(settings, config).catch(() => {
-        // 静默处理刷新失败
+      refreshModelsInBackground(settings, config).catch((error) => {
+        // 如果是认证错误，需要清空本地缓存
+        if (error instanceof AuthenticationRequiredError) {
+          clearLocalCachedModels(settings, config);
+          console.warn('[ModelCommand] Background refresh: Authentication expired, local cache cleared');
+        }
+        // 其他错误静默处理
       });
     }
 
@@ -448,6 +491,20 @@ export async function getAvailableModels(settings?: any, config?: Config): Promi
       source: 'local' // 已保存到本地，下次就是本地读取
     };
   } catch (error) {
+    // 检查是否是认证错误（401）
+    if (error instanceof AuthenticationRequiredError) {
+      console.warn('[ModelCommand] Authentication required (401) - user needs to re-login');
+      // 清空本地缓存，确保下次打开对话框时也能看到登录提示
+      if (settings) {
+        clearLocalCachedModels(settings, config);
+      }
+      return {
+        modelNames: [],
+        modelInfos: [],
+        source: 'auth_required'
+      };
+    }
+
     // 检查是否是未登录导致的错误
     const authStatus = proxyAuthManager.getStatus();
     if (!authStatus.hasUserInfo) {
@@ -455,7 +512,7 @@ export async function getAvailableModels(settings?: any, config?: Config): Promi
       return {
         modelNames: [],
         modelInfos: [],
-        source: 'fallback'
+        source: 'auth_required'
       };
     }
 
