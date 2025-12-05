@@ -344,14 +344,21 @@ export class CompletionScheduler {
     );
     const prefix = document.getText(prefixRange).slice(-4000);
 
+    // 读取配置：是否使用后缀上下文（FIM模式）
+    const config = vscode.workspace.getConfiguration('deepv');
+    const useSuffix = config.get<boolean>('inlineCompletionUseSuffix', true);
+
     // 提取上下文 - 后缀（⚠️ 修复：必须取到行尾）
-    const endLine = Math.min(document.lineCount - 1, position.line + 20);
-    const endChar = document.lineAt(endLine).range.end.character;  // ← 修复点
-    const suffixRange = new vscode.Range(
-      position,
-      new vscode.Position(endLine, endChar)
-    );
-    const suffix = document.getText(suffixRange).slice(0, 1200);
+    let suffix = '';
+    if (useSuffix) {
+      const endLine = Math.min(document.lineCount - 1, position.line + 20);
+      const endChar = document.lineAt(endLine).range.end.character;  // ← 修复点
+      const suffixRange = new vscode.Range(
+        position,
+        new vscode.Position(endLine, endChar)
+      );
+      suffix = document.getText(suffixRange).slice(0, 1200);
+    }
 
     return {
       filePath: document.uri.fsPath,
