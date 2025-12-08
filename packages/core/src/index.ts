@@ -104,6 +104,9 @@ export * from './tools/lint-fix.js';
 export * from './tools/mcp-client.js';
 export * from './tools/mcp-tool.js';
 
+// PPT tools
+export * from './tools/ppt/index.js';
+
 // MCP OAuth
 export { MCPOAuthProvider } from './mcp/oauth-provider.js';
 export {
