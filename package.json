@@ -1,6 +1,6 @@
 {
   "name": "deepv-code",
-  "version": "1.0.225",
+  "version": "1.0.226",
   "engines": {
     "node": ">=20.0.0"
   },
