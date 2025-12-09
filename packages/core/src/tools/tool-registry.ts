@@ -9,7 +9,7 @@ import { Tool, ToolResult, BaseTool, Icon } from './tools.js';
 import { Config } from '../config/config.js';
 import { spawn } from 'node:child_process';
 import { StringDecoder } from 'node:string_decoder';
-import { discoverMcpTools } from './mcp-client.js';
+import { discoverMcpTools, syncMcpToolsToRegistry, hasDiscoveredMcpTools, getMCPDiscoveryState, MCPDiscoveryState } from './mcp-client.js';
 import { DiscoveredMCPTool } from './mcp-tool.js';
 import { parse } from 'shell-quote';
 import { shouldUseTolerantMode } from '../config/modelCapabilities.js';
@@ -195,12 +195,28 @@ export class ToolRegistry {
    * Discovers tools from project (if available and configured).
    * Can be called multiple times to update discovered tools.
    * This will NOT discover tools from the command line, only from MCP servers.
+   *
+   * 🎯 VSCode Plugin Mode Optimization:
+   * If MCP discovery has already completed (by another Config instance),
+   * sync tools from the global cache instead of reconnecting to MCP servers.
+   * This ensures all AIService instances have access to the same MCP tools.
    */
   async discoverMcpTools(): Promise<void> {
     // remove any previously discovered tools
     for (const tool of this.tools.values()) {
       if (tool instanceof DiscoveredMCPTool) {
         this.tools.delete(tool.name);
+      }
+    }
+
+    // 🎯 Check if MCP discovery has already completed (VSCode plugin mode optimization)
+    // If so, sync from global cache instead of reconnecting
+    const discoveryState = getMCPDiscoveryState();
+    if (discoveryState === MCPDiscoveryState.COMPLETED && hasDiscoveredMcpTools()) {
+      const syncedCount = syncMcpToolsToRegistry(this);
+      if (syncedCount > 0) {
+        console.log(`[ToolRegistry] Synced ${syncedCount} MCP tools from global cache`);
+        return;
       }
     }
 

@@ -300,13 +300,8 @@ export const MultiSessionApp: React.FC = () => {
         messageService.switchSession(currentSessionId);
       }
 
-      // 🎯 会话列表加载完成，准备隐藏loading screen
-      console.log('🔍 [DEBUG] About to hide loading screen...');
-
-      // 🎯 会话列表加载完成
-
-      // 🎯 会话列表加载完成，但不操作升级UI，让升级逻辑自己处理LoadingScreen的隐藏
-      console.log('🎯 [SESSION-LOADED] Sessions loaded, but letting upgrade logic handle LoadingScreen visibility');
+      // 🎯 会话列表加载完成（loading screen 由 onLoadingComplete 的一次性监听器处理）
+      console.log('🎯 [SESSION-LOADED] Sessions loaded');
     });
 
     messageService.onSessionCreated(({ session }) => {
@@ -1240,16 +1235,32 @@ User question: ${contentStr}`;
     return (
       <LoadingScreen
         onLoadingComplete={() => {
-          console.log('🎯 [LoadingScreen] Loading complete - proceeding to main app');
-          setShowLoadingScreen(false);
-          // 确保已登录状态
+          console.log('🎯 [LoadingScreen] Loading complete - waiting for sessions_ready before showing main app');
           setIsLoggedIn(true);
           setIsInitialized(true);
 
-          // 🎯 LoadingScreen完成意味着服务已初始化，立即请求会话列表
-          console.log('✅ [MultiSessionApp] LoadingScreen完成，服务已就绪，请求会话列表');
-          const messageService = getGlobalMessageService();
-          messageService.requestSessionList();
+          // 🎯 LoadingScreen完成意味着服务已初始化
+          // 等待后端 SessionManager 初始化完成（sessions_ready 信号）后再隐藏 loading
+          // 这样可以确保所有历史 session 都已恢复完成
+
+          // 🎯 设置超时保护：10秒后强制隐藏 loading（session 恢复可能需要较长时间）
+          const timeout = setTimeout(() => {
+            console.warn('⏰ [TIMEOUT] Sessions ready timeout (10s), forcing hide loading screen');
+            setShowLoadingScreen(false);
+          }, 10000);
+
+          // 🎯 一次性监听 sessions_ready 信号
+          const handleSessionsReady = (event: MessageEvent) => {
+            if (event.data?.type === 'sessions_ready') {
+              console.log('🎯 [SESSIONS-READY] All sessions restored, hiding loading screen');
+              clearTimeout(timeout);
+              window.removeEventListener('message', handleSessionsReady);
+              setShowLoadingScreen(false);
+            }
+          };
+          window.addEventListener('message', handleSessionsReady);
+
+          console.log('✅ [MultiSessionApp] LoadingScreen完成，等待后端 sessions_ready 信号');
         }}
         onLoginRequired={(error) => {
           console.log('🎯 [LoadingScreen] Login required:', error);

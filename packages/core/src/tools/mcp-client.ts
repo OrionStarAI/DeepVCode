@@ -140,6 +140,13 @@ const serverToolCounts: Map<string, number> = new Map();
 const serverToolNames: Map<string, string[]> = new Map();
 
 /**
+ * Global cache to store discovered MCP tools for each server
+ * This allows subsequent ToolRegistry instances to sync tools without reconnecting
+ * Key: serverName, Value: array of discovered tools
+ */
+const globalDiscoveredTools: Map<string, DiscoveredMCPTool[]> = new Map();
+
+/**
  * Update the tool count and names for an MCP server
  */
 export function updateMCPServerToolCount(serverName: string, count: number, toolNames?: string[]): void {
@@ -175,6 +182,37 @@ export function getMCPServerToolNames(serverName: string): string[] {
  */
 export function getAllMCPServerToolNames(): Map<string, string[]> {
   return new Map(serverToolNames);
+}
+
+/**
+ * Sync already-discovered MCP tools to a new ToolRegistry instance.
+ * This is used in VSCode plugin mode where multiple AIService/Config instances are created,
+ * but MCP discovery only happens once. Subsequent instances can use this function
+ * to get the same tools without reconnecting.
+ *
+ * @param toolRegistry The ToolRegistry to sync tools to
+ * @returns The number of tools synced
+ */
+export function syncMcpToolsToRegistry(toolRegistry: ToolRegistry): number {
+  let syncedCount = 0;
+
+  for (const [serverName, tools] of globalDiscoveredTools.entries()) {
+    for (const tool of tools) {
+      // Clone the tool to avoid sharing state between registries
+      const clonedTool = tool.clone();
+      toolRegistry.registerTool(clonedTool);
+      syncedCount++;
+    }
+  }
+
+  return syncedCount;
+}
+
+/**
+ * Check if there are any discovered MCP tools available for syncing
+ */
+export function hasDiscoveredMcpTools(): boolean {
+  return globalDiscoveredTools.size > 0;
 }
 
 /**
@@ -508,6 +546,10 @@ export async function connectAndDiscover(
       for (const tool of tools) {
         toolRegistry.registerTool(tool);
       }
+
+      // 🎯 Store tools in global cache for syncing to subsequent ToolRegistry instances
+      // This is essential for VSCode plugin mode where multiple Config instances share MCP connections
+      globalDiscoveredTools.set(mcpServerName, tools);
 
       // Update global tool count and names cache (used by VSCode plugin for status display)
       const toolNames = tools.map(t => t.name);

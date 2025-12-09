@@ -552,9 +552,10 @@ export class MultiSessionMessageService {
 
   /**
    * 监听Session列表更新
+   * @returns 取消订阅的函数
    */
-  onSessionListUpdate(handler: (data: { sessions: SessionInfo[]; currentSessionId: string | null }) => void) {
-    this.addMessageHandler('session_list_update', handler);
+  onSessionListUpdate(handler: (data: { sessions: SessionInfo[]; currentSessionId: string | null }) => void): () => void {
+    return this.addMessageHandler('session_list_update', handler);
   }
 
   /**

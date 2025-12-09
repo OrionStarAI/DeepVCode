@@ -1049,12 +1049,14 @@ export class SessionManager extends EventEmitter {
 
   /**
    * 恢复持久化的会话
+   * 🎯 优化：使用轻量级 AIService，不阻塞初始化
+   * AI 服务会在用户实际使用该 session 时才完整初始化
    */
   private async restoreSessions(sessionStates: SessionState[]): Promise<void> {
     for (const sessionState of sessionStates) {
       try {
-        // 创建AI服务实例
-        const aiService = await this.createAIServiceForSession(sessionState.info.id);
+        // 🎯 使用轻量级 AIService，不阻塞初始化（与 createSession 保持一致）
+        const aiService = this.createLightweightAIService(sessionState.info.id);
 
         // 恢复会话状态
         this.sessions.set(sessionState.info.id, sessionState);
@@ -1068,10 +1070,11 @@ export class SessionManager extends EventEmitter {
           sessionState.info.status = SessionStatus.IDLE;
         }
 
-        // 类型安全地恢复AI客户端历史记录
-        const history = sessionState.context?.aiClientHistory;
-        if (history && Array.isArray(history)) {
-          aiService.getGeminiClient()?.setHistory(history as any[]);
+        // 🎯 注意：历史记录会在 AIService 完整初始化后恢复（ensureAIServiceInitialized）
+        // 这里只记录需要恢复的历史，延迟到实际使用时再应用
+        if (sessionState.context?.aiClientHistory) {
+          // 历史记录保存在 sessionState.context 中，待 AIService 初始化后恢复
+          this.logger.debug(`📋 Session ${sessionState.info.id} has ${sessionState.context.aiClientHistory.length} history entries to restore`);
         }
 
         this.logger.info(`✅ Restored session: ${sessionState.info.name} (${sessionState.info.id})`);
@@ -1139,6 +1142,13 @@ export class SessionManager extends EventEmitter {
         geminiMdFileCount: this.userMemoryFileCount,
         sessionModel: sessionModel
       });
+
+      // 🎯 恢复 AI 客户端历史记录（针对恢复的 session）
+      const history = sessionState?.context?.aiClientHistory;
+      if (history && Array.isArray(history) && history.length > 0) {
+        aiService.getGeminiClient()?.setHistory(history as any[]);
+        this.logger.info(`📋 Restored ${history.length} history entries for session: ${sessionId}`);
+      }
 
       this.logger.info(`✅ AIService initialized for session: ${sessionId}`);
       return aiService;

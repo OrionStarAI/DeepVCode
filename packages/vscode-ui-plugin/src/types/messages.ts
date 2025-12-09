@@ -284,6 +284,8 @@ export type ExtensionToWebViewMessage =
   // 🎯 服务初始化状态
   | { type: 'service_initialization_status'; payload: { status: 'starting' | 'progress' | 'ready' | 'failed'; message: string; timestamp: number } }
   | { type: 'service_initialization_done'; payload: {} }
+  // 🎯 SessionManager 初始化完成，所有历史 session 已恢复
+  | { type: 'sessions_ready'; payload: { sessionCount: number } }
   // 🎯 增强的 Lint 智能通知
   | { type: 'smart_notification'; payload: { notificationData: any; sessionId: string | null; timestamp: number } }
   | { type: 'lint_suggestions'; payload: { suggestions: any[]; sessionId: string | null; timestamp: number } }

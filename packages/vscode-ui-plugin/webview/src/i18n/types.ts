@@ -122,6 +122,8 @@ export interface Translations {
     enableYoloTooltip: string;
     yoloMode: string;
     yoloWarning: string;
+    run: string;
+    skip: string;
     expandDetails: string;
     collapseDetails: string;
     output: string;

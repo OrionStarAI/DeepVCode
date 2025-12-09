@@ -2961,6 +2961,13 @@ async function startServices() {
         logger.info(`📋 [Background] Sending ${sessions.length} sessions to frontend`);
         await communicationService.sendSessionListUpdate(sessions, currentSessionId);
 
+        // 🎯 发送 sessions_ready 信号，通知前端所有历史 session 已恢复完成
+        communicationService.sendMessage({
+          type: 'sessions_ready',
+          payload: { sessionCount: sessions.length }
+        });
+        logger.info(`✅ [Background] Sent sessions_ready signal (${sessions.length} sessions)`);
+
         // 初始化行内补全服务（依赖 SessionManager）
         await initializeInlineCompletion();
 

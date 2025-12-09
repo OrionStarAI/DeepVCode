@@ -3,7 +3,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronDown, ChevronRight, Circle, RotateCcw, CheckCircle, XCircle, AlertTriangle, Square, HelpCircle, Info } from 'lucide-react';
+import { ChevronDown, ChevronRight, Circle, RotateCcw, CheckCircle, XCircle, AlertTriangle, Square, HelpCircle, Info, Check, X, Zap, ShieldAlert, Repeat } from 'lucide-react';
 import { ToolCall } from '../types';
 import { useTranslation } from '../hooks/useTranslation';
 import { TOOL_CALL_STATUS } from '../constants/toolConstants';
@@ -130,9 +130,28 @@ const ToolCallItem: React.FC<{
   const { t } = useTranslation();
   const [userInput, setUserInput] = useState('');
   const liveOutputRef = useRef<HTMLDivElement>(null);
+  const [permissionMode, setPermissionMode] = useState<'once' | 'always_type' | 'always_project'>('once');
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   // 🎯 直接在渲染时计算，不依赖useState和useEffect
   const hasConfirmation = toolCall.status === TOOL_CALL_STATUS.WAITING_FOR_CONFIRMATION;
+
+  // 🎯 点击外部关闭下拉菜单
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+
+    if (isDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isDropdownOpen]);
 
   // 🎯 检测是否为todo结果且工具已执行完成
   const isTodoResultCompleted = () => {
@@ -228,6 +247,17 @@ const ToolCallItem: React.FC<{
     return moreCount > 0 ? `${result} +${moreCount} ${t('tools.more', {}, 'more')}` : result;
   };
 
+  // 🎯 获取预览内容
+  const getPreviewContent = (): string => {
+    if (toolCall.toolName === 'run_shell_command' || toolCall.toolName === 'bash') {
+      return `$ ${toolCall.parameters.command || ''}`;
+    }
+    if (toolCall.toolName === 'write_file') {
+      return `Write to: ${toolCall.parameters.file_path}\n\n${(toolCall.parameters.content || '').slice(0, 200)}${(toolCall.parameters.content || '').length > 200 ? '...' : ''}`;
+    }
+    return JSON.stringify(toolCall.parameters, null, 2);
+  };
+
   const hasMultipleParams = Object.keys(toolCall.parameters).length > 2;
 
   // 🎯 如果是已完成的todo结果，直接渲染TodoDisplayRenderer，不显示tool-main-line
@@ -235,6 +265,16 @@ const ToolCallItem: React.FC<{
     const todoData = toolCall.result?.data || toolCall.result;
     return <TodoDisplayRenderer data={todoData} />;
   }
+
+  // 🎯 获取当前模式的显示文本
+  const getModeLabel = (mode: string) => {
+    switch (mode) {
+      case 'once': return t('tools.executeOnce', {}, 'Ask Every Time');
+      case 'always_type': return t('tools.alwaysAllowType', {}, 'Always Allow Type');
+      case 'always_project': return t('tools.enableYolo', {}, 'Run Everything');
+      default: return t('tools.executeOnce', {}, 'Ask Every Time');
+    }
+  };
 
   return (
     <div
@@ -262,59 +302,70 @@ const ToolCallItem: React.FC<{
         </div>
       </div>
 
-      {/* 确认提示 */}
+      {/* 确认提示 - 现代设计 */}
       {hasConfirmation && (
-        <div className="tool-confirmation">
-          <div className="confirmation-message">
-            <AlertTriangle size={14} />
-            <span>{t('tools.confirmationRequired', {}, 'Tool execution requires confirmation')}</span>
+        <div className="tool-confirmation-modern">
+          {/* 预览区域 */}
+          <div className="confirmation-preview">
+            <pre>{getPreviewContent()}</pre>
           </div>
 
-          {/* 🎯 Multi-option confirmation buttons */}
-          <div className="confirmation-options">
-            <button
-              className="confirm-option"
-              onClick={() => handleConfirmationChoice('once')}
-              title={t('tools.executeOnceTooltip', {}, 'Execute this tool once only')}
-            >
-              <span className="option-icon">✅</span>
-              <span className="option-label">{t('tools.executeOnce', {}, 'Yes, just this once')}</span>
-            </button>
+          {/* 底部操作栏 */}
+          <div className="confirmation-footer-modern">
+            {/* 左侧：模式选择下拉菜单 */}
+            <div className="mode-selector" ref={dropdownRef}>
+              <button
+                className="mode-dropdown-trigger"
+                onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                title={t('tools.executeOnceTooltip', {}, 'Select execution mode')}
+              >
+                <span>{getModeLabel(permissionMode)}</span>
+                <ChevronDown size={12} />
+              </button>
 
-            <button
-              className="confirm-option"
-              onClick={() => handleConfirmationChoice('always_type')}
-              title={t('tools.alwaysAllowTypeTooltip', {}, 'Always allow this type of tool without asking')}
-            >
-              <span className="option-icon">🔄</span>
-              <span className="option-label">{t('tools.alwaysAllowType', {}, 'Yes, always allow this tool type')}</span>
-            </button>
+              {isDropdownOpen && (
+                <div className="mode-dropdown-menu">
+                  <div
+                    className={`mode-option ${permissionMode === 'once' ? 'selected' : ''}`}
+                    onClick={() => { setPermissionMode('once'); setIsDropdownOpen(false); }}
+                  >
+                    <Check size={12} className="option-check" />
+                    <span>{t('tools.executeOnce', {}, 'Ask Every Time')}</span>
+                  </div>
+                  <div
+                    className={`mode-option ${permissionMode === 'always_type' ? 'selected' : ''}`}
+                    onClick={() => { setPermissionMode('always_type'); setIsDropdownOpen(false); }}
+                  >
+                    <Check size={12} className="option-check" />
+                    <span>{t('tools.alwaysAllowType', {}, 'Always Allow Type')}</span>
+                  </div>
+                  <div
+                    className={`mode-option warning ${permissionMode === 'always_project' ? 'selected' : ''}`}
+                    onClick={() => { setPermissionMode('always_project'); setIsDropdownOpen(false); }}
+                  >
+                    <Check size={12} className="option-check" />
+                    <span>{t('tools.enableYolo', {}, 'Run Everything')}</span>
+                  </div>
+                </div>
+              )}
+            </div>
 
-            <button
-              className="confirm-option warning"
-              onClick={() => handleConfirmationChoice('always_project')}
-              title={t('tools.enableYoloTooltip', {}, 'Enable YOLO mode - all tools in this project will execute automatically')}
-            >
-              <span className="option-icon">🚀</span>
-              <span className="option-label">
-                {t('tools.enableYolo', {}, 'Yes, always allow all tools in project')}
-                <small>{t('tools.yoloMode', {}, 'Enable YOLO mode')}</small>
-              </span>
-            </button>
-
-            <button
-              className="confirm-option secondary"
-              onClick={() => handleConfirmationChoice('cancel')}
-            >
-              <span className="option-icon">❌</span>
-              <span className="option-label">{t('common.cancel', {}, 'Cancel')}</span>
-            </button>
-          </div>
-
-          {/* 🎯 YOLO warning notice */}
-          <div className="yolo-warning">
-            <Info size={12} />
-            <span>{t('tools.yoloWarning', {}, '⚠️ Selecting "always allow all tools" will enable YOLO mode for this project')}</span>
+            {/* 右侧：操作按钮 */}
+            <div className="action-buttons">
+              <button
+                className="action-btn cancel"
+                onClick={() => handleConfirmationChoice('cancel')}
+              >
+                {t('tools.skip', {}, 'Skip')}
+              </button>
+              <button
+                className="action-btn run"
+                onClick={() => handleConfirmationChoice(permissionMode)}
+              >
+                {t('tools.run', {}, 'Run')}
+                <RotateCcw size={12} style={{ marginLeft: 4 }} />
+              </button>
+            </div>
           </div>
         </div>
       )}
