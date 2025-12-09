@@ -355,13 +355,21 @@ export class AIService {
 
   /**
    * 🔌 异步更新 AI 工具列表
+   * 🎯 关键修复：确保 toolRegistry 同步了 MCP 工具后再更新 AI 工具列表
    */
   private async updateAIToolsAsync() {
     try {
-      if (!this.geminiClient) {
-        this.logger.warn('🔌 Cannot update tools: geminiClient not initialized');
+      if (!this.geminiClient || !this.config) {
+        this.logger.warn('🔌 Cannot update tools: geminiClient or config not initialized');
         return;
       }
+
+      // 🎯 关键修复：先确保 toolRegistry 同步了 MCP 工具
+      // 这对于后续创建的 AIService 实例尤其重要，因为它们的 toolRegistry
+      // 不会通过 discoverMcpToolsAsync() 获取 MCP 工具
+      const toolRegistry = await this.config.getToolRegistry();
+      await toolRegistry.discoverMcpTools();
+      this.logger.debug('🔌 ToolRegistry MCP tools synced');
 
       await this.geminiClient.setTools();
       this.logger.info('🔌 AI tools updated successfully with MCP tools');
