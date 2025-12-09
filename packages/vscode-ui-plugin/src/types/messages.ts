@@ -119,6 +119,22 @@ export interface ToolCall {
 // QuickAction removed - not used in actual implementation
 
 // =============================================================================
+// Slash Command Types
+// =============================================================================
+
+/**
+ * 🎯 斜杠命令信息（用于 Webview 展示）
+ */
+export interface SlashCommandInfo {
+  /** Command name (e.g., 'git:commit', 'test') */
+  name: string;
+  /** Human-readable description */
+  description: string;
+  /** Command source: 'file' for custom commands, 'built-in' for hardcoded */
+  kind: 'file' | 'built-in';
+}
+
+// =============================================================================
 // Multi-Session Message Interfaces
 // =============================================================================
 
@@ -233,7 +249,10 @@ export type WebViewToExtensionMessage =
   // 🎯 版本控制相关
   | { type: 'revert_to_message'; payload: { sessionId: string; messageId: string } }
   | { type: 'version_timeline_request'; payload: { sessionId: string } }
-  | { type: 'version_revert_previous'; payload: { sessionId: string } };
+  | { type: 'version_revert_previous'; payload: { sessionId: string } }
+  // 🎯 自定义斜杠命令相关
+  | { type: 'get_slash_commands'; payload: {} }
+  | { type: 'execute_custom_slash_command'; payload: { commandName: string; args: string } };
 
 // Message types from Extension to WebView
 export type ExtensionToWebViewMessage =
@@ -308,7 +327,10 @@ export type ExtensionToWebViewMessage =
   | { type: 'nanobanana_generate_response'; payload: { success: boolean; taskId?: string; estimatedTime?: number; error?: string } }
   | { type: 'nanobanana_status_update'; payload: { taskId: string; status: 'pending' | 'processing' | 'completed' | 'failed'; progress?: number; resultUrls?: string[]; originalUrls?: string[]; errorMessage?: string; creditsDeducted?: number } }
   // 🔌 MCP 相关消息类型
-  | { type: 'mcp_status_update'; payload: MCPStatusPayload };
+  | { type: 'mcp_status_update'; payload: MCPStatusPayload }
+  // 🎯 自定义斜杠命令相关
+  | { type: 'slash_commands_list'; payload: { commands: SlashCommandInfo[] } }
+  | { type: 'slash_command_result'; payload: { success: boolean; prompt?: string; error?: string } };
 
 /**
  * 🔌 MCP 状态消息负载
