@@ -61,6 +61,24 @@ export class DiscoveredMCPTool extends BaseTool<ToolParams, ToolResult> {
   }
 
   /**
+   * Clone this tool for use in a different ToolRegistry instance.
+   * The cloned tool shares the same mcpTool instance (MCP client connection)
+   * but can be registered independently.
+   */
+  clone(): DiscoveredMCPTool {
+    return new DiscoveredMCPTool(
+      this.mcpTool,
+      this.serverName,
+      this.serverToolName,
+      this.description,
+      this.parameterSchemaJson,
+      this.timeout,
+      this.trust,
+      this.name, // preserve the current name
+    );
+  }
+
+  /**
    * Overrides the base schema to use parametersJsonSchema when building
    * FunctionDeclaration
    */

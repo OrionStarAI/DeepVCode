@@ -35,7 +35,7 @@ import { MCPOAuthTokenStorage } from '../mcp/oauth-token-storage.js';
 import { getErrorMessage } from '../utils/errors.js';
 
 export const MCP_DEFAULT_TIMEOUT_MSEC = 10 * 60 * 1000; // default to 10 minutes
-export const MCP_CONNECT_TIMEOUT_MSEC = 10 * 1000; // 10 seconds for connection attempts
+export const MCP_CONNECT_TIMEOUT_MSEC = 30 * 1000; // 30 seconds for connection attempts (increased from 10s)
 
 /**
  * 为连接操作添加超时机制
@@ -103,9 +103,153 @@ const serverStatuses: Map<string, MCPServerStatus> = new Map();
 let mcpDiscoveryState: MCPDiscoveryState = MCPDiscoveryState.NOT_STARTED;
 
 /**
+ * Flag to track if MCP discovery has been triggered (prevents duplicate discovery)
+ * Used in VSCode plugin mode where multiple AIService/Config instances are created
+ */
+let mcpDiscoveryTriggered: boolean = false;
+
+/**
+ * Check if MCP discovery has already been triggered
+ */
+export function isMCPDiscoveryTriggered(): boolean {
+  return mcpDiscoveryTriggered;
+}
+
+/**
+ * Mark MCP discovery as triggered (call before starting discovery)
+ */
+export function markMCPDiscoveryTriggered(): void {
+  mcpDiscoveryTriggered = true;
+}
+
+/**
  * Map to track which MCP servers have been discovered to require OAuth
  */
 export const mcpServerRequiresOAuth: Map<string, boolean> = new Map();
+
+/**
+ * Global map to track tool count per MCP server
+ * This is updated when tools are discovered and can be queried without a ToolRegistry
+ */
+const serverToolCounts: Map<string, number> = new Map();
+
+/**
+ * Global map to track tool names per MCP server
+ * This is updated when tools are discovered
+ */
+const serverToolNames: Map<string, string[]> = new Map();
+
+/**
+ * Global cache to store discovered MCP tools for each server
+ * This allows subsequent ToolRegistry instances to sync tools without reconnecting
+ * Key: serverName, Value: array of discovered tools
+ */
+const globalDiscoveredTools: Map<string, DiscoveredMCPTool[]> = new Map();
+
+/**
+ * Update the tool count and names for an MCP server
+ */
+export function updateMCPServerToolCount(serverName: string, count: number, toolNames?: string[]): void {
+  serverToolCounts.set(serverName, count);
+  if (toolNames) {
+    serverToolNames.set(serverName, toolNames);
+  }
+}
+
+/**
+ * Get the tool count for an MCP server
+ */
+export function getMCPServerToolCount(serverName: string): number {
+  return serverToolCounts.get(serverName) ?? 0;
+}
+
+/**
+ * Get all MCP server tool counts
+ */
+export function getAllMCPServerToolCounts(): Map<string, number> {
+  return new Map(serverToolCounts);
+}
+
+/**
+ * Get tool names for an MCP server
+ */
+export function getMCPServerToolNames(serverName: string): string[] {
+  return serverToolNames.get(serverName) ?? [];
+}
+
+/**
+ * Get all MCP server tool names
+ */
+export function getAllMCPServerToolNames(): Map<string, string[]> {
+  return new Map(serverToolNames);
+}
+
+/**
+ * Sync already-discovered MCP tools to a new ToolRegistry instance.
+ * This is used in VSCode plugin mode where multiple AIService/Config instances are created,
+ * but MCP discovery only happens once. Subsequent instances can use this function
+ * to get the same tools without reconnecting.
+ *
+ * @param toolRegistry The ToolRegistry to sync tools to
+ * @returns The number of tools synced
+ */
+export function syncMcpToolsToRegistry(toolRegistry: ToolRegistry): number {
+  let syncedCount = 0;
+
+  for (const [serverName, tools] of globalDiscoveredTools.entries()) {
+    for (const tool of tools) {
+      // Clone the tool to avoid sharing state between registries
+      const clonedTool = tool.clone();
+      toolRegistry.registerTool(clonedTool);
+      syncedCount++;
+    }
+  }
+
+  return syncedCount;
+}
+
+/**
+ * Check if there are any discovered MCP tools available for syncing
+ */
+export function hasDiscoveredMcpTools(): boolean {
+  return globalDiscoveredTools.size > 0;
+}
+
+/**
+ * 🎯 等待 MCP 发现完成
+ * 用于 VSCode 插件模式下，多个 AIService 实例需要等待第一个完成发现
+ * 避免重复启动 MCP 进程
+ *
+ * @param timeoutMs 超时时间（毫秒），默认 30 秒
+ * @returns Promise，在发现完成或超时后 resolve
+ */
+export async function waitForMCPDiscoveryComplete(timeoutMs: number = 30000): Promise<boolean> {
+  // 如果已完成，直接返回
+  if (getMCPDiscoveryState() === MCPDiscoveryState.COMPLETED) {
+    return true;
+  }
+
+  // 如果还没开始，也直接返回（调用方会处理）
+  if (getMCPDiscoveryState() === MCPDiscoveryState.NOT_STARTED) {
+    return false;
+  }
+
+  // 状态是 IN_PROGRESS，等待完成
+  const checkInterval = 100; // 每 100ms 检查一次
+  let elapsed = 0;
+
+  while (elapsed < timeoutMs) {
+    await new Promise(resolve => setTimeout(resolve, checkInterval));
+    elapsed += checkInterval;
+
+    if (getMCPDiscoveryState() === MCPDiscoveryState.COMPLETED) {
+      return true;
+    }
+  }
+
+  console.warn(`[MCP] waitForMCPDiscoveryComplete timed out after ${timeoutMs}ms`);
+  return false;
+}
 
 /**
  * Event listeners for MCP server status changes
@@ -419,11 +563,13 @@ export async function connectAndDiscover(
       debugMode,
     );
     try {
-      updateMCPServerStatus(mcpServerName, MCPServerStatus.CONNECTED);
+      // Set up error handler first (before any async operations)
       mcpClient.onerror = (error) => {
         console.error(`MCP ERROR (${mcpServerName}):`, error.toString());
         updateMCPServerStatus(mcpServerName, MCPServerStatus.DISCONNECTED);
       };
+
+      // Discover prompts and tools first
       await discoverPrompts(mcpServerName, mcpClient, promptRegistry);
 
       const tools = await discoverTools(
@@ -431,18 +577,30 @@ export async function connectAndDiscover(
         mcpServerConfig,
         mcpClient,
       );
+
+      // Register all tools
       for (const tool of tools) {
         toolRegistry.registerTool(tool);
       }
+
+      // 🎯 Store tools in global cache for syncing to subsequent ToolRegistry instances
+      // This is essential for VSCode plugin mode where multiple Config instances share MCP connections
+      globalDiscoveredTools.set(mcpServerName, tools);
+
+      // Update global tool count and names cache (used by VSCode plugin for status display)
+      const toolNames = tools.map(t => t.name);
+      updateMCPServerToolCount(mcpServerName, tools.length, toolNames);
+
+      // Only emit CONNECTED status after tools are registered
+      // This ensures tool count is accurate when status listeners query it
+      updateMCPServerStatus(mcpServerName, MCPServerStatus.CONNECTED);
     } catch (error) {
       mcpClient.close();
       throw error;
     }
   } catch (error) {
     console.error(
-      `Error connecting to MCP server '${mcpServerName}': ${getErrorMessage(
-        error,
-      )}`,
+      `Error connecting to MCP server '${mcpServerName}': ${getErrorMessage(error)}`,
     );
     updateMCPServerStatus(mcpServerName, MCPServerStatus.DISCONNECTED);
   }

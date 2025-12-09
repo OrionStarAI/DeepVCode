@@ -72,7 +72,9 @@ interface MultiSessionMessageFromExtension {
        'rules_delete_response' |
        // 🎯 文本优化命令（/refine）
        'refine_result' |
-       'refine_error';
+       'refine_error' |
+       // 🎯 MCP 状态更新
+       'mcp_status_update';
   payload: Record<string, unknown> & {
     sessionId?: string; // 大部分消息都包含sessionId
   };
@@ -121,7 +123,11 @@ export interface MultiSessionMessageToExtension {
        // 🎯 自定义规则管理
        'rules_list_request' |
        'rules_save' |
-       'rules_delete';
+       'rules_delete' |
+       // 🎯 MCP 状态请求
+       'get_mcp_status' |
+       // 🎯 打开 MCP 设置
+       'open_mcp_settings';
   payload: Record<string, unknown> & {
     sessionId?: string; // 大部分消息都包含sessionId
   };
@@ -546,9 +552,10 @@ export class MultiSessionMessageService {
 
   /**
    * 监听Session列表更新
+   * @returns 取消订阅的函数
    */
-  onSessionListUpdate(handler: (data: { sessions: SessionInfo[]; currentSessionId: string | null }) => void) {
-    this.addMessageHandler('session_list_update', handler);
+  onSessionListUpdate(handler: (data: { sessions: SessionInfo[]; currentSessionId: string | null }) => void): () => void {
+    return this.addMessageHandler('session_list_update', handler);
   }
 
   /**
@@ -891,6 +898,17 @@ export class MultiSessionMessageService {
    */
   onRefineError(callback: (data: { error: string }) => void): () => void {
     return this.addMessageHandler('refine_error', callback);
+  }
+
+  // =============================================================================
+  // 🎯 MCP 状态管理
+  // =============================================================================
+
+  /**
+   * 🎯 监听 MCP 状态更新
+   */
+  onMcpStatusUpdate(callback: (data: { discoveryState: string; servers: Array<{ name: string; status: string; toolCount: number }> }) => void): () => void {
+    return this.addMessageHandler('mcp_status_update', callback);
   }
 
   // =============================================================================

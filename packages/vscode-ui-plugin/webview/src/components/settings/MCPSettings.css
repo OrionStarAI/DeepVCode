@@ -1,0 +1,347 @@
+/**
+ * MCP Settings Panel Styles
+ * MCP设置面板样式 - 专业VSCode风格
+ *
+ * @license Apache-2.0
+ * Copyright 2025 DeepV Code
+ */
+
+/* =============================================================================
+   MCP 设置面板基础样式
+   ============================================================================= */
+
+.mcp-settings-panel {
+  padding: 0;
+}
+
+/* =============================================================================
+   MCP 服务器列表
+   ============================================================================= */
+
+.mcp-server-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.mcp-server-item {
+  border: 1px solid var(--vscode-panel-border, #454545);
+  border-radius: 4px;
+  padding: 12px;
+  background-color: var(--vscode-editor-background, #1e1e1e);
+  transition: all 0.2s ease;
+}
+
+.mcp-server-item:hover {
+  border-color: var(--vscode-focusBorder, #007acc);
+  background-color: var(--vscode-list-hoverBackground, #2a2d2e);
+}
+
+.mcp-server-item__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.mcp-server-item__name-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mcp-server-item__status-indicator {
+  font-size: 10px;
+  line-height: 1;
+  width: 10px;
+  height: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mcp-status--connected {
+  color: var(--vscode-terminal-ansiGreen, #4ec9b0);
+}
+
+.mcp-status--connecting {
+  color: var(--vscode-terminal-ansiYellow, #dcdcaa);
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+.mcp-status--disconnected {
+  color: var(--vscode-errorForeground, #f48771);
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.mcp-server-item__name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.mcp-server-item__status-text {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.mcp-server-item__details {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--vscode-panel-border, #454545);
+}
+
+.mcp-server-item__detail {
+  display: flex;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.mcp-server-item__detail-label {
+  color: var(--vscode-descriptionForeground, #999999);
+}
+
+.mcp-server-item__detail-value {
+  color: var(--vscode-foreground, #cccccc);
+  font-family: var(--vscode-editor-font-family, monospace);
+}
+
+/* 工具标签列表 */
+.mcp-server-item__tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.mcp-server-item__tool-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  background-color: var(--vscode-badge-background, #4d4d4d);
+  color: var(--vscode-badge-foreground, #ffffff);
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.mcp-server-item__tool-tag:hover {
+  background-color: var(--vscode-button-secondaryHoverBackground, #5a5a5a);
+}
+
+.mcp-server-item__error {
+  margin-top: 8px;
+  padding: 8px;
+  background-color: var(--vscode-inputValidation-errorBackground, rgba(244, 71, 71, 0.1));
+  border-left: 3px solid var(--vscode-inputValidation-errorBorder, #f44747);
+  border-radius: 3px;
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.mcp-server-item__error-icon {
+  color: var(--vscode-errorForeground, #f48771);
+  font-weight: bold;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.mcp-server-item__error-text {
+  color: var(--vscode-errorForeground, #f48771);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+/* =============================================================================
+   空状态
+   ============================================================================= */
+
+.mcp-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 32px 16px;
+  text-align: center;
+}
+
+.mcp-empty-state__icon {
+  color: var(--vscode-descriptionForeground, #999999);
+  margin-bottom: 16px;
+  opacity: 0.6;
+}
+
+.mcp-empty-state__title {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--vscode-foreground, #cccccc);
+  margin: 0 0 8px 0;
+}
+
+.mcp-empty-state__description {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground, #999999);
+  margin: 0 0 16px 0;
+  max-width: 400px;
+  line-height: 1.4;
+}
+
+.mcp-empty-state__button {
+  background-color: var(--vscode-button-background, #0e639c);
+  color: var(--vscode-button-foreground, #ffffff);
+  border: none;
+  border-radius: 3px;
+  padding: 8px 16px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.mcp-empty-state__button:hover {
+  background-color: var(--vscode-button-hoverBackground, #1177bb);
+}
+
+.mcp-empty-state__button:active {
+  background-color: var(--vscode-button-activeBackground, #0d5a8f);
+}
+
+/* =============================================================================
+   配置操作区
+   ============================================================================= */
+
+.mcp-config-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mcp-config-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: var(--vscode-button-secondaryBackground, #3a3d41);
+  color: var(--vscode-button-secondaryForeground, #ffffff);
+  border: 1px solid var(--vscode-button-border, transparent);
+  border-radius: 3px;
+  padding: 8px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: fit-content;
+}
+
+.mcp-config-button:hover {
+  background-color: var(--vscode-button-secondaryHoverBackground, #45494e);
+}
+
+.mcp-config-button:active {
+  background-color: var(--vscode-button-activeBackground, #383b3d);
+}
+
+.mcp-config-button__icon {
+  flex-shrink: 0;
+}
+
+.mcp-config-button__text {
+  line-height: 1;
+}
+
+.mcp-config-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.mcp-config-info__text {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground, #999999);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.mcp-config-info__text code {
+  background-color: var(--vscode-textCodeBlock-background, rgba(255, 255, 255, 0.1));
+  padding: 2px 4px;
+  border-radius: 2px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 10px;
+}
+
+.mcp-config-info__text--muted {
+  opacity: 0.8;
+}
+
+/* =============================================================================
+   帮助信息区
+   ============================================================================= */
+
+.mcp-help-section {
+  margin-top: 24px;
+  padding: 16px;
+  background-color: var(--vscode-editorWidget-background, #252526);
+  border: 1px solid var(--vscode-panel-border, #454545);
+  border-radius: 4px;
+}
+
+.mcp-help-section__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--vscode-foreground, #cccccc);
+  margin: 0 0 8px 0;
+}
+
+.mcp-help-section__content {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground, #999999);
+  line-height: 1.5;
+}
+
+.mcp-help-section__content p {
+  margin: 0 0 8px 0;
+}
+
+.mcp-help-section__content p:last-child {
+  margin-bottom: 0;
+}
+
+.mcp-help-section__learn-more {
+  margin-top: 12px !important;
+}
+
+.mcp-help-section__content a {
+  color: var(--vscode-textLink-foreground, #4daafc);
+  text-decoration: none;
+}
+
+.mcp-help-section__content a:hover {
+  text-decoration: underline;
+}
+
+/* =============================================================================
+   响应式设计
+   ============================================================================= */
+
+@media (max-width: 600px) {
+  .mcp-server-item__header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .mcp-server-item__details {
+    flex-direction: column;
+    gap: 8px;
+  }
+}

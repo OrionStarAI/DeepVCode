@@ -275,70 +275,156 @@
   flex: 1;
 }
 
-/* 🎯 VSCode-native tool confirmation area */
-.tool-confirmation {
-  background: var(--vscode-editorWidget-background);
-  border-top: 1px solid var(--vscode-editorWidget-border);
-  padding: 12px;
-  border-radius: 0 0 4px 4px;
-  box-shadow: 0 -1px 4px rgba(0, 0, 0, 0.1);
+/* 🎯 Modern Tool Confirmation Styles */
+.tool-confirmation-modern {
+  background: var(--vscode-editor-background);
+  border-top: 1px solid var(--vscode-panel-border);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
 }
 
-.confirmation-message {
+.confirmation-preview {
+  padding: 12px;
+  background: var(--vscode-editor-background);
+  border-bottom: 1px solid var(--vscode-panel-border);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.confirmation-preview pre {
+  margin: 0;
+  font-family: var(--vscode-editor-font-family, 'Menlo', 'Monaco', 'Courier New', monospace);
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--vscode-editor-foreground);
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.confirmation-footer-modern {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: var(--vscode-editor-background);
+  position: relative;
+}
+
+/* Mode Selector Dropdown */
+.mode-selector {
+  position: relative;
+}
+
+.mode-dropdown-trigger {
   display: flex;
   align-items: center;
   gap: 6px;
-  font-size: 13px;
-  color: var(--vscode-foreground);
-  margin-bottom: 12px;
-  font-weight: 500;
-  padding: 8px 12px;
-  background: var(--vscode-inputValidation-infoBackground);
-  border: 1px solid var(--vscode-inputValidation-infoBorder);
-  border-radius: 4px;
+  background: transparent;
+  border: none;
+  color: var(--vscode-textLink-foreground);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 3px;
+  transition: background 0.1s;
 }
 
-.confirmation-message svg {
-  color: var(--vscode-inputValidation-warningForeground);
-  flex-shrink: 0;
+.mode-dropdown-trigger:hover {
+  background: var(--vscode-list-hoverBackground);
 }
 
-.confirmation-actions {
+.mode-dropdown-menu {
+  position: absolute;
+  bottom: 100%;
+  left: 0;
+  margin-bottom: 4px;
+  background: var(--vscode-dropdown-background);
+  border: 1px solid var(--vscode-dropdown-border);
+  border-radius: 3px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 100;
+  min-width: 200px;
+  padding: 4px 0;
+}
+
+.mode-option {
   display: flex;
-  gap: 6px; /* 减少按钮间距 */
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: var(--vscode-dropdown-foreground);
+  cursor: pointer;
+  transition: background 0.1s;
 }
 
-.confirm-btn {
-  padding: 6px 12px;
-  border-radius: 4px;
+.mode-option:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+
+.mode-option.selected {
+  background: var(--vscode-list-activeSelectionBackground);
+  color: var(--vscode-list-activeSelectionForeground);
+}
+
+.mode-option.warning {
+  color: var(--vscode-inputValidation-warningForeground);
+}
+
+.option-check {
+  opacity: 0;
+  width: 14px;
+}
+
+.mode-option.selected .option-check {
+  opacity: 1;
+}
+
+/* Action Buttons */
+.action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 12px;
+  border-radius: 2px;
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
   border: 1px solid transparent;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+  outline: none;
+  height: 24px;
+  transition: all 0.1s;
 }
 
-.confirm-btn.cancel {
-  background: var(--vscode-button-secondaryBackground);
-  color: var(--vscode-button-secondaryForeground);
-  border-color: var(--vscode-button-border);
+.action-btn.cancel {
+  background: transparent;
+  color: var(--vscode-descriptionForeground);
 }
 
-.confirm-btn.cancel:hover {
-  background: var(--vscode-button-hoverBackground);
+.action-btn.cancel:hover {
+  color: var(--vscode-foreground);
 }
 
-.confirm-btn.approve {
+.action-btn.run {
   background: var(--vscode-button-background);
   color: var(--vscode-button-foreground);
   border-color: var(--vscode-button-border);
 }
 
-.confirm-btn.approve:hover {
+.action-btn.run:hover {
   background: var(--vscode-button-hoverBackground);
+}
+
+.action-btn:focus {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 1px;
 }
 
 /* 展开的详情容器：只显示结果区域，紧凑布局 */
@@ -579,116 +665,7 @@
   }
 }
 
-/* 🎯 VSCode-native multi-option confirmation styles */
-.confirmation-options {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
 
-.confirm-option {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s ease;
-  border: 1px solid var(--vscode-button-border);
-  text-align: left;
-  background: var(--vscode-list-inactiveSelectionBackground);
-  color: var(--vscode-foreground);
-  position: relative;
-  overflow: hidden;
-}
-
-.confirm-option:hover {
-  background: var(--vscode-list-hoverBackground);
-  border-color: var(--vscode-focusBorder);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-}
-
-.confirm-option:active {
-  background: var(--vscode-list-activeSelectionBackground);
-  transform: scale(0.98);
-}
-
-.confirm-option:focus {
-  outline: 2px solid var(--vscode-focusBorder);
-  outline-offset: -2px;
-}
-
-.confirm-option:focus-visible {
-  outline: 2px solid var(--vscode-focusBorder);
-  outline-offset: -2px;
-}
-
-.confirm-option.warning {
-  background: var(--vscode-inputValidation-warningBackground);
-  color: var(--vscode-inputValidation-warningForeground);
-  border-color: var(--vscode-inputValidation-warningBorder);
-}
-
-.confirm-option.warning:hover {
-  background: var(--vscode-inputValidation-warningBackground);
-  filter: brightness(1.05);
-  border-color: var(--vscode-focusBorder);
-}
-
-.confirm-option.secondary {
-  background: var(--vscode-button-secondaryBackground);
-  color: var(--vscode-button-secondaryForeground);
-  border-color: var(--vscode-button-border);
-}
-
-.confirm-option.secondary:hover {
-  background: var(--vscode-button-secondaryHoverBackground);
-  border-color: var(--vscode-focusBorder);
-}
-
-.option-icon {
-  font-size: 14px;
-  flex-shrink: 0;
-  width: 16px;
-  text-align: center;
-}
-
-.option-label {
-  flex: 1;
-  line-height: 1.3;
-  color: inherit;
-}
-
-.option-label small {
-  display: block;
-  margin-top: 2px;
-  font-size: 10px;
-  font-weight: normal;
-  opacity: 0.75;
-  color: var(--vscode-descriptionForeground);
-}
-
-/* 🎯 VSCode-native YOLO warning notice */
-.yolo-warning {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 10px;
-  padding: 8px 12px;
-  background: var(--vscode-editorInfo-background);
-  border: 1px solid var(--vscode-editorInfo-border);
-  border-radius: 4px;
-  font-size: 11px;
-  color: var(--vscode-editorInfo-foreground);
-  border-left: 3px solid var(--vscode-inputValidation-warningBorder);
-}
-
-.yolo-warning svg {
-  color: var(--vscode-inputValidation-warningForeground);
-  flex-shrink: 0;
-}
 
 /* 🎯 实时输出区域样式 */
 .tool-live-output {

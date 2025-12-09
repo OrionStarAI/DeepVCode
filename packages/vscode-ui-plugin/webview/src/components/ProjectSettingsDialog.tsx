@@ -1,6 +1,6 @@
 /**
- * YOLO Mode Settings Dialog Component
- * YOLO模式设置对话框组件
+ * Settings Dialog Component
+ * 设置对话框组件（包含 YOLO 模式和 MCP 管理）
  *
  * @license Apache-2.0
  * Copyright 2025 DeepV Code
@@ -10,11 +10,19 @@ import React, { useState } from 'react';
 import { useYoloMode } from '../hooks/useProjectSettings';
 import { useTranslation } from '../hooks/useTranslation';
 import { ExecutionSettingsPanel } from './settings/ExecutionSettingsPanel';
+import { MCPSettingsPanel } from './settings/MCPSettingsPanel';
 import './ProjectSettingsDialog.css';
 
 // =============================================================================
 // 组件接口
 // =============================================================================
+
+interface MCPServerInfo {
+  name: string;
+  status: 'disconnected' | 'connecting' | 'connected';
+  toolCount: number;
+  error?: string;
+}
 
 interface YoloModeSettingsDialogProps {
   /** 是否显示对话框 */
@@ -22,7 +30,15 @@ interface YoloModeSettingsDialogProps {
 
   /** 关闭对话框回调 */
   onClose: () => void;
+
+  /** MCP 服务器状态列表 */
+  mcpServers?: MCPServerInfo[];
+
+  /** MCP 发现状态 */
+  mcpDiscoveryState?: 'not_started' | 'in_progress' | 'completed';
 }
+
+type SettingsTab = 'execution' | 'mcp';
 
 // =============================================================================
 // 主组件
@@ -30,7 +46,9 @@ interface YoloModeSettingsDialogProps {
 
 export const YoloModeSettingsDialog: React.FC<YoloModeSettingsDialogProps> = ({
   isOpen,
-  onClose
+  onClose,
+  mcpServers = [],
+  mcpDiscoveryState = 'not_started'
 }) => {
   const { t } = useTranslation();
   const {
@@ -42,6 +60,7 @@ export const YoloModeSettingsDialog: React.FC<YoloModeSettingsDialogProps> = ({
   } = useYoloMode();
 
   const [currentYoloMode, setCurrentYoloMode] = useState<boolean>(originalYoloMode);
+  const [activeTab, setActiveTab] = useState<SettingsTab>('execution');
 
   // 监控原始YOLO模式变化，同步到本地状态
   React.useEffect(() => {
@@ -73,21 +92,11 @@ export const YoloModeSettingsDialog: React.FC<YoloModeSettingsDialogProps> = ({
   };
 
   /**
-   * 处理取消
+   * 处理取消 - 直接关闭并恢复原始值，无需确认
    */
   const handleCancel = () => {
-    if (hasChanges) {
-      try {
-        const confirmed = window.confirm('YOLO mode has been modified. Are you sure you want to discard changes?');
-        if (!confirmed) return;
-        // 恢复到原始设置
-        setCurrentYoloMode(originalYoloMode);
-      } catch (error) {
-        console.warn('Confirm dialog failed, closing anyway:', error);
-        // 即使确认对话框失败，也要恢复原始设置
-        setCurrentYoloMode(originalYoloMode);
-      }
-    }
+    // 恢复到原始设置
+    setCurrentYoloMode(originalYoloMode);
     onClose();
   };
 
@@ -97,9 +106,20 @@ export const YoloModeSettingsDialog: React.FC<YoloModeSettingsDialogProps> = ({
   const handleKeyDown = (event: React.KeyboardEvent) => {
     if (event.key === 'Escape') {
       handleCancel();
-    } else if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+    } else if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && activeTab === 'execution') {
       handleSave();
     }
+  };
+
+  /**
+   * 打开 MCP 配置文件
+   */
+  const handleOpenMCPSettings = () => {
+    // 发送消息给扩展打开配置文件
+    window.vscode?.postMessage({
+      type: 'open_mcp_settings',
+      payload: {}
+    });
   };
 
   // =============================================================================
@@ -119,62 +139,92 @@ export const YoloModeSettingsDialog: React.FC<YoloModeSettingsDialogProps> = ({
         {/* 对话框头部 */}
         <div className="project-settings-dialog__header">
           <h2 className="project-settings-dialog__title">
-            <span className="project-settings-dialog__title-icon">🚀</span>
-            YOLO模式设置
+            Settings
           </h2>
           <button
             className="project-settings-dialog__close-btn"
             onClick={handleCancel}
             title="Close Settings"
           >
-            ✕
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M8 8.707l3.646 3.647.708-.707L8.707 8l3.647-3.646-.707-.708L8 7.293 4.354 3.646l-.707.708L7.293 8l-3.646 3.646.707.708L8 8.707z"/>
+            </svg>
+          </button>
+        </div>
+
+        {/* 标签页导航 */}
+        <div className="project-settings-dialog__tabs">
+          <button
+            className={`project-settings-dialog__tab ${activeTab === 'execution' ? 'project-settings-dialog__tab--active' : ''}`}
+            onClick={() => setActiveTab('execution')}
+          >
+            Execution
+          </button>
+          <button
+            className={`project-settings-dialog__tab ${activeTab === 'mcp' ? 'project-settings-dialog__tab--active' : ''}`}
+            onClick={() => setActiveTab('mcp')}
+          >
+            MCP Servers
           </button>
         </div>
 
         {/* 对话框主体 */}
         <div className="project-settings-dialog__body yolo-mode-body">
           {/* 错误提示 */}
-          {error && (
+          {error && activeTab === 'execution' && (
             <div className="project-settings-dialog__error">
-              <span className="project-settings-dialog__error-icon">⚠️</span>
+              <svg className="project-settings-dialog__error-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+              </svg>
               {error}
             </div>
           )}
 
           {/* 设置面板 */}
           <div className="project-settings-dialog__panel yolo-mode-panel">
-            <ExecutionSettingsPanel
-              yoloMode={currentYoloMode}
-              onYoloModeChange={setCurrentYoloMode}
-            />
+            {activeTab === 'execution' && (
+              <ExecutionSettingsPanel
+                yoloMode={currentYoloMode}
+                onYoloModeChange={setCurrentYoloMode}
+              />
+            )}
+            {activeTab === 'mcp' && (
+              <MCPSettingsPanel
+                mcpServers={mcpServers}
+                discoveryState={mcpDiscoveryState}
+                onOpenSettings={handleOpenMCPSettings}
+              />
+            )}
           </div>
         </div>
 
         {/* 对话框底部 */}
-        <div className="project-settings-dialog__footer">
-          <div className="project-settings-dialog__footer-left">
-            {/* 可以添加重置YOLO模式的按钮 */}
-          </div>
+        {activeTab === 'execution' && (
+          <div className="project-settings-dialog__footer">
+            <div className="project-settings-dialog__footer-left">
+              {/* 可以添加重置YOLO模式的按钮 */}
+            </div>
 
-          <div className="project-settings-dialog__footer-right">
-            <button
-              className="project-settings-dialog__cancel-btn"
-              onClick={handleCancel}
-              disabled={isLoading}
-            >
-              取消
-            </button>
-            <button
-              className={`project-settings-dialog__save-btn ${
-                hasChanges ? 'project-settings-dialog__save-btn--highlight' : ''
-              }`}
-              onClick={handleSave}
-              disabled={isLoading || !hasChanges}
-            >
-              {isLoading ? '保存中...' : '保存'}
-            </button>
+            <div className="project-settings-dialog__footer-right">
+              <button
+                className="project-settings-dialog__cancel-btn"
+                onClick={handleCancel}
+                disabled={isLoading}
+              >
+                Cancel
+              </button>
+              <button
+                className={`project-settings-dialog__save-btn ${
+                  hasChanges ? 'project-settings-dialog__save-btn--highlight' : ''
+                }`}
+                onClick={handleSave}
+                disabled={isLoading || !hasChanges}
+              >
+                {isLoading ? 'Saving...' : 'Save'}
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
