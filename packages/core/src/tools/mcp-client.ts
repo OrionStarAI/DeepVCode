@@ -216,6 +216,42 @@ export function hasDiscoveredMcpTools(): boolean {
 }
 
 /**
+ * 🎯 等待 MCP 发现完成
+ * 用于 VSCode 插件模式下，多个 AIService 实例需要等待第一个完成发现
+ * 避免重复启动 MCP 进程
+ *
+ * @param timeoutMs 超时时间（毫秒），默认 30 秒
+ * @returns Promise，在发现完成或超时后 resolve
+ */
+export async function waitForMCPDiscoveryComplete(timeoutMs: number = 30000): Promise<boolean> {
+  // 如果已完成，直接返回
+  if (getMCPDiscoveryState() === MCPDiscoveryState.COMPLETED) {
+    return true;
+  }
+
+  // 如果还没开始，也直接返回（调用方会处理）
+  if (getMCPDiscoveryState() === MCPDiscoveryState.NOT_STARTED) {
+    return false;
+  }
+
+  // 状态是 IN_PROGRESS，等待完成
+  const checkInterval = 100; // 每 100ms 检查一次
+  let elapsed = 0;
+
+  while (elapsed < timeoutMs) {
+    await new Promise(resolve => setTimeout(resolve, checkInterval));
+    elapsed += checkInterval;
+
+    if (getMCPDiscoveryState() === MCPDiscoveryState.COMPLETED) {
+      return true;
+    }
+  }
+
+  console.warn(`[MCP] waitForMCPDiscoveryComplete timed out after ${timeoutMs}ms`);
+  return false;
+}
+
+/**
  * Event listeners for MCP server status changes
  */
 type StatusChangeListener = (

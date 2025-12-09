@@ -9,7 +9,7 @@ import { Tool, ToolResult, BaseTool, Icon } from './tools.js';
 import { Config } from '../config/config.js';
 import { spawn } from 'node:child_process';
 import { StringDecoder } from 'node:string_decoder';
-import { discoverMcpTools, syncMcpToolsToRegistry, hasDiscoveredMcpTools, getMCPDiscoveryState, MCPDiscoveryState } from './mcp-client.js';
+import { discoverMcpTools, syncMcpToolsToRegistry, hasDiscoveredMcpTools, getMCPDiscoveryState, MCPDiscoveryState, waitForMCPDiscoveryComplete, isMCPDiscoveryTriggered } from './mcp-client.js';
 import { DiscoveredMCPTool } from './mcp-tool.js';
 import { parse } from 'shell-quote';
 import { shouldUseTolerantMode } from '../config/modelCapabilities.js';
@@ -200,6 +200,9 @@ export class ToolRegistry {
    * If MCP discovery has already completed (by another Config instance),
    * sync tools from the global cache instead of reconnecting to MCP servers.
    * This ensures all AIService instances have access to the same MCP tools.
+   *
+   * 🎯 防止重复启动 MCP 进程：
+   * 如果 MCP 发现正在进行中，等待完成后从 cache 同步，而不是启动新进程
    */
   async discoverMcpTools(): Promise<void> {
     // remove any previously discovered tools
@@ -218,6 +221,21 @@ export class ToolRegistry {
         console.log(`[ToolRegistry] Synced ${syncedCount} MCP tools from global cache`);
         return;
       }
+    }
+
+    // 🎯 如果 MCP 发现正在进行中（另一个 Config 实例正在发现），等待完成后从 cache 同步
+    // 这避免了多个 AIService 实例同时启动 MCP 进程
+    if (discoveryState === MCPDiscoveryState.IN_PROGRESS && isMCPDiscoveryTriggered()) {
+      console.log(`[ToolRegistry] MCP discovery in progress, waiting for completion...`);
+      const completed = await waitForMCPDiscoveryComplete(30000);
+      if (completed && hasDiscoveredMcpTools()) {
+        const syncedCount = syncMcpToolsToRegistry(this);
+        console.log(`[ToolRegistry] MCP discovery completed, synced ${syncedCount} tools from global cache`);
+        return;
+      }
+      // 如果等待超时但仍未完成，不启动新进程，直接返回
+      console.warn(`[ToolRegistry] MCP discovery wait timeout, skipping to avoid duplicate processes`);
+      return;
     }
 
     // discover tools using MCP servers, if configured
