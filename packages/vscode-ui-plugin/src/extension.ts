@@ -25,6 +25,7 @@ import { startupOptimizer } from './utils/startupOptimizer';
 import { EnvironmentOptimizer } from './utils/environmentOptimizer';
 import { ROLLBACK_MESSAGES } from './i18n/messages';
 import { ClipboardCacheService } from './services/clipboardCacheService';
+import { SlashCommandService } from './services/slashCommandService';
 import { SessionType, SessionStatus } from './constants/sessionConstants';
 import { SessionInfo } from './types/sessionTypes';
 
@@ -45,6 +46,7 @@ let ruleService: RuleService;
 let inlineCompletionStatusBar: vscode.StatusBarItem;
 let extensionContext: vscode.ExtensionContext;
 let clipboardCache: ClipboardCacheService;
+let slashCommandService: SlashCommandService;
 
 // 🎯 服务初始化状态标志，避免重复初始化
 let servicesInitialized = false;
@@ -112,6 +114,11 @@ export async function activate(context: vscode.ExtensionContext) {
     fileSearchService = new FileSearchService(logger);
     fileRollbackService = FileRollbackService.getInstance(logger);
     clipboardCache = new ClipboardCacheService(logger);
+
+    // 🎯 初始化斜杠命令服务
+    slashCommandService = new SlashCommandService(logger);
+    await slashCommandService.initialize();
+    logger.info('SlashCommandService initialized');
 
     // 🎯 初始化规则服务
     ruleService = new RuleService(logger);
@@ -258,6 +265,9 @@ function setupServiceCommunication() {
 
   // 🎯 设置 /refine 命令处理器（文本优化功能，需在登录前立即注册）
   setupRefineCommandHandler();
+
+  // 🎯 设置自定义斜杠命令处理器
+  setupSlashCommandHandlers();
 
   // 🎯 设置基础消息处理器（通过SessionManager分发到对应session）
   setupBasicMessageHandlers();
@@ -1432,7 +1442,67 @@ Here is my original instruction:
   }
 }
 
+/**
+ * 🎯 设置自定义斜杠命令处理器
+ * 处理从 .toml 文件加载的自定义命令
+ */
+function setupSlashCommandHandlers() {
+  // 获取斜杠命令列表
+  communicationService.addMessageHandler('get_slash_commands', async () => {
+    try {
+      const commands = slashCommandService.getCommands();
+      // 发送命令列表（不包含 prompt，只发送显示信息）
+      const commandInfos = commands.map(cmd => ({
+        name: cmd.name,
+        description: cmd.description,
+        kind: cmd.kind,
+      }));
+      communicationService.sendMessage({
+        type: 'slash_commands_list',
+        payload: { commands: commandInfos },
+      });
+    } catch (error) {
+      logger.error('Failed to get slash commands', error instanceof Error ? error : undefined);
+      communicationService.sendMessage({
+        type: 'slash_commands_list',
+        payload: { commands: [] },
+      });
+    }
+  });
 
+  // 执行自定义斜杠命令
+  communicationService.addMessageHandler('execute_custom_slash_command', async (payload: any) => {
+    try {
+      const { commandName, args } = payload;
+      logger.info(`📝 Executing custom slash command: /${commandName}`, { args });
+
+      const command = slashCommandService.getCommand(commandName);
+      if (!command) {
+        communicationService.sendMessage({
+          type: 'slash_command_result',
+          payload: { success: false, error: `Unknown command: /${commandName}` },
+        });
+        return;
+      }
+
+      // 处理命令的 prompt
+      const processedPrompt = slashCommandService.processCommandPrompt(command, args);
+
+      communicationService.sendMessage({
+        type: 'slash_command_result',
+        payload: { success: true, prompt: processedPrompt },
+      });
+    } catch (error) {
+      logger.error('Failed to execute custom slash command', error instanceof Error ? error : undefined);
+      communicationService.sendMessage({
+        type: 'slash_command_result',
+        payload: { success: false, error: error instanceof Error ? error.message : 'Command execution failed' },
+      });
+    }
+  });
+
+  logger.info('🎯 Slash command handlers registered');
+}
 
 function setupMultiSessionHandlers() {
   // 处理Session创建请求

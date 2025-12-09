@@ -179,6 +179,8 @@ export interface MessageToExtension {
        'set_current_model' |          // 🎯 新增：设置当前模型
        'get_current_model' |          // 🎯 新增：获取当前模型
        'execute_slash_command' |      // 🎯 新增：执行 slash 命令（如 /refine）
+       'get_slash_commands' |         // 🎯 新增：获取自定义斜杠命令列表
+       'execute_custom_slash_command' | // 🎯 新增：执行自定义斜杠命令
        'open_file' |                  // 🎯 新增：打开文件并跳转到指定行/方法
        'goto_symbol' |                // 🎯 新增：跳转到符号（方法名）
        'goto_line' |                  // 🎯 新增：跳转到当前文件的指定行

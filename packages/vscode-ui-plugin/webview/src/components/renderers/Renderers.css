@@ -16,59 +16,14 @@
 }
 
 /* ===================
-   TODO 显示样式
+   TODO 显示样式（已迁移到 TodoDisplayRenderer.css）
+   保留旧类名的兼容性
    =================== */
 
 .todo-display-container {
   font-family: var(--vscode-font-family);
   font-size: 12px;
   line-height: 1.4;
-}
-
-.todo-header {
-  display: flex;
-  align-items: center;
-  gap: 4px; /* 减少间距 */
-  margin-bottom: 0px;
-  font-weight: 600;
-}
-
-.todo-header-icon {
-  color: var(--vscode-charts-green);
-  font-size: 14px;
-}
-
-.todo-title {
-  color: var(--vscode-foreground);
-}
-
-.todo-items {
-  margin-left: 4px; /* 减少缩进 */
-}
-
-.todo-item {
-  margin-bottom: 0px;
-}
-
-.todo-item-content {
-  display: flex;
-  align-items: center;
-  gap: 4px; /* 减少间距 */
-}
-
-.todo-connector {
-  color: var(--vscode-descriptionForeground);
-  font-family: monospace;
-  font-size: 12px;
-  width: 16px;
-  flex-shrink: 0;
-}
-
-.todo-icon {
-  font-size: 13px;
-  width: 16px;
-  flex-shrink: 0;
-  text-align: center;
 }
 
 .todo-text {

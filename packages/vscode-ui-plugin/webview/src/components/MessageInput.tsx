@@ -26,7 +26,9 @@ import { KeyboardPlugin } from './MessageInput/plugins/KeyboardPlugin';
 import { DragDropPlugin } from './MessageInput/plugins/DragDropPlugin';
 import { ClipboardPlugin } from './MessageInput/plugins/ClipboardPlugin';
 import { FileAutocompletePlugin } from './MessageInput/plugins/FileAutocompletePlugin';
+import { SlashCommandPlugin } from './MessageInput/plugins/SlashCommandPlugin';
 import { EditorRefPlugin } from './MessageInput/plugins/EditorRefPlugin';
+import { slashCommandHandler } from '../services/slashCommandHandler';
 import { UnifiedFileUploadButton } from './MessageInput/components/UnifiedFileUploadButton';
 import { RefineButton } from './MessageInput/components/RefineButton';
 import { ImageReference, resetImageCounter } from './MessageInput/utils/imageProcessor';
@@ -737,7 +739,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
     insertImageReferenceNode(imageData);
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     // 🎯 从当前编辑器状态提取原始结构，保持编辑器节点的原始顺序
     if (!editorRef.current) return;
 
@@ -833,8 +835,36 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
         // 编辑模式：保存编辑，直接传递原始结构
         onSaveEdit(editingMessageId, rawContent);
       } else {
-        // 撰写模式：发送新消息，直接传递原始结构
-        onSendMessage(rawContent);
+        // 🎯 检测自定义斜杠命令并转换为 prompt
+        let finalContent = rawContent;
+
+        // 检查是否是纯文本且以斜杠命令开头
+        const textParts = rawContent.filter(p => p.type === 'text');
+        if (textParts.length === 1 && rawContent.length === 1) {
+          const text = textParts[0].value.trim();
+          const slashMatch = text.match(/^\/([^\s]+)(?:\s+(.*))?$/);
+
+          if (slashMatch) {
+            const commandName = slashMatch[1];
+            const args = slashMatch[2] || '';
+
+            // 尝试执行自定义斜杠命令
+            const result = await slashCommandHandler.executeCommand(commandName, args);
+
+            if (result.success && result.prompt) {
+              // 命令执行成功，用处理后的 prompt 替换原始内容
+              finalContent = [{ type: 'text', value: result.prompt }];
+              console.log(`🎯 [SlashCommand] Executed /${commandName}, prompt length: ${result.prompt.length}`);
+            } else if (result.error) {
+              // 命令执行失败，但不阻止发送（可能是内置命令或无效命令）
+              console.log(`⚠️ [SlashCommand] /${commandName} not a custom command: ${result.error}`);
+              // 继续使用原始内容发送
+            }
+          }
+        }
+
+        // 撰写模式：发送消息
+        onSendMessage(finalContent);
 
         // 🎯 触发滚动到底部
         if (onMessageSent) {
@@ -999,6 +1029,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
             <DragDropPlugin onFilesDrop={handleFilesDrop} />
             <ClipboardPlugin onImagePaste={handleImagePaste} />
             <FileAutocompletePlugin onFileSelect={handleFileAutoComplete} />
+            <SlashCommandPlugin />
             <EditorRefPlugin editorRef={editorRef} onEditorReady={handleEditorReady} />
 
             {/* 🎯 Refine 按钮 - 浮动在编辑框右下角内部 */}

@@ -1,0 +1,162 @@
+/**
+ * TodoDisplayRenderer Styles - 精致简洁的设计风格
+ * 参考 Claude 的 To-dos 设计
+ */
+
+/* 主容器 */
+.todo-container {
+  background-color: var(--vscode-editor-background, #1e1e1e);
+  border: 1px solid var(--vscode-panel-border, #3c3c3c);
+  border-radius: 6px;
+  overflow: hidden;
+  margin: 4px 0;
+  font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif);
+}
+
+/* 标题行 */
+.todo-header-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--vscode-panel-border, #3c3c3c);
+}
+
+.todo-header-icon-svg {
+  color: var(--vscode-descriptionForeground, #8b8b8b);
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+}
+
+.todo-header-title {
+  color: var(--vscode-foreground, #cccccc);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.todo-header-count {
+  color: var(--vscode-descriptionForeground, #8b8b8b);
+  font-size: 11px;
+  font-weight: 400;
+}
+
+/* 任务列表 */
+.todo-list {
+  padding: 2px 0;
+}
+
+/* 任务行 */
+.todo-item-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 4px 10px;
+  transition: background-color 0.15s ease;
+}
+
+.todo-item-row:hover {
+  background-color: var(--vscode-list-hoverBackground, rgba(255, 255, 255, 0.04));
+}
+
+/* 复选框样式 */
+.todo-checkbox {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 1.5px solid var(--vscode-descriptionForeground, #6b6b6b);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+  transition: all 0.2s ease;
+  background-color: transparent;
+}
+
+/* pending 状态 - 空心圆 */
+.todo-checkbox.pending {
+  border-color: var(--vscode-descriptionForeground, #6b6b6b);
+}
+
+/* in_progress 状态 - 蓝色边框 + 点 */
+.todo-checkbox.in_progress {
+  border-color: var(--vscode-charts-blue, #3794ff);
+}
+
+.todo-checkbox-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background-color: var(--vscode-charts-blue, #3794ff);
+}
+
+/* completed 状态 - 绿色填充 + 勾选 */
+.todo-checkbox.completed {
+  border-color: var(--vscode-charts-green, #89d185);
+  background-color: var(--vscode-charts-green, #89d185);
+  color: var(--vscode-editor-background, #1e1e1e);
+}
+
+/* cancelled 状态 - 红色边框 + X */
+.todo-checkbox.cancelled {
+  border-color: var(--vscode-charts-red, #f14c4c);
+  color: var(--vscode-charts-red, #f14c4c);
+}
+
+/* 任务文本 */
+.todo-item-text {
+  color: var(--vscode-foreground, #cccccc);
+  font-size: 11px;
+  line-height: 1.4;
+  flex: 1;
+  word-break: break-word;
+}
+
+.todo-item-text.completed {
+  color: var(--vscode-descriptionForeground, #8b8b8b);
+  text-decoration: line-through;
+}
+
+.todo-item-text.cancelled {
+  color: var(--vscode-descriptionForeground, #8b8b8b);
+  text-decoration: line-through;
+}
+
+/* 亮色主题适配 */
+:root[data-vscode-theme-kind="vscode-light"] .todo-container,
+.vscode-light .todo-container {
+  background-color: var(--vscode-editor-background, #ffffff);
+  border-color: var(--vscode-panel-border, #e0e0e0);
+}
+
+:root[data-vscode-theme-kind="vscode-light"] .todo-checkbox.completed,
+.vscode-light .todo-checkbox.completed {
+  color: var(--vscode-editor-background, #ffffff);
+}
+
+/* 高对比度主题适配 */
+:root[data-vscode-theme-kind="vscode-high-contrast"] .todo-container {
+  border-width: 2px;
+}
+
+:root[data-vscode-theme-kind="vscode-high-contrast"] .todo-checkbox {
+  border-width: 2px;
+}
+
+/* 响应式调整 */
+@media (max-width: 400px) {
+  .todo-header-row {
+    padding: 5px 8px;
+  }
+
+  .todo-item-row {
+    padding: 3px 8px;
+    gap: 6px;
+  }
+
+  .todo-item-text {
+    font-size: 10px;
+  }
+}
