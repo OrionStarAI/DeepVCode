@@ -222,6 +222,9 @@ export type WebViewToExtensionMessage =
   | { type: 'rules_list_request'; payload: {} }
   | { type: 'rules_save'; payload: { rule: any } }
   | { type: 'rules_delete'; payload: { ruleId: string } }
+  // 🎯 MCP 相关
+  | { type: 'get_mcp_status'; payload: { sessionId: string } }
+  | { type: 'open_mcp_settings'; payload: {} }
   // 🎯 文件路径跳转相关
   | { type: 'open_file'; payload: { filePath: string; line?: number; symbol?: string } }
   | { type: 'goto_symbol'; payload: { symbol: string } }
@@ -301,8 +304,28 @@ export type ExtensionToWebViewMessage =
   // 🎯 NanoBanana 图像生成
   | { type: 'nanobanana_upload_response'; payload: { success: boolean; publicUrl?: string; error?: string } }
   | { type: 'nanobanana_generate_response'; payload: { success: boolean; taskId?: string; estimatedTime?: number; error?: string } }
-  | { type: 'nanobanana_status_update'; payload: { taskId: string; status: 'pending' | 'processing' | 'completed' | 'failed'; progress?: number; resultUrls?: string[]; originalUrls?: string[]; errorMessage?: string; creditsDeducted?: number } };
+  | { type: 'nanobanana_status_update'; payload: { taskId: string; status: 'pending' | 'processing' | 'completed' | 'failed'; progress?: number; resultUrls?: string[]; originalUrls?: string[]; errorMessage?: string; creditsDeducted?: number } }
+  // 🔌 MCP 相关消息类型
+  | { type: 'mcp_status_update'; payload: MCPStatusPayload };
 
+/**
+ * 🔌 MCP 状态消息负载
+ */
+export interface MCPStatusPayload {
+  sessionId: string;
+  discoveryState: 'not_started' | 'in_progress' | 'completed';
+  servers: MCPServerStatusInfo[];
+}
+
+/**
+ * 🔌 MCP 服务器状态信息
+ */
+export interface MCPServerStatusInfo {
+  name: string;
+  status: 'disconnected' | 'connecting' | 'connected';
+  toolCount: number;
+  error?: string;
+}
 
 export type Message = WebViewToExtensionMessage | ExtensionToWebViewMessage;
 

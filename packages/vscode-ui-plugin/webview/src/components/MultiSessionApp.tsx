@@ -77,6 +77,14 @@ export const MultiSessionApp: React.FC = () => {
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   // 🎯 NanoBanana图像生成对话框状态
   const [isNanoBananaOpen, setIsNanoBananaOpen] = useState(false);
+  // 🎯 MCP 服务器状态管理
+  const [mcpServers, setMcpServers] = useState<Array<{
+    name: string;
+    status: 'disconnected' | 'connecting' | 'connected';
+    toolCount: number;
+    error?: string;
+  }>>([]);
+  const [mcpDiscoveryState, setMcpDiscoveryState] = useState<'not_started' | 'in_progress' | 'completed'>('not_started');
   // 🎯 历史列表数据（分页加载）
   const [historySessionsList, setHistorySessionsList] = useState<Array<{
     id: string;
@@ -787,10 +795,36 @@ export const MultiSessionApp: React.FC = () => {
       setIsRulesManagementOpen(true);
     });
 
+    // =============================================================================
+    // 🎯 MCP 状态管理监听器
+    // =============================================================================
+
+    messageService.onMcpStatusUpdate((payload: any) => {
+      console.log('🔌 [MCP] Received MCP status update:', payload);
+      if (payload.servers) {
+        setMcpServers(payload.servers);
+      }
+      if (payload.discoveryState) {
+        setMcpDiscoveryState(payload.discoveryState);
+      }
+    });
+
     return () => {
     };
 
   }, []);
+
+  // 🎯 请求 MCP 状态
+  useEffect(() => {
+    if (isLoggedIn !== true || !state.currentSessionId) return;
+
+    console.log('🔌 [MCP] Requesting MCP status for session:', state.currentSessionId);
+    const messageService = getGlobalMessageService();
+    messageService.send({
+      type: 'get_mcp_status',
+      payload: { sessionId: state.currentSessionId }
+    });
+  }, [isLoggedIn, state.currentSessionId]);
 
   useEffect(() => {
     // 🎯 只有在已登录状态下才初始化消息服务
@@ -1482,6 +1516,8 @@ User question: ${contentStr}`;
       <ProjectSettingsDialog
         isOpen={state.ui.showProjectSettings}
         onClose={() => toggleProjectSettings(false)}
+        mcpServers={mcpServers}
+        mcpDiscoveryState={mcpDiscoveryState}
       />
 
       {/* 自定义规则管理对话框 */}

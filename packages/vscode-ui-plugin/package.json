@@ -103,6 +103,18 @@
         "title": "Show Version Timeline",
         "category": "DeepV Code",
         "icon": "$(timeline-view-icon)"
+      },
+      {
+        "command": "deepv.showMCPStatus",
+        "title": "Show MCP Server Status",
+        "category": "DeepV Code",
+        "icon": "$(plug)"
+      },
+      {
+        "command": "deepv.openMCPSettings",
+        "title": "Open MCP Settings",
+        "category": "DeepV Code",
+        "icon": "$(settings-gear)"
       }
     ],
     "viewsContainers": {

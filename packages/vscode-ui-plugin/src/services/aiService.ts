@@ -37,7 +37,15 @@ import {
   LintDiagnostic,
   LintFixTool,
   tokenLimit,
-  TokenUsageInfo
+  TokenUsageInfo,
+  // 🔌 MCP 相关导入
+  addMCPStatusChangeListener,
+  removeMCPStatusChangeListener,
+  getMCPServerStatus,
+  getAllMCPServerStatuses,
+  getMCPDiscoveryState,
+  MCPServerStatus,
+  MCPDiscoveryState
 } from 'deepv-code-core';
 
 import { ContextBuilder } from './contextBuilder';
@@ -92,6 +100,10 @@ export class AIService {
   private processedMemoryTools: Set<string> = new Set();
   private memoryRefreshCallback?: () => Promise<void>;
 
+  // 🔌 MCP 状态管理
+  private mcpStatusListener?: (serverName: string, status: MCPServerStatus) => void;
+  private mcpServerStatuses: Map<string, MCPServerStatus> = new Map();
+
   constructor(private logger: Logger, extensionPath?: string) {
     this.loginService = LoginService.getInstance(logger, extensionPath);
   }
@@ -125,6 +137,14 @@ export class AIService {
         this.logger.info(`⚙️ Using default model from settings: ${modelToUse}`);
       }
 
+      // 🎯 加载 MCP 服务器配置（复用 CLI 的配置文件系统）
+      const { MCPSettingsService } = await import('./mcpSettingsService.js');
+      const mcpServers = MCPSettingsService.loadMCPServers(targetDir);
+
+      if (Object.keys(mcpServers).length > 0) {
+        this.logger.info(`🔌 Loaded ${Object.keys(mcpServers).length} MCP server(s) from settings`);
+      }
+
       this.config = new Config({
         sessionId: this.sessionId,
         targetDir: targetDir,
@@ -138,6 +158,7 @@ export class AIService {
         usageStatisticsEnabled: false,
         userMemory: userMemory,              // 🎯 传入用户内存内容
         geminiMdFileCount: geminiMdFileCount, // 🎯 传入文件计数
+        mcpServers: mcpServers,              // 🎯 传入 MCP 服务器配置
         fileFiltering: {
           respectGitIgnore: true,
           respectGeminiIgnore: true,
@@ -156,6 +177,13 @@ export class AIService {
       // 🎯 初始化增强的 lint 功能
       await this.initializeEnhancedLintFeatures();
 
+      // 🔌 设置 MCP 状态监听器
+      this.setupMCPStatusListener();
+
+      // 🔌 等待 MCP 工具发现完成并强制更新 AI 工具列表
+      // 这确保 AI 能够感知到 MCP 工具
+      this.waitForMCPDiscoveryAndUpdateTools();
+
       this.isInitialized = true;
       this.logger.info('✅ AIService initialized successfully');
 
@@ -164,6 +192,135 @@ export class AIService {
       this.isInitialized = false;
       throw new Error(`Failed to initialize AI service: ${error instanceof Error ? error.message : String(error)}`);
     }
+  }
+
+  /**
+   * 🔌 设置 MCP 状态监听器
+   */
+  private setupMCPStatusListener() {
+    // 创建状态监听器
+    this.mcpStatusListener = (serverName: string, status: MCPServerStatus) => {
+      this.logger.info(`🔌 MCP Server '${serverName}' status: ${status}`);
+      this.mcpServerStatuses.set(serverName, status);
+
+      // 当服务器连接成功时，触发工具列表更新
+      if (status === 'connected' && this.geminiClient) {
+        this.updateAIToolsAsync();
+      }
+
+      // 通知 WebView 更新 MCP 状态
+      if (this.communicationService) {
+        this.sendMCPStatusUpdate();
+      }
+    };
+
+    // 注册监听器
+    addMCPStatusChangeListener(this.mcpStatusListener);
+
+    // 初始化当前所有服务器的状态
+    const allStatuses = getAllMCPServerStatuses();
+    allStatuses.forEach((status, serverName) => {
+      this.mcpServerStatuses.set(serverName, status);
+    });
+
+    // 如果有服务器，发送初始状态
+    if (this.mcpServerStatuses.size > 0) {
+      this.logger.info(`🔌 Monitoring ${this.mcpServerStatuses.size} MCP server(s)`);
+    }
+  }
+
+  /**
+   * 🔌 等待 MCP 工具发现完成并更新 AI 工具列表
+   */
+  private async waitForMCPDiscoveryAndUpdateTools() {
+    // 使用异步后台任务，不阻塞初始化
+    setImmediate(async () => {
+      try {
+        // 最多等待 30 秒让 MCP 工具发现完成
+        const maxWaitTime = 30000;
+        const checkInterval = 500;
+        let elapsed = 0;
+
+        while (elapsed < maxWaitTime) {
+          const discoveryState = getMCPDiscoveryState();
+
+          if (discoveryState === 'completed') {
+            this.logger.info('🔌 MCP discovery completed, updating AI tools...');
+            await this.updateAIToolsAsync();
+            return;
+          }
+
+          await new Promise(resolve => setTimeout(resolve, checkInterval));
+          elapsed += checkInterval;
+        }
+
+        this.logger.warn('🔌 MCP discovery timeout, but will update tools when servers connect');
+      } catch (error) {
+        this.logger.error('🔌 Failed to wait for MCP discovery', error instanceof Error ? error : undefined);
+      }
+    });
+  }
+
+  /**
+   * 🔌 异步更新 AI 工具列表
+   */
+  private async updateAIToolsAsync() {
+    try {
+      if (!this.geminiClient) {
+        this.logger.warn('🔌 Cannot update tools: geminiClient not initialized');
+        return;
+      }
+
+      await this.geminiClient.setTools();
+      this.logger.info('🔌 AI tools updated successfully with MCP tools');
+    } catch (error) {
+      this.logger.error('🔌 Failed to update AI tools', error instanceof Error ? error : undefined);
+    }
+  }
+
+  /**
+   * 🔌 发送 MCP 状态更新到 WebView
+   */
+  private sendMCPStatusUpdate() {
+    if (!this.communicationService) return;
+
+    this.communicationService.sendMessage({
+      type: 'mcp_status_update',
+      payload: {
+        sessionId: this.sessionId,
+        discoveryState: getMCPDiscoveryState(),
+        servers: Array.from(this.mcpServerStatuses.entries()).map(([name, status]) => ({
+          name,
+          status,
+          toolCount: this.getMCPServerToolCount(name)
+        }))
+      }
+    }).catch(error => {
+      this.logger.error('Failed to send MCP status update', error instanceof Error ? error : undefined);
+    });
+  }
+
+  /**
+   * 🔌 获取 MCP 服务器的工具数量
+   */
+  private async getMCPServerToolCountAsync(serverName: string): Promise<number> {
+    if (!this.config) return 0;
+
+    try {
+      const toolRegistry = await this.config.getToolRegistry();
+      if (!toolRegistry) return 0;
+
+      const serverTools = toolRegistry.getToolsByServer(serverName);
+      return serverTools.length;
+    } catch {
+      return 0;
+    }
+  }
+
+  private getMCPServerToolCount(serverName: string): number {
+    // 同步版本：返回 0（工具数量将通过异步更新）
+    // 这是临时值，真实工具数量会在 MCP 发现完成后更新
+    return 0;
   }
 
   /**
@@ -1616,6 +1773,27 @@ export class AIService {
     this.processedMemoryTools.clear();
     this.memoryRefreshCallback = undefined;
 
+    // 🔌 清理 MCP 状态监听器
+    if (this.mcpStatusListener) {
+      removeMCPStatusChangeListener(this.mcpStatusListener);
+      this.mcpStatusListener = undefined;
+    }
+    this.mcpServerStatuses.clear();
+
     this.isInitialized = false;
+  }
+
+  /**
+   * 🔌 获取 MCP 服务器状态（供外部查询）
+   */
+  getMCPServerStatuses(): Map<string, MCPServerStatus> {
+    return new Map(this.mcpServerStatuses);
+  }
+
+  /**
+   * 🔌 获取 MCP 发现状态
+   */
+  getMCPDiscoveryState(): MCPDiscoveryState {
+    return getMCPDiscoveryState();
   }
 }

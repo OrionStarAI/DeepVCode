@@ -969,6 +969,43 @@ function setupBasicMessageHandlers() {
 
   });
 
+  // 🎯 处理 MCP 状态请求
+  communicationService.addMessageHandler('get_mcp_status', async (payload: any) => {
+    try {
+      logger.info(`🔌 [MCP] Received MCP status request for session: ${payload.sessionId}`);
+
+      const aiService = sessionManager.getAIService(payload.sessionId);
+      if (!aiService) {
+        logger.warn(`🔌 [MCP] No AIService found for session: ${payload.sessionId}`);
+        return;
+      }
+
+      const statuses = aiService.getMCPServerStatuses();
+      const discoveryState = aiService.getMCPDiscoveryState();
+
+      // 转换状态数据为前端格式
+      const servers = Array.from(statuses?.entries() || []).map(([name, status]) => ({
+        name,
+        status,
+        toolCount: 0 // 工具数量将通过异步更新获得
+      }));
+
+      logger.info(`🔌 [MCP] Sending MCP status: ${servers.length} servers, discovery: ${discoveryState}`);
+
+      await communicationService.sendMessage({
+        type: 'mcp_status_update',
+        payload: {
+          sessionId: payload.sessionId,
+          discoveryState: discoveryState || 'not_started',
+          servers
+        }
+      });
+
+    } catch (error) {
+      logger.error('🔌 [MCP] Failed to get MCP status', error instanceof Error ? error : undefined);
+    }
+  });
+
   // 🎯 处理登录相关消息
   setupLoginHandlers();
 }
@@ -1105,6 +1142,16 @@ function setupLoginHandlers() {
       if (action === 'Open Extensions') {
         await vscode.commands.executeCommand('workbench.view.extensions');
       }
+    }
+  });
+
+  // 🎯 处理打开 MCP 设置请求
+  communicationService.addMessageHandler('open_mcp_settings', async () => {
+    try {
+      logger.info('Opening MCP settings');
+      await vscode.commands.executeCommand('deepv.openMCPSettings');
+    } catch (error) {
+      logger.error('Failed to open MCP settings', error instanceof Error ? error : undefined);
     }
   });
 
@@ -2385,6 +2432,99 @@ function registerCommands(context: vscode.ExtensionContext) {
       } catch (error) {
         logger.error('Failed to open rules management', error instanceof Error ? error : undefined);
         vscode.window.showErrorMessage('Failed to open Rules Management');
+      }
+    }),
+
+    // 🔌 MCP 相关命令
+    vscode.commands.registerCommand('deepv.showMCPStatus', async () => {
+      logger.info('deepv.showMCPStatus command executed');
+      try {
+        const { MCPSettingsService } = await import('./services/mcpSettingsService');
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        const mcpServers = MCPSettingsService.loadMCPServers(workspaceRoot);
+
+        if (Object.keys(mcpServers).length === 0) {
+          vscode.window.showInformationMessage('未配置 MCP 服务器。请编辑 ~/.deepv/settings.json 添加配置。');
+          return;
+        }
+
+        // 从当前激活的 session 获取 MCP 状态
+        const currentSession = sessionManager?.getCurrentSession();
+        if (!currentSession) {
+          vscode.window.showInformationMessage('请先打开 AI 助手');
+          return;
+        }
+
+        const aiService = sessionManager.getAIService(currentSession.info.id);
+        const statuses = aiService?.getMCPServerStatuses();
+        const discoveryState = aiService?.getMCPDiscoveryState();
+
+        const items = Object.keys(mcpServers).map(serverName => {
+          const status = statuses?.get(serverName) || 'disconnected';
+          const icon = status === 'connected' ? '✅' : status === 'connecting' ? '🔄' : '❌';
+          return `${icon} ${serverName}: ${status}`;
+        });
+
+        const selected = await vscode.window.showQuickPick(
+          ['📊 MCP 状态总览', '📝 打开配置文件', ...items],
+          { placeHolder: `MCP 发现状态: ${discoveryState || 'not_started'}` }
+        );
+
+        if (selected === '📝 打开配置文件') {
+          await vscode.commands.executeCommand('deepv.openMCPSettings');
+        }
+      } catch (error) {
+        logger.error('Failed to show MCP status', error instanceof Error ? error : undefined);
+        vscode.window.showErrorMessage('无法显示 MCP 状态');
+      }
+    }),
+
+    vscode.commands.registerCommand('deepv.openMCPSettings', async () => {
+      logger.info('deepv.openMCPSettings command executed');
+      try {
+        const { MCPSettingsService } = await import('./services/mcpSettingsService');
+        const paths = MCPSettingsService.getSettingsPaths(
+          vscode.workspace.workspaceFolders?.[0]?.uri.fsPath
+        );
+
+        const options = [
+          { label: '📝 用户级配置', description: paths.user, path: paths.user },
+          { label: '📁 工作区配置', description: paths.workspace || '(无工作区)', path: paths.workspace },
+        ];
+
+        const selected = await vscode.window.showQuickPick(options.filter(o => o.path), {
+          placeHolder: '选择要打开的配置文件'
+        });
+
+        if (selected?.path) {
+          const fs = await import('fs');
+          const settingsDir = await import('path').then(p => p.dirname(selected.path!));
+
+          // 确保配置目录存在
+          if (!fs.existsSync(settingsDir)) {
+            fs.mkdirSync(settingsDir, { recursive: true });
+          }
+
+          // 如果文件不存在，创建示例配置
+          if (!fs.existsSync(selected.path)) {
+            const exampleConfig = {
+              "mcpServers": {
+                "filesystem": {
+                  "command": "npx",
+                  "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path/to/allowed/directory"]
+                }
+              }
+            };
+            fs.writeFileSync(selected.path, JSON.stringify(exampleConfig, null, 2), 'utf-8');
+          }
+
+          const uri = vscode.Uri.file(selected.path);
+          await vscode.window.showTextDocument(uri);
+          vscode.window.showInformationMessage('提示：修改配置后需要重启 VS Code 才能生效');
+        }
+      } catch (error) {
+        logger.error('Failed to open MCP settings', error instanceof Error ? error : undefined);
+        vscode.window.showErrorMessage('无法打开 MCP 配置文件');
       }
     }),
     // 🎯 添加日志查看命令

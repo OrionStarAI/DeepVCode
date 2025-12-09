@@ -60,32 +60,68 @@
 }
 
 .project-settings-dialog__title {
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 600;
   margin: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
   color: var(--vscode-foreground, #cccccc);
 }
 
 .project-settings-dialog__title-icon {
-  font-size: 20px;
+  /* Removed - no emoji icons */
 }
 
 .project-settings-dialog__close-btn {
   background: none;
   border: none;
-  color: var(--vscode-foreground, #cccccc);
-  font-size: 16px;
+  color: var(--vscode-icon-foreground, #c5c5c5);
   cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 4px;
+  padding: 4px;
+  border-radius: 3px;
   transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .project-settings-dialog__close-btn:hover {
   background-color: var(--vscode-toolbar-hoverBackground, #2a2d2e);
+}
+
+/* =============================================================================
+   标签页导航
+   ============================================================================= */
+
+.project-settings-dialog__tabs {
+  display: flex;
+  background-color: var(--vscode-editor-background, #1e1e1e);
+  border-bottom: 1px solid var(--vscode-panel-border, #454545);
+  padding: 0 20px;
+  gap: 4px;
+}
+
+.project-settings-dialog__tab {
+  background: none;
+  border: none;
+  color: var(--vscode-foreground, #cccccc);
+  font-size: 13px;
+  font-weight: 400;
+  cursor: pointer;
+  padding: 10px 16px;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s;
+  position: relative;
+  opacity: 0.7;
+}
+
+.project-settings-dialog__tab:hover {
+  opacity: 1;
+  background-color: var(--vscode-list-hoverBackground, rgba(255, 255, 255, 0.05));
+}
+
+.project-settings-dialog__tab--active {
+  opacity: 1;
+  border-bottom-color: var(--vscode-focusBorder, #007acc);
+  color: var(--vscode-foreground, #ffffff);
 }
 
 /* =============================================================================
@@ -115,7 +151,9 @@
 }
 
 .project-settings-dialog__error-icon {
-  font-size: 16px;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
 }
 
 .project-settings-dialog__panel {
