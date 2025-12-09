@@ -82,6 +82,7 @@ export const MultiSessionApp: React.FC = () => {
     name: string;
     status: 'disconnected' | 'connecting' | 'connected';
     toolCount: number;
+    toolNames?: string[];
     error?: string;
   }>>([]);
   const [mcpDiscoveryState, setMcpDiscoveryState] = useState<'not_started' | 'in_progress' | 'completed'>('not_started');
@@ -796,17 +797,34 @@ export const MultiSessionApp: React.FC = () => {
     });
 
     // =============================================================================
-    // 🎯 MCP 状态管理监听器
+    // 🎯 MCP 状态管理监听器（带防抖稳定化）
     // =============================================================================
+
+    let mcpUpdateTimer: NodeJS.Timeout | null = null;
+    let pendingMcpPayload: any = null;
 
     messageService.onMcpStatusUpdate((payload: any) => {
       console.log('🔌 [MCP] Received MCP status update:', payload);
-      if (payload.servers) {
-        setMcpServers(payload.servers);
+
+      // 🎯 保存最新的 payload
+      pendingMcpPayload = payload;
+
+      // 🎯 防抖：延迟 150ms 后更新 UI，让快速连续的状态变化稳定下来
+      if (mcpUpdateTimer) {
+        clearTimeout(mcpUpdateTimer);
       }
-      if (payload.discoveryState) {
-        setMcpDiscoveryState(payload.discoveryState);
-      }
+
+      mcpUpdateTimer = setTimeout(() => {
+        if (pendingMcpPayload) {
+          if (pendingMcpPayload.servers) {
+            setMcpServers(pendingMcpPayload.servers);
+          }
+          if (pendingMcpPayload.discoveryState) {
+            setMcpDiscoveryState(pendingMcpPayload.discoveryState);
+          }
+          pendingMcpPayload = null;
+        }
+      }, 150);
     });
 
     return () => {

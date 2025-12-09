@@ -13,6 +13,7 @@ import {
 } from '../core/contentGenerator.js';
 import { PromptRegistry } from '../prompts/prompt-registry.js';
 import { ToolRegistry } from '../tools/tool-registry.js';
+import { isMCPDiscoveryTriggered, markMCPDiscoveryTriggered } from '../tools/mcp-client.js';
 import { LSTool } from '../tools/ls.js';
 import { ReadFileTool } from '../tools/read-file.js';
 import { GrepTool } from '../tools/grep.js';
@@ -372,11 +373,14 @@ export class Config {
     this.toolRegistry = await this.createToolRegistry();
 
     // MCP服务器异步后台加载，不阻塞初始化
-    // 改进: 移除 300ms 延迟，让 MCP 服务器尽快启动
-    // 但仍在异步后台进行，不阻塞 initialize() 方法返回
-    setImmediate(() => {
-      this.discoverMcpToolsAsync();
-    });
+    // 🎯 使用全局标志确保 MCP 发现只执行一次
+    // 这避免了多个 Config 实例（特别是 VSCode 插件模式）导致 MCP 服务器重复连接和状态跳变
+    if (!isMCPDiscoveryTriggered()) {
+      markMCPDiscoveryTriggered();
+      setImmediate(() => {
+        this.discoverMcpToolsAsync();
+      });
+    }
   }
 
   /**

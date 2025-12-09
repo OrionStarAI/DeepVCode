@@ -92,21 +92,11 @@ export const YoloModeSettingsDialog: React.FC<YoloModeSettingsDialogProps> = ({
   };
 
   /**
-   * 处理取消
+   * 处理取消 - 直接关闭并恢复原始值，无需确认
    */
   const handleCancel = () => {
-    if (hasChanges) {
-      try {
-        const confirmed = window.confirm('YOLO mode has been modified. Are you sure you want to discard changes?');
-        if (!confirmed) return;
-        // 恢复到原始设置
-        setCurrentYoloMode(originalYoloMode);
-      } catch (error) {
-        console.warn('Confirm dialog failed, closing anyway:', error);
-        // 即使确认对话框失败，也要恢复原始设置
-        setCurrentYoloMode(originalYoloMode);
-      }
-    }
+    // 恢复到原始设置
+    setCurrentYoloMode(originalYoloMode);
     onClose();
   };
 

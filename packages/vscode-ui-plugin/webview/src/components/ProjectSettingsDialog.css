@@ -31,7 +31,7 @@
   width: 90%;
   max-width: 600px; /* 缩小对话框宽度 */
   height: auto; /* 改为自适应高度 */
-  max-height: 500px; /* 减小最大高度 */
+  max-height: 80vh; /* 使用视口高度的80% */
   display: flex;
   flex-direction: column;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
@@ -42,7 +42,7 @@
 /* YOLO模式专用样式 */
 .yolo-mode-dialog {
   min-height: 300px;
-  max-height: 400px;
+  max-height: 80vh; /* 使用视口高度的80% */
 }
 
 /* =============================================================================

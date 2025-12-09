@@ -94,7 +94,8 @@
 
 .mcp-server-item__details {
   display: flex;
-  gap: 16px;
+  flex-direction: column;
+  gap: 8px;
   padding-top: 8px;
   border-top: 1px solid var(--vscode-panel-border, #454545);
 }
@@ -112,6 +113,30 @@
 .mcp-server-item__detail-value {
   color: var(--vscode-foreground, #cccccc);
   font-family: var(--vscode-editor-font-family, monospace);
+}
+
+/* 工具标签列表 */
+.mcp-server-item__tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.mcp-server-item__tool-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-size: 11px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  background-color: var(--vscode-badge-background, #4d4d4d);
+  color: var(--vscode-badge-foreground, #ffffff);
+  border-radius: 10px;
+  white-space: nowrap;
+}
+
+.mcp-server-item__tool-tag:hover {
+  background-color: var(--vscode-button-secondaryHoverBackground, #5a5a5a);
 }
 
 .mcp-server-item__error {

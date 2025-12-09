@@ -184,15 +184,22 @@ export async function activate(context: vscode.ExtensionContext) {
 
     startupOptimizer.startPhase('Background Services Startup');
 
-    // 🎯 自动初始化核心服务（SessionManager + InlineCompletion）
-    // 这样即使前端没有发送 start_services 请求（例如切换项目后），服务也能正常工作
-    try {
-      logger.info('Auto-initializing core services during activation...');
-      await startServices();
-      logger.info('Core services auto-initialized successfully');
-    } catch (error) {
-      logger.warn('Core services auto-initialization failed, will retry when requested', error instanceof Error ? error : undefined);
-    }
+    // 🎯 异步启动核心服务 - 不阻塞扩展激活
+    // 设计理念:
+    // 1. WebView 已经初始化完成,用户可以立即看到界面
+    // 2. 核心服务(包括 MCP)在后台异步加载
+    // 3. 前端会显示 loading 状态,直到服务就绪
+    // 4. MCP 工具会在连接成功后动态添加
+    setImmediate(async () => {
+      try {
+        logger.info('🔄 [Background] Starting core services initialization...');
+        await startServices();
+        logger.info('✅ [Background] Core services initialized successfully');
+      } catch (error) {
+        logger.warn('⚠️ [Background] Core services initialization failed, will retry when requested',
+                   error instanceof Error ? error : undefined);
+      }
+    });
 
     logger.info('DeepV Code AI Assistant activated successfully');
     console.log('=== DeepV Code AI Assistant: Activation completed ===');
@@ -2928,66 +2935,73 @@ async function startServices() {
   try {
     logger.info('Starting remaining services initialization...');
 
-    // 🎯 初始化多Session通信服务
+    // 🎯 第一阶段：快速初始化关键服务（不阻塞前端）
+    // 只初始化通信和上下文服务，这些是即时可用的
     await communicationService.initialize();
     logger.info('MultiSessionCommunicationService initialized');
 
-    // 🎯 初始化上下文服务
     await contextService.initialize();
+    logger.info('ContextService initialized');
 
-    // 🎯 初始化SessionManager (包含所有session的toolService和aiService)
-    try {
-      await sessionManager.initialize();
-      logger.info('SessionManager initialized successfully (manages all session-specific services)');
-
-      // 🎯 SessionManager初始化完成后，立即发送会话列表给前端
-      const sessions = sessionManager.getAllSessionsInfo();
-      const currentSessionId = sessionManager.getCurrentSession()?.info.id || null;
-      logger.info(`Sending ${sessions.length} sessions to frontend, current: ${currentSessionId}`);
-      await communicationService.sendSessionListUpdate(sessions, currentSessionId);
-
-      // 🎯 初始化行内补全服务（依赖 SessionManager）
-      await initializeInlineCompletion();
-
-      // 🎯 监听 session 切换和删除事件，重新初始化行内补全服务
-      sessionManager.on('switched', async () => {
-        logger.info('Session switched, reinitializing inline completion...');
-        await initializeInlineCompletion();
-      });
-
-      sessionManager.on('deleted', async () => {
-        logger.info('Session deleted, reinitializing inline completion...');
-        await initializeInlineCompletion();
-      });
-
-      sessionManager.on('created', async () => {
-        logger.info('Session created, reinitializing inline completion...');
-        await initializeInlineCompletion();
-      });
-
-      // 🎯 监听 session 更新事件，转发到前端
-      sessionManager.on('updated', async (sessionId: string, data: any) => {
-        const session = sessionManager.getSession(sessionId);
-        if (session) {
-          communicationService.sendMessage({
-            type: 'session_updated',
-            payload: { sessionId, session: session.info }
-          });
-          logger.info(`Session updated event forwarded to frontend: ${sessionId}`);
-        }
-      });
-
-    } catch (error) {
-      logger.warn('SessionManager initialization failed, continuing with basic mode', error instanceof Error ? error : undefined);
-    }
-
-    // 🎯 标记服务已初始化
+    // 🎯 标记核心服务已初始化（允许前端进入可对话状态）
     servicesInitialized = true;
-    logger.info('✅ All core services initialized successfully');
+    logger.info('✅ Core services initialized - UI ready');
+
+    // 🎯 第二阶段：异步初始化 SessionManager（包含 MCP）
+    // 使用 setImmediate 确保不阻塞，完全在后台运行
+    setImmediate(async () => {
+      try {
+        logger.info('🔄 [Background] Starting SessionManager initialization...');
+        await sessionManager.initialize();
+        logger.info('✅ [Background] SessionManager initialized successfully');
+
+        // SessionManager初始化完成后，发送会话列表给前端
+        const sessions = sessionManager.getAllSessionsInfo();
+        const currentSessionId = sessionManager.getCurrentSession()?.info.id || null;
+        logger.info(`📋 [Background] Sending ${sessions.length} sessions to frontend`);
+        await communicationService.sendSessionListUpdate(sessions, currentSessionId);
+
+        // 初始化行内补全服务（依赖 SessionManager）
+        await initializeInlineCompletion();
+
+        // 监听 session 事件
+        sessionManager.on('switched', async () => {
+          logger.info('Session switched, reinitializing inline completion...');
+          await initializeInlineCompletion();
+        });
+
+        sessionManager.on('deleted', async () => {
+          logger.info('Session deleted, reinitializing inline completion...');
+          await initializeInlineCompletion();
+        });
+
+        sessionManager.on('created', async () => {
+          logger.info('Session created, reinitializing inline completion...');
+          await initializeInlineCompletion();
+        });
+
+        sessionManager.on('updated', async (sessionId: string, data: any) => {
+          const session = sessionManager.getSession(sessionId);
+          if (session) {
+            communicationService.sendMessage({
+              type: 'session_updated',
+              payload: { sessionId, session: session.info }
+            });
+            logger.info(`Session updated event forwarded to frontend: ${sessionId}`);
+          }
+        });
+
+        logger.info('✅ [Background] All session services ready');
+
+      } catch (error) {
+        logger.error('❌ [Background] SessionManager initialization failed', error instanceof Error ? error : undefined);
+        // 失败不影响主流程，用户仍可使用基础功能
+      }
+    });
 
   } catch (error) {
     logger.error('Failed to initialize core services', error instanceof Error ? error : undefined);
-    servicesInitialized = false; // 初始化失败，重置标志
+    servicesInitialized = false;
     throw error;
   }
 }

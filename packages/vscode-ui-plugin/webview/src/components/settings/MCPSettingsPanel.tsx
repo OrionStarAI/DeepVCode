@@ -20,6 +20,7 @@ interface MCPServerInfo {
   name: string;
   status: 'disconnected' | 'connecting' | 'connected';
   toolCount: number;
+  toolNames?: string[];
   error?: string;
 }
 
@@ -158,6 +159,15 @@ export const MCPSettingsPanel: React.FC<MCPSettingsPanelProps> = ({
                     <span className="mcp-server-item__detail-label">Tools:</span>
                     <span className="mcp-server-item__detail-value">{server.toolCount}</span>
                   </div>
+                  {server.toolNames && server.toolNames.length > 0 && (
+                    <div className="mcp-server-item__tools">
+                      {server.toolNames.map((toolName, index) => (
+                        <span key={index} className="mcp-server-item__tool-tag">
+                          {toolName}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {server.error && (
