@@ -94,12 +94,17 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   const modelNameRefs = useRef<{ [key: string]: HTMLSpanElement | null }>({});
   const debounceTimerRef = useRef<{ [key: string]: NodeJS.Timeout }>({});
 
-  // 获取可用模型列表
+  // 获取可用模型列表（带指数退避重试）
   useEffect(() => {
-    const fetchModels = async () => {
+    const MAX_RETRIES = 3;
+    const BASE_DELAY = 500; // 500ms, 1000ms, 2000ms
+
+    const fetchModelsWithRetry = async (retryCount = 0): Promise<void> => {
       try {
-        setLoading(true);
-        setError(null);
+        if (retryCount === 0) {
+          setLoading(true);
+          setError(null);
+        }
 
         // 并行获取可用模型和当前模型（传递sessionId）
         const [models, currentModelName] = await Promise.all([
@@ -118,8 +123,22 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
           setSelectedModel(currentModel);
         }
 
+        setLoading(false);
       } catch (err) {
-        console.error('Failed to fetch models:', err);
+        console.error(`Failed to fetch models (attempt ${retryCount + 1}/${MAX_RETRIES}):`, err);
+
+        // 🎯 指数退避重试
+        if (retryCount < MAX_RETRIES - 1) {
+          const delay = BASE_DELAY * Math.pow(2, retryCount);
+          console.log(`[ModelSelector] Retrying in ${delay}ms...`);
+          setTimeout(() => {
+            fetchModelsWithRetry(retryCount + 1);
+          }, delay);
+          return;
+        }
+
+        // 所有重试都失败了，显示错误并降级到默认模型
+        console.error('[ModelSelector] All retries failed, using fallback model');
         setError(err instanceof Error ? err.message : 'Unknown error');
 
         // 降级到默认模型
@@ -134,12 +153,11 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
         };
         setModelOptions([fallbackModel]);
         setSelectedModel(fallbackModel);
-      } finally {
         setLoading(false);
       }
     };
 
-    fetchModels();
+    fetchModelsWithRetry();
   }, [selectedModelId, t]);
 
   // 点击外部关闭下拉菜单
@@ -473,9 +491,11 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                     </div>
                   )}
                 </div>
-                <span className="model-credits">
-                  {selectedModel.creditsPerRequest} credits
-                </span>
+                {selectedModel.category !== 'auto' && selectedModel.creditsPerRequest !== undefined && (
+                  <span className="model-credits">
+                    {selectedModel.creditsPerRequest}x
+                  </span>
+                )}
               </div>
             </>
           ) : (
@@ -541,9 +561,11 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
                               </div>
                             )}
                           </div>
-                          <span className="model-credits">
-                            {model.creditsPerRequest} credits
-                          </span>
+                          {model.category !== 'auto' && model.creditsPerRequest !== undefined && (
+                            <span className="model-credits">
+                              {model.creditsPerRequest}x
+                            </span>
+                          )}
                         </div>
                       </div>
                     </div>

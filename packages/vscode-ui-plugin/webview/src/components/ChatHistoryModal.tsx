@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { X, Trash2, Edit2, ChevronsDown, Loader2 } from 'lucide-react';
+import { X, Trash2, Edit2, ChevronsDown, Loader2, Download } from 'lucide-react';
 import { ChatMessage } from '../types';
 import { messageContentToString } from '../utils/messageContentUtils';
 import './ChatHistoryModal.css';
@@ -23,6 +23,7 @@ interface ChatHistoryModalProps {
   onSelectSession: (sessionId: string) => void;
   onDeleteSession?: (sessionId: string) => void;
   onRenameSession?: (sessionId: string, newTitle: string) => void;
+  onExportSession?: (sessionId: string) => void;
   // 🎯 分页相关
   hasMore?: boolean;
   isLoading?: boolean;
@@ -132,6 +133,7 @@ export const ChatHistoryModal: React.FC<ChatHistoryModalProps> = ({
   onSelectSession,
   onDeleteSession,
   onRenameSession,
+  onExportSession,
   hasMore,
   isLoading,
   total,
@@ -388,6 +390,18 @@ export const ChatHistoryModal: React.FC<ChatHistoryModalProps> = ({
                           title="Rename session"
                         >
                           <Edit2 size={14} />
+                        </button>
+                        <button
+                          className="chat-history-modal__action-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onExportSession) {
+                              onExportSession(session.id);
+                            }
+                          }}
+                          title="Export chat"
+                        >
+                          <Download size={14} />
                         </button>
                         <button
                           className="chat-history-modal__action-btn delete"

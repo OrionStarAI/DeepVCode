@@ -1,6 +1,6 @@
 /**
- * LoadingScreen Styles - Loading Screen Styles
- * Elegant loading animations and VS Code theme adaptation
+ * LoadingScreen Styles - High-End AI Design
+ * "Quantum Core" Theme
  */
 
 .loading-screen {
@@ -11,387 +11,194 @@
   bottom: 0;
   width: 100%;
   height: 100%;
-  background: var(--vscode-editor-background, #181818);
-  color: var(--vscode-foreground, #cccccc);
+  background: var(--vscode-editor-background, #1e1e1e);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 9999;
-  font-family: var(--vscode-font-family, 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif);
+  font-family: var(--vscode-font-family, 'Segoe UI', sans-serif);
+  overflow: hidden;
 
-  /* Fade-in animation */
-  animation: fadeIn 0.5s ease-out;
+  /* 默认不透明 */
+  opacity: 1;
+  transition: opacity 0.3s ease-out, transform 0.3s ease-out;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+/* Fade Out Animation Class */
+.loading-screen--fadeout {
+  opacity: 0;
+  transform: scale(1.05); /* 稍微放大一点消失，更有动感 */
+  pointer-events: none;
+}
+
+/* Background Ambient Glow */
+.loading-screen::before {
+  content: '';
+  position: absolute;
+  width: 150vw;
+  height: 150vw;
+  background: radial-gradient(circle, var(--vscode-textLink-foreground) 0%, transparent 60%);
+  opacity: 0.03;
+  animation: ambientPulse 8s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes ambientPulse {
+  0%, 100% { transform: scale(1); opacity: 0.03; }
+  50% { transform: scale(1.1); opacity: 0.05; }
 }
 
 .loading-screen__container {
-  text-align: center;
-  max-width: 400px;
-  padding: 2rem;
-}
-
-/* ================================
-   Logo Area Styles
-   ================================ */
-
-.loading-screen__logo {
-  margin-bottom: 3rem;
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1.5rem;
+  justify-content: center;
+  z-index: 2;
 }
 
-.loading-screen__logo-icon {
+/* ================================
+   Quantum Core (Logo & Loader)
+   ================================ */
+
+.quantum-core {
   position: relative;
-}
-
-.loading-screen__logo-shape {
-  width: 80px;
-  height: 80px;
-  position: relative;
-
-  /* Outer circular background */
-  background: linear-gradient(135deg,
-    var(--vscode-button-background, #0e639c) 0%,
-    var(--vscode-button-hoverBackground, #1177bb) 50%,
-    var(--vscode-textLink-foreground, #3794ff) 100%
-  );
-  border-radius: 50%;
-
-  /* 旋转动画 */
-  animation: logoRotate 4s linear infinite;
-
-  /* 阴影效果 */
-  box-shadow:
-    0 0 30px rgba(55, 148, 255, 0.3),
-    0 0 60px rgba(55, 148, 255, 0.1);
-}
-
-.loading-screen__logo-inner {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  width: 60px;
-  height: 60px;
-  background: var(--vscode-editor-background, #181818);
-  border-radius: 50%;
+  width: 160px;
+  height: 160px;
   display: flex;
   align-items: center;
   justify-content: center;
-
-  /* 内部文字 */
-  font-weight: bold;
-  font-size: 18px;
-  color: var(--vscode-textLink-foreground, #3794ff);
-  letter-spacing: 1px;
+  margin-bottom: 2.5rem;
 }
 
-@keyframes logoRotate {
-  0% {
-    transform: rotate(0deg);
-    box-shadow:
-      0 0 30px rgba(55, 148, 255, 0.3),
-      0 0 60px rgba(55, 148, 255, 0.1);
-  }
-  50% {
-    transform: rotate(180deg);
-    box-shadow:
-      0 0 40px rgba(55, 148, 255, 0.4),
-      0 0 80px rgba(55, 148, 255, 0.2);
-  }
-  100% {
-    transform: rotate(360deg);
-    box-shadow:
-      0 0 30px rgba(55, 148, 255, 0.3),
-      0 0 60px rgba(55, 148, 255, 0.1);
-  }
+/* The Central Icon */
+.quantum-core__icon {
+  color: var(--vscode-textLink-foreground);
+  filter: drop-shadow(0 0 15px var(--vscode-textLink-foreground));
+  animation: corePulse 3s ease-in-out infinite;
+  z-index: 10;
 }
 
-.loading-screen__logo-text {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
+@keyframes corePulse {
+  0%, 100% { opacity: 0.8; transform: scale(0.95); filter: drop-shadow(0 0 10px var(--vscode-textLink-foreground)); }
+  50% { opacity: 1; transform: scale(1.05); filter: drop-shadow(0 0 25px var(--vscode-textLink-foreground)); }
 }
 
-.loading-screen__title {
-  font-size: 2rem;
-  font-weight: 600;
-  margin: 0;
-  color: var(--vscode-foreground, #cccccc);
-  letter-spacing: 1px;
-
-  /* 文字发光效果 */
-  text-shadow: 0 0 10px rgba(255, 255, 255, 0.1);
-}
-
-.loading-screen__subtitle {
-  font-size: 1rem;
-  margin: 0;
-  color: var(--vscode-descriptionForeground, #cccccc99);
-  font-weight: 300;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-}
-
-/* ================================
-   状态区域样式
-   ================================ */
-
-.loading-screen__status {
-  margin-bottom: 2rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-}
-
-.loading-screen__stage {
-  font-size: 0.9rem;
-  color: var(--vscode-descriptionForeground, #cccccc99);
-  min-height: 1.2rem;
-
-  /* 文字切换动画 */
-  animation: textFade 0.5s ease-in-out;
-}
-
-@keyframes textFade {
-  0% {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* ================================
-   进度条样式
-   ================================ */
-
-.loading-screen__progress {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  align-items: center;
-}
-
-.loading-screen__progress-bar {
-  width: 280px;
-  height: 6px;
-  background: var(--vscode-progressBar-background, rgba(128, 128, 128, 0.3));
-  border-radius: 3px;
-  overflow: hidden;
-  position: relative;
-
-  /* 外层发光和3D效果 */
-  box-shadow:
-    0 0 15px rgba(55, 148, 255, 0.25),
-    inset 0 1px 2px rgba(0, 0, 0, 0.3),
-    inset 0 -1px 1px rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(128, 128, 128, 0.2);
-}
-
-.loading-screen__progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg,
-    var(--vscode-textLink-foreground, #3794ff) 0%,
-    var(--vscode-button-hoverBackground, #1177bb) 30%,
-    var(--vscode-textLink-foreground, #3794ff) 60%,
-    #58a6ff 100%
-  );
-  border-radius: 2px;
-  position: relative;
-
-  /* 进度条动画光效 - 更流畅的填充动画 */
-  background-size: 300% 100%;
-  animation: progressShine 2.5s ease-in-out infinite, progressFill 0.8s ease-out;
-
-  /* 进度条发光和3D效果 */
-  box-shadow:
-    0 0 15px rgba(55, 148, 255, 0.6),
-    0 0 25px rgba(55, 148, 255, 0.3),
-    inset 0 1px 0 rgba(255, 255, 255, 0.3),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.2);
-
-  /* 添加溢出光效 */
-  overflow: hidden;
-}
-
-.loading-screen__progress-fill::before {
-  content: '';
+/* Spinning Rings (Decorative) */
+.quantum-core__ring {
   position: absolute;
-  top: 0;
-  left: -100%;
+  border-radius: 50%;
+  border: 1px solid transparent;
+  border-top-color: var(--vscode-textLink-foreground);
+  border-bottom-color: var(--vscode-textLink-foreground);
+  opacity: 0.3;
+}
+
+.quantum-core__ring--outer {
   width: 100%;
   height: 100%;
-  background: linear-gradient(90deg,
-    transparent 0%,
-    rgba(255, 255, 255, 0.4) 50%,
-    transparent 100%
-  );
-  animation: progressGlow 3s ease-in-out infinite;
+  animation: spin 12s linear infinite;
+  border-left-color: rgba(255, 255, 255, 0.1);
+  border-right-color: rgba(255, 255, 255, 0.1);
 }
 
-@keyframes progressFill {
-  0% {
-    transform: scaleX(0);
-    opacity: 0;
-  }
-  50% {
-    opacity: 0.8;
-  }
-  100% {
-    transform: scaleX(1);
-    opacity: 1;
-  }
+.quantum-core__ring--inner {
+  width: 70%;
+  height: 70%;
+  animation: spinReverse 8s linear infinite;
+  border: 1px dashed var(--vscode-textLink-foreground);
+  opacity: 0.2;
 }
 
-@keyframes progressGlow {
-  0% { left: -100%; }
-  50% { left: 100%; }
-  100% { left: 100%; }
+/* SVG Progress Circle */
+.progress-ring__svg {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg); /* Start from top */
+  overflow: visible;
 }
 
-@keyframes progressShine {
-  0% {
-    background-position: 300% 0;
-    filter: brightness(1);
-  }
-  50% {
-    background-position: -100% 0;
-    filter: brightness(1.2);
-  }
-  100% {
-    background-position: 300% 0;
-    filter: brightness(1);
-  }
+.progress-ring__circle-bg {
+  fill: none;
+  stroke: var(--vscode-widget-border, rgba(255, 255, 255, 0.1));
+  stroke-width: 2;
 }
 
-.loading-screen__progress-text {
-  font-size: 0.8rem;
-  color: var(--vscode-textLink-foreground, #3794ff);
-  font-weight: 500;
-  min-width: 40px;
+.progress-ring__circle-fg {
+  fill: none;
+  stroke: var(--vscode-textLink-foreground);
+  stroke-width: 3;
+  stroke-linecap: round;
+  /* transition: stroke-dashoffset 0.5s ease-out;  <-- Removed for JS control */
+  filter: drop-shadow(0 0 8px var(--vscode-textLink-foreground));
+}
+
+@keyframes spin { 100% { transform: rotate(360deg); } }
+@keyframes spinReverse { 100% { transform: rotate(-360deg); } }
+
+/* ================================
+   Typography & Status
+   ================================ */
+
+.loading-info {
   text-align: center;
-}
-
-/* ================================
-   加载点动画
-   ================================ */
-
-.loading-screen__dots {
   display: flex;
-  justify-content: center;
+  flex-direction: column;
+  align-items: center;
   gap: 0.5rem;
-  margin-top: 1rem;
 }
 
-.loading-screen__dot {
-  width: 8px;
-  height: 8px;
+.app-title {
+  font-size: 2rem;
+  font-weight: 300; /* Thin/Light */
+  letter-spacing: -0.5px;
+  color: var(--vscode-foreground);
+  margin: 0;
+  background: linear-gradient(120deg, var(--vscode-foreground) 0%, var(--vscode-descriptionForeground) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.app-subtitle {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  color: var(--vscode-textLink-foreground);
+  opacity: 0.8;
+  margin-bottom: 1.5rem;
+  font-weight: 600;
+}
+
+.status-text {
+  font-size: 0.9rem;
+  color: var(--vscode-descriptionForeground);
+  min-height: 1.5rem;
+  font-weight: 400;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Typing cursor effect for status */
+.status-text::after {
+  content: '';
+  width: 4px;
+  height: 4px;
+  background: var(--vscode-textLink-foreground);
   border-radius: 50%;
-  background: var(--vscode-textLink-foreground, #3794ff);
-  opacity: 0.3;
-  animation: dotPulse 1.5s ease-in-out infinite;
+  animation: blink 1s infinite;
 }
 
-.loading-screen__dot--1 {
-  animation-delay: 0s;
-}
+@keyframes blink { 50% { opacity: 0; } }
 
-.loading-screen__dot--2 {
-  animation-delay: 0.3s;
-}
-
-.loading-screen__dot--3 {
-  animation-delay: 0.6s;
-}
-
-@keyframes dotPulse {
-  0%, 60%, 100% {
-    opacity: 0.3;
-    transform: scale(1);
-  }
-  30% {
-    opacity: 1;
-    transform: scale(1.2);
-  }
-}
-
-/* ================================
-   响应式设计
-   ================================ */
-
-@media (max-width: 480px) {
-  .loading-screen__container {
-    padding: 1rem;
-    max-width: 320px;
-  }
-
-  .loading-screen__logo-shape {
-    width: 60px;
-    height: 60px;
-  }
-
-  .loading-screen__logo-inner {
-    width: 45px;
-    height: 45px;
-    font-size: 14px;
-  }
-
-  .loading-screen__title {
-    font-size: 1.5rem;
-  }
-
-  .loading-screen__progress-bar {
-    width: 240px;
-  }
-}
-
-/* ================================
-   暗色模式优化
-   ================================ */
-
-.loading-screen[data-theme="dark"] {
-  background: #0d1117;
-}
-
-.loading-screen[data-theme="dark"] .loading-screen__logo-shape {
-  background: linear-gradient(135deg,
-    #1f6feb 0%,
-    #388bfd 50%,
-    #58a6ff 100%
-  );
-  box-shadow:
-    0 0 30px rgba(88, 166, 255, 0.3),
-    0 0 60px rgba(88, 166, 255, 0.1);
-}
-
-/* ================================
-   过渡动画
-   ================================ */
-
-.loading-screen--fadeout {
-  animation: fadeOut 0.5s ease-in forwards;
-}
-
-@keyframes fadeOut {
-  from {
-    opacity: 1;
-    transform: scale(1);
-  }
-  to {
-    opacity: 0;
-    transform: scale(0.95);
-  }
+.percentage-display {
+  position: absolute;
+  bottom: -40px;
+  font-family: 'Courier New', monospace;
+  font-size: 0.8rem;
+  color: var(--vscode-disabledForeground);
+  opacity: 0.5;
 }

@@ -31,6 +31,7 @@ import { MessageContent } from '../types/index';
 import { createTextMessageContent, messageContentToString } from '../utils/messageContentUtils';
 import { ChatMessage, ToolCall, ToolCallStatus } from '../types';
 import DragDropGlobalTest from './DragDropGlobalTest';
+
 import './MultiSessionApp.css';
 
 /**
@@ -46,6 +47,10 @@ export const MultiSessionApp: React.FC = () => {
   const { t } = useTranslation();
   const [isInitialized, setIsInitialized] = useState(false);
 
+  useEffect(() => {
+    console.log('🔍 [DEBUG-UI-FLOW] [MultiSessionApp] Mounted');
+  }, []);
+
   // 🎯 MessageInput 的 ref，用于插入代码引用
   const messageInputRef = useRef<MessageInputHandle>(null);
 
@@ -56,6 +61,7 @@ export const MultiSessionApp: React.FC = () => {
 
   // 🎯 启动流程状态管理
   const [showLoadingScreen, setShowLoadingScreen] = useState(true);
+  const [waitingForSessions, setWaitingForSessions] = useState(false); // 🎯 新增：等待 session 数据就绪
   const [showUpdatePrompt, setShowUpdatePrompt] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<any>(null);
   const [forceUpdate, setForceUpdate] = useState(false);
@@ -174,6 +180,34 @@ export const MultiSessionApp: React.FC = () => {
     };
   }, []);
 
+  // 🎯 监听 session 数据就绪，隐藏 LoadingScreen
+  useEffect(() => {
+    if (waitingForSessions) {
+      console.log('🔍 [DEBUG-UI-FLOW] [MultiSessionApp] Waiting for sessions...');
+      // 检查条件：
+      // 1. state.sessions 有数据
+      // 2. 或者 state.currentSessionId 已经设置（说明默认 session 已创建）
+      // 3. 或者超时保护（如果一直没数据，也得让用户进去）
+
+      const hasSessions = state.sessions.size > 0;
+      const hasCurrentSession = !!state.currentSessionId;
+
+      if (hasSessions || hasCurrentSession) {
+        console.log('🎯 [UI-READY] Sessions data populated, hiding loading screen');
+        setShowLoadingScreen(false);
+        setWaitingForSessions(false);
+      } else {
+        // 设置一个短超时，如果数据还没来，强制进入（可能是真的没有 session）
+        const timer = setTimeout(() => {
+          console.warn('⚠️ [UI-READY] Timeout waiting for session data, forcing entry');
+          setShowLoadingScreen(false);
+          setWaitingForSessions(false);
+        }, 2000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [waitingForSessions, state.sessions.size, state.currentSessionId]);
+
   // 🎯 加载历史列表（分页）
   const loadHistoryList = React.useCallback((offset: number, limit: number) => {
     setIsLoadingHistory(true);
@@ -257,7 +291,7 @@ export const MultiSessionApp: React.FC = () => {
     // =============================================================================
 
     messageService.onSessionListUpdate(({ sessions, currentSessionId }) => {
-        console.log('🚀 [STARTUP] Received session list:', sessions.length, 'sessions');
+        console.log('🔍 [DEBUG-UI-FLOW] [MultiSessionApp] onSessionListUpdate received:', sessions.length, 'sessions');
 
 
       // 🎯 注意：这里是活跃session列表（最多10个）
@@ -1025,7 +1059,7 @@ User question: ${contentStr}`;
   /**
    * 处理Session操作（统一的操作入口）
    */
-  const handleSessionAction = (action: 'rename' | 'delete' | 'duplicate', sessionId: string) => {
+  const handleSessionAction = (action: 'rename' | 'delete' | 'duplicate' | 'export', sessionId: string) => {
     switch (action) {
       case 'rename':
         // TODO: 显示重命名对话框
@@ -1045,6 +1079,73 @@ User question: ${contentStr}`;
       case 'duplicate':
         getGlobalMessageService().duplicateSession(sessionId);
         break;
+      case 'export':
+        handleExportSession(sessionId);
+        break;
+    }
+  };
+
+  /**
+   * 导出Session聊天记录为Markdown
+   */
+  const handleExportSession = (sessionId: string) => {
+    // 获取 session 信息（state.sessions 是 Map）
+    const session = state.sessions.get(sessionId);
+    if (!session) {
+      console.warn('Session not found for export:', sessionId);
+      return;
+    }
+
+    const messages = session.messages || [];
+    const sessionTitle = getSessionTitle(sessionId) || 'Chat Export';
+    const exportDate = new Date().toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      timeZoneName: 'short'
+    });
+
+    // 生成 Markdown 内容
+    let markdown = `# ${sessionTitle}\n\n`;
+    markdown += `*Exported on ${exportDate} from DeepV Code*\n\n`;
+    markdown += `---\n\n`;
+
+    messages.forEach((msg: any) => {
+      const role = msg.type === 'user' ? '**User**' : '**DeepV Code**';
+      markdown += `${role}\n\n`;
+
+      // 处理消息内容
+      if (typeof msg.content === 'string') {
+        markdown += `${msg.content}\n\n`;
+      } else if (Array.isArray(msg.content)) {
+        msg.content.forEach((part: any) => {
+          if (part.type === 'text') {
+            markdown += `${part.value || part.text || ''}\n\n`;
+          } else if (part.type === 'file_reference') {
+            markdown += `📁 *File: ${part.value?.fileName || 'unknown'}*\n\n`;
+          } else if (part.type === 'code_reference') {
+            markdown += `\`\`\`${part.value?.language || ''}\n${part.value?.code || ''}\n\`\`\`\n\n`;
+          } else if (part.type === 'terminal_reference') {
+            markdown += `💻 *Terminal: ${part.value?.terminalName || 'unknown'}*\n\n`;
+          }
+        });
+      }
+    });
+
+    // 发送到扩展进行保存
+    if (window.vscode) {
+      window.vscode.postMessage({
+        type: 'export_chat' as any,
+        payload: {
+          sessionId,
+          title: sessionTitle,
+          content: markdown,
+          format: 'md'
+        }
+      });
     }
   };
 
@@ -1235,32 +1336,14 @@ User question: ${contentStr}`;
     return (
       <LoadingScreen
         onLoadingComplete={() => {
-          console.log('🎯 [LoadingScreen] Loading complete - waiting for sessions_ready before showing main app');
+          console.log('🔍 [DEBUG-UI-FLOW] [MultiSessionApp] LoadingScreen finished. Checking data readiness...');
           setIsLoggedIn(true);
           setIsInitialized(true);
 
           // 🎯 LoadingScreen完成意味着服务已初始化
-          // 等待后端 SessionManager 初始化完成（sessions_ready 信号）后再隐藏 loading
-          // 这样可以确保所有历史 session 都已恢复完成
-
-          // 🎯 设置超时保护：10秒后强制隐藏 loading（session 恢复可能需要较长时间）
-          const timeout = setTimeout(() => {
-            console.warn('⏰ [TIMEOUT] Sessions ready timeout (10s), forcing hide loading screen');
-            setShowLoadingScreen(false);
-          }, 10000);
-
-          // 🎯 一次性监听 sessions_ready 信号
-          const handleSessionsReady = (event: MessageEvent) => {
-            if (event.data?.type === 'sessions_ready') {
-              console.log('🎯 [SESSIONS-READY] All sessions restored, hiding loading screen');
-              clearTimeout(timeout);
-              window.removeEventListener('message', handleSessionsReady);
-              setShowLoadingScreen(false);
-            }
-          };
-          window.addEventListener('message', handleSessionsReady);
-
-          console.log('✅ [MultiSessionApp] LoadingScreen完成，等待后端 sessions_ready 信号');
+          // 直接标记为等待数据检查，不再等待 sessions_ready 信号（因为可能已经错过了）
+          // 下方的 useEffect 会检查 state.sessions 是否已有数据
+          setWaitingForSessions(true);
         }}
         onLoginRequired={(error) => {
           console.log('🎯 [LoadingScreen] Login required:', error);
@@ -1391,6 +1474,8 @@ User question: ${contentStr}`;
   // 🎯 直接使用state获取当前session，避免stateRef时序问题
   // 在render过程中，stateRef可能还没有更新到最新状态，导致getCurrentSession()返回旧数据
   const currentSession = state.currentSessionId ? state.sessions.get(state.currentSessionId) || null : null;
+
+  console.log('🔍 [DEBUG-UI-FLOW] [MultiSessionApp] Rendering main UI. Current Session:', state.currentSessionId, 'Sessions count:', state.sessions.size);
 
   return (
     <div className="multi-session-app">
@@ -1626,6 +1711,9 @@ User question: ${contentStr}`;
             sessionId,
             updates: { name: newTitle },
           });
+        }}
+        onExportSession={(sessionId) => {
+          handleExportSession(sessionId);
         }}
         // 🎯 分页相关
         hasMore={historyHasMore}

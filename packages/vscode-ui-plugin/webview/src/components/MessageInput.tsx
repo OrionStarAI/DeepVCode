@@ -22,6 +22,7 @@ import { ModelSelector } from './ModelSelector';
 import { FileReferenceNode, $createFileReferenceNode, $isFileReferenceNode } from './MessageInput/nodes/FileReferenceNode';
 import { ImageReferenceNode, $createImageReferenceNode, $isImageReferenceNode } from './MessageInput/nodes/ImageReferenceNode';
 import { CodeReferenceNode, $createCodeReferenceNode, $isCodeReferenceNode } from './MessageInput/nodes/CodeReferenceNode';
+import { TerminalReferenceNode, $isTerminalReferenceNode } from './MessageInput/nodes/TerminalReferenceNode';
 import { KeyboardPlugin } from './MessageInput/plugins/KeyboardPlugin';
 import { DragDropPlugin } from './MessageInput/plugins/DragDropPlugin';
 import { ClipboardPlugin } from './MessageInput/plugins/ClipboardPlugin';
@@ -35,6 +36,7 @@ import { ImageReference, resetImageCounter } from './MessageInput/utils/imagePro
 import { FileUploadResult, FileType } from './MessageInput/utils/fileTypes';
 import { PlanModeToggle } from './PlanModeToggle';
 import { useRefineCommand } from '../hooks/useRefineCommand';
+import { atSymbolHandler } from '../services/atSymbolHandler';
 
 import './MessageInput/MessageInput.css';
 
@@ -202,7 +204,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
   // 🎯 Lexical 初始化配置
   const initialConfig = {
     namespace: 'MessageInput',
-    nodes: [FileReferenceNode, ImageReferenceNode, CodeReferenceNode], // 注册自定义节点
+    nodes: [FileReferenceNode, ImageReferenceNode, CodeReferenceNode, TerminalReferenceNode], // 注册自定义节点
     onError: (error: Error) => {
       console.error('Lexical Error:', error);
     },
@@ -796,6 +798,17 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
               code: node.__code  // 发送完整代码给 AI
             }
           });
+        } else if ($isTerminalReferenceNode(node)) {
+          // 🎯 终端引用节点 - 先收集信息，稍后异步获取输出
+          rawContent.push({
+            type: 'terminal_reference',
+            value: {
+              terminalId: node.getTerminalId(),
+              terminalName: node.getTerminalName(),
+              output: '', // 🎯 占位符，稍后填充
+              _needsFetch: true // 🎯 标记需要获取输出
+            }
+          });
         } else {
           // 对于其他节点，检查是否有子节点
           const children = node.getChildren?.() || [];
@@ -826,7 +839,8 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
       part.type === 'file_reference' ||
       part.type === 'image_reference' ||
       part.type === 'code_reference' ||  // 🎯 支持代码引用
-      part.type === 'text_file_content'  // ✨ 新增：包含文本文件内容
+      part.type === 'text_file_content' ||  // ✨ 包含文本文件内容
+      part.type === 'terminal_reference'  // 🎯 支持终端引用
     );
 
     if (hasContent && !isLoading && !isProcessing) {
@@ -861,6 +875,34 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
               // 继续使用原始内容发送
             }
           }
+        }
+
+        // 🎯 异步获取所有终端引用的输出内容
+        const terminalRefs = finalContent.filter(
+          (p: any) => p.type === 'terminal_reference' && p.value._needsFetch
+        );
+
+        if (terminalRefs.length > 0) {
+          console.log(`🖥️ [Terminal] Fetching output for ${terminalRefs.length} terminal(s)...`);
+
+          // 并行获取所有终端输出
+          const terminalPromises = terminalRefs.map(async (ref: any) => {
+            try {
+              const result = await atSymbolHandler.getTerminalOutput(ref.value.terminalId);
+              if (result) {
+                ref.value.output = result.output;
+                ref.value.terminalName = result.name; // 更新终端名称
+                console.log(`✅ [Terminal] Got output for ${result.name}, length: ${result.output.length}`);
+              }
+            } catch (error) {
+              console.error(`❌ [Terminal] Failed to get output for terminal ${ref.value.terminalId}:`, error);
+              ref.value.output = `[获取终端输出失败: ${error}]`;
+            }
+            // 清理临时标记
+            delete ref.value._needsFetch;
+          });
+
+          await Promise.all(terminalPromises);
         }
 
         // 撰写模式：发送消息

@@ -7,7 +7,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Edit3, Trash2, Settings, Wrench, Plus, X } from 'lucide-react';
+import { Edit3, Trash2, Settings, Wrench, Plus, X, Download } from 'lucide-react';
 import { SessionInfo } from '../../../src/types/sessionTypes';
 import { SessionType, SESSION_UI_CONSTANTS } from '../../../src/constants/sessionConstants';
 import { useTranslation } from '../hooks/useTranslation';
@@ -27,7 +27,7 @@ interface SessionSwitcherProps {
   onCreateSession: (type: SessionType) => void;
 
   /** Session操作回调 */
-  onSessionAction: (action: 'rename' | 'delete' | 'duplicate', sessionId: string) => void;
+  onSessionAction: (action: 'rename' | 'delete' | 'duplicate' | 'export', sessionId: string) => void;
 
   /** 获取Session标题的函数 */
   getSessionTitle?: (sessionId: string) => string;
@@ -221,7 +221,7 @@ export const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
   /**
    * 处理Session操作
    */
-  const handleSessionAction = (action: 'rename' | 'delete' | 'duplicate', sessionId: string) => {
+  const handleSessionAction = (action: 'rename' | 'delete' | 'duplicate' | 'export', sessionId: string) => {
     onSessionAction(action, sessionId);
     setContextMenu(null);
   };
@@ -334,18 +334,10 @@ export const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
         >
           <button
             className="session-switcher__context-item"
-            onClick={() => handleSessionAction('rename', contextMenu.sessionId)}
+            onClick={() => handleSessionAction('export', contextMenu.sessionId)}
           >
-            <Edit3 size={12} stroke="currentColor" className="session-switcher__context-icon" />
-            {t('session.rename')}
-          </button>
-
-          <button
-            className="session-switcher__context-item"
-            onClick={() => handleSessionAction('duplicate', contextMenu.sessionId)}
-          >
-            <span className="session-switcher__context-icon">📄</span>
-            {t('session.duplicate')}
+            <Download size={12} stroke="currentColor" className="session-switcher__context-icon" />
+            {t('session.export', undefined, 'Export Chat')}
           </button>
 
           {sessions.length > 1 && (
@@ -354,7 +346,7 @@ export const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
               onClick={() => handleSessionAction('delete', contextMenu.sessionId)}
             >
               <Trash2 size={12} stroke="currentColor" className="session-switcher__context-icon" />
-              {t('session.delete')}
+              {t('session.delete', undefined, 'Delete')}
             </button>
           )}
         </div>

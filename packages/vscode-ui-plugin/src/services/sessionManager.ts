@@ -128,8 +128,11 @@ export class SessionManager extends EventEmitter {
       // 🎯 首先初始化持久化服务
       await this.persistenceService.initialize();
 
-      // 🎯 初始化用户内存/上下文内容（在创建AI服务之前）
-      await this.initializeUserMemory();
+      // 🎯 异步初始化用户内存/上下文内容（不阻塞会话恢复）
+      // 这样用户可以立即看到历史会话，而上下文加载在后台进行
+      this.initializeUserMemory().catch(error => {
+        this.logger.error('❌ Failed to initialize user memory in background', error instanceof Error ? error : undefined);
+      });
 
       // 🎯 加载持久化的会话数据
       try {

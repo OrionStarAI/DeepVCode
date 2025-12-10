@@ -36,7 +36,8 @@ export type MessageContentPart =
   | { type: 'text'; value: string }  // 原始文本片段
   | { type: 'file_reference'; value: { fileName: string; filePath: string } }  // 文件引用（项目中的文件）
   | { type: 'image_reference'; value: { fileName: string; data: string; mimeType: string; originalSize: number; compressedSize: number; width?: number; height?: number } }  // 图片引用
-  | { type: 'text_file_content'; value: { fileName: string; content: string; language?: string; size: number } };  // 文本文件内容（直接嵌入，不依赖文件路径）
+  | { type: 'text_file_content'; value: { fileName: string; content: string; language?: string; size: number } }  // 文本文件内容（直接嵌入，不依赖文件路径）
+  | { type: 'terminal_reference'; value: { terminalId: number; terminalName: string; output: string } };  // 🎯 终端引用（终端输出内容）
 
 export type MessageContent = MessageContentPart[];  // 现在存储原始结构，不是拼装后的内容
 
@@ -209,12 +210,18 @@ export type WebViewToExtensionMessage =
   | { type: 'session_clear'; payload: SessionOperationPayload }
   | { type: 'session_export'; payload: SessionExportPayload }
   | { type: 'session_import'; payload: SessionImportPayload }
+  | { type: 'export_chat'; payload: { sessionId: string; title: string; content: string; format: string } }
   | { type: 'session_list_request'; payload: { includeAll?: boolean; offset?: number; limit?: number; searchQuery?: string } }
   // 🎯 UI消息保存相关
   | { type: 'save_ui_message'; payload: { sessionId: string; message: ChatMessage } }
   | { type: 'save_session_ui_history'; payload: { sessionId: string; messages: ChatMessage[] } }
   // 🎯 文件搜索相关
   | { type: 'file_search'; payload: { prefix: string } }
+  // 🎯 终端列表和输出获取
+  | { type: 'get_terminals'; payload: {} }
+  | { type: 'get_terminal_output'; payload: { terminalId: number } }
+  // 🎯 获取最近打开的文件
+  | { type: 'get_recent_files'; payload: {} }
   // 🎯 文件路径解析相关
   | { type: 'resolve_file_paths'; payload: { files: string[] } }
   // 🎯 文件变更接受相关
@@ -296,6 +303,12 @@ export type ExtensionToWebViewMessage =
   | { type: 'update_rollbackable_ids'; payload: { sessionId: string; rollbackableMessageIds: string[] } }
   // 🎯 文件搜索结果
   | { type: 'file_search_result'; payload: { files: Array<{ label: string; value: string; description?: string }> } }
+  // 🎯 终端列表结果
+  | { type: 'terminals_result'; payload: { terminals: Array<{ id: number; name: string }> } }
+  // 🎯 终端输出结果
+  | { type: 'terminal_output_result'; payload: { terminalId: number; name: string; output: string } }
+  // 🎯 最近打开的文件结果
+  | { type: 'recent_files_result'; payload: { files: Array<{ label: string; value: string; description?: string }> } }
   // 🎯 文件路径解析结果
   | { type: 'file_paths_resolved'; payload: { resolvedFiles: string[] } }
   // 🎯 项目设置相关

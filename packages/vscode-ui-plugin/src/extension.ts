@@ -26,10 +26,12 @@ import { EnvironmentOptimizer } from './utils/environmentOptimizer';
 import { ROLLBACK_MESSAGES } from './i18n/messages';
 import { ClipboardCacheService } from './services/clipboardCacheService';
 import { SlashCommandService } from './services/slashCommandService';
+import { TerminalOutputService } from './services/terminalOutputService';
 import { SessionType, SessionStatus } from './constants/sessionConstants';
 import { SessionInfo } from './types/sessionTypes';
 
 let logger: Logger;
+let terminalOutputService: TerminalOutputService;
 let webviewService: WebViewService;
 let contextService: ContextService;
 let communicationService: MultiSessionCommunicationService;
@@ -63,6 +65,21 @@ export async function activate(context: vscode.ExtensionContext) {
     // 设置环境变量,方便core知道自己的运行模式
     process.env.VSCODE_APP_ROOT = vscode.env.appRoot;
     process.env.VSCODE_PLUGIN = '1';
+
+    // 🎯 设置 CLI 版本号，用于 User-Agent
+    // 直接从 context 获取扩展信息更可靠
+    const extensionVersion = context.extension?.packageJSON?.version || 'unknown';
+    console.log(`[Extension] Version: ${extensionVersion}`);
+    process.env.CLI_VERSION = `VSCode-${extensionVersion}`;
+    // 同时通过 setCliVersion 设置（如果 ProxyAuthManager 已初始化）
+    try {
+      const { setCliVersion } = require('deepv-code-core');
+      setCliVersion(`VSCode-${extensionVersion}`);
+      console.log(`[Extension] Set CLI version to VSCode-${extensionVersion}`);
+    } catch (e) {
+      console.log(`[Extension] Could not call setCliVersion: ${e}`);
+      // core 可能还没加载，稍后会在 ProxyAuthManager 初始化时从环境变量读取
+    }
 
     // 🚀 安装环境优化器
     EnvironmentOptimizer.installGlobalOptimization();
@@ -119,6 +136,10 @@ export async function activate(context: vscode.ExtensionContext) {
     slashCommandService = new SlashCommandService(logger);
     await slashCommandService.initialize();
     logger.info('SlashCommandService initialized');
+
+    // 🎯 初始化终端输出服务（早期初始化以捕获更多输出）
+    terminalOutputService = TerminalOutputService.getInstance(logger);
+    logger.info('TerminalOutputService initialized');
 
     // 🎯 初始化规则服务
     ruleService = new RuleService(logger);
@@ -277,6 +298,8 @@ function setupServiceCommunication() {
 }
 
 function setupBasicMessageHandlers() {
+  logger.info('🔧 setupBasicMessageHandlers() called');
+
   // 处理聊天消息
   communicationService.onChatMessage(async (message) => {
     try {
@@ -896,6 +919,92 @@ function setupBasicMessageHandlers() {
     } catch (error) {
       logger.error('Failed to process file search request', error instanceof Error ? error : undefined);
       await communicationService.sendFileSearchResult([]);
+    }
+  });
+
+  // 🎯 处理终端列表请求
+  communicationService.onGetTerminals(async () => {
+    try {
+      logger.info('Received get terminals request');
+      const allTerminals = vscode.window.terminals;
+      logger.info(`Found ${allTerminals.length} terminals`);
+
+      const terminals = allTerminals.map((terminal, index) => {
+        const terminalInfo = {
+          id: index,
+          name: terminal.name || `Terminal ${index + 1}`
+        };
+        logger.info(`Terminal ${index}: ${terminalInfo.name}`);
+        return terminalInfo;
+      });
+
+      logger.info(`Sending ${terminals.length} terminals to webview`);
+      await communicationService.sendTerminalsResult(terminals);
+    } catch (error) {
+      logger.error('Failed to get terminals', error instanceof Error ? error : undefined);
+      await communicationService.sendTerminalsResult([]);
+    }
+  });
+
+  // 🎯 处理终端输出请求
+  communicationService.onGetTerminalOutput(async (data) => {
+    try {
+      logger.info(`Received get terminal output request for terminal ${data.terminalId}`);
+
+      // 🎯 使用 TerminalOutputService 异步获取终端输出（通过剪贴板）
+      const result = await terminalOutputService.getTerminalOutputAsync(data.terminalId, 200);
+
+      if (result) {
+        logger.info(`✅ Got terminal output for ${result.name}, length: ${result.output.length}`);
+        await communicationService.sendTerminalOutputResult(
+          data.terminalId,
+          result.name,
+          result.output
+        );
+      } else {
+        // 终端不存在
+        await communicationService.sendTerminalOutputResult(
+          data.terminalId,
+          'Unknown',
+          '[Error: Terminal not found]'
+        );
+      }
+    } catch (error) {
+      logger.error('Failed to get terminal output', error instanceof Error ? error : undefined);
+      await communicationService.sendTerminalOutputResult(
+        data.terminalId,
+        'Error',
+        '[Error: Failed to get terminal output]'
+      );
+    }
+  });
+
+  // 🎯 处理最近打开文件请求
+  communicationService.onGetRecentFiles(async () => {
+    try {
+      logger.info('Received get recent files request');
+      const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+
+      // Get recently opened text documents (up to 3)
+      const recentFiles = vscode.workspace.textDocuments
+        .filter(doc => doc.uri.scheme === 'file' && !doc.isUntitled)
+        .slice(0, 3)
+        .map(doc => {
+          const fileName = path.basename(doc.fileName);
+          const relativePath = workspaceRoot
+            ? path.relative(workspaceRoot, doc.fileName)
+            : doc.fileName;
+          return {
+            label: relativePath,
+            value: relativePath,
+            description: fileName
+          };
+        });
+
+      await communicationService.sendRecentFilesResult(recentFiles);
+    } catch (error) {
+      logger.error('Failed to get recent files', error instanceof Error ? error : undefined);
+      await communicationService.sendRecentFilesResult([]);
     }
   });
 
@@ -1768,6 +1877,37 @@ function setupMultiSessionHandlers() {
 
   communicationService.onSessionExport(async () => {
     logger.warn('Session export not implemented yet');
+  });
+
+  // 🎯 处理导出聊天记录请求
+  logger.info('🔧 Registering handler for export_chat');
+  communicationService.onExportChat(async (payload) => {
+    try {
+      logger.info(`Exporting chat: ${payload.title}`);
+
+      // 弹出保存对话框
+      const defaultFileName = `${payload.title.replace(/[<>:"/\\|?*]/g, '_')}.md`;
+      const uri = await vscode.window.showSaveDialog({
+        defaultUri: vscode.Uri.file(defaultFileName),
+        filters: {
+          'Markdown': ['md'],
+          'All Files': ['*']
+        },
+        saveLabel: 'Export'
+      });
+
+      if (uri) {
+        // 写入文件
+        const encoder = new TextEncoder();
+        await vscode.workspace.fs.writeFile(uri, encoder.encode(payload.content));
+
+        logger.info(`Chat exported to: ${uri.fsPath}`);
+        vscode.window.showInformationMessage(`Chat exported to ${uri.fsPath}`);
+      }
+    } catch (error) {
+      logger.error('Failed to export chat', error instanceof Error ? error : undefined);
+      vscode.window.showErrorMessage(`Failed to export chat: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   });
 
   communicationService.onSessionImport(async () => {

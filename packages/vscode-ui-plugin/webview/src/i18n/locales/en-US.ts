@@ -43,7 +43,9 @@ export const enUS: Translations = {
   },
 
   welcome: {
-    title: '👋 Welcome to DeepV AI Assistant',
+    title: '👋 Welcome to DeepV Code for VS Code',
+    titleMain: 'Welcome to DeepV Code ',
+    titleSub: 'for VS Code',
     description: 'I can help you with code analysis, refactoring, debugging, and documentation generation.',
     quickStart: 'Quick Start:',
     analyzeFile: '📄 Analyze File',
@@ -56,6 +58,13 @@ export const enUS: Translations = {
     generateTestsPrompt: 'Generate unit tests',
     tip: '💡 Tip:',
     tipContent: 'Use Ctrl+Enter to send messages, right-click on selected code for quick analysis',
+  },
+
+  session: {
+    export: 'Export Chat',
+    delete: 'Delete',
+    rename: 'Rename',
+    duplicate: 'Duplicate',
   },
 
   chat: {
@@ -336,5 +345,17 @@ export const enUS: Translations = {
       invalidImageType: 'Invalid image type. Please use JPG, PNG, WebP, GIF, or BMP.',
       imageTooLarge: 'Image too large. Maximum size is 10MB.',
     },
+  },
+
+  atMention: {
+    recentFiles: 'Recent Files',
+    filesAndFolders: 'Files & Folders',
+    terminals: 'Terminals',
+    noRecentFiles: 'No recent files',
+    noTerminals: 'No terminals available',
+    selectFile: 'Select file',
+    selectTerminal: 'Select terminal',
+    terminalOutput: 'Terminal output (last 200 lines)',
+    loading: 'Loading...',
   },
 };
