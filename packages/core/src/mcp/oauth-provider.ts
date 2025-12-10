@@ -232,10 +232,25 @@ export class MCPOAuthProvider {
             res.writeHead(this.HTTP_OK, { 'Content-Type': 'text/html' });
             res.end(`
             <html>
+              <head>
+                <title>Authentication Successful</title>
+                <meta charset="utf-8">
+                <style>
+                  * { margin: 0; padding: 0; box-sizing: border-box; }
+                  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', sans-serif; background: #fff; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+                  .container { text-align: center; padding: 40px; max-width: 420px; }
+                  .success-badge { width: 80px; height: 80px; background: #f5f5f5; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 32px; font-size: 40px; }
+                  h1 { font-size: 24px; font-weight: 600; color: #000; margin-bottom: 12px; letter-spacing: -0.5px; }
+                  p { font-size: 15px; color: #666; margin-bottom: 28px; line-height: 1.6; }
+
+                </style>
+              </head>
               <body>
-                <h1>Authentication Successful!</h1>
-                <p>You can close this window and return to Gemini CLI.</p>
-                <script>window.close();</script>
+                <div class="container">
+                  <div class="success-badge">✓</div>
+                  <h1>Authentication Successful</h1>
+                  <p>You can now close this window and return to DeepV Code.</p>
+                </div>
               </body>
             </html>
           `);
@@ -416,6 +431,7 @@ export class MCPOAuthProvider {
     serverName: string,
     config: MCPOAuthConfig,
     mcpServerUrl?: string,
+    updateOutput?: (output: string) => void,
   ): Promise<MCPOAuthToken> {
     // If no authorization URL is provided, try to discover OAuth configuration
     if (!config.authorizationUrl && mcpServerUrl) {
@@ -567,11 +583,13 @@ export class MCPOAuthProvider {
     // Open browser
     try {
       await open(authUrl);
+      if (updateOutput) {
+        updateOutput(`✓ Browser opened. If it didn't open, please visit:\n${authUrl}`);
+      }
     } catch (error) {
-      console.warn(
-        'Failed to open browser automatically:',
-        getErrorMessage(error),
-      );
+      if (updateOutput) {
+        updateOutput(`⚠ Failed to open browser. Please visit this URL:\n${authUrl}`);
+      }
     }
 
     // Wait for callback
