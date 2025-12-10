@@ -178,7 +178,36 @@ export function FileSelectionMenu({
   // 🎯 当视图切换时重置选中索引
   useEffect(() => {
     setLocalSelectedIndex(0);
+    // 切换视图时重置滚动位置
+    if (menuRef.current) {
+      menuRef.current.scrollTop = 0;
+    }
   }, [currentView]);
+
+  // 🎯 自动滚动到选中项
+  useEffect(() => {
+    if (menuRef.current) {
+      const menu = menuRef.current;
+      // 使用 class 选择器找到当前选中的项
+      const selectedItem = menu.querySelector('.at-menu-item.selected') as HTMLElement;
+
+      if (selectedItem) {
+        const itemTop = selectedItem.offsetTop;
+        const itemHeight = selectedItem.offsetHeight;
+        const menuScrollTop = menu.scrollTop;
+        const menuHeight = menu.clientHeight;
+
+        // 检查上方：如果项的顶部在滚动窗口上方，滚动到项的顶部
+        if (itemTop < menuScrollTop) {
+          menu.scrollTop = itemTop;
+        }
+        // 检查下方：如果项的底部在滚动窗口下方，滚动使项的底部与窗口底部对齐
+        else if (itemTop + itemHeight > menuScrollTop + menuHeight) {
+          menu.scrollTop = itemTop + itemHeight - menuHeight;
+        }
+      }
+    }
+  }, [localSelectedIndex]);
 
   // 🎯 获取图标
   const getItemIcon = (option: FileOption): string | React.ReactNode => {

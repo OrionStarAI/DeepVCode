@@ -73,6 +73,13 @@ export const MultiSessionApp: React.FC = () => {
   // 🎯 规则管理对话框状态
   const [isRulesManagementOpen, setIsRulesManagementOpen] = useState(false);
 
+  // 🎯 重命名对话框状态
+  const [renameDialog, setRenameDialog] = useState<{ isOpen: boolean; sessionId: string; currentName: string }>({
+    isOpen: false,
+    sessionId: '',
+    currentName: ''
+  });
+
   // 🎯 Plan模式通知状态
   const [planModeNotification, setPlanModeNotification] = useState<{
     visible: boolean;
@@ -1057,12 +1064,42 @@ User question: ${contentStr}`;
   };
 
   /**
+   * 统一处理Session重命名
+   */
+  const handleRenameSession = (sessionId: string, newTitle: string) => {
+    const trimmedTitle = newTitle.trim();
+    if (!trimmedTitle) return;
+
+    console.log(`✏️ [RENAME] Renaming session ${sessionId}: "${trimmedTitle}"`);
+
+    // 1. 更新 state（这会更新顶部的标签页）
+    updateSessionInfo(sessionId, { name: trimmedTitle });
+
+    // 2. 更新历史列表（前端直接修改）
+    setHistorySessionsList((prev) =>
+      prev.map((s) => (s.id === sessionId ? { ...s, title: trimmedTitle } : s))
+    );
+
+    // 3. 发送更新消息到后端（后端会保存并发送 session_updated 和 session_list_update）
+    getGlobalMessageService().updateSession({
+      sessionId,
+      updates: { name: trimmedTitle },
+    });
+  };
+
+  /**
    * 处理Session操作（统一的操作入口）
    */
   const handleSessionAction = (action: 'rename' | 'delete' | 'duplicate' | 'export', sessionId: string) => {
     switch (action) {
       case 'rename':
-        // TODO: 显示重命名对话框
+        const session = state.sessions.get(sessionId);
+        const currentTitle = session?.info?.name || getSessionTitle(sessionId) || '';
+        setRenameDialog({
+          isOpen: true,
+          sessionId,
+          currentName: currentTitle
+        });
         break;
       case 'delete':
         // 1. 先从历史列表中移除
@@ -1696,21 +1733,7 @@ User question: ${contentStr}`;
           handleSessionAction('delete', sessionId);
         }}
         onRenameSession={(sessionId, newTitle) => {
-          console.log(`✏️ [RENAME] Renaming session ${sessionId}: "${newTitle}"`);
-
-          // 1. 更新 state（这会更新顶部的标签页）
-          updateSessionInfo(sessionId, { name: newTitle });
-
-          // 2. 更新历史列表（前端直接修改）
-          setHistorySessionsList((prev) =>
-            prev.map((s) => (s.id === sessionId ? { ...s, title: newTitle } : s))
-          );
-
-          // 3. 发送更新消息到后端（后端会保存并发送 session_updated 和 session_list_update）
-          getGlobalMessageService().updateSession({
-            sessionId,
-            updates: { name: newTitle },
-          });
+          handleRenameSession(sessionId, newTitle);
         }}
         onExportSession={(sessionId) => {
           handleExportSession(sessionId);
@@ -1731,6 +1754,97 @@ User question: ${contentStr}`;
         isOpen={isNanoBananaOpen}
         onClose={() => setIsNanoBananaOpen(false)}
       />
+
+      {/* 🎯 重命名对话框 */}
+      {renameDialog.isOpen && (
+        <div className="rename-dialog-overlay" style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}>
+          <div className="rename-dialog" style={{
+            backgroundColor: 'var(--vscode-editor-background)',
+            border: '1px solid var(--vscode-widget-border)',
+            padding: '20px',
+            borderRadius: '4px',
+            width: '300px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)'
+          }}>
+            <h3 style={{ marginTop: 0, marginBottom: '16px', fontSize: '14px', fontWeight: 600 }}>Rename Session</h3>
+            <input
+              type="text"
+              defaultValue={renameDialog.currentName}
+              autoFocus
+              style={{
+                width: '100%',
+                padding: '8px',
+                marginBottom: '16px',
+                backgroundColor: 'var(--vscode-input-background)',
+                color: 'var(--vscode-input-foreground)',
+                border: '1px solid var(--vscode-input-border)',
+                borderRadius: '2px',
+                outline: 'none'
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  const newName = e.currentTarget.value.trim();
+                  if (newName) {
+                    handleRenameSession(renameDialog.sessionId, newName);
+                    setRenameDialog({ ...renameDialog, isOpen: false });
+                  }
+                } else if (e.key === 'Escape') {
+                  setRenameDialog({ ...renameDialog, isOpen: false });
+                }
+              }}
+              ref={(input) => {
+                if (input) {
+                  setTimeout(() => input.select(), 0);
+                }
+              }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button
+                onClick={() => setRenameDialog({ ...renameDialog, isOpen: false })}
+                style={{
+                  padding: '6px 12px',
+                  backgroundColor: 'transparent',
+                  border: '1px solid var(--vscode-button-secondaryBackground)',
+                  color: 'var(--vscode-button-secondaryForeground)',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={(e) => {
+                  const input = e.currentTarget.parentElement?.previousElementSibling as HTMLInputElement;
+                  const newName = input.value.trim();
+                  if (newName) {
+                    handleRenameSession(renameDialog.sessionId, newName);
+                    setRenameDialog({ ...renameDialog, isOpen: false });
+                  }
+                }}
+                style={{
+                  padding: '6px 12px',
+                  backgroundColor: 'var(--vscode-button-background)',
+                  color: 'var(--vscode-button-foreground)',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 🎯 全局拖拽测试组件 - 恢复启用但非干扰模式 */}
       <DragDropGlobalTest enabled={false} />

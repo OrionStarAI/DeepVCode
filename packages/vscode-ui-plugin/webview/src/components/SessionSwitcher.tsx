@@ -334,6 +334,14 @@ export const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
         >
           <button
             className="session-switcher__context-item"
+            onClick={() => handleSessionAction('rename', contextMenu.sessionId)}
+          >
+            <Edit3 size={12} stroke="currentColor" className="session-switcher__context-icon" />
+            {t('session.rename', undefined, 'Rename')}
+          </button>
+
+          <button
+            className="session-switcher__context-item"
             onClick={() => handleSessionAction('export', contextMenu.sessionId)}
           >
             <Download size={12} stroke="currentColor" className="session-switcher__context-icon" />

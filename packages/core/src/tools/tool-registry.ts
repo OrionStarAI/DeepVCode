@@ -13,6 +13,60 @@ import { discoverMcpTools, syncMcpToolsToRegistry, hasDiscoveredMcpTools, getMCP
 import { DiscoveredMCPTool } from './mcp-tool.js';
 import { parse } from 'shell-quote';
 import { shouldUseTolerantMode } from '../config/modelCapabilities.js';
+import { createHash } from 'node:crypto';
+
+// Tool name validation pattern: only letters, numbers, underscores, hyphens, length 1-128
+const VALID_TOOL_NAME_PATTERN = /^[a-zA-Z0-9_-]{1,128}$/;
+
+/**
+ * Sanitizes an invalid tool name to make it valid.
+ * Strategy:
+ * 1. If the name contains only ASCII chars with some invalid ones, replace invalid chars with '-'
+ * 2. If the name contains non-ASCII chars, generate a short CRC hash as the name
+ * 3. Truncate to 128 chars if needed
+ *
+ * @param originalName The original tool name
+ * @returns Object with sanitized name and whether it was modified
+ */
+export function sanitizeToolName(originalName: string): { name: string; wasModified: boolean; usedHash: boolean } {
+  if (!originalName || originalName.length === 0) {
+    return { name: '', wasModified: false, usedHash: false };
+  }
+
+  // Already valid
+  if (VALID_TOOL_NAME_PATTERN.test(originalName)) {
+    return { name: originalName, wasModified: false, usedHash: false };
+  }
+
+  // Check if contains non-ASCII characters
+  const hasNonAscii = /[^\x00-\x7F]/.test(originalName);
+
+  if (hasNonAscii) {
+    // Use CRC32-like short hash for names with non-ASCII chars
+    const hash = createHash('md5').update(originalName).digest('hex').substring(0, 16);
+    const sanitizedName = `tool_${hash}`;
+    return { name: sanitizedName, wasModified: true, usedHash: true };
+  }
+
+  // Replace invalid ASCII chars with '-', then clean up
+  let sanitized = originalName
+    .replace(/[^a-zA-Z0-9_-]/g, '-') // Replace invalid chars with '-'
+    .replace(/-+/g, '-')             // Collapse multiple '-' into one
+    .replace(/^-+|-+$/g, '');        // Trim leading/trailing '-'
+
+  // Ensure not empty after sanitization
+  if (sanitized.length === 0) {
+    const hash = createHash('md5').update(originalName).digest('hex').substring(0, 16);
+    return { name: `tool_${hash}`, wasModified: true, usedHash: true };
+  }
+
+  // Truncate to 128 chars if needed
+  if (sanitized.length > 128) {
+    sanitized = sanitized.substring(0, 128);
+  }
+
+  return { name: sanitized, wasModified: true, usedHash: false };
+}
 
 type ToolParams = Record<string, unknown>;
 
@@ -138,6 +192,15 @@ export class ToolRegistry {
    * @param tool - The tool object containing schema and execution logic.
    */
   registerTool(tool: Tool): void {
+    // 🎯 验证工具名称是否符合规范（兼容 Gemini 和 Claude）
+    const validToolNamePattern = /^[a-zA-Z0-9_-]{1,128}$/;
+    if (!tool.name || !validToolNamePattern.test(tool.name)) {
+      console.warn(
+        `[ToolRegistry] Rejecting tool with invalid name: "${tool.name}" (must match ^[a-zA-Z0-9_-]{1,128}$)`,
+      );
+      return; // 🎯 拒绝注册无效的工具
+    }
+
     if (this.tools.has(tool.name)) {
       if (tool instanceof DiscoveredMCPTool) {
         tool = tool.asFullyQualifiedTool();
@@ -409,12 +472,41 @@ export class ToolRegistry {
     const tolerantMode = shouldUseTolerantMode(this.config.getModel());
 
     this.tools.forEach((tool) => {
-      const schema = { ...tool.schema };
-      // Apply tolerant sanitization to runtime schemas
-      if (schema.parameters) {
-        sanitizeParameters(schema.parameters as Schema, tolerantMode);
+      try {
+        const schema = { ...tool.schema };
+
+        // Validate and sanitize tool name
+        if (!schema.name) {
+          console.warn(`[ToolRegistry] Skipping tool with empty name`);
+          return;
+        }
+
+        if (!VALID_TOOL_NAME_PATTERN.test(schema.name)) {
+          const { name: sanitizedName, wasModified, usedHash } = sanitizeToolName(schema.name);
+
+          if (sanitizedName.length === 0) {
+            console.warn(`[ToolRegistry] Skipping tool with invalid name: "${schema.name}" (cannot be sanitized)`);
+            return;
+          }
+
+          if (usedHash) {
+            console.warn(`[ToolRegistry] Tool name contains non-ASCII characters, using hash: "${schema.name}" -> "${sanitizedName}"`);
+          } else if (wasModified) {
+            console.warn(`[ToolRegistry] Tool name sanitized: "${schema.name}" -> "${sanitizedName}" (invalid chars replaced with '-')`);
+          }
+
+          schema.name = sanitizedName;
+        }
+
+        // Apply tolerant sanitization to runtime schemas
+        if (schema.parameters) {
+          sanitizeParameters(schema.parameters as Schema, tolerantMode);
+        }
+        declarations.push(schema);
+      } catch (error) {
+        // Fallback: skip any tool that causes an exception
+        console.error(`[ToolRegistry] Error processing tool "${tool.name}":`, error);
       }
-      declarations.push(schema);
     });
     return declarations;
   }
