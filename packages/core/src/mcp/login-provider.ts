@@ -222,30 +222,30 @@ export class MCPOAuthProvider {
                   <script>
                     let seconds = 3;
                     const countdownElement = document.getElementById('countdown');
-                    
+
                     const timer = setInterval(() => {
                       seconds--;
                       if (countdownElement) {
                         countdownElement.textContent = seconds.toString();
                       }
-                      
+
                       if (seconds <= 0) {
                         clearInterval(timer);
-                        
+
                         // 尝试多种方式关闭页面
                         try {
                           window.close();
                         } catch (e) {
                           console.log('无法自动关闭窗口:', e);
                         }
-                        
+
                         setTimeout(() => {
                           try {
                             window.open('', '_self', '');
                             window.close();
                           } catch (e) {}
                         }, 100);
-                        
+
                         setTimeout(() => {
                           document.body.innerHTML = '<div class="container"><h2>❌ Authentication Failed</h2><p>Please close this window manually and return to the terminal.</p></div>';
                         }, 300);
@@ -291,23 +291,23 @@ export class MCPOAuthProvider {
               <body>
                 <div class="container">
                   <h1 class="success">✅ Authentication Successful!</h1>
-                  <p>You can close this window and return to Gemini CLI.</p>
+                  <p>You can close this window and return to DeepV Code.</p>
                   <p>Page will close automatically in <span id="countdown">2</span> seconds.</p>
                   <div class="countdown">If the page doesn't close automatically, please close it manually.</div>
                 </div>
                 <script>
                   let seconds = 2;
                   const countdownElement = document.getElementById('countdown');
-                  
+
                   const timer = setInterval(() => {
                     seconds--;
                     if (countdownElement) {
                       countdownElement.textContent = seconds.toString();
                     }
-                    
+
                     if (seconds <= 0) {
                       clearInterval(timer);
-                      
+
                       // 尝试多种方式关闭页面
                       try {
                         // 方法1: 直接关闭窗口
@@ -315,7 +315,7 @@ export class MCPOAuthProvider {
                       } catch (e) {
                         console.log('方法1失败:', e);
                       }
-                      
+
                       // 方法2: 尝试关闭标签页
                       setTimeout(() => {
                         try {
@@ -325,7 +325,7 @@ export class MCPOAuthProvider {
                           console.log('方法2失败:', e);
                         }
                       }, 100);
-                      
+
                       // 方法3: 尝试通过 opener 关闭
                       setTimeout(() => {
                         try {
@@ -337,7 +337,7 @@ export class MCPOAuthProvider {
                           console.log('方法3失败:', e);
                         }
                       }, 200);
-                      
+
                       // 方法4: 重定向到 about:blank 并关闭
                       setTimeout(() => {
                         try {
@@ -347,7 +347,7 @@ export class MCPOAuthProvider {
                           console.log('方法4失败:', e);
                         }
                       }, 300);
-                      
+
                       // 如果无法关闭窗口，显示提示信息
                       setTimeout(() => {
                         document.body.innerHTML = '<div class="container"><h2>✅ Authentication Successful</h2><p>Please close this window manually and return to the terminal.</p><p style="color: #666; font-size: 12px;">Due to browser security restrictions, the page cannot be closed automatically.</p></div>';

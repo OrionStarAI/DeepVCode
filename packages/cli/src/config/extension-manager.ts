@@ -370,9 +370,9 @@ export class ExtensionManager {
       const config = this.loadExtensionConfig(extensionPath);
 
       // Validate name format
-      if (!/^[a-z0-9-]+$/.test(config.name)) {
+      if (!/^[a-zA-Z0-9\s-]+$/.test(config.name)) {
         errors.push(
-          `Invalid extension name: "${config.name}". Only lowercase letters, numbers, and dashes allowed.`,
+          `Invalid extension name: "${config.name}". Only letters, numbers, spaces, and dashes allowed.`,
         );
       }
 

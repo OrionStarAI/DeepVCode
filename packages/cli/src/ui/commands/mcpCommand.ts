@@ -293,16 +293,20 @@ ${COLOR_MAGENTA}${t('mcp.status.tip')}${RESET_COLOR} ${COLOR_GREY}${t('mcp.statu
     }
 
     if (serverTools.length === 0 && serverPrompts.length === 0) {
-      message += `  ${t('mcp.status.no.tools.prompts')}\n`;
+      message += `  ${t('mcp.status.no.tools.prompts')}`;
+      if (status === MCPServerStatus.DISCONNECTED && needsAuthHint) {
+        message += `\n  ${tp('mcp.status.type.auth.command', { serverName })}`;
+      }
+      message += '\n';
     } else if (serverTools.length === 0) {
       message += `  ${t('mcp.status.no.tools.simple')}`;
       if (status === MCPServerStatus.DISCONNECTED && needsAuthHint) {
-        message += ` ${COLOR_GREY}${tp('mcp.status.type.auth.command', { serverName })}${RESET_COLOR}`;
+        message += `\n  ${tp('mcp.status.type.auth.command', { serverName })}`;
       }
       message += '\n';
     } else if (status === MCPServerStatus.DISCONNECTED && needsAuthHint) {
       // This case is for when serverTools.length > 0
-      message += `  ${COLOR_GREY}${tp('mcp.status.type.auth.command', { serverName })}${RESET_COLOR}\n`;
+      message += `\n  ${tp('mcp.status.type.auth.command', { serverName })}\n`;
     }
     message += '\n';
   }
@@ -344,7 +348,7 @@ const authCommand: SlashCommand = {
   action: async (
     context: CommandContext,
     args: string,
-  ): Promise<MessageActionReturn> => {
+  ): Promise<SlashCommandActionReturn> => {
     const serverName = args.trim();
     const { config } = context.services;
 
@@ -402,6 +406,14 @@ const authCommand: SlashCommand = {
         Date.now(),
       );
 
+      context.ui.addItem(
+        {
+          type: 'info',
+          text: tp('mcp.auth.opening.browser', {}),
+        },
+        Date.now(),
+      );
+
       // Import dynamically to avoid circular dependencies
       const { MCPOAuthProvider } = await import('deepv-code-core');
 
@@ -416,6 +428,15 @@ const authCommand: SlashCommand = {
         serverName,
         oauthConfig,
         mcpServerUrl,
+        (output: string) => {
+          context.ui.addItem(
+            {
+              type: 'info',
+              text: output,
+            },
+            Date.now(),
+          );
+        },
       );
 
       context.ui.addItem(
@@ -444,11 +465,8 @@ const authCommand: SlashCommand = {
         await geminiClient.setTools();
       }
 
-      return {
-        type: 'message',
-        messageType: 'info',
-        content: tp('mcp.auth.refresh.success', { serverName }),
-      };
+      // Display the updated MCP status to show newly discovered tools
+      return getMcpStatus(context, false, false, false);
     } catch (error) {
       return {
         type: 'message',
