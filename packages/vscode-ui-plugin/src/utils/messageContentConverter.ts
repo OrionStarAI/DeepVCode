@@ -51,6 +51,8 @@ export async function convertMessageContentToParts(
         return `[IMAGE:${item.value.fileName}]`;
       case 'text_file_content':  // ✨ 新增
         return `@[${item.value.fileName}]`;
+      case 'terminal_reference':  // 🎯 终端引用
+        return `@[Terminal: ${item.value.terminalName}]`;
       default:
         return '';
     }
@@ -91,6 +93,15 @@ export async function convertMessageContentToParts(
         const part = processImageToPart(item.value);
         allParts.push(part);
         imageParts++;
+      } else if (item.type === 'terminal_reference') {
+        // 🎯 终端引用：将终端输出作为上下文添加
+        console.log(`🔍 [MessageConverter] 处理 terminal_reference: ${item.value.terminalName}`);
+        const terminalInfo = `--- Terminal Output: ${item.value.terminalName} ---`;
+        allParts.push({ text: terminalInfo });
+        if (item.value.output) {
+          allParts.push({ text: item.value.output });
+        }
+        fileParts++; // 计入文件部分（作为上下文内容）
       }
       // text类型已经在第一步处理了，这里跳过
     } catch (error) {
@@ -149,6 +160,8 @@ export function messageContentToString(content: any): string {
         return `[IMAGE:${part.value.fileName}]`;
       case 'text_file_content':  // ✨ 新增
         return `@[${part.value.fileName}]`;
+      case 'terminal_reference':  // 🎯 终端引用
+        return `@[Terminal: ${part.value.terminalName}]`;
       default:
         return '';
     }

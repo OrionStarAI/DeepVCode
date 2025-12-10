@@ -78,6 +78,25 @@ export class ProxyAuthManager {
   }
 
   /**
+   * 🎯 生成规范的 User-Agent 字符串
+   * 格式: DeepVCode/<client>/<version> (<platform>; <arch>)
+   */
+  private getUserAgent(): string {
+    const version = this.cliVersion;
+    const platform = process.platform;
+    const arch = process.arch;
+
+    // 检查是否是 VSCode 插件（版本以 VSCode- 开头）
+    if (version.startsWith('VSCode-')) {
+      const actualVersion = version.replace('VSCode-', '');
+      return `DeepVCode/VSCode/${actualVersion} (${platform}; ${arch})`;
+    }
+
+    // CLI 模式
+    return `DeepVCode/CLI/${version} (${platform}; ${arch})`;
+  }
+
+  /**
    * 格式化时间间隔为人类可读的字符串
    */
   private formatTimeRemaining(milliseconds: number): string {
@@ -130,6 +149,8 @@ export class ProxyAuthManager {
 
 
     // 尝试从环境变量获取CLI版本
+    // VSCode 插件会设置为 "VSCode-x.x.x" 格式
+    // CLI 会设置为 "x.x.x" 格式
     this.cliVersion = process.env.CLI_VERSION || 'unknown';
 
     this.config = {
@@ -609,19 +630,20 @@ export class ProxyAuthManager {
   async getUserHeaders(): Promise<Record<string, string>> {
     const token = await this.getAccessToken();
     const cliVersion = this.getCliVersion();
+    const userAgent = this.getUserAgent();
 
     if (token) {
       return {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
         'X-Client-Version': cliVersion,
-        'User-Agent': `DeepVCode-CLI/${cliVersion}`
+        'User-Agent': userAgent
       };
     }
 
     return {
       'X-Client-Version': cliVersion,
-      'User-Agent': `DeepVCode-CLI/${cliVersion}`
+      'User-Agent': userAgent
     };
   }
 
@@ -631,6 +653,7 @@ export class ProxyAuthManager {
    */
   getUserHeadersSync(): Record<string, string> {
     const cliVersion = this.getCliVersion();
+    const userAgent = this.getUserAgent();
 
     // 使用当前的token（不进行刷新检查）
     if (this.jwtTokenData?.accessToken) {
@@ -638,13 +661,13 @@ export class ProxyAuthManager {
         'Authorization': `Bearer ${this.jwtTokenData.accessToken}`,
         'Content-Type': 'application/json',
         'X-Client-Version': cliVersion,
-        'User-Agent': `DeepVCode-CLI/${cliVersion}`
+        'User-Agent': userAgent
       };
     }
 
     return {
       'X-Client-Version': cliVersion,
-      'User-Agent': `DeepVCode-CLI/${cliVersion}`
+      'User-Agent': userAgent
     };
   }
 

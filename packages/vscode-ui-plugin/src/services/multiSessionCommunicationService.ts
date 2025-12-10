@@ -378,6 +378,28 @@ export class MultiSessionCommunicationService {
     });
   }
 
+  // 🎯 终端相关消息发送方法
+  async sendTerminalsResult(terminals: Array<{ id: number; name: string }>) {
+    await this.sendMessage({
+      type: 'terminals_result',
+      payload: { terminals }
+    });
+  }
+
+  async sendTerminalOutputResult(terminalId: number, name: string, output: string) {
+    await this.sendMessage({
+      type: 'terminal_output_result',
+      payload: { terminalId, name, output }
+    });
+  }
+
+  async sendRecentFilesResult(files: Array<{ label: string; value: string; description?: string }>) {
+    await this.sendMessage({
+      type: 'recent_files_result',
+      payload: { files }
+    });
+  }
+
   // =============================================================================
   // 消息监听器注册方法
   // =============================================================================
@@ -413,6 +435,10 @@ export class MultiSessionCommunicationService {
 
   onSessionImport(handler: (payload: SessionImportPayload) => void): vscode.Disposable {
     return this.addMessageHandler('session_import', handler);
+  }
+
+  onExportChat(handler: (payload: { sessionId: string; title: string; content: string; format: string }) => void): vscode.Disposable {
+    return this.addMessageHandler('export_chat', handler);
   }
 
   onSessionListRequest(handler: (payload?: { includeAll?: boolean; offset?: number; limit?: number; searchQuery?: string }) => void): vscode.Disposable {
@@ -510,6 +536,23 @@ export class MultiSessionCommunicationService {
   // 🎯 文件路径解析相关监听器
   onResolveFilePaths(handler: (data: { files: string[] }) => void): vscode.Disposable {
     return this.addMessageHandler('resolve_file_paths', handler);
+  }
+
+  // 🎯 终端相关监听器
+  onGetTerminals(handler: () => void): vscode.Disposable {
+    this.logger.info('🔧 Registering handler for get_terminals');
+    return this.addMessageHandler('get_terminals', handler);
+  }
+
+  onGetTerminalOutput(handler: (data: { terminalId: number }) => void): vscode.Disposable {
+    this.logger.info('🔧 Registering handler for get_terminal_output');
+    return this.addMessageHandler('get_terminal_output', handler);
+  }
+
+  // 🎯 最近打开文件监听器
+  onGetRecentFiles(handler: () => void): vscode.Disposable {
+    this.logger.info('🔧 Registering handler for get_recent_files');
+    return this.addMessageHandler('get_recent_files', handler);
   }
 
   // 🎯 项目设置更新监听器

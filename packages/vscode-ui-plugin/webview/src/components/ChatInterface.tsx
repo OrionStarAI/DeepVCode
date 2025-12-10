@@ -430,19 +430,19 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   /**
    * 🎯 处理回退到指定消息
-   * 
+   *
    * 功能说明：
    * - 回退操作会删除目标消息之后的所有消息
    * - 同时会将文件系统回滚到该消息时的状态
    * - 直接执行，无需二次确认
-   * 
+   *
    * 执行流程：
    * 1. 验证目标消息有效性
    * 2. 中断当前正在进行的AI处理
    * 3. 截断UI中的消息历史
    * 4. 发送回退请求到后端进行文件回滚
    * 5. 后端会回滚文件到目标消息时的状态
-   * 
+   *
    * @param messageId - 要回退到的目标消息ID
    */
   const handleRollback = async (messageId: string) => {
@@ -498,7 +498,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       // - 将这些文件回滚到目标消息时的状态
       // - 回滚AI的对话历史
       console.log('🎯 发送回退请求到后端（包含完整消息历史用于文件分析）');
-      
+
       getGlobalMessageService().sendRollbackToMessage(
         sessionId || '',
         messageId,
@@ -512,7 +512,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
     } catch (error) {
       console.error('❌ 回退操作失败:', error);
-      
+
       // 错误已经记录到控制台，后端会通过 sendChatError 向前端发送错误消息
       // 前端会在聊天界面显示错误提示
     }
@@ -586,7 +586,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         {messages.length === 0 ? (
           <div className="welcome-message">
             <div className="welcome-content">
-              <h2>{t('welcome.title')}</h2>
+              <h2>
+                👋 {t('welcome.titleMain')}
+                <br />
+                <span className="welcome-subtitle">{t('welcome.titleSub')}</span>
+              </h2>
               <p>{t('welcome.description')}</p>
 
             </div>
@@ -645,10 +649,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                         // 1. 必须是用户消息
                         // 2. 必须在可回滚消息列表中
                         // 3. 不能是最后一条消息（最后一条消息后面没有可回退的内容）
-                        message.type === 'user' && 
-                        rollbackableMessageIds.includes(message.id) && 
-                        index < messages.length - 1 
-                          ? handleRollback 
+                        message.type === 'user' &&
+                        rollbackableMessageIds.includes(message.id) &&
+                        index < messages.length - 1
+                          ? handleRollback
                           : undefined
                       }
                       canRevert={message.type === 'user' && rollbackableMessageIds.includes(message.id) && index < messages.length - 1}

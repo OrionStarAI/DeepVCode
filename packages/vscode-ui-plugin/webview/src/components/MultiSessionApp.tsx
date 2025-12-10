@@ -31,6 +31,7 @@ import { MessageContent } from '../types/index';
 import { createTextMessageContent, messageContentToString } from '../utils/messageContentUtils';
 import { ChatMessage, ToolCall, ToolCallStatus } from '../types';
 import DragDropGlobalTest from './DragDropGlobalTest';
+
 import './MultiSessionApp.css';
 
 /**
@@ -46,6 +47,10 @@ export const MultiSessionApp: React.FC = () => {
   const { t } = useTranslation();
   const [isInitialized, setIsInitialized] = useState(false);
 
+  useEffect(() => {
+    console.log('🔍 [DEBUG-UI-FLOW] [MultiSessionApp] Mounted');
+  }, []);
+
   // 🎯 MessageInput 的 ref，用于插入代码引用
   const messageInputRef = useRef<MessageInputHandle>(null);
 
@@ -56,6 +61,7 @@ export const MultiSessionApp: React.FC = () => {
 
   // 🎯 启动流程状态管理
   const [showLoadingScreen, setShowLoadingScreen] = useState(true);
+  const [waitingForSessions, setWaitingForSessions] = useState(false); // 🎯 新增：等待 session 数据就绪
   const [showUpdatePrompt, setShowUpdatePrompt] = useState(false);
   const [updateInfo, setUpdateInfo] = useState<any>(null);
   const [forceUpdate, setForceUpdate] = useState(false);
@@ -66,6 +72,13 @@ export const MultiSessionApp: React.FC = () => {
 
   // 🎯 规则管理对话框状态
   const [isRulesManagementOpen, setIsRulesManagementOpen] = useState(false);
+
+  // 🎯 重命名对话框状态
+  const [renameDialog, setRenameDialog] = useState<{ isOpen: boolean; sessionId: string; currentName: string }>({
+    isOpen: false,
+    sessionId: '',
+    currentName: ''
+  });
 
   // 🎯 Plan模式通知状态
   const [planModeNotification, setPlanModeNotification] = useState<{
@@ -174,6 +187,34 @@ export const MultiSessionApp: React.FC = () => {
     };
   }, []);
 
+  // 🎯 监听 session 数据就绪，隐藏 LoadingScreen
+  useEffect(() => {
+    if (waitingForSessions) {
+      console.log('🔍 [DEBUG-UI-FLOW] [MultiSessionApp] Waiting for sessions...');
+      // 检查条件：
+      // 1. state.sessions 有数据
+      // 2. 或者 state.currentSessionId 已经设置（说明默认 session 已创建）
+      // 3. 或者超时保护（如果一直没数据，也得让用户进去）
+
+      const hasSessions = state.sessions.size > 0;
+      const hasCurrentSession = !!state.currentSessionId;
+
+      if (hasSessions || hasCurrentSession) {
+        console.log('🎯 [UI-READY] Sessions data populated, hiding loading screen');
+        setShowLoadingScreen(false);
+        setWaitingForSessions(false);
+      } else {
+        // 设置一个短超时，如果数据还没来，强制进入（可能是真的没有 session）
+        const timer = setTimeout(() => {
+          console.warn('⚠️ [UI-READY] Timeout waiting for session data, forcing entry');
+          setShowLoadingScreen(false);
+          setWaitingForSessions(false);
+        }, 2000);
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [waitingForSessions, state.sessions.size, state.currentSessionId]);
+
   // 🎯 加载历史列表（分页）
   const loadHistoryList = React.useCallback((offset: number, limit: number) => {
     setIsLoadingHistory(true);
@@ -257,7 +298,7 @@ export const MultiSessionApp: React.FC = () => {
     // =============================================================================
 
     messageService.onSessionListUpdate(({ sessions, currentSessionId }) => {
-        console.log('🚀 [STARTUP] Received session list:', sessions.length, 'sessions');
+        console.log('🔍 [DEBUG-UI-FLOW] [MultiSessionApp] onSessionListUpdate received:', sessions.length, 'sessions');
 
 
       // 🎯 注意：这里是活跃session列表（最多10个）
@@ -1023,12 +1064,42 @@ User question: ${contentStr}`;
   };
 
   /**
+   * 统一处理Session重命名
+   */
+  const handleRenameSession = (sessionId: string, newTitle: string) => {
+    const trimmedTitle = newTitle.trim();
+    if (!trimmedTitle) return;
+
+    console.log(`✏️ [RENAME] Renaming session ${sessionId}: "${trimmedTitle}"`);
+
+    // 1. 更新 state（这会更新顶部的标签页）
+    updateSessionInfo(sessionId, { name: trimmedTitle });
+
+    // 2. 更新历史列表（前端直接修改）
+    setHistorySessionsList((prev) =>
+      prev.map((s) => (s.id === sessionId ? { ...s, title: trimmedTitle } : s))
+    );
+
+    // 3. 发送更新消息到后端（后端会保存并发送 session_updated 和 session_list_update）
+    getGlobalMessageService().updateSession({
+      sessionId,
+      updates: { name: trimmedTitle },
+    });
+  };
+
+  /**
    * 处理Session操作（统一的操作入口）
    */
-  const handleSessionAction = (action: 'rename' | 'delete' | 'duplicate', sessionId: string) => {
+  const handleSessionAction = (action: 'rename' | 'delete' | 'duplicate' | 'export', sessionId: string) => {
     switch (action) {
       case 'rename':
-        // TODO: 显示重命名对话框
+        const session = state.sessions.get(sessionId);
+        const currentTitle = session?.info?.name || getSessionTitle(sessionId) || '';
+        setRenameDialog({
+          isOpen: true,
+          sessionId,
+          currentName: currentTitle
+        });
         break;
       case 'delete':
         // 1. 先从历史列表中移除
@@ -1045,6 +1116,73 @@ User question: ${contentStr}`;
       case 'duplicate':
         getGlobalMessageService().duplicateSession(sessionId);
         break;
+      case 'export':
+        handleExportSession(sessionId);
+        break;
+    }
+  };
+
+  /**
+   * 导出Session聊天记录为Markdown
+   */
+  const handleExportSession = (sessionId: string) => {
+    // 获取 session 信息（state.sessions 是 Map）
+    const session = state.sessions.get(sessionId);
+    if (!session) {
+      console.warn('Session not found for export:', sessionId);
+      return;
+    }
+
+    const messages = session.messages || [];
+    const sessionTitle = getSessionTitle(sessionId) || 'Chat Export';
+    const exportDate = new Date().toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      timeZoneName: 'short'
+    });
+
+    // 生成 Markdown 内容
+    let markdown = `# ${sessionTitle}\n\n`;
+    markdown += `*Exported on ${exportDate} from DeepV Code*\n\n`;
+    markdown += `---\n\n`;
+
+    messages.forEach((msg: any) => {
+      const role = msg.type === 'user' ? '**User**' : '**DeepV Code**';
+      markdown += `${role}\n\n`;
+
+      // 处理消息内容
+      if (typeof msg.content === 'string') {
+        markdown += `${msg.content}\n\n`;
+      } else if (Array.isArray(msg.content)) {
+        msg.content.forEach((part: any) => {
+          if (part.type === 'text') {
+            markdown += `${part.value || part.text || ''}\n\n`;
+          } else if (part.type === 'file_reference') {
+            markdown += `📁 *File: ${part.value?.fileName || 'unknown'}*\n\n`;
+          } else if (part.type === 'code_reference') {
+            markdown += `\`\`\`${part.value?.language || ''}\n${part.value?.code || ''}\n\`\`\`\n\n`;
+          } else if (part.type === 'terminal_reference') {
+            markdown += `💻 *Terminal: ${part.value?.terminalName || 'unknown'}*\n\n`;
+          }
+        });
+      }
+    });
+
+    // 发送到扩展进行保存
+    if (window.vscode) {
+      window.vscode.postMessage({
+        type: 'export_chat' as any,
+        payload: {
+          sessionId,
+          title: sessionTitle,
+          content: markdown,
+          format: 'md'
+        }
+      });
     }
   };
 
@@ -1235,32 +1373,14 @@ User question: ${contentStr}`;
     return (
       <LoadingScreen
         onLoadingComplete={() => {
-          console.log('🎯 [LoadingScreen] Loading complete - waiting for sessions_ready before showing main app');
+          console.log('🔍 [DEBUG-UI-FLOW] [MultiSessionApp] LoadingScreen finished. Checking data readiness...');
           setIsLoggedIn(true);
           setIsInitialized(true);
 
           // 🎯 LoadingScreen完成意味着服务已初始化
-          // 等待后端 SessionManager 初始化完成（sessions_ready 信号）后再隐藏 loading
-          // 这样可以确保所有历史 session 都已恢复完成
-
-          // 🎯 设置超时保护：10秒后强制隐藏 loading（session 恢复可能需要较长时间）
-          const timeout = setTimeout(() => {
-            console.warn('⏰ [TIMEOUT] Sessions ready timeout (10s), forcing hide loading screen');
-            setShowLoadingScreen(false);
-          }, 10000);
-
-          // 🎯 一次性监听 sessions_ready 信号
-          const handleSessionsReady = (event: MessageEvent) => {
-            if (event.data?.type === 'sessions_ready') {
-              console.log('🎯 [SESSIONS-READY] All sessions restored, hiding loading screen');
-              clearTimeout(timeout);
-              window.removeEventListener('message', handleSessionsReady);
-              setShowLoadingScreen(false);
-            }
-          };
-          window.addEventListener('message', handleSessionsReady);
-
-          console.log('✅ [MultiSessionApp] LoadingScreen完成，等待后端 sessions_ready 信号');
+          // 直接标记为等待数据检查，不再等待 sessions_ready 信号（因为可能已经错过了）
+          // 下方的 useEffect 会检查 state.sessions 是否已有数据
+          setWaitingForSessions(true);
         }}
         onLoginRequired={(error) => {
           console.log('🎯 [LoadingScreen] Login required:', error);
@@ -1391,6 +1511,8 @@ User question: ${contentStr}`;
   // 🎯 直接使用state获取当前session，避免stateRef时序问题
   // 在render过程中，stateRef可能还没有更新到最新状态，导致getCurrentSession()返回旧数据
   const currentSession = state.currentSessionId ? state.sessions.get(state.currentSessionId) || null : null;
+
+  console.log('🔍 [DEBUG-UI-FLOW] [MultiSessionApp] Rendering main UI. Current Session:', state.currentSessionId, 'Sessions count:', state.sessions.size);
 
   return (
     <div className="multi-session-app">
@@ -1611,21 +1733,10 @@ User question: ${contentStr}`;
           handleSessionAction('delete', sessionId);
         }}
         onRenameSession={(sessionId, newTitle) => {
-          console.log(`✏️ [RENAME] Renaming session ${sessionId}: "${newTitle}"`);
-
-          // 1. 更新 state（这会更新顶部的标签页）
-          updateSessionInfo(sessionId, { name: newTitle });
-
-          // 2. 更新历史列表（前端直接修改）
-          setHistorySessionsList((prev) =>
-            prev.map((s) => (s.id === sessionId ? { ...s, title: newTitle } : s))
-          );
-
-          // 3. 发送更新消息到后端（后端会保存并发送 session_updated 和 session_list_update）
-          getGlobalMessageService().updateSession({
-            sessionId,
-            updates: { name: newTitle },
-          });
+          handleRenameSession(sessionId, newTitle);
+        }}
+        onExportSession={(sessionId) => {
+          handleExportSession(sessionId);
         }}
         // 🎯 分页相关
         hasMore={historyHasMore}
@@ -1643,6 +1754,97 @@ User question: ${contentStr}`;
         isOpen={isNanoBananaOpen}
         onClose={() => setIsNanoBananaOpen(false)}
       />
+
+      {/* 🎯 重命名对话框 */}
+      {renameDialog.isOpen && (
+        <div className="rename-dialog-overlay" style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          justifyContent: 'center',
+          alignItems: 'center',
+          zIndex: 1000
+        }}>
+          <div className="rename-dialog" style={{
+            backgroundColor: 'var(--vscode-editor-background)',
+            border: '1px solid var(--vscode-widget-border)',
+            padding: '20px',
+            borderRadius: '4px',
+            width: '300px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)'
+          }}>
+            <h3 style={{ marginTop: 0, marginBottom: '16px', fontSize: '14px', fontWeight: 600 }}>Rename Session</h3>
+            <input
+              type="text"
+              defaultValue={renameDialog.currentName}
+              autoFocus
+              style={{
+                width: '100%',
+                padding: '8px',
+                marginBottom: '16px',
+                backgroundColor: 'var(--vscode-input-background)',
+                color: 'var(--vscode-input-foreground)',
+                border: '1px solid var(--vscode-input-border)',
+                borderRadius: '2px',
+                outline: 'none'
+              }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  const newName = e.currentTarget.value.trim();
+                  if (newName) {
+                    handleRenameSession(renameDialog.sessionId, newName);
+                    setRenameDialog({ ...renameDialog, isOpen: false });
+                  }
+                } else if (e.key === 'Escape') {
+                  setRenameDialog({ ...renameDialog, isOpen: false });
+                }
+              }}
+              ref={(input) => {
+                if (input) {
+                  setTimeout(() => input.select(), 0);
+                }
+              }}
+            />
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+              <button
+                onClick={() => setRenameDialog({ ...renameDialog, isOpen: false })}
+                style={{
+                  padding: '6px 12px',
+                  backgroundColor: 'transparent',
+                  border: '1px solid var(--vscode-button-secondaryBackground)',
+                  color: 'var(--vscode-button-secondaryForeground)',
+                  cursor: 'pointer'
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={(e) => {
+                  const input = e.currentTarget.parentElement?.previousElementSibling as HTMLInputElement;
+                  const newName = input.value.trim();
+                  if (newName) {
+                    handleRenameSession(renameDialog.sessionId, newName);
+                    setRenameDialog({ ...renameDialog, isOpen: false });
+                  }
+                }}
+                style={{
+                  padding: '6px 12px',
+                  backgroundColor: 'var(--vscode-button-background)',
+                  color: 'var(--vscode-button-foreground)',
+                  border: 'none',
+                  cursor: 'pointer'
+                }}
+              >
+                Save
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 🎯 全局拖拽测试组件 - 恢复启用但非干扰模式 */}
       <DragDropGlobalTest enabled={false} />

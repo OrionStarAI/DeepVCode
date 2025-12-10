@@ -238,6 +238,18 @@ Please follow the above custom rules and guidelines when processing user request
           }
           break;
 
+        case 'terminal_reference':
+          if (!part.value.terminalName) {
+            errors.push(`Part ${i}: terminal must have terminalName`);
+          }
+          break;
+
+        case 'text_file_content':
+          if (!part.value.fileName || !part.value.content) {
+            errors.push(`Part ${i}: text_file_content must have fileName and content`);
+          }
+          break;
+
         default:
           errors.push(`Part ${i}: unknown type ${(part as any).type}`);
       }

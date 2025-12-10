@@ -42,6 +42,8 @@ export interface Translations {
 
   welcome: {
     title: string;
+    titleMain: string;
+    titleSub: string;
     description: string;
     quickStart: string;
     analyzeFile: string;
@@ -54,6 +56,13 @@ export interface Translations {
     generateTestsPrompt: string;
     tip: string;
     tipContent: string;
+  };
+
+  session: {
+    export: string;
+    delete: string;
+    rename: string;
+    duplicate: string;
   };
 
   chat: {
@@ -334,6 +343,18 @@ export interface Translations {
       invalidImageType: string;
       imageTooLarge: string;
     };
+  };
+
+  atMention: {
+    recentFiles: string;
+    filesAndFolders: string;
+    terminals: string;
+    noRecentFiles: string;
+    noTerminals: string;
+    selectFile: string;
+    selectTerminal: string;
+    terminalOutput: string;
+    loading: string;
   };
 }
 

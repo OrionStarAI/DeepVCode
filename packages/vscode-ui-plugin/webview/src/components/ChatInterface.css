@@ -41,6 +41,13 @@
   font-size: 24px; /* 明确字体大小 */
 }
 
+.welcome-content h2 .welcome-subtitle {
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--vscode-descriptionForeground);
+  opacity: 0.7;
+}
+
 .welcome-content p {
   margin: 0 0 20px 0; /* 减少间距 */
   color: var(--vscode-descriptionForeground);

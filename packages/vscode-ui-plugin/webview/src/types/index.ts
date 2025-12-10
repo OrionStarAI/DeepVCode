@@ -168,6 +168,9 @@ export interface MessageToExtension {
        'chat_message' |
        'get_context' |
        'file_search' |                // 🎯 新增：文件搜索
+       'get_terminals' |              // 🎯 新增：获取终端列表
+       'get_terminal_output' |        // 🎯 新增：获取终端输出
+       'get_recent_files' |           // 🎯 新增：获取最近打开的文件
        'get_extension_version' |      // 🎯 新增：获取扩展版本号
        'check_for_updates' |          // 🎯 新增：检查更新
        'openDiffInEditor' |           // 🎯 新增：在编辑器中打开diff

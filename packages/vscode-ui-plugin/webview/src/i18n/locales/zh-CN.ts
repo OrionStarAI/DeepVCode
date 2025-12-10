@@ -43,7 +43,9 @@ export const zhCN: Translations = {
   },
 
   welcome: {
-    title: '👋 欢迎使用 DeepV AI 助手',
+    title: '👋 欢迎使用 DeepV Code for VS Code',
+    titleMain: '欢迎使用 DeepV Code ',
+    titleSub: 'for VS Code',
     description: '我可以帮助你进行代码分析、重构、调试和文档生成。',
     quickStart: '快速开始：',
     analyzeFile: '📄 分析文件',
@@ -56,6 +58,13 @@ export const zhCN: Translations = {
     generateTestsPrompt: '生成单元测试',
     tip: '💡 提示：',
     tipContent: '使用 Ctrl+Enter 发送消息，选中代码后右键可以快速分析',
+  },
+
+  session: {
+    export: '导出聊天记录',
+    delete: '删除',
+    rename: '重命名',
+    duplicate: '复制',
   },
 
   chat: {
@@ -336,5 +345,17 @@ export const zhCN: Translations = {
       invalidImageType: '无效的图片类型。请使用 JPG、PNG、WebP、GIF 或 BMP 格式。',
       imageTooLarge: '图片过大。最大支持 10MB。',
     },
+  },
+
+  atMention: {
+    recentFiles: '最近打开',
+    filesAndFolders: '文件和文件夹',
+    terminals: '终端',
+    noRecentFiles: '无最近打开的文件',
+    noTerminals: '无可用终端',
+    selectFile: '选择文件',
+    selectTerminal: '选择终端',
+    terminalOutput: '终端输出（最近 200 行）',
+    loading: '加载中...',
   },
 };

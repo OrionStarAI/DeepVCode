@@ -4,14 +4,15 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   padding: 0;
   background-color: transparent;
-  border: 1px solid var(--vscode-button-border, transparent);
+  border: none;
   border-radius: 4px;
   cursor: pointer;
-  color: var(--vscode-button-foreground);
+  color: var(--vscode-icon-foreground, var(--vscode-foreground));
+  opacity: 0.7;
   transition: all 0.2s ease;
   flex-shrink: 0;
   position: relative;
@@ -20,13 +21,13 @@
 
 /* Normal state */
 .refine-button:not(:disabled) {
-  background-color: var(--vscode-button-background);
+  background-color: transparent;
 }
 
 /* Hover state */
 .refine-button:hover:not(:disabled) {
-  background-color: var(--vscode-button-hoverBackground);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+  background-color: var(--vscode-toolbar-hoverBackground, rgba(90, 93, 94, 0.31));
+  opacity: 1;
 }
 
 /* Focus state */
@@ -37,23 +38,22 @@
 
 /* Hovered style - extra visual feedback */
 .refine-button.hovered:not(:disabled) {
-  background-color: var(--vscode-button-hoverBackground);
-  transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  background-color: var(--vscode-toolbar-hoverBackground, rgba(90, 93, 94, 0.31));
+  opacity: 1;
 }
 
 /* Loading state */
 .refine-button.loading {
-  color: var(--vscode-button-foreground);
-  background-color: var(--vscode-button-hoverBackground);
+  color: var(--vscode-foreground);
+  opacity: 0.7;
   cursor: not-allowed;
 }
 
 /* Disabled state */
 .refine-button:disabled {
-  opacity: 0.5;
+  opacity: 0.3;
   cursor: not-allowed;
-  background-color: var(--vscode-button-background);
+  background-color: transparent;
 }
 
 /* Icon styles */

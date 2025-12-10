@@ -1,12 +1,12 @@
 /**
  * Loading Screen Component - Startup Loading Interface
- * Elegant loading screen with DeepV Code logo and progress bar
+ * High-End "Quantum Core" Design
  *
  * @license Apache-2.0
  * Copyright 2025 DeepV Code
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { UpdatePrompt } from './UpdatePrompt';
 import { getUpdateCheckService, UpdateCheckResponse } from '../services/updateCheckService';
 import './LoadingScreen.css';
@@ -39,62 +39,95 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
 }) => {
   // 🎯 内部进度条状态
   const [currentProgress, setCurrentProgress] = useState(0);
-  const [currentStage, setCurrentStage] = useState('Starting DeepV Code AI Assistant...');
+  const [currentStage, setCurrentStage] = useState('Initializing Neural Core...');
+  const [isFadingOut, setIsFadingOut] = useState(false);
 
   // 🎯 三个并行任务的状态
   const [loginCheckComplete, setLoginCheckComplete] = useState(false);
   const [updateCheckComplete, setUpdateCheckComplete] = useState(false);
   const [serviceInitComplete, setServiceInitComplete] = useState(false);
-  
+
   // 🎯 检测结果
   const [loginResult, setLoginResult] = useState<{ isLoggedIn: boolean; error?: string } | null>(null);
   const [updateResult, setUpdateResult] = useState<{ updateInfo: UpdateCheckResponse; forceUpdate: boolean } | null>(null);
 
   const updateCheckService = getUpdateCheckService();
 
-  // 🎯 1. 内部假进度条逻辑
+  // 🎯 1. 统一的进度条动画控制逻辑
   useEffect(() => {
-    let progressTimer: NodeJS.Timeout;
+    let animationFrameId: number;
     const startTime = Date.now();
-    const maxDuration = 8000; // 8秒内到达95%
-    const targetProgress = 95;
+    const maxDuration = 12000; // 12秒内到达98%
 
-    const updateProgress = () => {
-      const elapsed = Date.now() - startTime;
-      const progressRatio = Math.min(elapsed / maxDuration, 1);
-      
-      // 缓动函数
-      const easedProgress = 1 - Math.pow(1 - progressRatio, 3);
-      const newProgress = Math.floor(easedProgress * targetProgress);
-      
-      setCurrentProgress(newProgress);
-      
-      if (progressRatio < 1) {
-        progressTimer = setTimeout(updateProgress, 150);
-      }
+    const animate = () => {
+      const now = Date.now();
+      const allTasksComplete = loginCheckComplete && updateCheckComplete && serviceInitComplete;
+
+      setCurrentProgress(prev => {
+        // 如果已经满了，停止
+        if (prev >= 100) return 100;
+
+        let nextProgress = prev;
+
+        if (allTasksComplete) {
+          // 🚀 任务完成：平滑冲刺模式
+          // 目标 100，速度优雅且克制
+          // 动态步长：剩余距离的 2% + 基础速度 0.1
+          // 限制最大步长为 0.8 (每帧最多 0.8%)，确保不会瞬间跳变
+          const remaining = 100 - prev;
+          const step = Math.min(0.8, Math.max(0.1, remaining * 0.02));
+          nextProgress = prev + step;
+
+          if (nextProgress >= 99.8) nextProgress = 100;
+        } else {
+          // 🐢 任务未完成：慢速等待模式
+          // 使用 Sine Ease In Out 算法，但在 12秒内到 98
+          const elapsed = now - startTime;
+          const progressRatio = Math.min(elapsed / maxDuration, 1);
+
+          // Sine Ease In Out
+          const easedProgress = 0.5 * (1 - Math.cos(progressRatio * Math.PI));
+          const target = 98;
+
+          // 计算理论上的当前进度
+          const theoreticalProgress = easedProgress * target;
+
+          // 确保进度单调递增，且不超过 98
+          // 如果理论进度比当前快，就跟上；如果比当前慢（比如之前冲刺过），就保持
+          if (theoreticalProgress > prev && theoreticalProgress < 98) {
+             nextProgress = theoreticalProgress;
+          } else if (prev < 98) {
+             // 即使时间到了，如果还没到 98，也慢慢蹭过去?
+             // 不，按时间算就行。如果时间到了就停在 98。
+             // 但为了防止倒退，取 max
+             nextProgress = Math.max(prev, theoreticalProgress);
+             if (nextProgress > 98) nextProgress = 98;
+          }
+        }
+
+        return nextProgress;
+      });
+
+      animationFrameId = requestAnimationFrame(animate);
     };
 
-    updateProgress();
+    animationFrameId = requestAnimationFrame(animate);
 
-    return () => {
-      if (progressTimer) {
-        clearTimeout(progressTimer);
-      }
-    };
-  }, []);
+    return () => cancelAnimationFrame(animationFrameId);
+  }, [loginCheckComplete, updateCheckComplete, serviceInitComplete]);
 
   // 🎯 2. 并行启动三个任务：登录检测、升级检测、服务初始化
   useEffect(() => {
     console.log('[LoadingScreen] 🚀 Starting parallel login, update, and service initialization...');
-    
+
     // 🎯 A. 启动登录检测
     const startLoginCheck = async () => {
       try {
-        setCurrentStage('Checking login status...');
+        setCurrentStage('Authenticating Neural Link...');
         console.log('[LoadingScreen] 🔍 Starting login check...');
-        
+
         const hasReceivedResponse = { current: false };
-        
+
         const handleLoginResponse = (data: { isLoggedIn: boolean; error?: string }) => {
           console.log('[LoadingScreen] 📄 Login check result:', data);
           hasReceivedResponse.current = true;
@@ -109,9 +142,9 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
             window.removeEventListener('message', messageHandler);
           }
         };
-        
+
         window.addEventListener('message', messageHandler);
-        
+
         // 发送登录检查请求
         if (window.vscode) {
           window.vscode.postMessage({
@@ -119,17 +152,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
             payload: {}
           });
         }
-        
-        // 清理函数
-        // setTimeout(() => {
-        //   window.removeEventListener('message', messageHandler);
-        //   if (!hasReceivedResponse.current) {
-        //     console.warn('[LoadingScreen] ⚠️ Login check timeout');
-        //     setLoginResult({ isLoggedIn: false, error: 'Login check timeout' });
-        //     setLoginCheckComplete(true);
-        //   }
-        // }, 10000);
-        
+
       } catch (error) {
         console.error('[LoadingScreen] ❌ Login check failed:', error);
         setLoginResult({ isLoggedIn: false, error: 'Login check failed' });
@@ -140,7 +163,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
     // 🎯 B. 启动升级检测
     const startUpdateCheck = async () => {
       try {
-        setCurrentStage('Checking for updates...');
+        setCurrentStage('Syncing Knowledge Base...');
         console.log('[LoadingScreen] 🔍 Starting update check...');
 
         const handleMessage = (event: MessageEvent) => {
@@ -173,13 +196,13 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
               const shouldShow = updateCheckService.shouldShowUpdatePrompt(updateResult);
               if (shouldShow) {
                 console.log('[LoadingScreen] ✅ Update available, will show prompt');
-                setUpdateResult({ 
-                  updateInfo: updateResult, 
-                  forceUpdate: updateResult.forceUpdate 
+                setUpdateResult({
+                  updateInfo: updateResult,
+                  forceUpdate: updateResult.forceUpdate
                 });
               }
             }
-            
+
             setUpdateCheckComplete(true);
           } catch (error) {
             console.error('[LoadingScreen] ❌ Update check failed:', error);
@@ -218,12 +241,16 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
     // 🎯 C. 启动服务初始化
     const startServiceInit = async () => {
       try {
-        setCurrentStage('Initializing services...');
+        setCurrentStage('Calibrating AI Models...');
         console.log('[LoadingScreen] 🔍 Starting service initialization...');
 
         const handleMessage = (event: MessageEvent) => {
           if (event.data?.type === 'service_initialization_done') {
-            console.log('[LoadingScreen] ✅ Service initialization completed');
+            console.log('🔍 [DEBUG-UI-FLOW] [LoadingScreen] Received service_initialization_done');
+            setServiceInitComplete(true);
+            window.removeEventListener('message', handleMessage);
+          } else if (event.data?.type === 'sessions_ready') {
+            console.log('🔍 [DEBUG-UI-FLOW] [LoadingScreen] Received sessions_ready');
             setServiceInitComplete(true);
             window.removeEventListener('message', handleMessage);
           }
@@ -242,15 +269,6 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
           setServiceInitComplete(true);
         }
 
-        // 超时处理
-        // setTimeout(() => {
-        //   window.removeEventListener('message', handleMessage);
-        //   if (!serviceInitComplete) {
-        //     console.warn('[LoadingScreen] ⚠️ Service initialization timeout');
-        //     setServiceInitComplete(true);
-        //   }
-        // }, 20000); // 20秒超时
-
       } catch (error) {
         console.error('[LoadingScreen] ❌ Service initialization failed:', error);
         setServiceInitComplete(true);
@@ -263,20 +281,27 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
     startServiceInit();
   }, [updateCheckService]);
 
-  // 🎯 3. 当三个任务都完成时，决定下一步
+  // 🎯 3. 监听任务完成状态，更新文字
   useEffect(() => {
     if (loginCheckComplete && updateCheckComplete && serviceInitComplete) {
-      console.log('[LoadingScreen] ✅ All three tasks completed:', { 
-        loginResult, 
-        updateResult, 
-        serviceInitComplete 
-      });
-      
-      setCurrentStage('Finalizing...');
-      setCurrentProgress(100);
+      setCurrentStage('System Ready.');
+    }
+  }, [loginCheckComplete, updateCheckComplete, serviceInitComplete]);
 
-      // 延迟一下让用户看到100%
-      setTimeout(() => {
+  // 🎯 4. 监听进度条到达 100%，执行跳转
+  const hasCompletedRef = useRef(false);
+
+  useEffect(() => {
+    if (currentProgress >= 100 && !hasCompletedRef.current) {
+      console.log('🔍 [DEBUG-UI-FLOW] [LoadingScreen] Progress reached 100%, finalizing...');
+      hasCompletedRef.current = true;
+
+      // 立即触发淡出动画
+      setIsFadingOut(true);
+
+      // 延迟一下让淡出动画播放一小会儿，然后真正切换界面
+      // 这样用户看到的是界面正在消失，而不是卡在 100%
+      const timer = setTimeout(() => {
         // 🎯 优先级：升级 > 登录 > 主应用
         if (updateResult) {
           console.log('[LoadingScreen] 🔄 Redirecting to update prompt');
@@ -285,59 +310,88 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
           console.log('[LoadingScreen] 🔄 Redirecting to login');
           onLoginRequired?.(loginResult.error);
         } else {
-          console.log('[LoadingScreen] 🔄 Redirecting to main app');
+          console.log('🔍 [DEBUG-UI-FLOW] [LoadingScreen] Redirecting to main app');
           onLoadingComplete?.();
         }
-      }, 500);
+      }, 300); // 300ms 淡出时间
+
+      return () => clearTimeout(timer);
     }
-  }, [loginCheckComplete, updateCheckComplete, serviceInitComplete, loginResult, updateResult, onLoadingComplete, onLoginRequired, onUpdateRequired]);
+  }, [currentProgress, loginResult, updateResult, onLoadingComplete, onLoginRequired, onUpdateRequired]);
+
+  // SVG Circle Configuration
+  const radius = 70;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference - (currentProgress / 100) * circumference;
 
   return (
-    <div className={`loading-screen ${className}`}>
+    <div className={`loading-screen ${className} ${isFadingOut ? 'loading-screen--fadeout' : ''}`}>
       <div className="loading-screen__container">
-        {/* Logo区域 */}
-        <div className="loading-screen__logo">
-          <div className="loading-screen__logo-icon">
-            <div className="loading-screen__logo-shape">
-              <div className="loading-screen__logo-inner">
-                <span>DV</span>
-              </div>
-            </div>
-          </div>
-          <div className="loading-screen__logo-text">
-            <h1 className="loading-screen__title">DeepV Code</h1>
-            <p className="loading-screen__subtitle">AI Assistant</p>
-          </div>
+
+        {/* Quantum Core Visualization */}
+        <div className="quantum-core">
+          {/* Decorative Rings */}
+          <div className="quantum-core__ring quantum-core__ring--outer" />
+          <div className="quantum-core__ring quantum-core__ring--inner" />
+
+          {/* Progress Ring SVG */}
+          <svg className="progress-ring__svg" width="160" height="160" viewBox="0 0 160 160">
+            <circle
+              className="progress-ring__circle-bg"
+              cx="80"
+              cy="80"
+              r={radius}
+            />
+            <circle
+              className="progress-ring__circle-fg"
+              cx="80"
+              cy="80"
+              r={radius}
+              style={{
+                strokeDasharray: circumference,
+                strokeDashoffset: strokeDashoffset
+              }}
+            />
+          </svg>
+
+          {/* Central Icon - Inline SVG from assets/icon.svg */}
+          <svg
+            className="quantum-core__icon"
+            width="64"
+            height="64"
+            viewBox="0 0 256 256"
+            fill="none"
+            stroke="currentColor"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            {/* 外框：圆角方形 */}
+            <rect x="10" y="10" width="236" height="236" rx="44" strokeWidth="12" />
+
+            {/* 左上角的 “>” */}
+            <polyline points="58,56 82,70 58,84" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round"/>
+
+            {/* 光标短横（右下方，稍微低） */}
+            <line x1="92" y1="90" x2="118" y2="90" strokeWidth="10" strokeLinecap="round"/>
+
+            {/* 对勾感的 V：右边更长更高 */}
+            <polyline points="72,140 128,220 200,120" strokeWidth="18" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
         </div>
 
-        {/* 加载状态 */}
-        <div className="loading-screen__status">
-          <div className="loading-screen__stage">
+        {/* Text Info */}
+        <div className="loading-info">
+          <h1 className="app-title">DeepV Code</h1>
+          <div className="app-subtitle">for VS Code</div>
+
+          <div className="status-text">
             {currentStage}
           </div>
-          <div className="loading-screen__progress">
-            <div className="loading-screen__progress-bar">
-              <div
-                className="loading-screen__progress-fill"
-                style={{
-                  width: `${Math.min(currentProgress, 100)}%`,
-                  transition: 'width 0.4s ease-out',
-                  transformOrigin: 'left center'
-                }}
-              />
-            </div>
-            <div className="loading-screen__progress-text">
-              {Math.round(currentProgress)}%
-            </div>
+
+          <div className="percentage-display">
+            {Math.round(currentProgress)}%
           </div>
         </div>
 
-        {/* 加载动画点 */}
-        <div className="loading-screen__dots">
-          <span className="loading-screen__dot loading-screen__dot--1">.</span>
-          <span className="loading-screen__dot loading-screen__dot--2">.</span>
-          <span className="loading-screen__dot loading-screen__dot--3">.</span>
-        </div>
       </div>
     </div>
   );
