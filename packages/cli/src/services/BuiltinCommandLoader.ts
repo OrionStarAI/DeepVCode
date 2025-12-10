@@ -43,6 +43,7 @@ import { refineCommand } from '../ui/commands/refineCommand.js';
 import { queueCommand } from '../ui/commands/queueCommand.js';
 import { nanoBananaCommand } from '../ui/commands/nanoBananaCommand.js';
 import { skillCommand } from '../ui/commands/skillCommand.js';
+import { pptCommand } from '../ui/commands/pptCommand.js';
 
 /**
  * Loads the core, hard-coded slash commands that are an integral part
@@ -95,6 +96,7 @@ export class BuiltinCommandLoader implements ICommandLoader {
       vimCommand,
       yoloCommand,
       accountCommand,
+      pptCommand,
     ];
 
     return allDefinitions.filter((cmd): cmd is SlashCommand => cmd !== null);
