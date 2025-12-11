@@ -23,6 +23,7 @@ import { logger } from '../utils/enhancedLogger.js';
 import { getDefaultAuthHandler } from '../auth/authNavigator.js';
 import { UnauthorizedError } from '../utils/errors.js';
 import { SceneType, SceneManager } from './sceneManager.js';
+import { retryWithBackoff, getErrorStatus } from '../utils/retry.js';
 
 import { realTimeTokenEventManager } from '../events/realTimeTokenEvents.js';
 import { MESSAGE_ROLES } from '../config/messageRoles.js';
@@ -185,8 +186,54 @@ export class DeepVServerAdapter implements ContentGenerator {
 
   /**
    * 统一的API调用方法 - 使用新的统一端点
+   * 🆕 使用指数退避重试策略处理 429 和 5xx 错误
+   * @see https://cloud.google.com/storage/docs/retry-strategy#exponential-backoff
    */
   private async callUnifiedChatAPI(endpoint: string, requestBody: any, abortSignal?: AbortSignal): Promise<GenerateContentResponse> {
+    // 使用指数退避包装实际的 API 调用
+    return retryWithBackoff(
+      () => this.executeUnifiedChatAPICall(endpoint, requestBody, abortSignal),
+      {
+        // 使用标准退避配置，适合大多数场景
+        // 对于大量工具调用场景，可以在调用处设置 aggressiveBackoff: true
+        shouldRetry: (error: Error) => {
+          // 🚫 用户取消 - 不重试
+          if (error.message.includes('cancelled by user') || error.name === 'AbortError') {
+            return false;
+          }
+          // 🚫 认证错误 - 不重试
+          if (error.message.includes('401') || error instanceof UnauthorizedError) {
+            return false;
+          }
+          // 🚫 区域封锁 - 不重试
+          if (error.message.includes('451') || error.message.includes('REGION_BLOCKED')) {
+            return false;
+          }
+          // ✅ 429 限流 - 重试
+          if (error.message.includes('429')) {
+            return true;
+          }
+          // ✅ 5xx 服务器错误 - 重试
+          if (error.message.match(/5\d{2}/)) {
+            return true;
+          }
+          // ✅ 网络连接错误 - 重试
+          if (error instanceof TypeError &&
+              (error.message.includes('fetch failed') ||
+               error.message.includes('ECONNREFUSED'))) {
+            return true;
+          }
+          return false;
+        },
+      }
+    );
+  }
+
+  /**
+   * 执行实际的 API 调用（不含重试逻辑）
+   * 被 callUnifiedChatAPI 通过 retryWithBackoff 包装调用
+   */
+  private async executeUnifiedChatAPICall(endpoint: string, requestBody: any, abortSignal?: AbortSignal): Promise<GenerateContentResponse> {
     const userHeaders = await proxyAuthManager.getUserHeaders();
     const proxyUrl = `${proxyAuthManager.getProxyServerUrl()}${endpoint}`;
 
@@ -268,7 +315,18 @@ export class DeepVServerAdapter implements ContentGenerator {
           throw new Error(`REGION_BLOCKED_451: ${errorText}`);
         }
 
-        throw new Error(`API request failed (${response.status}): ${errorText}`);
+        // 🆕 为 429/5xx 错误创建带状态码的错误对象，便于重试逻辑判断
+        const apiError = new Error(`API request failed (${response.status}): ${errorText}`);
+        (apiError as any).status = response.status;
+        // 🆕 尝试解析 Retry-After 头，传递给重试逻辑
+        const retryAfter = response.headers.get('retry-after');
+        if (retryAfter) {
+          (apiError as any).response = {
+            status: response.status,
+            headers: { 'retry-after': retryAfter }
+          };
+        }
+        throw apiError;
       }
 
       // 🚨 第三层保护：response.json() 解析也有独立的 300s 超时
@@ -483,8 +541,52 @@ export class DeepVServerAdapter implements ContentGenerator {
 
   /**
    * 🆕 调用流式API
+   * 使用指数退避重试策略处理初始连接的 429 和 5xx 错误
+   * 注意：只对初始连接进行重试，一旦流开始就不再重试
    */
   private async callStreamAPI(endpoint: string, requestBody: any, abortSignal?: AbortSignal): Promise<Response> {
+    // 使用指数退避包装实际的流式 API 调用
+    return retryWithBackoff(
+      () => this.executeStreamAPICall(endpoint, requestBody, abortSignal),
+      {
+        shouldRetry: (error: Error) => {
+          // 🚫 用户取消 - 不重试
+          if (error.message.includes('cancelled by user') || error.name === 'AbortError') {
+            return false;
+          }
+          // 🚫 认证错误 - 不重试
+          if (error.message.includes('401') || error instanceof UnauthorizedError) {
+            return false;
+          }
+          // 🚫 区域封锁 - 不重试
+          if (error.message.includes('451') || error.message.includes('REGION_BLOCKED')) {
+            return false;
+          }
+          // ✅ 429 限流 - 重试
+          if (error.message.includes('429')) {
+            return true;
+          }
+          // ✅ 5xx 服务器错误 - 重试
+          if (error.message.match(/5\d{2}/)) {
+            return true;
+          }
+          // ✅ 网络连接错误 - 重试
+          if (error instanceof TypeError &&
+              (error.message.includes('fetch failed') ||
+               error.message.includes('ECONNREFUSED'))) {
+            return true;
+          }
+          return false;
+        },
+      }
+    );
+  }
+
+  /**
+   * 执行实际的流式 API 调用（不含重试逻辑）
+   * 被 callStreamAPI 通过 retryWithBackoff 包装调用
+   */
+  private async executeStreamAPICall(endpoint: string, requestBody: any, abortSignal?: AbortSignal): Promise<Response> {
     const userHeaders = await proxyAuthManager.getUserHeaders();
     const proxyUrl = `${proxyAuthManager.getProxyServerUrl()}${endpoint}`;
 
@@ -572,7 +674,18 @@ export class DeepVServerAdapter implements ContentGenerator {
           throw new Error(`REGION_BLOCKED_451: ${errorText}`);
         }
 
-        throw new Error(`Stream API error (${response.status}): ${errorText}`);
+        // 🆕 为 429/5xx 错误创建带状态码的错误对象，便于重试逻辑判断
+        const apiError = new Error(`Stream API error (${response.status}): ${errorText}`);
+        (apiError as any).status = response.status;
+        // 🆕 尝试解析 Retry-After 头，传递给重试逻辑
+        const retryAfter = response.headers.get('retry-after');
+        if (retryAfter) {
+          (apiError as any).response = {
+            status: response.status,
+            headers: { 'retry-after': retryAfter }
+          };
+        }
+        throw apiError;
       }
 
       const duration = Date.now() - startTime;
