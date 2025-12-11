@@ -21,13 +21,47 @@ export interface RetryOptions {
     error?: unknown,
   ) => Promise<string | boolean | null>;
   authType?: string;
+  /**
+   * 是否使用更激进的退避策略（用于高负载场景如批量工具调用）
+   * 当 true 时，使用更大的初始延迟和更慢的退避速度
+   */
+  aggressiveBackoff?: boolean;
 }
 
+/**
+ * 默认重试配置 - 符合 Google Cloud 指数退避建议
+ * @see https://cloud.google.com/storage/docs/retry-strategy#exponential-backoff
+ *
+ * 标准退避序列 (jitter ±30%):
+ * - 第1次重试: ~1s (0.7s - 1.3s)
+ * - 第2次重试: ~2s (1.4s - 2.6s)
+ * - 第3次重试: ~4s (2.8s - 5.2s)
+ * - 第4次重试: ~8s (5.6s - 10.4s)
+ * - 第5次重试: ~16s (11.2s - 20.8s)
+ * - 第6次重试: ~32s -> capped at 32s
+ */
 const DEFAULT_RETRY_OPTIONS: RetryOptions = {
-  maxAttempts: 5,
-  initialDelayMs: 5000,
-  maxDelayMs: 30000, // 30 seconds
+  maxAttempts: 6, // 增加到6次，更宽容的重试
+  initialDelayMs: 1000, // 从1秒开始，符合标准指数退避
+  maxDelayMs: 32000, // 32秒最大延迟，符合 Google 建议
   shouldRetry: defaultShouldRetry,
+  aggressiveBackoff: false,
+};
+
+/**
+ * 激进退避配置 - 用于高负载场景（如大量工具调用触发429）
+ *
+ * 激进退避序列 (jitter ±30%):
+ * - 第1次重试: ~5s (3.5s - 6.5s)
+ * - 第2次重试: ~10s (7s - 13s)
+ * - 第3次重试: ~20s (14s - 26s)
+ * - 第4次重试: ~40s (28s - 52s)
+ * - 第5次重试: ~60s -> capped at 60s
+ */
+const AGGRESSIVE_RETRY_OPTIONS: Partial<RetryOptions> = {
+  maxAttempts: 5,
+  initialDelayMs: 5000, // 5秒初始延迟
+  maxDelayMs: 60000, // 60秒最大延迟
 };
 
 /**
@@ -41,7 +75,7 @@ function defaultShouldRetry(error: Error | unknown): boolean {
   if (isDeepXQuotaError(error)) {
     return false;
   }
-  
+
   // Check for common transient error status codes either in message or a status property
   if (error && typeof (error as { status?: number }).status === 'number') {
     const status = (error as { status: number }).status;
@@ -76,6 +110,11 @@ export async function retryWithBackoff<T>(
   fn: () => Promise<T>,
   options?: Partial<RetryOptions>,
 ): Promise<T> {
+  // 根据 aggressiveBackoff 选项决定使用哪个默认配置
+  const baseOptions = options?.aggressiveBackoff
+    ? { ...DEFAULT_RETRY_OPTIONS, ...AGGRESSIVE_RETRY_OPTIONS }
+    : DEFAULT_RETRY_OPTIONS;
+
   const {
     maxAttempts,
     initialDelayMs,
@@ -84,13 +123,14 @@ export async function retryWithBackoff<T>(
     authType,
     shouldRetry,
   } = {
-    ...DEFAULT_RETRY_OPTIONS,
+    ...baseOptions,
     ...options,
   };
 
   let attempt = 0;
   let currentDelay = initialDelayMs;
   let consecutive429Count = 0;
+  const startTime = Date.now();
 
   while (attempt < maxAttempts) {
     attempt++;
@@ -98,11 +138,11 @@ export async function retryWithBackoff<T>(
       return await fn();
     } catch (error) {
       // 🚨 用户中断错误 - 立即停止重试
-      if (error instanceof Error && 
+      if (error instanceof Error &&
           (error.message.includes('cancelled by user') || error.name === 'AbortError')) {
         throw error;
       }
-      
+
       const errorStatus = getErrorStatus(error);
 
       // Check for Pro quota exceeded error first - immediate fallback for OAuth users
@@ -180,6 +220,11 @@ export async function retryWithBackoff<T>(
 
       // Check if we've exhausted retries or shouldn't retry
       if (attempt >= maxAttempts || !shouldRetry(error as Error)) {
+        const totalDuration = Date.now() - startTime;
+        console.warn(
+          `[Retry] All ${attempt} attempts exhausted after ${Math.round(totalDuration / 1000)}s. ` +
+          `Last error: ${errorStatus ?? 'unknown'}`
+        );
         throw error;
       }
 
@@ -188,19 +233,22 @@ export async function retryWithBackoff<T>(
 
       if (delayDurationMs > 0) {
         // Respect Retry-After header if present and parsed
+        // 服务端返回的 Retry-After 通常更准确，优先使用
         console.warn(
-          `Attempt ${attempt} failed with status ${delayErrorStatus ?? 'unknown'}. Retrying after explicit delay of ${delayDurationMs}ms...`,
-          error,
+          `[Retry] Attempt ${attempt}/${maxAttempts} failed (${delayErrorStatus ?? 'unknown'}). ` +
+          `Server requested retry after ${Math.round(delayDurationMs / 1000)}s`
         );
         await delay(delayDurationMs);
         // Reset currentDelay for next potential non-429 error, or if Retry-After is not present next time
         currentDelay = initialDelayMs;
       } else {
         // Fall back to exponential backoff with jitter
-        logRetryAttempt(attempt, error, errorStatus);
+        // Google recommends: delay = min(maxDelay, initialDelay * 2^attempt + random_jitter)
         // Add jitter: +/- 30% of currentDelay
         const jitter = currentDelay * 0.3 * (Math.random() * 2 - 1);
         const delayWithJitter = Math.max(0, currentDelay + jitter);
+
+        logRetryAttempt(attempt, maxAttempts, error, errorStatus, delayWithJitter);
         await delay(delayWithJitter);
         currentDelay = Math.min(maxDelayMs, currentDelay * 2);
       }
@@ -296,47 +344,64 @@ function getDelayDurationAndStatus(error: unknown): {
 
 /**
  * Logs a message for a retry attempt when using exponential backoff.
+ *
+ * 日志格式符合 Google Cloud 可观测性最佳实践：
+ * - 包含尝试次数、最大尝试次数、延迟时间
+ * - 区分 429 限流和 5xx 服务器错误
+ *
  * @param attempt The current attempt number.
+ * @param maxAttempts The maximum number of attempts.
  * @param error The error that caused the retry.
  * @param errorStatus The HTTP status code of the error, if available.
+ * @param delayMs The delay before the next retry in milliseconds.
  */
 function logRetryAttempt(
   attempt: number,
+  maxAttempts: number,
   error: unknown,
   errorStatus?: number,
+  delayMs?: number,
 ): void {
-  let message = `Attempt ${attempt} failed. Retrying with backoff...`;
-  if (errorStatus) {
-    message = `Attempt ${attempt} failed with status ${errorStatus}. Retrying with backoff...`;
-  }
+  const delayStr = delayMs ? `${Math.round(delayMs / 1000)}s` : 'unknown';
 
   if (errorStatus === 429) {
-    console.warn(message, error);
+    // 429 限流 - 使用 warn 级别，用户友好的提示
+    console.warn(
+      `⏳ [Retry] Rate limited (429). Attempt ${attempt}/${maxAttempts}, waiting ${delayStr} before retry...`
+    );
   } else if (errorStatus && errorStatus >= 500 && errorStatus < 600) {
-    console.error(message, error);
-        } else if (error instanceof Error) {
-        // 网络连接错误 - 友好提示
-        const isConnectionError = error instanceof TypeError && 
-          (error.message.includes('fetch failed') || 
-           error.message.includes('ECONNREFUSED') ||
-           (error as any).cause?.code === 'ECONNREFUSED');
-        
-        if (isConnectionError) {
-          console.warn(`🔄 第${attempt}次尝试失败，正在重试连接服务器...`);
-        } else if (error.message.includes('429')) {
-          console.warn(
-            `Attempt ${attempt} failed with 429 error (no Retry-After header). Retrying with backoff...`,
-            error,
-          );
-        } else if (error.message.match(/5\d{2}/)) {
-          console.error(
-            `Attempt ${attempt} failed with 5xx error. Retrying with backoff...`,
-            error,
-          );
-        } else {
-          console.warn(message, error); // Default to warn for other errors
-        }
-      } else {
-        console.warn(message, error); // Default to warn if error type is unknown
-      }
+    // 5xx 服务器错误 - 使用 error 级别
+    console.error(
+      `[Retry] Server error (${errorStatus}). Attempt ${attempt}/${maxAttempts}, retrying in ${delayStr}...`
+    );
+  } else if (error instanceof Error) {
+    // 网络连接错误 - 友好提示
+    const isConnectionError = error instanceof TypeError &&
+      (error.message.includes('fetch failed') ||
+       error.message.includes('ECONNREFUSED') ||
+       (error as any).cause?.code === 'ECONNREFUSED');
+
+    if (isConnectionError) {
+      console.warn(
+        `🔄 [Retry] Connection failed. Attempt ${attempt}/${maxAttempts}, retrying in ${delayStr}...`
+      );
+    } else if (error.message.includes('429')) {
+      // 错误消息中包含 429 但没有 status 属性
+      console.warn(
+        `⏳ [Retry] Rate limited (429 in message). Attempt ${attempt}/${maxAttempts}, waiting ${delayStr}...`
+      );
+    } else if (error.message.match(/5\d{2}/)) {
+      console.error(
+        `[Retry] Server error (5xx in message). Attempt ${attempt}/${maxAttempts}, retrying in ${delayStr}...`
+      );
+    } else {
+      console.warn(
+        `[Retry] Attempt ${attempt}/${maxAttempts} failed, retrying in ${delayStr}...`
+      );
+    }
+  } else {
+    console.warn(
+      `[Retry] Attempt ${attempt}/${maxAttempts} failed, retrying in ${delayStr}...`
+    );
+  }
 }
