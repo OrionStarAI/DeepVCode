@@ -74,7 +74,16 @@ interface MultiSessionMessageFromExtension {
        'refine_result' |
        'refine_error' |
        // 🎯 MCP 状态更新
-       'mcp_status_update';
+       'mcp_status_update' |
+       // 🎯 循环检测和压缩通知
+       'loop_detected' |
+       'chat_compressed' |
+       // 🎯 模型切换压缩确认
+       'compression_confirmation_request' |
+       // 🎯 Token使用情况更新（压缩后）
+       'token_usage_update' |
+       // 🎯 模型切换完成
+       'model_switch_complete';
   payload: Record<string, unknown> & {
     sessionId?: string; // 大部分消息都包含sessionId
   };
@@ -118,6 +127,7 @@ export interface MultiSessionMessageToExtension {
        'get_available_models' |
        'set_current_model' |
        'get_current_model' |
+       'compression_confirmation_response' |  // 🎯 新增：压缩确认响应
        // 🎯 剪贴板缓存请求（用于智能粘贴代码引用）
        'request_clipboard_cache' |
        // 🎯 自定义规则管理

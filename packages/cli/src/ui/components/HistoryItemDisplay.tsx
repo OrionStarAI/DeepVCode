@@ -19,6 +19,8 @@ import { AboutBox } from './AboutBox.js';
 import { StatsDisplay } from './StatsDisplay.js';
 import { ModelStatsDisplay } from './ModelStatsDisplay.js';
 import { ToolStatsDisplay } from './ToolStatsDisplay.js';
+import { TokenBreakdownDisplay } from './TokenBreakdownDisplay.js';
+import { ContextBreakdownDisplay } from './ContextBreakdownDisplay.js';
 import { SessionSummaryDisplay } from './SessionSummaryDisplay.js';
 import { Config } from 'deepv-code-core';
 
@@ -74,6 +76,28 @@ export const HistoryItemDisplay: React.FC<HistoryItemDisplayProps> = ({
     {item.type === 'stats' && <StatsDisplay duration={item.duration} />}
     {item.type === 'model_stats' && <ModelStatsDisplay />}
     {item.type === 'tool_stats' && <ToolStatsDisplay />}
+    {item.type === 'token_breakdown' && (
+      <TokenBreakdownDisplay
+        systemPromptTokens={item.systemPromptTokens}
+        userMessageTokens={item.userMessageTokens}
+        memoryContextTokens={item.memoryContextTokens}
+        toolsTokens={item.toolsTokens}
+        totalInputTokens={item.totalInputTokens}
+        maxTokens={item.maxTokens}
+      />
+    )}
+    {item.type === 'context_breakdown' && (
+      <ContextBreakdownDisplay
+        systemPromptTokens={item.systemPromptTokens}
+        systemToolsTokens={item.systemToolsTokens}
+        memoryFilesTokens={item.memoryFilesTokens}
+        messagesTokens={item.messagesTokens}
+        reservedTokens={item.reservedTokens}
+        totalInputTokens={item.totalInputTokens}
+        freeSpaceTokens={item.freeSpaceTokens}
+        maxTokens={item.maxTokens}
+      />
+    )}
     {item.type === 'quit' && <SessionSummaryDisplay duration={item.duration} credits={item.credits} />}
     {item.type === 'tool_group' && (
       <ToolGroupMessage

@@ -21,6 +21,7 @@ import {
   FileFilteringOptions,
   IdeClient,
 } from 'deepv-code-core';
+import { encodingForModel, getEncoding } from 'js-tiktoken';
 import { Settings } from './settings.js';
 
 import { Extension, annotateActiveExtensions } from './extension.js';
@@ -432,6 +433,15 @@ export async function loadCliConfig(
 
   const sandboxConfig = await loadSandboxConfig(settings, argv);
 
+  // 计算 memory token
+  let memoryTokenCount = 0;
+  try {
+    const enc = getEncoding('cl100k_base');
+    memoryTokenCount = enc.encode(memoryContent).length;
+  } catch (e) {
+    memoryTokenCount = 0;
+  }
+
   return new Config({
     sessionId,
     embeddingModel: DEFAULT_GEMINI_EMBEDDING_MODEL,
@@ -447,6 +457,7 @@ export async function loadCliConfig(
     mcpServerCommand: settings.mcpServerCommand,
     mcpServers,
     userMemory: memoryContent,
+    memoryTokenCount, // 新增
     geminiMdFileCount: fileCount,
     approvalMode: argv.yolo || false ? ApprovalMode.YOLO : ApprovalMode.DEFAULT,
     showMemoryUsage:

@@ -10,6 +10,7 @@ import {
   MemoryTool,
   getCoreSystemPrompt,
 } from 'deepv-code-core';
+import { encodingForModel, getEncoding } from 'js-tiktoken';
 import { MessageType } from '../types.js';
 import {
   CommandKind,
@@ -102,6 +103,15 @@ export const memoryCommand: SlashCommand = {
               config.setUserMemory(memoryContent);
               config.setGeminiMdFileCount(fileCount);
 
+              // 计算并更新 memory token
+              try {
+                const enc = getEncoding('cl100k_base');
+                const memoryTokenCount = enc.encode(memoryContent).length;
+                config.setMemoryTokenCount(memoryTokenCount);
+              } catch (e) {
+                config.setMemoryTokenCount(0);
+              }
+
               // 🔥 关键修复：更新当前模型实例的系统指令
               try {
                 const geminiClient = await config.getGeminiClient();
@@ -181,6 +191,15 @@ export const memoryCommand: SlashCommand = {
               );
             config.setUserMemory(memoryContent);
             config.setGeminiMdFileCount(fileCount);
+
+            // 计算并更新 memory token
+            try {
+              const enc = getEncoding('cl100k_base');
+              const memoryTokenCount = enc.encode(memoryContent).length;
+              config.setMemoryTokenCount(memoryTokenCount);
+            } catch (e) {
+              config.setMemoryTokenCount(0);
+            }
 
             // 🔥 关键修复：更新当前模型实例的系统指令
             try {

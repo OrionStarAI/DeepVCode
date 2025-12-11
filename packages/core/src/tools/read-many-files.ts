@@ -389,24 +389,43 @@ This tool automatically enables external file access when absolute paths are det
             .map((p) => path.resolve(this.config.getTargetDir(), p))
         : gitFilteredEntries;
 
+      // 🎯 Fix: Create normalized path sets for case-insensitive comparison on Windows
+      // On Windows, path.resolve() can return different casing even for the same file
+      const normalizePath = (filePath: string): string => {
+        const resolved = path.resolve(filePath);
+        return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
+      };
+
+      const gitFilteredSet = new Set(gitFilteredEntries.map(normalizePath));
+      const geminiFilteredSet = new Set(finalFilteredEntries.map(normalizePath));
+
       let gitIgnoredCount = 0;
       let geminiIgnoredCount = 0;
 
       for (const absoluteFilePath of entries) {
         // Security check: ensure the glob library didn't return something outside targetDir.
         // Skip this check if external execution is allowed
-        if (!effectiveAllowLocalExecution && !absoluteFilePath.startsWith(this.config.getTargetDir())) {
-          skippedFiles.push({
-            path: absoluteFilePath,
-            reason: `Security: Glob library returned path outside target directory. Base: ${this.config.getTargetDir()}, Path: ${absoluteFilePath}`,
-          });
-          continue;
+        if (!effectiveAllowLocalExecution) {
+          const relativePathCheck = path.relative(this.config.getTargetDir(), absoluteFilePath);
+          // Check if path is outside (starts with .. and separator, or is just .., or is absolute/different drive)
+          // This handles case sensitivity differences on Windows (e.g. d: vs D:) correctly
+          const isOutside = relativePathCheck === '..' ||
+                           relativePathCheck.startsWith(`..${path.sep}`) ||
+                           path.isAbsolute(relativePathCheck);
+
+          if (isOutside) {
+            skippedFiles.push({
+              path: absoluteFilePath,
+              reason: `Security: Glob library returned path outside target directory. Base: ${this.config.getTargetDir()}, Path: ${absoluteFilePath}`,
+            });
+            continue;
+          }
         }
 
         // Check if this file was filtered out by git ignore
         if (
           fileFilteringOptions.respectGitIgnore &&
-          !gitFilteredEntries.includes(absoluteFilePath)
+          !gitFilteredSet.has(normalizePath(absoluteFilePath))
         ) {
           gitIgnoredCount++;
           continue;
@@ -415,7 +434,7 @@ This tool automatically enables external file access when absolute paths are det
         // Check if this file was filtered out by gemini ignore
         if (
           fileFilteringOptions.respectGeminiIgnore &&
-          !finalFilteredEntries.includes(absoluteFilePath)
+          !geminiFilteredSet.has(normalizePath(absoluteFilePath))
         ) {
           geminiIgnoredCount++;
           continue;

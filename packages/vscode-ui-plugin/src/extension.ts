@@ -1361,35 +1361,84 @@ function setupLoginHandlers() {
     try {
       logger.info('Received set_current_model request', payload);
 
-      const { ProxyAuthManager } = require('deepv-code-core');
+      const { ProxyAuthManager, tokenLimit } = require('deepv-code-core');
       const proxyAuthManager = ProxyAuthManager.getInstance();
 
       const ModelService = require('./services/modelService').ModelService;
       const modelService = new ModelService(logger, proxyAuthManager);
 
-      // 1. 保存为默认模型配置（新session使用）
-      await modelService.setCurrentModel(payload.modelName);
+      // 🎯 只有在没有 sessionId 时才更新全局默认模型（用于新 session）
+      // 有 sessionId 时，只更新当前 session 的模型，不影响其他 session
+      if (!payload.sessionId) {
+        await modelService.setCurrentModel(payload.modelName);
+      }
 
-      // 2. 只更新当前session的模型配置
+      // 🎯 处理 session 级别的模型切换
       if (payload.sessionId) {
         const currentAIService = sessionManager.getAIService(payload.sessionId);
         if (currentAIService) {
           const config = currentAIService.getConfig();
-          if (config && config.setModel) {
-            config.setModel(payload.modelName);
+          const geminiClient = config?.getGeminiClient();
 
-            // 更新GeminiChat实例的specifiedModel
-            const geminiClient = config.getGeminiClient();
-            if (geminiClient) {
-              const chat = geminiClient.getChat();
-              if (chat && chat.setSpecifiedModel) {
-                chat.setSpecifiedModel(payload.modelName);
-              }
+          if (geminiClient && config) {
+            // 🎯 获取当前 token 使用量和目标模型的限制
+            const currentTokenUsage = currentAIService.getCurrentTokenUsage();
+            const currentTokens = currentTokenUsage?.totalTokens || 0;
+
+            // 从云端模型配置获取目标模型的 maxToken
+            const targetModelInfo = config.getCloudModelInfo(payload.modelName);
+            const targetTokenLimit = targetModelInfo?.maxToken || tokenLimit(payload.modelName, config);
+            const compressionThreshold = targetTokenLimit * 0.9;
+
+            logger.info(`📊 [Model Switch Check] currentTokens=${currentTokens}, targetLimit=${targetTokenLimit}, threshold(80%)=${compressionThreshold}`);
+
+            // 🎯 检查是否需要压缩确认
+            if (currentTokens > compressionThreshold) {
+              logger.info(`📊 [Model Switch] Context exceeds 80% of target model limit, requesting user confirmation...`);
+
+              // 向前端发送压缩确认请求
+              await communicationService.sendCompressionConfirmationRequest({
+                requestId: payload.requestId,
+                sessionId: payload.sessionId,
+                targetModel: payload.modelName,
+                currentTokens,
+                targetTokenLimit,
+                compressionThreshold,
+                message: `Current context (${currentTokens.toLocaleString()} tokens) exceeds 80% of ${payload.modelName}'s limit (${targetTokenLimit.toLocaleString()} tokens). Compression is required before switching.`
+              });
+
+              // 不在这里发送成功响应，等待用户确认后再处理
+              return;
             }
+
+            // 🎯 不需要压缩确认，直接切换
+            logger.info(`Switching model to ${payload.modelName} (no compression needed)...`);
+
+            await vscode.window.withProgress({
+              location: vscode.ProgressLocation.Notification,
+              title: `Switching model to ${payload.modelName}...`,
+              cancellable: false
+            }, async (progress) => {
+              progress.report({ message: "Switching model..." });
+
+              const switchResult = await geminiClient.switchModel(payload.modelName, new AbortController().signal);
+
+              if (!switchResult.success) {
+                throw new Error(`Failed to switch to model ${payload.modelName}. ${switchResult.error || 'Context compression may have failed.'}`);
+              }
+
+              if (switchResult.compressionInfo) {
+                progress.report({ message: `Context compressed: ${switchResult.compressionInfo.originalTokenCount} → ${switchResult.compressionInfo.newTokenCount} tokens` });
+              } else if (switchResult.compressionSkipReason) {
+                progress.report({ message: switchResult.compressionSkipReason });
+              }
+            });
+          } else if (config && config.setModel) {
+            config.setModel(payload.modelName);
           }
         }
 
-        // 3. 更新session的模型配置记录
+        // 🎯 更新 session 的模型配置记录
         await sessionManager.updateSessionModelConfig(payload.sessionId, {
           modelName: payload.modelName
         });
@@ -1403,6 +1452,91 @@ function setupLoginHandlers() {
 
     } catch (error) {
       logger.error('Failed to set current model', error instanceof Error ? error : undefined);
+      await communicationService.sendModelResponse(payload.requestId, {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+
+  // 🎯 处理压缩确认响应
+  communicationService.onCompressionConfirmationResponse(async (payload) => {
+    try {
+      logger.info('Received compression_confirmation_response', payload);
+
+      if (!payload.confirmed) {
+        // 用户取消了压缩，发送取消响应
+        await communicationService.sendModelResponse(payload.requestId, {
+          success: false,
+          error: 'Model switch cancelled by user'
+        });
+        return;
+      }
+
+      // 用户确认压缩，执行模型切换（包含压缩）
+      const currentAIService = sessionManager.getAIService(payload.sessionId);
+      if (!currentAIService) {
+        throw new Error('Session not found');
+      }
+
+      const config = currentAIService.getConfig();
+      const geminiClient = config?.getGeminiClient();
+
+      if (!geminiClient) {
+        throw new Error('GeminiClient not available');
+      }
+
+      // 🎯 获取已知的 token 数量，传给 switchModel 避免重新计算
+      const currentTokenUsage = currentAIService.getCurrentTokenUsage();
+      const knownTokenCount = currentTokenUsage?.totalTokens;
+
+      await vscode.window.withProgress({
+        location: vscode.ProgressLocation.Notification,
+        title: `Compressing context and switching to ${payload.targetModel}...`,
+        cancellable: false
+      }, async (progress) => {
+        progress.report({ message: "Compressing context..." });
+
+        const switchResult = await geminiClient.switchModel(payload.targetModel, new AbortController().signal, knownTokenCount);
+
+        if (!switchResult.success) {
+          throw new Error(`Failed to switch to model ${payload.targetModel}. ${switchResult.error || 'Context compression failed.'}`);
+        }
+
+        if (switchResult.compressionInfo) {
+          progress.report({ message: `Compressed: ${switchResult.compressionInfo.originalTokenCount} → ${switchResult.compressionInfo.newTokenCount} tokens` });
+          logger.info(`📊 [Model Switch] Compression completed: ${switchResult.compressionInfo.originalTokenCount} → ${switchResult.compressionInfo.newTokenCount} tokens`);
+
+          // 🎯 更新前端的 tokenUsage 显示
+          const { tokenLimit } = require('deepv-code-core');
+          const newTokenLimit = tokenLimit(payload.targetModel, config);
+          await communicationService.sendTokenUsageUpdate(payload.sessionId, {
+            totalTokens: switchResult.compressionInfo.newTokenCount,
+            tokenLimit: newTokenLimit,
+            inputTokens: switchResult.compressionInfo.newTokenCount,
+            outputTokens: 0
+          });
+        }
+      });
+
+      // 更新 session 的模型配置记录
+      await sessionManager.updateSessionModelConfig(payload.sessionId, {
+        modelName: payload.targetModel
+      });
+
+      await communicationService.sendModelResponse(payload.requestId, {
+        success: true,
+        currentModel: payload.targetModel  // 🎯 通知前端新的模型名
+      });
+
+      // 🎯 发送模型切换成功的通知给前端
+      logger.info(`📊 [Model Switch] Sending model_switch_complete to webview: sessionId=${payload.sessionId}, modelName=${payload.targetModel}`);
+      await communicationService.sendModelSwitchComplete(payload.sessionId, payload.targetModel);
+
+      logger.info(`Model switched to: ${payload.targetModel} for session: ${payload.sessionId} (with compression)`);
+
+    } catch (error) {
+      logger.error('Failed to handle compression confirmation', error instanceof Error ? error : undefined);
       await communicationService.sendModelResponse(payload.requestId, {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'

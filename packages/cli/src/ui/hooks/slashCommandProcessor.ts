@@ -18,6 +18,7 @@ import {
   HistoryItem,
   SlashCommandProcessorResult,
 } from '../types.js';
+import { TokenUsageInfo } from '../components/TokenUsageDisplay.js';
 import { LoadedSettings } from '../../config/settings.js';
 import { runExitCleanup } from '../../utils/cleanup.js';
 import { type CommandContext, type SlashCommand } from '../commands/types.js';
@@ -51,6 +52,7 @@ export const useSlashCommandProcessor = (
   toggleVimEnabled: () => Promise<boolean>,
   cumulativeCredits: number, // 🆕 接收 cumulativeCredits
   totalSessionCredits: number, // 🆕 接收 totalSessionCredits
+  lastTokenUsage?: TokenUsageInfo | null, // 🆕 接收 lastTokenUsage
 ) => {
   const session = useSessionStats();
   const [commands, setCommands] = useState<readonly SlashCommand[]>([]);

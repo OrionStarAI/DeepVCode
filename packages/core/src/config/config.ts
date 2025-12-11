@@ -208,6 +208,7 @@ export interface ConfigParameters {
   ideClient?: IdeClient;
   silentMode?: boolean;
   vsCodePluginMode?: boolean;
+  memoryTokenCount?: number; // 新增
 }
 
 export class Config {
@@ -228,6 +229,7 @@ export class Config {
   private readonly mcpServerCommand: string | undefined;
   private mcpServers: Record<string, MCPServerConfig> | undefined;
   private userMemory: string;
+  private memoryTokenCount: number = 0; // 新增
   private geminiMdFileCount: number;
   private approvalMode: ApprovalMode;
   private readonly showMemoryUsage: boolean;
@@ -289,6 +291,7 @@ export class Config {
     this.mcpServerCommand = params.mcpServerCommand;
     this.mcpServers = params.mcpServers;
     this.userMemory = params.userMemory ?? '';
+    this.memoryTokenCount = params.memoryTokenCount ?? 0; // 新增
     this.geminiMdFileCount = params.geminiMdFileCount ?? 0;
     this.cwd = params.cwd ?? process.cwd();
 
@@ -549,8 +552,16 @@ export class Config {
     return this.userMemory;
   }
 
+  getMemoryTokenCount(): number {
+    return this.memoryTokenCount;
+  }
+
   setUserMemory(newUserMemory: string): void {
     this.userMemory = newUserMemory;
+  }
+
+  setMemoryTokenCount(count: number): void {
+    this.memoryTokenCount = count;
   }
 
   getGeminiMdFileCount(): number {

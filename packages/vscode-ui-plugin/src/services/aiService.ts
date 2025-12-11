@@ -57,6 +57,7 @@ import { SessionMessage } from '../types/sessionTypes';
 import { LoginService } from './loginService';
 import { DiagnosticsMonitorService } from './diagnosticsMonitorService';
 import { SmartLintNotificationService, SmartNotificationConfig } from './smartLintNotificationService';
+import { LOOP_DETECTION_MESSAGES } from '../i18n/messages';
 
 // 🎯 接口定义，避免循环依赖
 interface ISessionHistoryManager {
@@ -86,6 +87,7 @@ export class AIService {
   private canAbortFlow: boolean = false;
   private abortController?: AbortController;
   private currentTokenUsage?: any; // 🎯 新增：当前Token使用情况
+  private sharedPromptId: string = ''; // 🎯 新增：共享prompt_id，用于保持循环检测状态（不被reset清空）
 
   // 🎯 通信和工具状态
   private communicationService?: MultiSessionCommunicationService;
@@ -183,6 +185,18 @@ export class AIService {
       });
 
       await this.config.initialize();
+
+      // 🎯 从VSCode settings同步云端模型配置到config
+      try {
+        const vsCodeConfig = vscode.workspace.getConfiguration('deepv');
+        const cloudModels = vsCodeConfig.get<any[]>('cloudModels', []);
+        if (Array.isArray(cloudModels) && cloudModels.length > 0) {
+          this.config.setCloudModels(cloudModels);
+          this.logger.info(`📊 Synced ${cloudModels.length} cloud models to config`);
+        }
+      } catch (cloudModelsError) {
+        this.logger.warn('⚠️ Failed to sync cloud models to config', cloudModelsError instanceof Error ? cloudModelsError : undefined);
+      }
 
       await this.config.refreshAuth(AuthType.USE_CHEETH_OA);
       this.geminiClient = this.config.getGeminiClient();
@@ -1284,10 +1298,11 @@ export class AIService {
       const abortController = new AbortController();
       this.abortController = abortController;
 
+      // 🎯 使用共享的prompt_id以保持循环检测状态不被reset清空
       const stream = this.geminiClient.sendMessageStream(
         toolResponseParts,
         abortController.signal,
-        `tool-results-${Date.now()}`
+        this.sharedPromptId
       );
 
       this.isCurrentlyResponding = true;
@@ -1313,6 +1328,9 @@ export class AIService {
    * 🎯 处理编辑消息并重新生成 - 回滚历史并重新处理
    */
   async processEditMessageAndRegenerate(messageId: string, newContent: any, context: ContextInfo): Promise<void> {
+    // 🎯 为编辑后的消息处理生成新的shared prompt_id
+    this.sharedPromptId = `edit-${messageId}-${Date.now()}`;
+
     try {
       if (!this.isInitialized) {
         throw new Error('AI service is not initialized');
@@ -1403,6 +1421,8 @@ export class AIService {
    * 🎯 处理聊天消息 - AI核心职责
    */
   async processChatMessage(message: ChatMessage, context?: ContextInfo): Promise<void> {
+    // 🎯 为整个消息处理周期生成一个共享的prompt_id，用于维持循环检测状态
+    this.sharedPromptId = `msg-${message.id}-${Date.now()}`;
     const responseId = `ai-response-${Date.now()}`;
 
     try {
@@ -1412,7 +1432,7 @@ export class AIService {
 
       // 🎯 保存当前用户消息ID，用于版本控制
       this.currentUserMessageId = message.id;
-      this.logger.info(`📝 Processing user message: ${message.id}`);
+      this.logger.info(`📝 Processing user message: ${message.id} (sharedPromptId: ${this.sharedPromptId})`);
 
       // 简单回退服务会在extension.ts中自动创建快照，这里不需要额外处理
 
@@ -1443,10 +1463,11 @@ export class AIService {
         await this.communicationService.sendChatStart(this.sessionId, responseId);
       }
 
+      // 🎯 使用共享的prompt_id以保持循环检测状态不被reset清空
       const stream = this.geminiClient!.sendMessageStream(
         parts,
         abortController.signal,
-        prompt_id
+        this.sharedPromptId
       );
 
       await this.processGeminiStreamEvents(
@@ -1518,6 +1539,13 @@ export class AIService {
             await this.handleTokenUsage(event.value);
             break;
 
+          case GeminiEventType.LoopDetected:
+            // 🎯 检测到循环 - 显示本地化的循环检测消息
+            await this.handleLoopDetected((event as any).value);
+            // 🎯 清空待执行的工具调用，防止已缓存的工具被执行
+            toolCallRequests.length = 0;
+            return;
+
           case GeminiEventType.Error:
             if (this.communicationService && this.sessionId) {
               await this.communicationService.sendChatError(this.sessionId, `❌ AI响应时出现错误：${event.value.error?.message || 'Unknown error'}`);
@@ -1570,7 +1598,11 @@ export class AIService {
       }
 
       // 获取当前模型的token限制
-      const currentTokenLimit = tokenLimit(this.config.getModel(), this.config);
+      const currentModel = this.config.getModel();
+      const cloudModelInfo = this.config.getCloudModelInfo(currentModel);
+      const cloudModels = this.config.getCloudModels();
+      this.logger.info(`📊 [Context Left Debug] currentModel="${currentModel}", cloudModelInfo=${JSON.stringify(cloudModelInfo)}, availableModels=${cloudModels?.map(m => m.name).join(', ')}`);
+      const currentTokenLimit = tokenLimit(currentModel, this.config);
 
       // Calculate cache hit rate
       let cacheHitRate = 0;
@@ -1599,10 +1631,163 @@ export class AIService {
       // 更新Session信息
       await this.sessionHistoryManager.updateSessionInfo(this.sessionId, tokenUsageUpdate);
 
-      this.logger.info(`🎯 Token usage updated: ${tokenUsageInfo.totalTokens}/${currentTokenLimit} tokens (${Math.round((tokenUsageInfo.totalTokens / currentTokenLimit) * 100)}%)`);
+      // 🎯 详细的 Context Left 调试日志
+      const usedPercentage = (tokenUsageInfo.totalTokens / currentTokenLimit) * 100;
+      const contextLeftPercentage = Math.max(0, 100 - usedPercentage);
+      this.logger.info(`📊 [Context Left Debug] totalTokens=${tokenUsageInfo.totalTokens}, tokenLimit=${currentTokenLimit}, used=${usedPercentage.toFixed(2)}%, contextLeft=${Math.round(contextLeftPercentage)}%`);
+      this.logger.info(`📊 [Context Left Debug] inputTokens=${tokenUsageInfo.inputTokens}, outputTokens=${tokenUsageInfo.outputTokens}, cachedContentTokens=${tokenUsageInfo.cachedContentTokens || 0}`);
 
     } catch (error) {
       this.logger.error('❌ Failed to handle token usage', error instanceof Error ? error : undefined);
+    }
+  }
+
+  /**
+   * 🎯 处理循环检测 - 向用户和AI显示循环原因和解决方案
+   */
+  private async handleLoopDetected(loopType?: string): Promise<void> {
+    try {
+      if (!this.communicationService || !this.sessionId) {
+        return;
+      }
+
+      // 🎯 检测系统语言 - 简单的语言检测，根据VSCode环境
+      // 如果无法确定，默认为英文
+      const isChineseLocale = () => {
+        try {
+          // 尝试从VSCode配置获取语言设置
+          const config = vscode.workspace.getConfiguration();
+          const locale = config.get<string>('locale') ||
+                        process.env.LANG ||
+                        process.env.LANGUAGE ||
+                        '';
+          return /^zh/i.test(locale) || /^zh-/i.test(locale);
+        } catch {
+          return false;
+        }
+      };
+
+      const useChinese = isChineseLocale();
+
+      // 🎯 根据循环类型构建本地化消息
+      let loopMessage = '';
+
+      switch (loopType) {
+        case 'consecutive_identical_tool_calls':
+          loopMessage = useChinese
+            ? `${LOOP_DETECTION_MESSAGES.CONSECUTIVE_TOOL_CALLS_TITLE_ZH}\n${LOOP_DETECTION_MESSAGES.CONSECUTIVE_TOOL_CALLS_DESCRIPTION_ZH}\n${LOOP_DETECTION_MESSAGES.CONSECUTIVE_TOOL_CALLS_ACTION_ZH}`
+            : `${LOOP_DETECTION_MESSAGES.CONSECUTIVE_TOOL_CALLS_TITLE}\n${LOOP_DETECTION_MESSAGES.CONSECUTIVE_TOOL_CALLS_DESCRIPTION}\n${LOOP_DETECTION_MESSAGES.CONSECUTIVE_TOOL_CALLS_ACTION}`;
+          break;
+
+        case 'chanting_identical_sentences':
+          loopMessage = useChinese
+            ? `${LOOP_DETECTION_MESSAGES.CHANTING_IDENTICAL_SENTENCES_TITLE_ZH}\n${LOOP_DETECTION_MESSAGES.CHANTING_IDENTICAL_SENTENCES_DESCRIPTION_ZH}\n${LOOP_DETECTION_MESSAGES.CHANTING_IDENTICAL_SENTENCES_ACTION_ZH}`
+            : `${LOOP_DETECTION_MESSAGES.CHANTING_IDENTICAL_SENTENCES_TITLE}\n${LOOP_DETECTION_MESSAGES.CHANTING_IDENTICAL_SENTENCES_DESCRIPTION}\n${LOOP_DETECTION_MESSAGES.CHANTING_IDENTICAL_SENTENCES_ACTION}`;
+          break;
+
+        case 'llm_detected_loop':
+          loopMessage = useChinese
+            ? `${LOOP_DETECTION_MESSAGES.LLM_DETECTED_LOOP_TITLE_ZH}\n${LOOP_DETECTION_MESSAGES.LLM_DETECTED_LOOP_DESCRIPTION_ZH}\n${LOOP_DETECTION_MESSAGES.LLM_DETECTED_LOOP_ACTION_ZH}`
+            : `${LOOP_DETECTION_MESSAGES.LLM_DETECTED_LOOP_TITLE}\n${LOOP_DETECTION_MESSAGES.LLM_DETECTED_LOOP_DESCRIPTION}\n${LOOP_DETECTION_MESSAGES.LLM_DETECTED_LOOP_ACTION}`;
+          break;
+
+        default:
+          loopMessage = useChinese
+            ? '🔄 检测到对话循环，对话已停止'
+            : '🔄 Repetitive loop detected, conversation stopped';
+      }
+
+      this.logger.warn(`🔴 Loop detected: ${this.sessionId} (type: ${loopType || 'unknown'})`);
+
+      // 🎯 添加反馈消息到AI历史，让AI理解为什么被停止（与Core层同步）
+      const feedbackMessage = this.generateLoopFeedbackForAI(loopType);
+      if (this.geminiClient) {
+        try {
+          this.geminiClient.addHistory({
+            role: 'user',
+            parts: [{ text: feedbackMessage }],
+          });
+          this.logger.info(`✅ Loop detection feedback added to AI history`);
+        } catch (error) {
+          this.logger.warn('Failed to add loop feedback to AI history', error instanceof Error ? error : undefined);
+        }
+      }
+
+      // 🎯 发送循环检测消息给前端
+      await this.communicationService.sendChatError(this.sessionId, loopMessage);
+
+      // 🎯 停止处理状态
+      this.isCurrentlyResponding = false;
+      this.setProcessingState(false, null, false);
+
+      // 🎯 保存会话历史
+      await this.saveSessionHistoryIfAvailable();
+
+    } catch (error) {
+      this.logger.error('Failed to handle loop detection', error instanceof Error ? error : undefined);
+    }
+  }
+
+  /**
+   * 🎯 为AI生成循环检测反馈消息（与Core层addLoopDetectionFeedbackToHistory同步）
+   */
+  private generateLoopFeedbackForAI(loopType?: string): string {
+    switch (loopType) {
+      case 'consecutive_identical_tool_calls':
+        return `🔴 LOOP DETECTED: You were repeatedly calling the same tool, which wastes context and API quota.
+
+⚠️ Why this happened:
+• You may be stuck in the same approach
+• The current direction is not productive
+• Missing or unclear task context
+
+✅ What to do next:
+1. Review the task: Was the original request clear enough?
+2. Take a different approach: Try exploring from a different angle
+3. Ask for clarification: Request more specific guidance or context
+4. Example: Instead of reading many files, focus on specific files mentioned in the error or task
+
+💡 Tips:
+• Break complex tasks into smaller, focused subtasks
+• Be explicit about what you're trying to achieve
+• When stuck, ask for hints or a different approach`;
+
+      case 'chanting_identical_sentences':
+        return `🔴 LOOP DETECTED: You were repeatedly generating the same text, which indicates being stuck.
+
+⚠️ Why this happened:
+• The model may be stuck on a specific pattern or thought
+• Unable to progress beyond a certain point
+• May need external guidance to break the pattern
+
+✅ What to do next:
+1. Acknowledge the issue: Understand what went wrong
+2. Take a fresh approach: Try a completely different angle
+3. Ask for help: Request guidance on how to proceed differently
+4. Example: If stuck explaining something, ask to try a different explanation method`;
+
+      case 'llm_detected_loop':
+        return `🔴 LOOP DETECTED: The AI analysis detected that you're not making meaningful progress.
+
+⚠️ Why this happened:
+• The current approach is not advancing the task
+• May be exploring unproductive paths
+• Need to refocus on the core objective
+
+✅ What to do next:
+1. Clarify the goal: Restate what needs to be accomplished
+2. Provide constraints: Give clear boundaries or requirements
+3. Break it down: Divide into smaller, achievable steps
+4. Change direction: Try a fundamentally different approach`;
+
+      default:
+        return `🔴 LOOP DETECTED: The conversation entered a repetitive loop without making progress.
+
+✅ What to do next:
+• Provide more specific guidance or constraints
+• Clarify what you're trying to achieve
+• Try a different approach to the problem
+• Start fresh with a new session if needed`;
     }
   }
 
@@ -1869,6 +2054,11 @@ export class AIService {
   // 🎯 获取Config实例（供SessionManager进行YOLO模式同步使用）
   getConfig(): Config | undefined {
     return this.config;
+  }
+
+  // 🎯 获取当前Token使用情况（供模型切换时检查是否需要压缩）
+  getCurrentTokenUsage(): { totalTokens: number; tokenLimit: number } | undefined {
+    return this.currentTokenUsage;
   }
 
   async dispose() {

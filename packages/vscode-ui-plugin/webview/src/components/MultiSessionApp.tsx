@@ -20,11 +20,14 @@ import { ChatInterface } from './ChatInterface';
 import { LoginPage } from './LoginPage';
 import { LoadingScreen } from './LoadingScreen';
 import { UpdatePrompt } from './UpdatePrompt';
+
 import { MessageInputHandle } from './MessageInput';
 import { PlanModeNotification } from './PlanModeNotification';
 import { ChatHistoryModal } from './ChatHistoryModal';
 import { NanoBananaDialog } from './NanoBananaDialog';
 import { NanoBananaIcon } from './NanoBananaIcon';
+import { CompressionConfirmationDialog } from './CompressionConfirmationDialog';
+import { CompressionConfirmationRequest } from '../services/webViewModelService';
 import { SessionType } from '../../../src/constants/sessionConstants';
 import { SessionInfo } from '../../../src/types/sessionTypes';
 import { MessageContent } from '../types/index';
@@ -66,6 +69,10 @@ export const MultiSessionApp: React.FC = () => {
   const [updateInfo, setUpdateInfo] = useState<any>(null);
   const [forceUpdate, setForceUpdate] = useState(false);
 
+  // 🛡️ 加固：UI 就绪超时重试机制
+  const [uiReadyRetryCount, setUiReadyRetryCount] = useState(0);
+  const maxRetries = 3;
+
   // 🎯 模型选择状态管理
   // 🛡️ 改为 'auto' 让服务端决定成本最优的模型
   const [selectedModelId, setSelectedModelId] = useState('auto');
@@ -90,6 +97,11 @@ export const MultiSessionApp: React.FC = () => {
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   // 🎯 NanoBanana图像生成对话框状态
   const [isNanoBananaOpen, setIsNanoBananaOpen] = useState(false);
+
+  // 🎯 压缩确认弹窗状态（模型切换时上下文超限）
+  const [compressionConfirmation, setCompressionConfirmation] = useState<CompressionConfirmationRequest | null>(null);
+  // 🎯 压缩进行中状态
+  const [isCompressing, setIsCompressing] = useState(false);
   // 🎯 MCP 服务器状态管理
   const [mcpServers, setMcpServers] = useState<Array<{
     name: string;
@@ -125,6 +137,9 @@ export const MultiSessionApp: React.FC = () => {
     updateMessage, // 🎯 新增：更新消息
     updateMessageContent,
     updateMessageReasoning, // 🎯 新增：更新AI思考过程
+    addMessageToQueue, // 🎯 消息队列管理
+    removeMessageFromQueue,
+    updateMessageQueue,
     updateRollbackableIds, // 🎯 添加可回滚ID更新函数
     restoreSessionMessages, // 🎯 添加恢复消息的函数
     forceUpdateSessionMessages, // 🎯 添加强制更新消息的函数
@@ -187,10 +202,10 @@ export const MultiSessionApp: React.FC = () => {
     };
   }, []);
 
-  // 🎯 监听 session 数据就绪，隐藏 LoadingScreen
+  // 🎯 监听 session 数据就绪，隐藏 LoadingScreen（加固版本）
   useEffect(() => {
     if (waitingForSessions) {
-      console.log('🔍 [DEBUG-UI-FLOW] [MultiSessionApp] Waiting for sessions...');
+      console.log('🔍 [DEBUG-UI-FLOW] [MultiSessionApp] Waiting for sessions... (retry:', uiReadyRetryCount, ')');
       // 检查条件：
       // 1. state.sessions 有数据
       // 2. 或者 state.currentSessionId 已经设置（说明默认 session 已创建）
@@ -203,17 +218,71 @@ export const MultiSessionApp: React.FC = () => {
         console.log('🎯 [UI-READY] Sessions data populated, hiding loading screen');
         setShowLoadingScreen(false);
         setWaitingForSessions(false);
+        setUiReadyRetryCount(0); // 重置重试计数
       } else {
-        // 设置一个短超时，如果数据还没来，强制进入（可能是真的没有 session）
+        // 🛡️ 加固：分阶段超时，带重试机制
         const timer = setTimeout(() => {
-          console.warn('⚠️ [UI-READY] Timeout waiting for session data, forcing entry');
-          setShowLoadingScreen(false);
-          setWaitingForSessions(false);
-        }, 2000);
+          // 再次检查，因为 state 可能在 setTimeout 期间更新了
+          const currentHasSessions = stateRef.current.sessions.size > 0;
+          const currentHasCurrentSession = !!stateRef.current.currentSessionId;
+
+          if (currentHasSessions || currentHasCurrentSession) {
+            console.log('🎯 [UI-READY] Sessions data arrived during timeout, proceeding normally');
+            setShowLoadingScreen(false);
+            setWaitingForSessions(false);
+            setUiReadyRetryCount(0);
+          } else if (uiReadyRetryCount < maxRetries) {
+            // 🔄 重试：重新请求 session 列表
+            console.warn(`⚠️ [UI-READY] No session data, retrying... (${uiReadyRetryCount + 1}/${maxRetries})`);
+            setUiReadyRetryCount(prev => prev + 1);
+            // 重新请求 session 列表
+            getGlobalMessageService().requestSessionList();
+          } else {
+            // 🛡️ 最终兜底：超过重试次数，强制进入并创建新 session
+            console.warn('⚠️ [UI-READY] Max retries exceeded, forcing entry and creating new session');
+            setShowLoadingScreen(false);
+            setWaitingForSessions(false);
+            setUiReadyRetryCount(0);
+            // 创建一个新的默认 session
+            getGlobalMessageService().createSession({
+              type: SessionType.CHAT,
+              fromTemplate: true
+            });
+          }
+        }, 1500); // 每次等待 1.5 秒
         return () => clearTimeout(timer);
       }
     }
-  }, [waitingForSessions, state.sessions.size, state.currentSessionId]);
+  }, [waitingForSessions, state.sessions.size, state.currentSessionId, uiReadyRetryCount]);
+
+  // 🛡️ 加固：自动恢复机制 - 当已初始化但 session 数据异常时自动尝试恢复
+  useEffect(() => {
+    // 只在已初始化、非 loading 状态、且没有 session 数据时触发
+    if (isInitialized && !showLoadingScreen && !waitingForSessions && state.sessions.size === 0) {
+      console.warn('🛡️ [AUTO-RECOVERY] Detected empty sessions after init, attempting recovery...');
+
+      const recoveryTimer = setTimeout(() => {
+        // 再次检查，避免不必要的操作
+        if (stateRef.current.sessions.size === 0) {
+          console.log('🔄 [AUTO-RECOVERY] Requesting session list...');
+          getGlobalMessageService().requestSessionList();
+
+          // 如果 2 秒后还是没有，创建新 session
+          setTimeout(() => {
+            if (stateRef.current.sessions.size === 0) {
+              console.log('🆕 [AUTO-RECOVERY] Creating new session as fallback');
+              getGlobalMessageService().createSession({
+                type: SessionType.CHAT,
+                fromTemplate: true
+              });
+            }
+          }, 2000);
+        }
+      }, 500);
+
+      return () => clearTimeout(recoveryTimer);
+    }
+  }, [isInitialized, showLoadingScreen, waitingForSessions, state.sessions.size]);
 
   // 🎯 加载历史列表（分页）
   const loadHistoryList = React.useCallback((offset: number, limit: number) => {
@@ -292,6 +361,20 @@ export const MultiSessionApp: React.FC = () => {
     console.log('🚀 初始化主应用消息服务...');
     const messageService = getGlobalMessageService();
 
+    // =============================================================================
+    // 🎯 压缩确认请求监听器（模型切换时上下文超限）
+    // =============================================================================
+    webviewModelService.onCompressionConfirmationRequest((request) => {
+      console.log('📊 [MultiSessionApp] Received compression confirmation request:', request);
+      setCompressionConfirmation(request);
+    });
+
+    // 🎯 压缩错误处理器
+    webviewModelService.onCompressionError((error) => {
+      console.error('📊 [MultiSessionApp] Compression error:', error);
+      setIsCompressing(false);
+      setCompressionConfirmation(null);
+    });
 
     // =============================================================================
     // Session管理事件监听器
@@ -649,6 +732,32 @@ export const MultiSessionApp: React.FC = () => {
       }
     });
 
+    // 🎯 监听 Token 使用情况更新（压缩后更新前端显示）
+    messageService.onExtensionMessage('token_usage_update', (payload: any) => {
+      console.log('📊 [MultiSessionApp] Received token_usage_update:', payload);
+      if (payload.sessionId && payload.tokenUsage) {
+        updateSessionInfo(payload.sessionId, {
+          tokenUsage: payload.tokenUsage
+        });
+      }
+    });
+
+    // 🎯 监听模型切换完成（压缩成功后更新模型选择器）
+    messageService.onExtensionMessage('model_switch_complete', (payload: any) => {
+      console.log('📊 [MultiSessionApp] Received model_switch_complete:', payload);
+      console.log('📊 [MultiSessionApp] payload.sessionId:', payload.sessionId, 'payload.modelName:', payload.modelName);
+      if (payload.sessionId && payload.modelName) {
+        // 🎯 直接更新模型选择器（压缩确认总是针对当前活跃 session）
+        console.log('📊 [MultiSessionApp] Setting selectedModelId to:', payload.modelName);
+        setSelectedModelId(payload.modelName);
+        // 清除压缩状态
+        setIsCompressing(false);
+        setCompressionConfirmation(null);
+      } else {
+        console.warn('📊 [MultiSessionApp] Missing sessionId or modelName in payload!');
+      }
+    });
+
     // 🚨 REMOVED: onChatResponse 监听器已移除
     // 原因: 与 onChatStart 重复创建消息，我们只使用流式路径 (onChatStart + onChatChunk + onChatComplete)
     // messageService.onChatResponse(...) - DELETED
@@ -976,24 +1085,24 @@ export const MultiSessionApp: React.FC = () => {
   // 事件处理方法
   // =============================================================================
 
-  /**
-   * 处理发送消息
-   */
-  const handleSendMessage = (content: MessageContent) => {
-    const currentSession = getCurrentSession();
-    if (!currentSession) return;
+  // 🎯 处理发送消息
+  const handleSendMessage = React.useCallback((content: MessageContent, targetSessionId?: string) => {
+    // 优先使用目标 Session ID，否则使用当前 Session ID
+    const sessionId = targetSessionId || state.currentSessionId;
+    if (!sessionId) return;
 
-    const sessionId = currentSession.info.id;
+    const currentSession = state.sessions.get(sessionId);
+    if (!currentSession) return;
 
     // 🎯 如果当前正在处理，不允许发送新消息
     if (currentSession.isProcessing) {
-      console.warn('Cannot send message while processing');
-      return;
+      console.warn('⚠️ [MultiSessionApp] Sending message while processing flag is true. This might be a queue retry or race condition. Proceeding anyway.');
+      // 🎯 移除 return，允许队列重试机制生效
+      // return;
     }
 
     // 检查是否是第一条用户消息（在添加消息之前检查）
-    const session = getSession(sessionId);
-    const isFirstUserMessage = session ? session.messages.filter(m => m.type === 'user').length === 0 : false;
+    const isFirstUserMessage = currentSession.messages.filter(m => m.type === 'user').length === 0;
 
     // 添加用户消息到当前Session
     const userMessage: ChatMessage = {
@@ -1046,7 +1155,52 @@ User question: ${contentStr}`;
 
     // 发送到Extension
     getGlobalMessageService().sendChatMessage(sessionId, messageContentToSend, userMessage.id);
-  };
+  }, [state.currentSessionId, state.sessions, addMessage, setSessionLoading]);
+
+  // 🎯 全局队列处理器：监控所有 Session 的队列并自动发送
+  // 使用 ref 跟踪正在提交的 session，防止在单次渲染周期内重复提交
+  const submittingQueueRefs = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    state.sessions.forEach((session, sessionId) => {
+      // 检查条件：有队列消息 + 非 loading + 非 processing
+      if (session.messageQueue && session.messageQueue.length > 0 && !session.isLoading && !session.isProcessing) {
+
+        // 检查是否已经在提交中（防止重复）
+        if (submittingQueueRefs.current.has(sessionId)) {
+          return;
+        }
+
+        console.log(`🎯 [GLOBAL-QUEUE] Auto-sending queued message for session ${sessionId}`);
+
+        // 标记为正在提交
+        submittingQueueRefs.current.add(sessionId);
+
+        // 获取下一条消息
+        const nextMsg = session.messageQueue[0];
+
+        // 发送消息（这会触发 isLoading = true）
+        // 注意：我们需要临时切换 currentSessionId 来发送，或者改造 handleSendMessage
+        // 这里我们直接调用 handleSendMessage，它已经改造为支持 targetSessionId
+
+        // 🎯 关键：为了确保 handleSendMessage 能正确工作，我们需要确保它不依赖 currentSessionId
+        // 我们已经改造了 handleSendMessage，现在可以安全调用
+
+        // 1. 发送消息
+        handleSendMessage(nextMsg.content, sessionId); // 传入 sessionId
+
+        // 2. 从队列中移除
+        removeMessageFromQueue(sessionId, nextMsg.id);
+
+        // 3. 设置一个短超时来清理提交标记，或者依赖 isLoading 的变化
+        // 由于 handleSendMessage 会同步设置 isLoading，下一次 render 时条件就不满足了
+        // 我们只需要确保在 isLoading 变回 false 之前，这个标记被清除
+        setTimeout(() => {
+          submittingQueueRefs.current.delete(sessionId);
+        }, 1000);
+      }
+    });
+  }, [state.sessions, handleSendMessage, removeMessageFromQueue]);
 
 
   /**
@@ -1377,23 +1531,30 @@ User question: ${contentStr}`;
           setIsLoggedIn(true);
           setIsInitialized(true);
 
-          // 🎯 LoadingScreen完成意味着服务已初始化
-          // 直接标记为等待数据检查，不再等待 sessions_ready 信号（因为可能已经错过了）
-          // 下方的 useEffect 会检查 state.sessions 是否已有数据
-          setWaitingForSessions(true);
+          // 🛡️ 关键修复：检查 session 数据是否已经就绪
+          // 如果数据已经到达，直接隐藏 LoadingScreen，不需要等待
+          const hasSessions = stateRef.current.sessions.size > 0;
+          const hasCurrentSession = !!stateRef.current.currentSessionId;
+
+          if (hasSessions || hasCurrentSession) {
+            // 🎯 数据已就绪，直接切换到主界面
+            console.log('🎯 [UI-READY] Session data already available, switching to main UI immediately');
+            setShowLoadingScreen(false);
+            setWaitingForSessions(false);
+          } else {
+            // 🎯 数据尚未到达，进入等待模式
+            console.log('🔍 [DEBUG-UI-FLOW] [MultiSessionApp] Session data not ready, entering waiting mode...');
+            setWaitingForSessions(true);
+            // 🛡️ 关键：同时隐藏 LoadingScreen，让 waitingForSessions 的 fallback UI 接管
+            // 这样用户不会看到透明的淡出后的 LoadingScreen
+            setShowLoadingScreen(false);
+          }
         }}
         onLoginRequired={(error) => {
           console.log('🎯 [LoadingScreen] Login required:', error);
           setShowLoadingScreen(false);
           setIsLoggedIn(false);
           setLoginError(error);
-        }}
-        onUpdateRequired={(updateInfo, forceUpdate) => {
-          console.log('🎯 [LoadingScreen] Update required:', { updateInfo, forceUpdate });
-          setShowLoadingScreen(false);
-          setShowUpdatePrompt(true);
-          setUpdateInfo(updateInfo);
-          setForceUpdate(forceUpdate);
         }}
       />
     );
@@ -1508,6 +1669,58 @@ User question: ${contentStr}`;
     );
   }
 
+  // 🛡️ 加固兜底：已初始化但 session 数据未就绪（极端竞态条件下的保护）
+  // 注意：对于全新用户，onSessionListUpdate 收到空列表后会自动创建默认 session
+  // 这里只是一个额外的保护层，确保用户不会看到空白页面
+  const currentSessionPreCheck = state.currentSessionId ? state.sessions.get(state.currentSessionId) : null;
+  if (state.sessions.size === 0 || (!currentSessionPreCheck && state.currentSessionId)) {
+    console.warn('🛡️ [FALLBACK] Session data not ready after initialization, showing recovery UI. waitingForSessions:', waitingForSessions);
+
+    const handleRetryInit = () => {
+      console.log('🔄 [FALLBACK] User triggered retry');
+      // 重新请求 session 列表（后端会自动创建默认 session 如果列表为空）
+      getGlobalMessageService().requestSessionList();
+    };
+
+    return (
+      <div className="multi-session-app multi-session-app--loading" style={{
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        flexDirection: 'column',
+        backgroundColor: 'var(--vscode-editor-background, #181818)',
+        color: 'var(--vscode-foreground, #cccccc)'
+      }}>
+        <div className="multi-session-app__loading">
+          <div style={{ fontSize: '32px', marginBottom: '16px' }}>⏳</div>
+          <div style={{ fontSize: '14px', marginBottom: '16px' }}>
+            {t('loading.preparingSession', {}, 'Preparing your session...')}
+          </div>
+          <button
+            onClick={handleRetryInit}
+            style={{
+              padding: '8px 16px',
+              fontSize: '13px',
+              backgroundColor: 'var(--vscode-button-background, #0e639c)',
+              color: 'var(--vscode-button-foreground, #ffffff)',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              marginTop: '8px'
+            }}
+          >
+            {t('loading.retry', {}, 'Retry')}
+          </button>
+          <div style={{ fontSize: '11px', marginTop: '12px', opacity: 0.6 }}>
+            {t('loading.autoRetryHint', {}, 'Will auto-retry in a moment...')}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // 🎯 直接使用state获取当前session，避免stateRef时序问题
   // 在render过程中，stateRef可能还没有更新到最新状态，导致getCurrentSession()返回旧数据
   const currentSession = state.currentSessionId ? state.sessions.get(state.currentSessionId) || null : null;
@@ -1582,6 +1795,22 @@ User question: ${contentStr}`;
           {currentSession ? (
             <ChatInterface
               messages={currentSession.messages}
+              messageQueue={currentSession.messageQueue || []} // 🎯 传入消息队列
+              onAddMessageToQueue={(content) => {
+                if (state.currentSessionId) {
+                  addMessageToQueue(state.currentSessionId, content);
+                }
+              }}
+              onRemoveMessageFromQueue={(id) => {
+                if (state.currentSessionId) {
+                  removeMessageFromQueue(state.currentSessionId, id);
+                }
+              }}
+              onUpdateMessageQueue={(newQueue) => {
+                if (state.currentSessionId) {
+                  updateMessageQueue(state.currentSessionId, newQueue);
+                }
+              }}
               isLoading={currentSession.isLoading}
               onSendMessage={handleSendMessage}
               onToolConfirm={handleToolConfirmationResponse}
@@ -1754,6 +1983,44 @@ User question: ${contentStr}`;
         isOpen={isNanoBananaOpen}
         onClose={() => setIsNanoBananaOpen(false)}
       />
+
+      {/* 🎯 压缩确认弹窗（模型切换时上下文超限） */}
+      <CompressionConfirmationDialog
+        isOpen={!!compressionConfirmation && !isCompressing}
+        targetModel={compressionConfirmation?.targetModel || ''}
+        currentTokens={compressionConfirmation?.currentTokens || 0}
+        targetTokenLimit={compressionConfirmation?.targetTokenLimit || 0}
+        onConfirm={() => {
+          if (compressionConfirmation) {
+            setIsCompressing(true);
+            webviewModelService.sendCompressionConfirmationResponse({
+              requestId: compressionConfirmation.requestId,
+              sessionId: compressionConfirmation.sessionId,
+              targetModel: compressionConfirmation.targetModel,
+              confirmed: true
+            });
+          }
+        }}
+        onCancel={() => {
+          if (compressionConfirmation) {
+            webviewModelService.sendCompressionConfirmationResponse({
+              requestId: compressionConfirmation.requestId,
+              sessionId: compressionConfirmation.sessionId,
+              targetModel: compressionConfirmation.targetModel,
+              confirmed: false
+            });
+            setCompressionConfirmation(null);
+          }
+        }}
+      />
+
+      {/* 🎯 压缩进行中提示（底部提示条，不遮挡操作） */}
+      {isCompressing && (
+        <div className="compression-progress-bar">
+          <div className="compression-progress-spinner"></div>
+          <span>{t('compression.inProgress', {}, 'Compressing context...')}</span>
+        </div>
+      )}
 
       {/* 🎯 重命名对话框 */}
       {renameDialog.isOpen && (

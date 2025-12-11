@@ -4,10 +4,11 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Loader2, ArrowDown, AlertTriangle } from 'lucide-react';
-import { ChatMessage, ToolCall, MessageContent } from '../types';
+import { ChatMessage, ToolCall, MessageContent, MessageQueueItem } from '../types';
 import { ModifiedFile } from '../types/fileChanges';
 import { extractModifiedFiles } from '../utils/fileChangeExtractor';
 import { MessageBubble } from './MessageBubble';
+import { MessageQueueList } from './MessageQueueList';
 import { ToolCallList } from './ToolCallList';
 import { MessageInput } from './MessageInput';
 import FilesChangedBar from './FilesChangedBar';
@@ -52,6 +53,11 @@ interface ChatInterfaceProps {
   // 🎯 新增：Plan模式
   isPlanMode?: boolean;         // 是否在Plan模式
   onTogglePlanMode?: (enabled: boolean) => void;  // Plan模式切换回调
+  // 🎯 新增：消息队列
+  messageQueue?: MessageQueueItem[];
+  onAddMessageToQueue?: (content: MessageContent) => void;
+  onRemoveMessageFromQueue?: (id: string) => void;
+  onUpdateMessageQueue?: (newQueue: MessageQueueItem[]) => void;
 }
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({
@@ -72,7 +78,11 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   rollbackableMessageIds = [],
   messageInputRef,
   isPlanMode = false,
-  onTogglePlanMode
+  onTogglePlanMode,
+  messageQueue = [],
+  onAddMessageToQueue,
+  onRemoveMessageFromQueue,
+  onUpdateMessageQueue
 }) => {
   const { t } = useTranslation();
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
@@ -89,6 +99,47 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [pendingEditData, setPendingEditData] = useState<{messageId: string, newContent: MessageContent} | null>(null);
 
+
+  // 🎯 发送锁，防止在状态更新间隙重复发送
+  // const [isSendingQueue, setIsSendingQueue] = useState(false);
+
+  // 🎯 待移除的消息ID
+  // const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
+
+  // 🎯 监听 isLoading 变化来重置锁
+  // useEffect(() => {
+  //   if (isLoading || isProcessing) {
+  //     // 当系统开始处理时，重置发送锁，以便在处理完成后允许发送下一条
+  //     setIsSendingQueue(false);
+  //
+  //     // 🎯 如果有待移除的消息，说明发送成功了，现在移除
+  //     if (pendingRemoveId) {
+  //       console.log('🎯 [QUEUE] Message sent successfully (loading started), removing from queue:', pendingRemoveId);
+  //       if (onRemoveMessageFromQueue) {
+  //         onRemoveMessageFromQueue(pendingRemoveId);
+  //       }
+  //       setPendingRemoveId(null);
+  //     }
+  //   }
+  // }, [isLoading, isProcessing, pendingRemoveId, onRemoveMessageFromQueue]);
+
+  // 🎯 自动发送队列中的消息 - 已移至 MultiSessionApp 全局处理
+  // useEffect(() => {
+  //   // 只有当完全空闲（既不loading也不processing）且队列有消息且未在发送中且没有待移除的消息时才发送
+  //   if (!isLoading && !isProcessing && messageQueue.length > 0 && !isSendingQueue && !pendingRemoveId) {
+  //     const nextMessage = messageQueue[0];
+  //     console.log('🎯 [QUEUE] Auto-sending queued message:', nextMessage.id);
+  //
+  //     // 🔒 锁住，防止在 isLoading 变为 true 之前再次触发
+  //     setIsSendingQueue(true);
+  //     setPendingRemoveId(nextMessage.id); // 标记这条消息等待移除
+  //
+  //     // 发送消息
+  //     onSendMessage(nextMessage.content);
+  //
+  //     // 注意：这里不再立即移除，而是等待 isLoading 变为 true
+  //   }
+  // }, [isLoading, isProcessing, messageQueue, onSendMessage, isSendingQueue, pendingRemoveId]);
 
   // 🎯 智能滚动：根据用户位置自动滚动到底部
   useEffect(() => {
@@ -230,6 +281,14 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   // 🎯 处理发送消息并自动滚动到底部
   const handleSendMessage = (content: MessageContent) => {
+    // 🎯 如果正在处理中，加入队列
+    if ((isLoading || isProcessing) && onAddMessageToQueue) {
+      console.log('🎯 [QUEUE] System busy, adding message to queue');
+      onAddMessageToQueue(content);
+      forceScrollToBottom();
+      return;
+    }
+
     // 调用原始的发送消息函数
     onSendMessage(content);
     // 自动滚动到底部
@@ -709,25 +768,25 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
           <div className="confirm-dialog" onClick={(e) => e.stopPropagation()}>
             <div className="confirm-dialog-header">
               <AlertTriangle size={16} color="var(--vscode-editorWarning-foreground)" />
-              <h3>确认编辑操作</h3>
+              <h3>{t('chat.editConfirm.title')}</h3>
             </div>
             <div className="confirm-dialog-content">
-              <p>编辑此消息将会删除后续的 {pendingEditData && messages.findIndex(m => m.id === pendingEditData.messageId) !== -1 ?
-                messages.length - messages.findIndex(m => m.id === pendingEditData.messageId) - 1 : 0} 条对话，并重新生成AI回复。</p>
-              <p>此操作不可撤销，确定要继续吗？</p>
+              <p>{t('chat.editConfirm.content', { count: pendingEditData && messages.findIndex(m => m.id === pendingEditData.messageId) !== -1 ?
+                messages.length - messages.findIndex(m => m.id === pendingEditData.messageId) - 1 : 0 })}</p>
+              <p>{t('chat.editConfirm.warning')}</p>
             </div>
             <div className="confirm-dialog-actions">
               <button
                 className="confirm-dialog-button secondary"
                 onClick={handleCancelEditConfirm}
               >
-                取消
+                {t('chat.editConfirm.cancel')}
               </button>
               <button
                 className="confirm-dialog-button primary"
                 onClick={handleConfirmEdit}
               >
-                确认编辑
+                {t('chat.editConfirm.confirm')}
               </button>
             </div>
           </div>
@@ -777,6 +836,19 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
           </button>
         </div>
       )}
+
+      {/* 🎯 消息队列显示 */}
+      <MessageQueueList
+        queue={messageQueue}
+        onRemove={(id) => onRemoveMessageFromQueue?.(id)}
+        onReorder={(newQueue) => onUpdateMessageQueue?.(newQueue)}
+        onEdit={(item) => {
+          onRemoveMessageFromQueue?.(item.id);
+          if (messageInputRef?.current) {
+            messageInputRef.current.setContent(item.content);
+          }
+        }}
+      />
 
       {/* Input Area */}
       <MessageInput

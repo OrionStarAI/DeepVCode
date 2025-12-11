@@ -82,6 +82,20 @@ export const enUS: Translations = {
     cannotStop: '⚠️ Processing, cannot stop',
     sending: '⏳ Sending...',
     editPlaceholder: 'Edit your message...',
+    queue: {
+      title: 'Pending Queue',
+      hint: 'Auto-sends after AI reply',
+      drag: 'Drag to reorder',
+      edit: 'Edit (move to input)',
+      remove: 'Remove',
+    },
+    editConfirm: {
+      title: 'Confirm Edit',
+      content: 'Editing this message will delete {count} subsequent messages and regenerate the AI response.',
+      warning: 'This action cannot be undone. Continue?',
+      confirm: 'Confirm Edit',
+      cancel: 'Cancel',
+    },
   },
 
   command: {
@@ -310,6 +324,18 @@ export const enUS: Translations = {
     cacheHit: 'Cache Hit',
   },
 
+  compression: {
+    confirmTitle: 'Context Compression Required',
+    confirmMessage: 'Your current context exceeds the target model\'s limit. Compression is required to switch models.',
+    currentTokens: 'Current Tokens',
+    targetLimit: 'Target Model Limit',
+    targetModel: 'Target Model',
+    confirmHint: 'Compression will summarize older messages while preserving recent context and key information.',
+    cancel: 'Cancel',
+    confirmAndSwitch: 'Compress & Switch',
+    inProgress: 'Compressing context...',
+  },
+
   reasoning: {
     title: 'AI Thinking',
     expand: 'Expand thinking process',
@@ -357,5 +383,26 @@ export const enUS: Translations = {
     selectTerminal: 'Select terminal',
     terminalOutput: 'Terminal output (last 200 lines)',
     loading: 'Loading...',
+  },
+
+  systemNotifications: {
+    'loop.consecutive.tool.calls.title': '🔄 Repetitive Tool Calls Detected',
+    'loop.consecutive.tool.calls.description': 'The AI model is repeatedly calling the same tool, exhausting context and API quota without making meaningful progress.',
+    'loop.consecutive.tool.calls.reason': 'Why this happens:\n• The AI may be stuck exploring the same path\n• The current approach is not productive\n• Missing or unclear task context',
+    'loop.consecutive.tool.calls.action': 'What to do:\n1. Review the task: Is the request clear and specific enough?\n2. Provide new guidance: Give the AI a different approach or new information\n3. Restart if needed: Use /session new to start with a fresh context',
+
+    'loop.chanting.identical.sentences.title': '🔄 Repetitive Content Detected',
+    'loop.chanting.identical.sentences.description': 'The AI model is repeatedly generating the same text or responses.',
+    'loop.chanting.identical.sentences.reason': 'Why this happens:\n• The model may be stuck on a specific pattern\n• Unable to progress beyond a certain point',
+    'loop.chanting.identical.sentences.action': 'What to do:\n• Try breaking the pattern with a new instruction\n• Ask the AI to try a different approach\n• Continue with new context or restart',
+
+    'loop.llm.detected.title': '⚠️ Unproductive Loop Detected',
+    'loop.llm.detected.description': 'The AI model appears to be stuck without making meaningful progress on the task.',
+    'loop.llm.detected.reason': 'Why this happens:\n• The current approach is not advancing the task\n• May be exploring unproductive paths',
+    'loop.llm.detected.action': 'What to do:\n• Clarify the goal or provide clearer task requirements\n• Refocus the AI on the core problem\n• Consider breaking the task into smaller subtasks',
+
+    'chat.compression.title': '✨ Context Optimized',
+    'chat.compression.description': 'The conversation history has been automatically compressed to manage context efficiently.',
+    'chat.compression.info': 'This allows the conversation to continue with more room for new context and responses.',
   },
 };

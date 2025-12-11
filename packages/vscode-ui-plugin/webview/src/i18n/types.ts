@@ -80,6 +80,20 @@ export interface Translations {
     cannotStop: string;
     sending: string;
     editPlaceholder: string;
+    queue: {
+      title: string;
+      hint: string;
+      drag: string;
+      edit: string;
+      remove: string;
+    };
+    editConfirm: {
+      title: string;
+      content: string;
+      warning: string;
+      confirm: string;
+      cancel: string;
+    };
   };
 
   command: {
@@ -308,6 +322,18 @@ export interface Translations {
     cacheHit: string;
   };
 
+  compression: {
+    confirmTitle: string;
+    confirmMessage: string;
+    currentTokens: string;
+    targetLimit: string;
+    targetModel: string;
+    confirmHint: string;
+    cancel: string;
+    confirmAndSwitch: string;
+    inProgress: string;
+  };
+
   reasoning: {
     title: string;
     expand: string;
@@ -355,6 +381,24 @@ export interface Translations {
     selectTerminal: string;
     terminalOutput: string;
     loading: string;
+  };
+
+  systemNotifications: {
+    'loop.consecutive.tool.calls.title': string;
+    'loop.consecutive.tool.calls.description': string;
+    'loop.consecutive.tool.calls.reason': string;
+    'loop.consecutive.tool.calls.action': string;
+    'loop.chanting.identical.sentences.title': string;
+    'loop.chanting.identical.sentences.description': string;
+    'loop.chanting.identical.sentences.reason': string;
+    'loop.chanting.identical.sentences.action': string;
+    'loop.llm.detected.title': string;
+    'loop.llm.detected.description': string;
+    'loop.llm.detected.reason': string;
+    'loop.llm.detected.action': string;
+    'chat.compression.title': string;
+    'chat.compression.description': string;
+    'chat.compression.info': string;
   };
 }
 

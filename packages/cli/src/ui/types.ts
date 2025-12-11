@@ -113,6 +113,28 @@ export type HistoryItemToolStats = HistoryItemBase & {
   type: 'tool_stats';
 };
 
+export type HistoryItemTokenBreakdown = HistoryItemBase & {
+  type: 'token_breakdown';
+  systemPromptTokens: number;
+  userMessageTokens: number;
+  memoryContextTokens: number;
+  toolsTokens: number;
+  totalInputTokens: number;
+  maxTokens: number;
+};
+
+export type HistoryItemContextBreakdown = HistoryItemBase & {
+  type: 'context_breakdown';
+  systemPromptTokens: number;
+  systemToolsTokens: number;
+  memoryFilesTokens: number;
+  messagesTokens: number;
+  reservedTokens: number;
+  totalInputTokens: number;
+  freeSpaceTokens: number;
+  maxTokens: number;
+};
+
 export type HistoryItemQuit = HistoryItemBase & {
   type: 'quit';
   duration: string;
@@ -150,6 +172,8 @@ export type HistoryItemWithoutId =
   | HistoryItemStats
   | HistoryItemModelStats
   | HistoryItemToolStats
+  | HistoryItemTokenBreakdown
+  | HistoryItemContextBreakdown
   | HistoryItemQuit
   | HistoryItemCompression;
 
@@ -164,6 +188,8 @@ export enum MessageType {
   STATS = 'stats',
   MODEL_STATS = 'model_stats',
   TOOL_STATS = 'tool_stats',
+  TOKEN_BREAKDOWN = 'token_breakdown',
+  CONTEXT_BREAKDOWN = 'context_breakdown',
   QUIT = 'quit',
   DEEPV = 'deepv',
   COMPRESSION = 'compression',

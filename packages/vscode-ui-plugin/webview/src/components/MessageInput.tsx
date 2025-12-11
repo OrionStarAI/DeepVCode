@@ -94,6 +94,7 @@ export interface MessageInputHandle {
     startLine?: number;
     endLine?: number;
   }) => void;
+  setContent: (content: MessageContent) => void; // 🎯 新增：设置内容方法
 }
 
 export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputProps>((props, ref) => {
@@ -186,6 +187,15 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
 
       // 🎯 聚焦编辑器
       editorRef.current.focus();
+    },
+    setContent: (content: MessageContent) => {
+      populateEditorWithContent(content);
+      // 聚焦编辑器
+      setTimeout(() => {
+        if (editorRef.current) {
+          editorRef.current.focus();
+        }
+      }, 100);
     }
   }));
 
@@ -843,7 +853,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
       part.type === 'terminal_reference'  // 🎯 支持终端引用
     );
 
-    if (hasContent && !isLoading && !isProcessing) {
+    if (hasContent) {
       // 🎯 根据模式调用不同的处理函数
       if (isEditMode && editingMessageId && onSaveEdit) {
         // 编辑模式：保存编辑，直接传递原始结构
@@ -1128,7 +1138,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
             />
 
             {/* 发送/保存按钮 - 与底部保持一致的样式 */}
-            {isProcessing ? (
+            {isProcessing && !textContent.trim() ? (
               <button
                 className="send-button processing"
                 onClick={onAbortProcess}
@@ -1141,10 +1151,10 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
               <button
                 className="send-button"
                 onClick={handleSend}
-                disabled={!textContent.trim() || isLoading || isProcessing}
-                title={isLoading ? t('chat.sending', {}, 'Sending...') : t('chat.sendMessage', {}, 'Send message')}
+                disabled={!textContent.trim()}
+                title={isLoading || isProcessing ? 'Add to queue' : t('chat.sendMessage', {}, 'Send message')}
               >
-                {isLoading ? (
+                {isLoading && !isProcessing && !textContent.trim() ? (
                   <div className="button-spinner" />
                 ) : (
                   <Send size={16} stroke="currentColor" />

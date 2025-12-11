@@ -297,6 +297,14 @@ export const translations = {
     'token.efficiency': 'Cache Hit Rate: ',
     'token.no.cache': 'No cache hits - all tokens processed fresh',
 
+    // Token Breakdown Display
+    'token.breakdown.title': 'Context Token Breakdown',
+    'token.breakdown.system': 'System Prompt',
+    'token.breakdown.user': 'User Input',
+    'token.breakdown.memory': 'Memory & Context',
+    'token.breakdown.tools': 'Tools & Functions',
+    'token.breakdown.total': 'Total Context',
+
     // SubAgent Stats
     'subagent.activity': 'SubAgent Activity',
     'subagent.api.calls': 'API Calls: ',
@@ -446,6 +454,7 @@ export const translations = {
     'model.command.usage.instruction.change': 'Use /model <model name> to change model.',
     'model.command.usage.instruction.change.friendly': '💡 Tip: Type /model then press SPACE or TAB to see model options, select your preferred model, then press ENTER.',
     'model.command.invalid.model': 'Invalid model: {model}',
+    'model.command.switching': 'Switching to model {model}, please wait...',
     'model.command.set.success': '✅ Preferred model set to: {model}',
     'model.command.credit.cost': '💰 Cost per request: {credits}x credits',
     'model.command.credit.cost.long.context': '💰 Long context (>{threshold} tokens): {credits}x credits',
@@ -706,10 +715,12 @@ export const translations = {
     'command.auth.description': 'Login to your account',
     'command.chat.description': 'Manage conversation history',
     'command.compress.description': 'Compress context through summary replacement',
+    'command.compress.starting': 'Compressing context, approximately 20 seconds, please wait...',
     'command.copy.description': 'Copy last result or code snippet to clipboard',
     'command.editor.description': 'Set external editor preferences',
     'command.memory.description': 'Commands to interact with memory',
-    'command.stats.description': 'Check session statistics',
+    'command.stats.description': 'View all statistics (session, model, and tools). Usage: /stats [model [name]|tools]',
+    'command.context.description': 'View detailed context token usage breakdown',
     'command.tools.description': 'List available tools and their descriptions',
     'command.vim.description': 'Toggle vim mode',
     'command.yolo.description': 'Manage YOLO mode (auto-approve all tool calls)',
@@ -1091,8 +1102,8 @@ export const translations = {
 
     // Loop Detection Messages
     'loop.consecutive.tool.calls.title': '🔄 Repetitive Tool Calls Detected',
-    'loop.consecutive.tool.calls.description': 'The AI model is repeatedly calling the same tool with identical parameters.',
-    'loop.consecutive.tool.calls.action': 'How to fix:\n• Refine your request to be more specific\n• Provide additional context or constraints\n• Try asking the AI to approach the problem differently\n• Continue the conversation with new instructions or /session new to start fresh',
+    'loop.consecutive.tool.calls.description': 'The AI model is repeatedly calling the same tool, exhausting context and API quota without making meaningful progress.\n\nWhy this happens:\n• The AI may be stuck exploring the same path\n• The current approach is not productive\n• Missing or unclear task context\n\nWhat to do:\n1. Review the task: Is the request clear and specific enough?\n2. Provide new guidance: Give the AI a different approach or new information\n3. Restart if needed: Use /session new to start with a fresh context\n\nExamples:\n• ❌ "Read all files to understand the codebase"\n• ✅ "Focus on src/auth.ts and explain the login flow"\n• ❌ "Fix the error"\n• ✅ "The error is in authentication. Check the token validation logic"',
+    'loop.consecutive.tool.calls.action': 'Quick actions:\n• Continue with a more specific request\n• Ask the AI to try a different approach\n• Use /session new to start fresh',
     'loop.chanting.identical.sentences.title': '🔄 Repetitive Content Detected',
     'loop.chanting.identical.sentences.description': 'The AI model is repeatedly generating the same text or responses.',
     'loop.chanting.identical.sentences.action': 'How to fix:\n• The model may be stuck on a specific pattern\n• Try breaking the pattern with a new instruction\n• Ask the AI to try a different approach\n• Continue the conversation with new context or /session new for a fresh start',
@@ -1367,6 +1378,14 @@ export const translations = {
     'token.efficiency': '缓存命中率: ',
     'token.no.cache': '无缓存命中 - 所有 token 均为新处理',
 
+    // Token Breakdown Display
+    'token.breakdown.title': '上下文占用细分统计',
+    'token.breakdown.system': '系统提示词',
+    'token.breakdown.user': '用户输入',
+    'token.breakdown.memory': '记忆和上下文',
+    'token.breakdown.tools': '工具和函数',
+    'token.breakdown.total': '上下文总占用',
+
     // SubAgent Stats
     'subagent.activity': 'SubAgent 活动',
     'subagent.api.calls': 'API 调用: ',
@@ -1517,6 +1536,7 @@ export const translations = {
     'model.command.usage.instruction.change': '使用 /model <模型名称> 来更改模型。',
     'model.command.usage.instruction.change.friendly': '💡 提示：输入 /model 后按空格键或Tab键可直接选择模型，选中后按回车确认。',
     'model.command.invalid.model': '无效的模型：{model}',
+    'model.command.switching': '正在切换到模型 {model}，请稍候...',
     'model.command.set.success': '✅ 已设置首选模型为：{model}',
     'model.command.credit.cost': '💰 单次请求消耗：{credits}x credits',
     'model.command.credit.cost.long.context': '💰 长上下文 (>{threshold} tokens)：{credits}x credits',
@@ -1775,10 +1795,12 @@ export const translations = {
     'command.auth.description': '登录账号',
     'command.chat.description': '管理对话历史记录',
     'command.compress.description': '通过摘要替换来压缩上下文',
+    'command.compress.starting': '正在压缩，大约需要20秒，请稍等...',
     'command.copy.description': '将最后的结果或代码片段复制到剪贴板',
     'command.editor.description': '设置外部编辑器偏好',
     'command.memory.description': '与记忆交互的命令',
-    'command.stats.description': '检查会话统计',
+    'command.stats.description': '查看所有统计信息（会话、模型和工具）。用法：/stats [model [名称]|tools]',
+    'command.context.description': '查看详细的上下文Token占用分析',
     'command.tools.description': '列出可用的工具及其描述',
     'command.vim.description': '开启/关闭 vim 模式',
     'command.yolo.description': '管理YOLO模式（自动批准所有工具调用）',
@@ -2161,8 +2183,8 @@ export const translations = {
 
     // Loop Detection Messages
     'loop.consecutive.tool.calls.title': '🔄 检测到重复工具调用',
-    'loop.consecutive.tool.calls.description': 'AI模型在反复调用相同的工具且参数完全相同。',
-    'loop.consecutive.tool.calls.action': '解决方案：\n• 用更具体的信息来优化您的请求\n• 提供额外的上下文或约束条件\n• 让AI尝试从不同角度处理问题\n• 继续对话并提供新的指示，或执行 /session new 开始新会话',
+    'loop.consecutive.tool.calls.description': 'AI模型在反复调用相同的工具，浪费上下文和API配额，没有取得实质进展。\n\n为什么会发生：\n• AI可能被困在同一个方向的探索中\n• 当前的方法不可行\n• 任务描述不清楚或缺少关键信息\n\n应该做什么：\n1. 检查任务：请求是否足够清晰和具体？\n2. 提供新指导：告诉AI尝试不同的方向或提供新信息\n3. 如需要可重启：使用 /session new 清空上下文重新开始\n\n举例：\n• ❌ "读所有文件来理解代码库"\n• ✅ "重点看 src/auth.ts，解释登录流程"\n• ❌ "修复这个错误"\n• ✅ "错误在认证模块，检查token验证逻辑"',
+    'loop.consecutive.tool.calls.action': '快速操作：\n• 继续提供更具体的请求\n• 要求AI尝试不同的方法\n• 使用 /session new 清空上下文重新开始',
     'loop.chanting.identical.sentences.title': '🔄 检测到重复内容',
     'loop.chanting.identical.sentences.description': 'AI模型在反复生成相同的文本或响应。',
     'loop.chanting.identical.sentences.action': '解决方案：\n• 模型可能陷入特定的文本模式\n• 尝试用新的指示打破这个模式\n• 要求AI采用不同的方法\n• 继续对话并提供新的上下文，或执行 /session new 重新开始',

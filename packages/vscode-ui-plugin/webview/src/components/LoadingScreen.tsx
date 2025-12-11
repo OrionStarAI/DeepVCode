@@ -7,8 +7,6 @@
  */
 
 import React, { useEffect, useState, useRef } from 'react';
-import { UpdatePrompt } from './UpdatePrompt';
-import { getUpdateCheckService, UpdateCheckResponse } from '../services/updateCheckService';
 import './LoadingScreen.css';
 
 interface LoadingScreenProps {
@@ -18,8 +16,6 @@ interface LoadingScreenProps {
   onLoadingComplete?: () => void;
   /** Callback when login is required */
   onLoginRequired?: (error?: string) => void;
-  /** Callback when update is required */
-  onUpdateRequired?: (updateInfo: UpdateCheckResponse, forceUpdate: boolean) => void;
 }
 
 /**
@@ -34,8 +30,7 @@ interface LoadingScreenProps {
 export const LoadingScreen: React.FC<LoadingScreenProps> = ({
   className = '',
   onLoadingComplete,
-  onLoginRequired,
-  onUpdateRequired
+  onLoginRequired
 }) => {
   // 🎯 内部进度条状态
   const [currentProgress, setCurrentProgress] = useState(0);
@@ -49,9 +44,6 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
 
   // 🎯 检测结果
   const [loginResult, setLoginResult] = useState<{ isLoggedIn: boolean; error?: string } | null>(null);
-  const [updateResult, setUpdateResult] = useState<{ updateInfo: UpdateCheckResponse; forceUpdate: boolean } | null>(null);
-
-  const updateCheckService = getUpdateCheckService();
 
   // 🎯 1. 统一的进度条动画控制逻辑
   useEffect(() => {
@@ -160,82 +152,12 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
       }
     };
 
-    // 🎯 B. 启动升级检测
+    // 🎯 B. 启动升级检测（禁用：市场自动升级）
+    // NOTE: 更新检测已禁用，因为 VSCode 市场会自动处理扩展升级
+    // 这避免了启动时的网络超时问题，并简化了启动流程
     const startUpdateCheck = async () => {
-      try {
-        setCurrentStage('Syncing Knowledge Base...');
-        console.log('[LoadingScreen] 🔍 Starting update check...');
-
-        const handleMessage = (event: MessageEvent) => {
-          if (event.data?.type === 'extension_version_response') {
-            const version = event.data.payload?.version;
-            console.log('[LoadingScreen] 📦 Received extension version:', version);
-
-            if (version) {
-              updateCheckService.setCurrentVersion(version);
-              performUpdateCheck(version);
-            } else {
-              console.warn('[LoadingScreen] ⚠️ No version received');
-              setUpdateCheckComplete(true);
-            }
-          }
-        };
-
-        const performUpdateCheck = async (version: string) => {
-          try {
-            if (!updateCheckService.shouldCheckForUpdates()) {
-              console.log('[LoadingScreen] ⏭️ Skipping update check');
-              setUpdateCheckComplete(true);
-              return;
-            }
-
-            const updateResult = await updateCheckService.checkForUpdates();
-            console.log('[LoadingScreen] 📋 Update check response:', updateResult);
-
-            if (updateResult && updateResult.hasUpdate) {
-              const shouldShow = updateCheckService.shouldShowUpdatePrompt(updateResult);
-              if (shouldShow) {
-                console.log('[LoadingScreen] ✅ Update available, will show prompt');
-                setUpdateResult({
-                  updateInfo: updateResult,
-                  forceUpdate: updateResult.forceUpdate
-                });
-              }
-            }
-
-            setUpdateCheckComplete(true);
-          } catch (error) {
-            console.error('[LoadingScreen] ❌ Update check failed:', error);
-            setUpdateCheckComplete(true);
-          }
-        };
-
-        window.addEventListener('message', handleMessage);
-
-        // 请求扩展版本号
-        if (window.vscode) {
-          window.vscode.postMessage({
-            type: 'get_extension_version',
-            payload: {}
-          });
-        } else {
-          console.error('[LoadingScreen] ❌ VSCode API not available');
-          setUpdateCheckComplete(true);
-        }
-
-        // 超时处理
-        setTimeout(() => {
-          window.removeEventListener('message', handleMessage);
-          if (!updateCheckComplete) {
-            console.warn('[LoadingScreen] ⚠️ Update check timeout');
-            setUpdateCheckComplete(true);
-          }
-        }, 15000);
-
-      } catch (error) {
-        console.error('[LoadingScreen] ❌ Update check initialization failed:', error);
-        setUpdateCheckComplete(true);
-      }
+      console.log('[LoadingScreen] ⏭️ Skipping update check (marketplace handles auto-update)');
+      setUpdateCheckComplete(true);
     };
 
     // 🎯 C. 启动服务初始化
@@ -279,7 +201,7 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
     startLoginCheck();
     startUpdateCheck();
     startServiceInit();
-  }, [updateCheckService]);
+  }, []);
 
   // 🎯 3. 监听任务完成状态，更新文字
   useEffect(() => {
@@ -290,6 +212,15 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
 
   // 🎯 4. 监听进度条到达 100%，执行跳转
   const hasCompletedRef = useRef(false);
+
+  // 使用 ref 存储回调函数，避免因父组件重渲染导致回调函数引用变化，进而触发 effect 清理导致定时器被取消
+  const onLoadingCompleteRef = useRef(onLoadingComplete);
+  const onLoginRequiredRef = useRef(onLoginRequired);
+
+  useEffect(() => {
+    onLoadingCompleteRef.current = onLoadingComplete;
+    onLoginRequiredRef.current = onLoginRequired;
+  }, [onLoadingComplete, onLoginRequired]);
 
   useEffect(() => {
     if (currentProgress >= 100 && !hasCompletedRef.current) {
@@ -302,22 +233,19 @@ export const LoadingScreen: React.FC<LoadingScreenProps> = ({
       // 延迟一下让淡出动画播放一小会儿，然后真正切换界面
       // 这样用户看到的是界面正在消失，而不是卡在 100%
       const timer = setTimeout(() => {
-        // 🎯 优先级：升级 > 登录 > 主应用
-        if (updateResult) {
-          console.log('[LoadingScreen] 🔄 Redirecting to update prompt');
-          onUpdateRequired?.(updateResult.updateInfo, updateResult.forceUpdate);
-        } else if (loginResult && !loginResult.isLoggedIn) {
+        // 🎯 优先级：登录 > 主应用
+        if (loginResult && !loginResult.isLoggedIn) {
           console.log('[LoadingScreen] 🔄 Redirecting to login');
-          onLoginRequired?.(loginResult.error);
+          onLoginRequiredRef.current?.(loginResult.error);
         } else {
           console.log('🔍 [DEBUG-UI-FLOW] [LoadingScreen] Redirecting to main app');
-          onLoadingComplete?.();
+          onLoadingCompleteRef.current?.();
         }
       }, 300); // 300ms 淡出时间
 
       return () => clearTimeout(timer);
     }
-  }, [currentProgress, loginResult, updateResult, onLoadingComplete, onLoginRequired, onUpdateRequired]);
+  }, [currentProgress, loginResult]);
 
   // SVG Circle Configuration
   const radius = 70;

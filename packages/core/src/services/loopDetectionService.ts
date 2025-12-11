@@ -19,6 +19,33 @@ const CONTENT_CHUNK_SIZE = 500;
 const MAX_HISTORY_LENGTH = 10000;
 
 /**
+ * Preview models exhibit different loop patterns:
+ * They often call the same tool with different args excessively
+ * which our standard hash-based detection (name+args) can miss.
+ * Threshold for detecting same-tool-name loops in preview models
+ * Increased to 50 to avoid false positives during legitimate bulk operations
+ */
+const PREVIEW_TOOL_NAME_LOOP_THRESHOLD = 50;
+
+/**
+ * High-overhead I/O tools that preview models tend to abuse.
+ * These should have stricter detection for preview models.
+ */
+const PREVIEW_INTENSIVE_TOOLS = new Set([
+  'read_file',
+  'read_many_files',
+  'glob',
+  'search_file_content',
+  'ls',
+]);
+
+/**
+ * Strict threshold for high-overhead tools in preview models.
+ * Increased to 25 to allow for legitimate exploration of multiple files
+ */
+const PREVIEW_INTENSIVE_TOOL_THRESHOLD = 25;
+
+/**
  * The number of recent conversation turns to include in the history when asking the LLM to check for a loop.
  */
 const LLM_LOOP_CHECK_HISTORY_COUNT = 20;
@@ -89,10 +116,14 @@ async function callGeminiLoopDetectionAPI(
 export class LoopDetectionService {
   private readonly config: Config;
   private promptId = '';
+  private isPreviewModel: boolean = false;
 
   // Tool call tracking
   private lastToolCallKey: string | null = null;
   private toolCallRepetitionCount: number = 0;
+
+  // Preview model: track tool name frequency (ignoring args)
+  private toolNameCallCounts: Map<string, number> = new Map();
 
   // Content streaming tracking
   private streamContentHistory = '';
@@ -167,6 +198,7 @@ export class LoopDetectionService {
   }
 
   private checkToolCallLoop(toolCall: { name: string; args: object }): boolean {
+    // Check 1: Standard exact match detection (name + args hash)
     const key = this.getToolCallKey(toolCall);
     if (this.lastToolCallKey === key) {
       this.toolCallRepetitionCount++;
@@ -174,6 +206,7 @@ export class LoopDetectionService {
       this.lastToolCallKey = key;
       this.toolCallRepetitionCount = 1;
     }
+
     if (this.toolCallRepetitionCount >= TOOL_CALL_LOOP_THRESHOLD) {
       this.detectedLoopType = LoopType.CONSECUTIVE_IDENTICAL_TOOL_CALLS;
       logLoopDetected(
@@ -185,6 +218,51 @@ export class LoopDetectionService {
       );
       return true;
     }
+
+    // Check 2: Preview model strict checking (tool name only, ignoring args)
+    if (this.isPreviewModel) {
+      return this.checkPreviewModelToolNameLoop(toolCall);
+    }
+
+    return false;
+  }
+
+  /**
+   * Strict loop detection for preview models.
+   * Preview models often call the same tool repeatedly with different args,
+   * which can exhaust context and API quotas without making meaningful progress.
+   *
+   * Strategy:
+   * - Track same tool name calls (ignoring args)
+   * - Intensive I/O tools (read_file, etc.): threshold = 4
+   * - Other tools: threshold = 5
+   */
+  private checkPreviewModelToolNameLoop(toolCall: { name: string; args: object }): boolean {
+    const toolName = toolCall.name;
+    const currentCount = (this.toolNameCallCounts.get(toolName) || 0) + 1;
+    this.toolNameCallCounts.set(toolName, currentCount);
+
+    // Determine threshold based on tool type
+    const isIntensiveTool = PREVIEW_INTENSIVE_TOOLS.has(toolName);
+    const threshold = isIntensiveTool
+      ? PREVIEW_INTENSIVE_TOOL_THRESHOLD
+      : PREVIEW_TOOL_NAME_LOOP_THRESHOLD;
+
+    if (currentCount >= threshold) {
+      console.warn(
+        `[LoopDetection] Preview model loop detected: tool '${toolName}' called ${currentCount} times (threshold: ${threshold})`
+      );
+      this.detectedLoopType = LoopType.CONSECUTIVE_IDENTICAL_TOOL_CALLS;
+      logLoopDetected(
+        this.config,
+        new LoopDetectedEvent(
+          LoopType.CONSECUTIVE_IDENTICAL_TOOL_CALLS,
+          this.promptId,
+        ),
+      );
+      return true;
+    }
+
     return false;
   }
 
@@ -493,6 +571,14 @@ Please analyze the conversation history to determine the possibility that the co
    */
   reset(promptId: string): void {
     this.promptId = promptId;
+
+    // Detect if current model is a preview model for stricter checking
+    const currentModel = this.config.getModel();
+    this.isPreviewModel = /preview/i.test(currentModel);
+    if (this.isPreviewModel) {
+      console.log(`[LoopDetection] Detected preview model: ${currentModel}, enabling strict tool-name checking`);
+    }
+
     this.resetToolCallCount();
     this.resetContentTracking();
     this.resetLlmCheckTracking();
@@ -503,6 +589,7 @@ Please analyze the conversation history to determine the possibility that the co
   private resetToolCallCount(): void {
     this.lastToolCallKey = null;
     this.toolCallRepetitionCount = 0;
+    this.toolNameCallCounts.clear();
   }
 
   private resetContentTracking(resetHistory = true): void {
