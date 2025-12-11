@@ -20,6 +20,7 @@ import { ChatInterface } from './ChatInterface';
 import { LoginPage } from './LoginPage';
 import { LoadingScreen } from './LoadingScreen';
 import { UpdatePrompt } from './UpdatePrompt';
+
 import { MessageInputHandle } from './MessageInput';
 import { PlanModeNotification } from './PlanModeNotification';
 import { ChatHistoryModal } from './ChatHistoryModal';
@@ -136,6 +137,9 @@ export const MultiSessionApp: React.FC = () => {
     updateMessage, // 🎯 新增：更新消息
     updateMessageContent,
     updateMessageReasoning, // 🎯 新增：更新AI思考过程
+    addMessageToQueue, // 🎯 消息队列管理
+    removeMessageFromQueue,
+    updateMessageQueue,
     updateRollbackableIds, // 🎯 添加可回滚ID更新函数
     restoreSessionMessages, // 🎯 添加恢复消息的函数
     forceUpdateSessionMessages, // 🎯 添加强制更新消息的函数
@@ -1081,24 +1085,24 @@ export const MultiSessionApp: React.FC = () => {
   // 事件处理方法
   // =============================================================================
 
-  /**
-   * 处理发送消息
-   */
-  const handleSendMessage = (content: MessageContent) => {
-    const currentSession = getCurrentSession();
-    if (!currentSession) return;
+  // 🎯 处理发送消息
+  const handleSendMessage = React.useCallback((content: MessageContent, targetSessionId?: string) => {
+    // 优先使用目标 Session ID，否则使用当前 Session ID
+    const sessionId = targetSessionId || state.currentSessionId;
+    if (!sessionId) return;
 
-    const sessionId = currentSession.info.id;
+    const currentSession = state.sessions.get(sessionId);
+    if (!currentSession) return;
 
     // 🎯 如果当前正在处理，不允许发送新消息
     if (currentSession.isProcessing) {
-      console.warn('Cannot send message while processing');
-      return;
+      console.warn('⚠️ [MultiSessionApp] Sending message while processing flag is true. This might be a queue retry or race condition. Proceeding anyway.');
+      // 🎯 移除 return，允许队列重试机制生效
+      // return;
     }
 
     // 检查是否是第一条用户消息（在添加消息之前检查）
-    const session = getSession(sessionId);
-    const isFirstUserMessage = session ? session.messages.filter(m => m.type === 'user').length === 0 : false;
+    const isFirstUserMessage = currentSession.messages.filter(m => m.type === 'user').length === 0;
 
     // 添加用户消息到当前Session
     const userMessage: ChatMessage = {
@@ -1151,7 +1155,52 @@ User question: ${contentStr}`;
 
     // 发送到Extension
     getGlobalMessageService().sendChatMessage(sessionId, messageContentToSend, userMessage.id);
-  };
+  }, [state.currentSessionId, state.sessions, addMessage, setSessionLoading]);
+
+  // 🎯 全局队列处理器：监控所有 Session 的队列并自动发送
+  // 使用 ref 跟踪正在提交的 session，防止在单次渲染周期内重复提交
+  const submittingQueueRefs = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    state.sessions.forEach((session, sessionId) => {
+      // 检查条件：有队列消息 + 非 loading + 非 processing
+      if (session.messageQueue && session.messageQueue.length > 0 && !session.isLoading && !session.isProcessing) {
+
+        // 检查是否已经在提交中（防止重复）
+        if (submittingQueueRefs.current.has(sessionId)) {
+          return;
+        }
+
+        console.log(`🎯 [GLOBAL-QUEUE] Auto-sending queued message for session ${sessionId}`);
+
+        // 标记为正在提交
+        submittingQueueRefs.current.add(sessionId);
+
+        // 获取下一条消息
+        const nextMsg = session.messageQueue[0];
+
+        // 发送消息（这会触发 isLoading = true）
+        // 注意：我们需要临时切换 currentSessionId 来发送，或者改造 handleSendMessage
+        // 这里我们直接调用 handleSendMessage，它已经改造为支持 targetSessionId
+
+        // 🎯 关键：为了确保 handleSendMessage 能正确工作，我们需要确保它不依赖 currentSessionId
+        // 我们已经改造了 handleSendMessage，现在可以安全调用
+
+        // 1. 发送消息
+        handleSendMessage(nextMsg.content, sessionId); // 传入 sessionId
+
+        // 2. 从队列中移除
+        removeMessageFromQueue(sessionId, nextMsg.id);
+
+        // 3. 设置一个短超时来清理提交标记，或者依赖 isLoading 的变化
+        // 由于 handleSendMessage 会同步设置 isLoading，下一次 render 时条件就不满足了
+        // 我们只需要确保在 isLoading 变回 false 之前，这个标记被清除
+        setTimeout(() => {
+          submittingQueueRefs.current.delete(sessionId);
+        }, 1000);
+      }
+    });
+  }, [state.sessions, handleSendMessage, removeMessageFromQueue]);
 
 
   /**
@@ -1507,13 +1556,6 @@ User question: ${contentStr}`;
           setIsLoggedIn(false);
           setLoginError(error);
         }}
-        onUpdateRequired={(updateInfo, forceUpdate) => {
-          console.log('🎯 [LoadingScreen] Update required:', { updateInfo, forceUpdate });
-          setShowLoadingScreen(false);
-          setShowUpdatePrompt(true);
-          setUpdateInfo(updateInfo);
-          setForceUpdate(forceUpdate);
-        }}
       />
     );
   }
@@ -1753,6 +1795,22 @@ User question: ${contentStr}`;
           {currentSession ? (
             <ChatInterface
               messages={currentSession.messages}
+              messageQueue={currentSession.messageQueue || []} // 🎯 传入消息队列
+              onAddMessageToQueue={(content) => {
+                if (state.currentSessionId) {
+                  addMessageToQueue(state.currentSessionId, content);
+                }
+              }}
+              onRemoveMessageFromQueue={(id) => {
+                if (state.currentSessionId) {
+                  removeMessageFromQueue(state.currentSessionId, id);
+                }
+              }}
+              onUpdateMessageQueue={(newQueue) => {
+                if (state.currentSessionId) {
+                  updateMessageQueue(state.currentSessionId, newQueue);
+                }
+              }}
               isLoading={currentSession.isLoading}
               onSendMessage={handleSendMessage}
               onToolConfirm={handleToolConfirmationResponse}

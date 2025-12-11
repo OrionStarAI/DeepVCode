@@ -68,6 +68,9 @@ interface SessionData {
   /** 聊天消息列表 - 只有在isContentLoaded=true时才有实际内容 */
   messages: ChatMessage[];
 
+  /** 🎯 消息队列 - 等待发送的消息 */
+  messageQueue: import('../types').MessageQueueItem[];
+
   /** 🎯 可回滚的消息ID列表 */
   rollbackableMessageIds: string[];
 
@@ -168,6 +171,7 @@ export const useMultiSessionState = () => {
       info: sessionInfo,
       isContentLoaded: loadContent,
       messages: [],  // 🎯 如果loadContent=false，这个数组保持空状态直到真正加载
+      messageQueue: [], // 🎯 初始消息队列为空
       rollbackableMessageIds: [],  // 🎯 初始无可回滚消息
       lastAcceptedMessageId: null,  // 🎯 初始无接受的消息
       isProcessing: false,  // 🎯 初始不在处理中
@@ -507,6 +511,7 @@ export const useMultiSessionState = () => {
       const updatedSessionData = {
         ...sessionData,
         messages: [],
+        messageQueue: [], // 🎯 清空消息同时也清空队列
         rollbackableMessageIds: [],  // 🎯 重置可回滚消息列表
         isProcessing: false,  // 🎯 重置处理状态
         currentProcessingMessageId: null,  // 🎯 清除正在处理的消息
@@ -517,6 +522,73 @@ export const useMultiSessionState = () => {
           messageCount: 0,
           lastActivity: Date.now()
         }
+      };
+      newSessions.set(sessionId, updatedSessionData);
+
+      return { ...prev, sessions: newSessions };
+    });
+  }, [updateState]);
+
+  // =============================================================================
+  // 🎯 消息队列管理方法
+  // =============================================================================
+
+  /**
+   * 添加消息到队列
+   */
+  const addMessageToQueue = useCallback((sessionId: string, content: import('../types').MessageContent) => {
+    updateState(prev => {
+      const sessionData = prev.sessions.get(sessionId);
+      if (!sessionData) return prev;
+
+      const newItem: import('../types').MessageQueueItem = {
+        id: `queue-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        content,
+        timestamp: Date.now()
+      };
+
+      const newSessions = new Map(prev.sessions);
+      const updatedSessionData = {
+        ...sessionData,
+        messageQueue: [...(sessionData.messageQueue || []), newItem]
+      };
+      newSessions.set(sessionId, updatedSessionData);
+
+      return { ...prev, sessions: newSessions };
+    });
+  }, [updateState]);
+
+  /**
+   * 从队列中移除消息
+   */
+  const removeMessageFromQueue = useCallback((sessionId: string, queueItemId: string) => {
+    updateState(prev => {
+      const sessionData = prev.sessions.get(sessionId);
+      if (!sessionData) return prev;
+
+      const newSessions = new Map(prev.sessions);
+      const updatedSessionData = {
+        ...sessionData,
+        messageQueue: (sessionData.messageQueue || []).filter(item => item.id !== queueItemId)
+      };
+      newSessions.set(sessionId, updatedSessionData);
+
+      return { ...prev, sessions: newSessions };
+    });
+  }, [updateState]);
+
+  /**
+   * 更新队列（用于排序或批量更新）
+   */
+  const updateMessageQueue = useCallback((sessionId: string, newQueue: import('../types').MessageQueueItem[]) => {
+    updateState(prev => {
+      const sessionData = prev.sessions.get(sessionId);
+      if (!sessionData) return prev;
+
+      const newSessions = new Map(prev.sessions);
+      const updatedSessionData = {
+        ...sessionData,
+        messageQueue: newQueue
       };
       newSessions.set(sessionId, updatedSessionData);
 
@@ -1043,6 +1115,11 @@ export const useMultiSessionState = () => {
     }, [updateState]),
 
     clearMessages,
+
+    // 🎯 消息队列管理
+    addMessageToQueue,
+    removeMessageFromQueue,
+    updateMessageQueue,
 
     // 🎯 文件变更跟踪
     setLastAcceptedMessageId: useCallback((sessionId: string, messageId: string) => {

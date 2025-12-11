@@ -82,6 +82,20 @@ export const zhCN: Translations = {
     cannotStop: '⚠️ 处理中，无法停止',
     sending: '⏳ 发送中...',
     editPlaceholder: '编辑你的消息...',
+    queue: {
+      title: '待发送队列',
+      hint: 'AI回复完成后自动发送',
+      drag: '拖拽调整顺序',
+      edit: '编辑 (移回输入框)',
+      remove: '删除',
+    },
+    editConfirm: {
+      title: '确认编辑操作',
+      content: '编辑此消息将会删除后续的 {count} 条对话，并重新生成AI回复。',
+      warning: '此操作不可撤销，确定要继续吗？',
+      confirm: '确认编辑',
+      cancel: '取消',
+    },
   },
 
   command: {

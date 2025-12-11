@@ -80,6 +80,20 @@ export interface Translations {
     cannotStop: string;
     sending: string;
     editPlaceholder: string;
+    queue: {
+      title: string;
+      hint: string;
+      drag: string;
+      edit: string;
+      remove: string;
+    };
+    editConfirm: {
+      title: string;
+      content: string;
+      warning: string;
+      confirm: string;
+      cancel: string;
+    };
   };
 
   command: {

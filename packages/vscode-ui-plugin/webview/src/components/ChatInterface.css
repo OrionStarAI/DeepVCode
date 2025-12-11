@@ -799,3 +799,71 @@
   border-radius: 10px;
   font-weight: 500;
 }
+
+/* Message Queue Styles */
+.message-queue-list {
+  margin: 0 12px 8px 12px;
+  background-color: var(--vscode-editor-inactiveSelectionBackground);
+  border-radius: 6px;
+  border: 1px solid var(--vscode-panel-border);
+  overflow: hidden;
+  animation: slideInDown 0.2s ease-out;
+}
+.queue-header {
+  padding: 6px 10px;
+  background-color: rgba(0, 0, 0, 0.1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+.queue-items {
+  max-height: 150px;
+  overflow-y: auto;
+}
+.queue-item {
+  display: flex;
+  align-items: center;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  gap: 8px;
+  background-color: var(--vscode-editor-background);
+}
+.queue-item:last-child {
+  border-bottom: none;
+}
+.queue-item.dragging {
+  opacity: 0.5;
+  background-color: var(--vscode-list-hoverBackground);
+}
+.queue-drag-handle {
+  cursor: grab;
+  color: var(--vscode-descriptionForeground);
+  display: flex;
+  align-items: center;
+}
+.queue-content {
+  flex: 1;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--vscode-foreground);
+}
+.queue-actions {
+  display: flex;
+  gap: 4px;
+}
+.queue-action-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px;
+  color: var(--vscode-descriptionForeground);
+  border-radius: 3px;
+}
+.queue-action-btn:hover {
+  background-color: var(--vscode-toolbar-hoverBackground);
+  color: var(--vscode-foreground);
+}

@@ -82,6 +82,20 @@ export const enUS: Translations = {
     cannotStop: '⚠️ Processing, cannot stop',
     sending: '⏳ Sending...',
     editPlaceholder: 'Edit your message...',
+    queue: {
+      title: 'Pending Queue',
+      hint: 'Auto-sends after AI reply',
+      drag: 'Drag to reorder',
+      edit: 'Edit (move to input)',
+      remove: 'Remove',
+    },
+    editConfirm: {
+      title: 'Confirm Edit',
+      content: 'Editing this message will delete {count} subsequent messages and regenerate the AI response.',
+      warning: 'This action cannot be undone. Continue?',
+      confirm: 'Confirm Edit',
+      cancel: 'Cancel',
+    },
   },
 
   command: {

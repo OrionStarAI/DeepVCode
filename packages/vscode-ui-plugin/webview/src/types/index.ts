@@ -42,6 +42,13 @@ export type MessageContentPart =
 
 export type MessageContent = MessageContentPart[];
 
+// 🎯 消息队列项定义
+export interface MessageQueueItem {
+  id: string;
+  content: MessageContent;
+  timestamp: number;
+}
+
 export interface ChatMessage {
   id: string;
   type: 'user' | 'assistant' | 'system' | 'tool' | 'notification';

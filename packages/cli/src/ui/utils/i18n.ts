@@ -297,6 +297,14 @@ export const translations = {
     'token.efficiency': 'Cache Hit Rate: ',
     'token.no.cache': 'No cache hits - all tokens processed fresh',
 
+    // Token Breakdown Display
+    'token.breakdown.title': 'Context Token Breakdown',
+    'token.breakdown.system': 'System Prompt',
+    'token.breakdown.user': 'User Input',
+    'token.breakdown.memory': 'Memory & Context',
+    'token.breakdown.tools': 'Tools & Functions',
+    'token.breakdown.total': 'Total Context',
+
     // SubAgent Stats
     'subagent.activity': 'SubAgent Activity',
     'subagent.api.calls': 'API Calls: ',
@@ -712,6 +720,7 @@ export const translations = {
     'command.editor.description': 'Set external editor preferences',
     'command.memory.description': 'Commands to interact with memory',
     'command.stats.description': 'View all statistics (session, model, and tools). Usage: /stats [model [name]|tools]',
+    'command.context.description': 'View detailed context token usage breakdown',
     'command.tools.description': 'List available tools and their descriptions',
     'command.vim.description': 'Toggle vim mode',
     'command.yolo.description': 'Manage YOLO mode (auto-approve all tool calls)',
@@ -1369,6 +1378,14 @@ export const translations = {
     'token.efficiency': '缓存命中率: ',
     'token.no.cache': '无缓存命中 - 所有 token 均为新处理',
 
+    // Token Breakdown Display
+    'token.breakdown.title': '上下文占用细分统计',
+    'token.breakdown.system': '系统提示词',
+    'token.breakdown.user': '用户输入',
+    'token.breakdown.memory': '记忆和上下文',
+    'token.breakdown.tools': '工具和函数',
+    'token.breakdown.total': '上下文总占用',
+
     // SubAgent Stats
     'subagent.activity': 'SubAgent 活动',
     'subagent.api.calls': 'API 调用: ',
@@ -1783,6 +1800,7 @@ export const translations = {
     'command.editor.description': '设置外部编辑器偏好',
     'command.memory.description': '与记忆交互的命令',
     'command.stats.description': '查看所有统计信息（会话、模型和工具）。用法：/stats [model [名称]|tools]',
+    'command.context.description': '查看详细的上下文Token占用分析',
     'command.tools.description': '列出可用的工具及其描述',
     'command.vim.description': '开启/关闭 vim 模式',
     'command.yolo.description': '管理YOLO模式（自动批准所有工具调用）',
