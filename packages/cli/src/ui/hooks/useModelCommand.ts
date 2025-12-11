@@ -11,6 +11,7 @@ import { t, tp } from '../utils/i18n.js';
 import { Config, SessionManager } from 'deepv-code-core';
 import { appEvents, AppEvent } from '../../utils/events.js';
 import { getModelDisplayName } from '../commands/modelCommand.js';
+import { TokenUsageInfo } from '../components/TokenUsageDisplay.js';
 
 interface UseModelCommandReturn {
   isModelDialogOpen: boolean;
@@ -24,6 +25,7 @@ export const useModelCommand = (
   config: Config,
   setModelError: (error: string | null) => void,
   addItem: (item: Omit<HistoryItem, 'id'>, timestamp: number) => void,
+  lastTokenUsage?: TokenUsageInfo | null,
 ): UseModelCommandReturn => {
   const [isModelDialogOpen, setIsModelDialogOpen] = useState(false);
 
@@ -75,13 +77,19 @@ export const useModelCommand = (
             addItem(
               {
                 type: 'info',
-                text: `⏳ Attempting to compress history to fit the new model's context window...`,
+                text: `⏳ Compressing history... May take 20s. Please wait for result.`,
               } as HistoryItemInfo,
               Date.now(),
             );
 
             // 使用 switchModel 进行安全切换（包含自动压缩）
-            const switchResult = await geminiClient.switchModel(modelName, new AbortController().signal);
+            // 传入已知的 token 数量，避免 Core 重新计算（可能不准确）
+            const knownTokenCount = lastTokenUsage?.input_tokens;
+            const switchResult = await geminiClient.switchModel(
+              modelName,
+              new AbortController().signal,
+              knownTokenCount
+            );
 
             if (!switchResult.success) {
               throw new Error(`Failed to switch to model ${modelName}. ${switchResult.error || 'Context compression may have failed.'}`);

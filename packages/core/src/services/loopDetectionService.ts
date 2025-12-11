@@ -23,8 +23,9 @@ const MAX_HISTORY_LENGTH = 10000;
  * They often call the same tool with different args excessively
  * which our standard hash-based detection (name+args) can miss.
  * Threshold for detecting same-tool-name loops in preview models
+ * Increased to 50 to avoid false positives during legitimate bulk operations
  */
-const PREVIEW_TOOL_NAME_LOOP_THRESHOLD = 10;
+const PREVIEW_TOOL_NAME_LOOP_THRESHOLD = 50;
 
 /**
  * High-overhead I/O tools that preview models tend to abuse.
@@ -40,9 +41,9 @@ const PREVIEW_INTENSIVE_TOOLS = new Set([
 
 /**
  * Strict threshold for high-overhead tools in preview models.
- * Even lower than regular preview threshold.
+ * Increased to 25 to allow for legitimate exploration of multiple files
  */
-const PREVIEW_INTENSIVE_TOOL_THRESHOLD = 7;
+const PREVIEW_INTENSIVE_TOOL_THRESHOLD = 25;
 
 /**
  * The number of recent conversation turns to include in the history when asking the LLM to check for a loop.

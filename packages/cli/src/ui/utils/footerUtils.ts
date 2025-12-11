@@ -61,11 +61,18 @@ export function getShortModelName(modelName: string, simplified: boolean = false
  * 智能缩短上下文显示文本
  * 完整: (92% context left)
  * 简化: 92%
+ * 100%时: 隐藏（返回空字符串）
  *
  * @param percentage 百分比数值
  * @param simplified 是否使用简化版本
  */
 export function getContextDisplay(percentage: number | string, simplified: boolean = false): string {
+  // 🛡️ 100% 时隐藏上下文指示器
+  const percentValue = typeof percentage === 'string' ? parseFloat(percentage) : percentage;
+  if (percentValue === 100) {
+    return '';
+  }
+
   const percentText = `${percentage}%`;
 
   if (simplified) {

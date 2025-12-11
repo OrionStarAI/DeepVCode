@@ -98,9 +98,16 @@ describe('footerUtils', () => {
 
     it('should handle edge cases', () => {
       expect(getContextDisplay(0, false)).toBe('(0% context left)');
-      expect(getContextDisplay(100, false)).toBe('(100% context left)');
+      expect(getContextDisplay(100, false)).toBe(''); // 100% 时隐藏
       expect(getContextDisplay(0, true)).toBe('0%');
-      expect(getContextDisplay(100, true)).toBe('100%');
+      expect(getContextDisplay(100, true)).toBe(''); // 100% 时隐藏
+    });
+
+    it('should hide context display when at 100%', () => {
+      expect(getContextDisplay(100, false)).toBe('');
+      expect(getContextDisplay('100', false)).toBe('');
+      expect(getContextDisplay(100, true)).toBe('');
+      expect(getContextDisplay('100', true)).toBe('');
     });
   });
 

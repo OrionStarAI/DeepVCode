@@ -530,7 +530,51 @@ export class GeminiChat {
       }
     }
 
-    return fixedContents;
+    // 🆕 最终清理：移除所有仍然孤立的 functionResponse
+    // 这处理了 "functionResponse without preceding functionCall" 的情况
+    // 这种情况可能发生在压缩后，或者历史记录损坏时
+    const finalContents: Content[] = [];
+    const finalToolCallStack: { [id: string]: boolean } = {};
+    const finalToolCallNames: { [name: string]: boolean } = {};
+
+    for (const content of fixedContents) {
+      // 记录所有 function call
+      if (content.role === MESSAGE_ROLES.MODEL && content.parts) {
+        content.parts.forEach(part => {
+          if (part.functionCall) {
+            if (part.functionCall.id) finalToolCallStack[part.functionCall.id] = true;
+            if (part.functionCall.name) finalToolCallNames[part.functionCall.name] = true;
+          }
+        });
+        finalContents.push(content);
+      } else if (content.role === MESSAGE_ROLES.USER && content.parts) {
+        // 过滤 functionResponse
+        const validParts = content.parts.filter(part => {
+          if (!part.functionResponse) return true; // 保留非 functionResponse 部分
+
+          const response = part.functionResponse;
+          const hasMatchingId = response.id && finalToolCallStack[response.id];
+          const hasMatchingName = response.name && finalToolCallNames[response.name];
+
+          if (hasMatchingId || hasMatchingName) {
+            return true;
+          } else {
+            console.warn(`[fixRequestContents] Removing orphaned functionResponse: ${response.name} (id: ${response.id})`);
+            return false;
+          }
+        });
+
+        if (validParts.length > 0) {
+          finalContents.push({ ...content, parts: validParts });
+        } else {
+          console.warn(`[fixRequestContents] Removing empty user message after filtering orphaned responses`);
+        }
+      } else {
+        finalContents.push(content);
+      }
+    }
+
+    return finalContents;
   }
 
   /**

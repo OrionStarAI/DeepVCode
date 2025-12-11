@@ -131,6 +131,29 @@ export class DeepVServerAdapter implements ContentGenerator {
   }
 
   /**
+   * 清理内容，移除空消息和无效部分
+   * 针对 Claude 等对消息格式要求严格的模型
+   */
+  private cleanContents(contents: any[]): any[] {
+    if (!Array.isArray(contents)) return contents;
+
+    return contents.filter(content => {
+      // 1. 移除没有 parts 的消息
+      if (!content.parts || content.parts.length === 0) return false;
+
+      // 2. 检查 parts 是否有效
+      const hasValidPart = content.parts.some((part: any) => {
+        // 如果是文本，必须非空
+        if (part.text !== undefined) return part.text.trim() !== '';
+        // 其他类型（functionCall, functionResponse, etc.）视为有效
+        return true;
+      });
+
+      return hasValidPart;
+    });
+  }
+
+  /**
    * 核心方法：统一的内容生成接口
    * 使用新的 /v1/chat/messages 统一端点，服务端智能处理所有模型差异
    */
@@ -151,7 +174,7 @@ export class DeepVServerAdapter implements ContentGenerator {
 
       const unifiedRequest = {
         model: modelToUse,
-        contents: stripUIFieldsFromArray(request.contents),
+        contents: this.cleanContents(stripUIFieldsFromArray(request.contents)),
         config: {
           ...request.config,
           // 添加场景信息到headers，供服务端参考
@@ -509,7 +532,7 @@ export class DeepVServerAdapter implements ContentGenerator {
 
       const streamRequest = {
         model: modelToUse,
-        contents: stripUIFieldsFromArray(request.contents),
+        contents: this.cleanContents(stripUIFieldsFromArray(request.contents)),
         config: {
           ...request.config,
           stream: true,  // 启用流式输出

@@ -348,7 +348,7 @@ describe('useCompletion', () => {
           {
             name: 'stats',
             altNames: ['usage'],
-            description: 'check session stats. Usage: /stats [model|tools]',
+            description: 'View all statistics (session, model, and tools). Usage: /stats [model [name]|tools]',
           },
           {
             name: 'clear',
@@ -411,7 +411,7 @@ describe('useCompletion', () => {
           {
             name: 'stats',
             altNames: ['usage'],
-            description: 'check session stats. Usage: /stats [model|tools]',
+            description: 'View all statistics (session, model, and tools). Usage: /stats [model [name]|tools]',
           },
         ] as unknown as SlashCommand[];
         const { result } = renderHook(() =>
@@ -427,7 +427,7 @@ describe('useCompletion', () => {
           {
             label: 'stats',
             value: 'stats',
-            description: 'check session stats. Usage: /stats [model|tools]',
+            description: 'View all statistics (session, model, and tools). Usage: /stats [model [name]|tools]',
           },
         ]);
       });
@@ -466,7 +466,7 @@ describe('useCompletion', () => {
             {
               name: 'stats',
               altNames: ['usage'],
-              description: 'check session stats. Usage: /stats [model|tools]',
+              description: 'View all statistics (session, model, and tools). Usage: /stats [model [name]|tools]',
               action: vi.fn(),
             },
           ] as unknown as SlashCommand[];

@@ -117,14 +117,16 @@ export const Footer: React.FC<FooterProps> = ({
             <Text color={Colors.Gray}> | </Text>
           </Box>
         )}
-        <Text color={Colors.Gray}>
-          {contextDisplay}
-        </Text>
+        {contextDisplay && (
+          <Text color={Colors.Gray}>
+            {contextDisplay}
+          </Text>
+        )}
 
         {/* Current Model Display */}
         {model && (
           <Box>
-            <Text color={Colors.Gray}> | </Text>
+            {contextDisplay && <Text color={Colors.Gray}> | </Text>}
             {displayConfig.simplifyModel ? (
               <Text color={Colors.AccentBlue}>{modelShortDisplay}</Text>
             ) : (

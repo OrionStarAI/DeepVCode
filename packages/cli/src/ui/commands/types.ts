@@ -12,6 +12,7 @@ import { UseHistoryManagerReturn } from '../hooks/useHistoryManager.js';
 import type { HistoryItem } from '../types.js';
 import { SessionStatsState } from '../contexts/SessionContext.js';
 import type { Suggestion } from '../components/SuggestionsDisplay.js';
+import { TokenUsageInfo } from '../components/TokenUsageDisplay.js';
 
 // Grouped dependencies for clarity and easier mocking
 export interface CommandContext {
@@ -66,6 +67,7 @@ export interface CommandContext {
     stats: SessionStatsState;
     cumulativeCredits: number;
     totalSessionCredits: number;
+    lastTokenUsage?: TokenUsageInfo | null;
   };
 }
 

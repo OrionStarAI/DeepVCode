@@ -196,6 +196,7 @@ export class CompressionService {
   private validateAndCleanHistory(history: Content[]): Content[] {
     const cleanedHistory: Content[] = [];
     const toolCallStack: { [toolUseId: string]: boolean } = {};
+    const toolCallNames: { [toolName: string]: boolean } = {}; // Track by name as fallback
 
     for (let i = 0; i < history.length; i++) {
       const msg = history[i];
@@ -215,16 +216,45 @@ export class CompressionService {
 
           // 记录tool_use调用
           if (partAny.functionCall) {
-            const toolCallId = partAny.functionCall?.id || `tool_call_${Object.keys(toolCallStack).length}`;
-            toolCallStack[toolCallId] = true;
+            const toolCallId = partAny.functionCall?.id;
+            const toolCallName = partAny.functionCall?.name;
+
+            if (toolCallId) {
+              toolCallStack[toolCallId] = true;
+            }
+            if (toolCallName) {
+              toolCallNames[toolCallName] = true;
+            }
           }
 
-          // 检查tool_result响应
+          // 检查tool_result响应 (Claude format)
           if (partAny.toolResult) {
             const toolResultId = partAny.toolResult?.toolUseId;
             if (!toolResultId || !toolCallStack[toolResultId]) {
               // 这是一个孤立的tool_result，需要移除整个消息
               console.warn(`[CompressionService] Found orphaned tool_result with ID: ${toolResultId}. Removing this message.`);
+              hasInvalidToolResult = true;
+              break;
+            }
+          }
+
+          // 检查functionResponse (Gemini format)
+          if (partAny.functionResponse) {
+            const responseId = partAny.functionResponse?.id;
+            const responseName = partAny.functionResponse?.name;
+
+            // Check by ID if available, otherwise by name (Gemini sometimes relies on name matching)
+            let isValid = false;
+            if (responseId && toolCallStack[responseId]) {
+              isValid = true;
+            } else if (responseName && toolCallNames[responseName]) {
+              // Fallback: if name matches a previous call, we consider it valid for now
+              // Ideally we want strict ID matching, but Gemini history sometimes lacks IDs on calls
+              isValid = true;
+            }
+
+            if (!isValid) {
+              console.warn(`[CompressionService] Found orphaned functionResponse (name=${responseName}, id=${responseId}). Removing this message.`);
               hasInvalidToolResult = true;
               break;
             }
@@ -386,12 +416,28 @@ export class CompressionService {
 
       // 清理historyToKeep：移除开头的孤立tool_result（因为对应的tool_use在被压缩的部分）
       // 这防止了"unexpected `tool_use_id` found in `tool_result` blocks"错误
-      while (historyToKeep.length > 0 && historyToKeep[0].role === MESSAGE_ROLES.MODEL) {
+      while (historyToKeep.length > 0) {
         const firstMessage = historyToKeep[0];
-        // 检查这个model消息是否只包含tool_result部分（没有text部分）
-        const hasOnlyToolResult = firstMessage.parts?.every((part: any) => 'toolResult' in part && !('text' in part));
-        if (hasOnlyToolResult && firstMessage.parts && firstMessage.parts.length > 0) {
-          // 这是一个孤立的tool_result，删除它
+        let shouldRemove = false;
+
+        // Case 1: Model message with only toolResult (unlikely in Gemini, but possible in some mappings)
+        if (firstMessage.role === MESSAGE_ROLES.MODEL) {
+          const hasOnlyToolResult = firstMessage.parts?.every((part: any) => 'toolResult' in part && !('text' in part));
+          if (hasOnlyToolResult && firstMessage.parts && firstMessage.parts.length > 0) {
+            shouldRemove = true;
+          }
+        }
+
+        // Case 2: User message with functionResponse (Common in Gemini)
+        if (firstMessage.role === MESSAGE_ROLES.USER) {
+          const hasFunctionResponse = firstMessage.parts?.some((part: any) => part.functionResponse);
+          if (hasFunctionResponse) {
+            shouldRemove = true;
+          }
+        }
+
+        if (shouldRemove) {
+          console.warn(`[CompressionService] Removing orphaned tool result/response at start of historyToKeep (role=${firstMessage.role})`);
           historyToKeep = historyToKeep.slice(1);
         } else {
           break;

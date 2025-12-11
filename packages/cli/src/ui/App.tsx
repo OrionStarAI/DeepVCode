@@ -574,7 +574,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     openModelDialog,
     handleModelSelect,
     handleModelHighlight,
-  } = useModelCommand(settings, config, setModelError, addItem);
+  } = useModelCommand(settings, config, setModelError, addItem, lastTokenUsage);
 
   const {
     isAuthDialogOpen,

@@ -19,7 +19,8 @@ export const statsCommand: SlashCommand = {
   altNames: ['usage'],
   description: t('command.stats.description'),
   kind: CommandKind.BUILT_IN,
-  action: (context: CommandContext) => {
+  action: (context: CommandContext, args?: string) => {
+    // 🛡️ 合并：/stats 现在会显示所有统计信息（session + model + tools）
     const now = new Date();
     const { sessionStartTime } = context.session.stats;
     if (!sessionStartTime) {
@@ -34,12 +35,28 @@ export const statsCommand: SlashCommand = {
     }
     const wallDuration = now.getTime() - sessionStartTime.getTime();
 
+    // 1. 显示会话统计
     const statsItem: HistoryItemStats = {
       type: MessageType.STATS,
       duration: formatDuration(wallDuration),
     };
-
     context.ui.addItem(statsItem, Date.now());
+
+    // 2. 显示模型统计
+    context.ui.addItem(
+      {
+        type: MessageType.MODEL_STATS,
+      },
+      Date.now(),
+    );
+
+    // 3. 显示工具统计
+    context.ui.addItem(
+      {
+        type: MessageType.TOOL_STATS,
+      },
+      Date.now(),
+    );
   },
   subCommands: [
     {

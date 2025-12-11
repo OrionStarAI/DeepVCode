@@ -622,7 +622,13 @@ export const modelCommand: SlashCommand = {
             }
 
             // 使用 switchModel 进行安全切换（包含自动压缩）
-            const switchResult = await geminiClient.switchModel(actualModelName, new AbortController().signal);
+            // 传入已知的 token 数量，避免 Core 重新计算（可能不准确）
+            const knownTokenCount = context.session.lastTokenUsage?.input_tokens;
+            const switchResult = await geminiClient.switchModel(
+              actualModelName,
+              new AbortController().signal,
+              knownTokenCount
+            );
 
             console.log('[modelCommand] switchResult:', {
               success: switchResult.success,
