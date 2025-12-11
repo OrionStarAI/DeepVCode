@@ -656,6 +656,7 @@ export class CompressionService {
    * @param geminiClient 客户端实例
    * @param prompt_id 提示ID
    * @param abortSignal 中止信号
+   * @param knownTokenCount 可选的已知token数量（由调用方提供，避免重新计算）
    * @returns 压缩结果，如果不需要压缩则返回null
    */
   async compressToFit(
@@ -666,30 +667,34 @@ export class CompressionService {
     compressionModel: string,
     geminiClient: GeminiClient,
     prompt_id: string,
-    abortSignal: AbortSignal
+    abortSignal: AbortSignal,
+    knownTokenCount?: number
   ): Promise<CompressionResult> {
-    console.log(`[CompressionService] compressToFit called: ${currentModel} → ${targetModel}`);
+    console.log(`[CompressionService] compressToFit called: ${currentModel} → ${targetModel}${knownTokenCount ? ` (knownTokenCount: ${knownTokenCount})` : ''}`);
 
     // 1. 获取目标模型的Token限制
     const targetLimit = tokenLimit(targetModel, config);
     // 留 10% 的安全缓冲
     const safeLimit = targetLimit * 0.9;
 
-    // 2. 计算当前历史的Token数量
-    let currentTokenCount: number | undefined;
-    try {
-      const result = await geminiClient.getContentGenerator().countTokens({
-        model: currentModel,
-        contents: history,
-      });
-      currentTokenCount = result.totalTokens;
-    } catch (error) {
-      console.warn(`[CompressionService] Could not count tokens for model switch check: ${getErrorMessage(error)}`);
-      // 如果无法计算，保守起见假设不需要压缩，返回成功但带有跳过原因
-      return {
-        success: true,
-        skipReason: `Unable to count tokens for model switch: ${getErrorMessage(error)}. Proceeding without compression.`
-      };
+    // 2. 使用已知的token数量，或重新计算
+    let currentTokenCount: number | undefined = knownTokenCount;
+
+    if (currentTokenCount === undefined) {
+      try {
+        const result = await geminiClient.getContentGenerator().countTokens({
+          model: currentModel,
+          contents: history,
+        });
+        currentTokenCount = result.totalTokens;
+      } catch (error) {
+        console.warn(`[CompressionService] Could not count tokens for model switch check: ${getErrorMessage(error)}`);
+        // 如果无法计算，保守起见假设不需要压缩，返回成功但带有跳过原因
+        return {
+          success: true,
+          skipReason: `Unable to count tokens for model switch: ${getErrorMessage(error)}. Proceeding without compression.`
+        };
+      }
     }
 
     if (currentTokenCount === undefined) {

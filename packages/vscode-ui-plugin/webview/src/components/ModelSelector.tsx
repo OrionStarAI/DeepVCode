@@ -158,7 +158,19 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
     };
 
     fetchModelsWithRetry();
-  }, [selectedModelId, t]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, t]); // 🎯 移除 selectedModelId 依赖，避免循环获取
+
+  // 🎯 响应外部 selectedModelId 变化（如压缩后模型切换）
+  useEffect(() => {
+    if (selectedModelId && modelOptions.length > 0) {
+      const newModel = modelOptions.find(opt => opt.id === selectedModelId);
+      if (newModel && newModel.id !== selectedModel?.id) {
+        console.log('📊 [ModelSelector] Updating selectedModel from prop:', selectedModelId);
+        setSelectedModel(newModel);
+      }
+    }
+  }, [selectedModelId, modelOptions, selectedModel?.id]);
 
   // 点击外部关闭下拉菜单
   useEffect(() => {

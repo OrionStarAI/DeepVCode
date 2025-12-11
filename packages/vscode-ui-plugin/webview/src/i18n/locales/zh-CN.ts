@@ -310,6 +310,18 @@ export const zhCN: Translations = {
     cacheHit: '缓存命中',
   },
 
+  compression: {
+    confirmTitle: '需要压缩上下文',
+    confirmMessage: '当前上下文已超过目标模型的限制，需要压缩后才能切换模型。',
+    currentTokens: '当前 Tokens',
+    targetLimit: '目标模型限制',
+    targetModel: '目标模型',
+    confirmHint: '压缩会总结较早的消息，同时保留最近的对话和关键信息。',
+    cancel: '取消',
+    confirmAndSwitch: '压缩并切换',
+    inProgress: '正在压缩上下文...',
+  },
+
   reasoning: {
     title: 'AI 思考中',
     expand: '展开思考过程',

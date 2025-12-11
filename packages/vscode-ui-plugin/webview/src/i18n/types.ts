@@ -308,6 +308,18 @@ export interface Translations {
     cacheHit: string;
   };
 
+  compression: {
+    confirmTitle: string;
+    confirmMessage: string;
+    currentTokens: string;
+    targetLimit: string;
+    targetModel: string;
+    confirmHint: string;
+    cancel: string;
+    confirmAndSwitch: string;
+    inProgress: string;
+  };
+
   reasoning: {
     title: string;
     expand: string;

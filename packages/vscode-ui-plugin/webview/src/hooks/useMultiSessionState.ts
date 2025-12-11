@@ -602,7 +602,8 @@ export const useMultiSessionState = () => {
         ...updatedMessages[messageIndex],
         associatedToolCalls: mergedToolCalls,
         isProcessingTools: !allToolsCompleted,
-        toolsCompleted: allToolsCompleted
+        toolsCompleted: allToolsCompleted,
+        isReasoning: false  // 🎯 有工具调用时，思考过程结束
       };
 
       console.log('🔧 [updateMessageToolCalls] Updated message with tools:', updatedMessages[messageIndex].associatedToolCalls?.map(t => ({ id: t.id, status: t.status })));

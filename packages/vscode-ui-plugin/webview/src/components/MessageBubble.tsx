@@ -461,12 +461,11 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
           <div className="tool-content">{messageContentToString(message.content)}</div>
         ) : (
           <>
-            {/* 🎯 AI思考过程显示 */}
-            {message.reasoning && (
+            {/* 🎯 AI思考过程显示 - 只在正在思考时显示，思考完成后隐藏 */}
+            {message.reasoning && message.isReasoning && (
               <ReasoningDisplay
                 reasoning={message.reasoning}
-                isActive={message.isReasoning}
-                defaultCollapsed={!message.isReasoning}
+                isActive={true}
               />
             )}
           <ReactMarkdown

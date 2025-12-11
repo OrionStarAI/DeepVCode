@@ -246,6 +246,31 @@ export class MultiSessionCommunicationService {
     });
   }
 
+  /**
+   * 🎯 发送 Token 使用情况更新（压缩后更新前端显示）
+   */
+  async sendTokenUsageUpdate(sessionId: string, tokenUsage: {
+    totalTokens: number;
+    tokenLimit: number;
+    inputTokens: number;
+    outputTokens: number;
+  }) {
+    await this.sendMessage({
+      type: 'token_usage_update',
+      payload: { sessionId, tokenUsage }
+    });
+  }
+
+  /**
+   * 🎯 发送模型切换完成通知（压缩成功后更新前端模型选择器）
+   */
+  async sendModelSwitchComplete(sessionId: string, modelName: string) {
+    await this.sendMessage({
+      type: 'model_switch_complete',
+      payload: { sessionId, modelName }
+    });
+  }
+
   async sendChatError(sessionId: string, error: string) {
     await this.sendMessage({
       type: 'chat_error',
@@ -681,6 +706,32 @@ export class MultiSessionCommunicationService {
       type: 'model_response',
       payload: { requestId, ...response }
     });
+  }
+
+  // 🎯 发送压缩确认请求（模型切换时上下文超过目标模型80%限制）
+  async sendCompressionConfirmationRequest(data: {
+    requestId: string;
+    sessionId: string;
+    targetModel: string;
+    currentTokens: number;
+    targetTokenLimit: number;
+    compressionThreshold: number;
+    message: string;
+  }) {
+    await this.sendMessage({
+      type: 'compression_confirmation_request',
+      payload: data
+    });
+  }
+
+  // 🎯 监听压缩确认响应
+  onCompressionConfirmationResponse(handler: (data: {
+    requestId: string;
+    sessionId: string;
+    targetModel: string;
+    confirmed: boolean;
+  }) => void): vscode.Disposable {
+    return this.addMessageHandler('compression_confirmation_response', handler);
   }
 
   // =============================================================================

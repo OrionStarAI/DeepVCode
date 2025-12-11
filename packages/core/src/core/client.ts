@@ -740,9 +740,10 @@ Use Glob and ReadFile tools to explore specific files during our conversation.
    *
    * @param newModel 目标模型名称
    * @param abortSignal 中止信号
+   * @param knownTokenCount 可选的已知token数量（由调用方提供，避免重新计算）
    * @returns 切换结果，包含成功状态和压缩信息
    */
-  async switchModel(newModel: string, abortSignal: AbortSignal): Promise<ModelSwitchResult> {
+  async switchModel(newModel: string, abortSignal: AbortSignal, knownTokenCount?: number): Promise<ModelSwitchResult> {
     if (this.isCompressing) {
       console.warn('[switchModel] Compression in progress, cannot switch model now.');
       return {
@@ -784,7 +785,8 @@ Use Glob and ReadFile tools to explore specific files during our conversation.
         compressionModel!,
         this,
         `switch-model-${Date.now()}`,
-        abortSignal
+        abortSignal,
+        knownTokenCount
       );
 
       const modelSwitchResult: ModelSwitchResult = {

@@ -343,7 +343,13 @@ export type ExtensionToWebViewMessage =
   | { type: 'mcp_status_update'; payload: MCPStatusPayload }
   // 🎯 自定义斜杠命令相关
   | { type: 'slash_commands_list'; payload: { commands: SlashCommandInfo[] } }
-  | { type: 'slash_command_result'; payload: { success: boolean; prompt?: string; error?: string } };
+  | { type: 'slash_command_result'; payload: { success: boolean; prompt?: string; error?: string } }
+  // 🎯 模型切换压缩确认
+  | { type: 'compression_confirmation_request'; payload: { requestId: string; sessionId: string; targetModel: string; currentTokens: number; targetTokenLimit: number; compressionThreshold: number; message: string } }
+  // 🎯 Token使用情况更新（压缩后）
+  | { type: 'token_usage_update'; payload: { sessionId: string; tokenUsage: { totalTokens: number; tokenLimit: number; inputTokens: number; outputTokens: number } } }
+  // 🎯 模型切换完成（压缩成功后通知前端更新模型选择器）
+  | { type: 'model_switch_complete'; payload: { sessionId: string; modelName: string } };
 
 /**
  * 🔌 MCP 状态消息负载

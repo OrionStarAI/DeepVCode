@@ -310,6 +310,18 @@ export const enUS: Translations = {
     cacheHit: 'Cache Hit',
   },
 
+  compression: {
+    confirmTitle: 'Context Compression Required',
+    confirmMessage: 'Your current context exceeds the target model\'s limit. Compression is required to switch models.',
+    currentTokens: 'Current Tokens',
+    targetLimit: 'Target Model Limit',
+    targetModel: 'Target Model',
+    confirmHint: 'Compression will summarize older messages while preserving recent context and key information.',
+    cancel: 'Cancel',
+    confirmAndSwitch: 'Compress & Switch',
+    inProgress: 'Compressing context...',
+  },
+
   reasoning: {
     title: 'AI Thinking',
     expand: 'Expand thinking process',

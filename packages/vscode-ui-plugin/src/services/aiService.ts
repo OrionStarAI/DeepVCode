@@ -2056,6 +2056,11 @@ export class AIService {
     return this.config;
   }
 
+  // 🎯 获取当前Token使用情况（供模型切换时检查是否需要压缩）
+  getCurrentTokenUsage(): { totalTokens: number; tokenLimit: number } | undefined {
+    return this.currentTokenUsage;
+  }
+
   async dispose() {
     this.logger.info('Disposing AIService');
 

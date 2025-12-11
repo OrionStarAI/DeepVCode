@@ -37,6 +37,15 @@ export const ReasoningDisplay: React.FC<ReasoningDisplayProps> = ({
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
   const [animationFrame, setAnimationFrame] = useState(0);
   const contentRef = useRef<HTMLDivElement>(null);
+  const prevIsActiveRef = useRef(isActive);
+
+  // 🎯 思考结束时自动折叠：当 isActive 从 true 变为 false 时
+  useEffect(() => {
+    if (prevIsActiveRef.current && !isActive) {
+      setIsCollapsed(true);
+    }
+    prevIsActiveRef.current = isActive;
+  }, [isActive]);
 
   // 🎯 动画效果：交替显示 ○ 和 ●
   useEffect(() => {

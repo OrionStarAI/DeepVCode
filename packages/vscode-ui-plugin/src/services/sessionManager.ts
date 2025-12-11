@@ -482,41 +482,48 @@ export class SessionManager extends EventEmitter {
 
   /**
    * 删除会话
+   * 🛡️ 加固：支持删除未加载到内存的 session（按需加载场景）
    */
   async deleteSession(sessionId: string): Promise<void> {
     try {
-      this.validateSessionExists(sessionId);
+      const isLoadedInMemory = this.sessions.has(sessionId);
 
-      // 不能删除最后一个会话
-      if (this.sessions.size <= 1) {
+      // 🛡️ 如果 session 在内存中，检查是否是最后一个
+      if (isLoadedInMemory && this.sessions.size <= 1) {
         throw new Error(SESSION_ERROR_MESSAGES.CANNOT_DELETE_LAST_SESSION);
       }
 
-      const sessionState = this.sessions.get(sessionId)!;
+      // 🎯 如果 session 在内存中，清理内存资源
+      if (isLoadedInMemory) {
+        const sessionState = this.sessions.get(sessionId)!;
 
-      // 销毁AI服务实例
-      const aiService = this.aiServices.get(sessionId);
-      if (aiService) {
-        await aiService.dispose();
-        this.aiServices.delete(sessionId);
-      }
-
-      // 删除会话状态
-      this.sessions.delete(sessionId);
-
-      // 🎯 从持久化存储中删除session
-      await this.persistenceService.deleteSession(sessionId);
-
-      // 如果删除的是当前会话，切换到第一个可用会话
-      if (this.currentSessionId === sessionId) {
-        const remainingSessions = Array.from(this.sessions.keys());
-        if (remainingSessions.length > 0) {
-          await this.switchToSession({ sessionId: remainingSessions[0] });
+        // 销毁AI服务实例
+        const aiService = this.aiServices.get(sessionId);
+        if (aiService) {
+          await aiService.dispose();
+          this.aiServices.delete(sessionId);
         }
+
+        // 删除会话状态
+        this.sessions.delete(sessionId);
+
+        // 如果删除的是当前会话，切换到第一个可用会话
+        if (this.currentSessionId === sessionId) {
+          const remainingSessions = Array.from(this.sessions.keys());
+          if (remainingSessions.length > 0) {
+            await this.switchToSession({ sessionId: remainingSessions[0] });
+          }
+        }
+
+        this.emitSessionEvent('deleted', sessionId, sessionState);
+        this.logger.info(`✅ Deleted session from memory: ${sessionState.info.name} (${sessionId})`);
+      } else {
+        this.logger.info(`🗑️ Session ${sessionId} not in memory, deleting directly from disk...`);
       }
 
-      this.emitSessionEvent('deleted', sessionId, sessionState);
-      this.logger.info(`✅ Deleted session: ${sessionState.info.name} (${sessionId})`);
+      // 🎯 无论是否在内存中，都从持久化存储中删除
+      await this.persistenceService.deleteSession(sessionId);
+      this.logger.info(`✅ Deleted session from disk: ${sessionId}`);
 
     } catch (error) {
       this.logger.error(`❌ Failed to delete session ${sessionId}`, error instanceof Error ? error : undefined);

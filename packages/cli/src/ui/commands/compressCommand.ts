@@ -41,6 +41,15 @@ export const compressCommand: SlashCommand = {
       return;
     }
 
+    // 立即显示压缩开始提示
+    ui.addItem(
+      {
+        type: MessageType.INFO,
+        text: t('command.compress.starting'),
+      },
+      Date.now(),
+    );
+
     const pendingMessage: HistoryItemCompression = {
       type: MessageType.COMPRESSION,
       compression: {
