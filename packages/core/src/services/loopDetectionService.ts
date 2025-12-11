@@ -19,31 +19,29 @@ const CONTENT_CHUNK_SIZE = 500;
 const MAX_HISTORY_LENGTH = 10000;
 
 /**
- * Preview models exhibit different loop patterns:
- * They often call the same tool with different args excessively
- * which our standard hash-based detection (name+args) can miss.
- * Threshold for detecting same-tool-name loops in preview models
- * Increased to 50 to avoid false positives during legitimate bulk operations
+ * Tools that preview models tend to abuse or get stuck in loops with.
+ * When preview models call the same tool repeatedly (with different args),
+ * they often exhaust context and API quotas without making progress.
+ *
+ * Add tools to this list when you observe preview models getting stuck in loops with them.
  */
-const PREVIEW_TOOL_NAME_LOOP_THRESHOLD = 50;
-
-/**
- * High-overhead I/O tools that preview models tend to abuse.
- * These should have stricter detection for preview models.
- */
-const PREVIEW_INTENSIVE_TOOLS = new Set([
+const PREVIEW_MONITORED_TOOLS = new Set([
   'read_file',
   'read_many_files',
   'glob',
   'search_file_content',
   'ls',
+  'replace',
+  'write_file',
+  'delete_file',
 ]);
 
 /**
- * Strict threshold for high-overhead tools in preview models.
- * Increased to 25 to allow for legitimate exploration of multiple files
+ * Threshold for detecting same-tool-name loops in preview models.
+ * When a preview model calls any tool in PREVIEW_MONITORED_TOOLS this many times
+ * (with different or same args), it's considered a loop.
  */
-const PREVIEW_INTENSIVE_TOOL_THRESHOLD = 25;
+const PREVIEW_TOOL_LOOP_THRESHOLD = 12;
 
 /**
  * The number of recent conversation turns to include in the history when asking the LLM to check for a loop.
@@ -239,18 +237,18 @@ export class LoopDetectionService {
    */
   private checkPreviewModelToolNameLoop(toolCall: { name: string; args: object }): boolean {
     const toolName = toolCall.name;
+
+    // Only check tools that are known to cause loops in preview models
+    if (!PREVIEW_MONITORED_TOOLS.has(toolName)) {
+      return false;
+    }
+
     const currentCount = (this.toolNameCallCounts.get(toolName) || 0) + 1;
     this.toolNameCallCounts.set(toolName, currentCount);
 
-    // Determine threshold based on tool type
-    const isIntensiveTool = PREVIEW_INTENSIVE_TOOLS.has(toolName);
-    const threshold = isIntensiveTool
-      ? PREVIEW_INTENSIVE_TOOL_THRESHOLD
-      : PREVIEW_TOOL_NAME_LOOP_THRESHOLD;
-
-    if (currentCount >= threshold) {
+    if (currentCount >= PREVIEW_TOOL_LOOP_THRESHOLD) {
       console.warn(
-        `[LoopDetection] Preview model loop detected: tool '${toolName}' called ${currentCount} times (threshold: ${threshold})`
+        `[LoopDetection] Preview model loop detected: tool '${toolName}' called ${currentCount} times (threshold: ${PREVIEW_TOOL_LOOP_THRESHOLD})`
       );
       this.detectedLoopType = LoopType.CONSECUTIVE_IDENTICAL_TOOL_CALLS;
       logLoopDetected(

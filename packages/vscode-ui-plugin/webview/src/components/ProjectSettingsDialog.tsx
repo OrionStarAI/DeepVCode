@@ -11,6 +11,7 @@ import { useYoloMode } from '../hooks/useProjectSettings';
 import { useTranslation } from '../hooks/useTranslation';
 import { ExecutionSettingsPanel } from './settings/ExecutionSettingsPanel';
 import { MCPSettingsPanel } from './settings/MCPSettingsPanel';
+import { webviewModelService } from '../services/webViewModelService';
 import './ProjectSettingsDialog.css';
 
 // =============================================================================
@@ -53,26 +54,38 @@ export const YoloModeSettingsDialog: React.FC<YoloModeSettingsDialogProps> = ({
   const { t } = useTranslation();
   const {
     yoloMode: originalYoloMode,
+    preferredModel: originalPreferredModel,
     updateYoloMode,
+    updatePreferredModel,
     loadYoloMode,
     isLoading,
     error
   } = useYoloMode();
 
   const [currentYoloMode, setCurrentYoloMode] = useState<boolean>(originalYoloMode);
+  const [currentPreferredModel, setCurrentPreferredModel] = useState<string>(originalPreferredModel);
   const [activeTab, setActiveTab] = useState<SettingsTab>('execution');
+  const [availableModels, setAvailableModels] = useState<any[]>([]);
 
-  // 监控原始YOLO模式变化，同步到本地状态
+  // 监控原始设置变化，同步到本地状态
   React.useEffect(() => {
     if (isOpen) {
       // 🎯 对话框打开时主动刷新底层数据
       loadYoloMode();
       setCurrentYoloMode(originalYoloMode);
+      setCurrentPreferredModel(originalPreferredModel);
+
+      // 获取可用模型
+      webviewModelService.getAvailableModels().then(models => {
+        setAvailableModels(models);
+      }).catch(err => {
+        console.error('Failed to load models:', err);
+      });
     }
-  }, [isOpen, originalYoloMode, loadYoloMode]);
+  }, [isOpen, originalYoloMode, originalPreferredModel, loadYoloMode]);
 
   // 计算是否有变化
-  const hasChanges = currentYoloMode !== originalYoloMode;
+  const hasChanges = currentYoloMode !== originalYoloMode || currentPreferredModel !== originalPreferredModel;
 
   // =============================================================================
   // 事件处理
@@ -84,10 +97,14 @@ export const YoloModeSettingsDialog: React.FC<YoloModeSettingsDialogProps> = ({
   const handleSave = async () => {
     try {
       // 保存当前设置到后端
-      await updateYoloMode(currentYoloMode);
+      // 并行保存
+      await Promise.all([
+        updateYoloMode(currentYoloMode),
+        updatePreferredModel(currentPreferredModel)
+      ]);
       onClose();
     } catch (error) {
-      console.error('Failed to save YOLO mode:', error);
+      console.error('Failed to save settings:', error);
     }
   };
 
@@ -97,6 +114,7 @@ export const YoloModeSettingsDialog: React.FC<YoloModeSettingsDialogProps> = ({
   const handleCancel = () => {
     // 恢复到原始设置
     setCurrentYoloMode(originalYoloMode);
+    setCurrentPreferredModel(originalPreferredModel);
     onClose();
   };
 
@@ -186,6 +204,9 @@ export const YoloModeSettingsDialog: React.FC<YoloModeSettingsDialogProps> = ({
               <ExecutionSettingsPanel
                 yoloMode={currentYoloMode}
                 onYoloModeChange={setCurrentYoloMode}
+                preferredModel={currentPreferredModel}
+                onPreferredModelChange={setCurrentPreferredModel}
+                availableModels={availableModels}
               />
             )}
             {activeTab === 'mcp' && (

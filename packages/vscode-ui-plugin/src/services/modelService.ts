@@ -222,7 +222,15 @@ export class ModelService {
    */
   getCurrentModel(): string {
     const config = vscode.workspace.getConfiguration('deepv');
-    return config.get<string>('preferredModel', 'auto');
+    const preferredModel = config.get<string>('preferredModel', 'auto');
+
+    // 🎯 如果配置是 'auto'，直接返回 'auto'，不要解析为具体模型
+    // 这样前端 UI 才能正确显示 "Auto" 选项
+    if (preferredModel === 'auto') {
+      return 'auto';
+    }
+
+    return preferredModel;
   }
 
   /**

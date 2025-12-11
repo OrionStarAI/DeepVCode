@@ -539,10 +539,10 @@ export class MultiSessionMessageService {
   /**
    * 🎯 发送项目设置更新
    */
-  sendProjectSettingsUpdate(yoloMode: boolean) {
+  sendProjectSettingsUpdate(settings: { yoloMode: boolean; preferredModel?: string }) {
     this.sendMessage({
       type: 'project_settings_update',
-      payload: { yoloMode }
+      payload: settings
     });
   }
 

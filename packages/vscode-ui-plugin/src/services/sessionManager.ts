@@ -427,6 +427,10 @@ export class SessionManager extends EventEmitter {
       // 只有在明确指定不切换时才保持IDLE状态
       const shouldActivate = request.activateImmediately !== false;
 
+      // 🎯 获取默认模型配置
+      const config = vscode.workspace.getConfiguration('deepv');
+      const preferredModel = config.get<string>('preferredModel', 'auto');
+
       const sessionState: SessionState = {
         info: {
           id: sessionId,
@@ -440,7 +444,11 @@ export class SessionManager extends EventEmitter {
         messages: [],
         activeToolCalls: [],
         isLoading: false,
-        context: {}
+        context: {},
+        // 🎯 初始化模型配置
+        modelConfig: {
+          modelName: preferredModel
+        }
       };
 
       // 🎯 延迟初始化：只创建AIService实例，不立即初始化

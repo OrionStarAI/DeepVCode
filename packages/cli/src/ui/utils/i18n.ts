@@ -323,7 +323,7 @@ export const translations = {
     'task.timeout.credits.notice': 'Continuing may consume additional credits. Please review carefully.',
 
     // Conversation limits
-    'conversation.token.limit.warning': 'IMPORTANT: This conversation approached the input token limit for {model}. A compressed context will be sent for future messages (compressed from: {originalTokens} to {newTokens} tokens).',
+    'conversation.token.limit.warning': 'IMPORTANT: Context approaching limit. Conversation context will be compressed for future messages.\nIf you notice the model becomes less focused, use "/session new" to start a fresh conversation.',
 
     // Tool Names
     'tool.edit': 'Edit',
@@ -1404,7 +1404,7 @@ export const translations = {
     'task.timeout.credits.notice': '继续执行可能消耗更多 Credits，请谨慎审视。',
 
     // Conversation limits
-    'conversation.token.limit.warning': '重要提示：此对话已接近 {model} 的输入token限制。后续消息将发送压缩后的上下文（从 {originalTokens} 压缩至 {newTokens} tokens）。',
+    'conversation.token.limit.warning': '重要提示：上下文即将达到限制，对话上下文将被压缩以继续会话。\n如果你发现模型变得不够专注，可以使用 "/session new" 开启全新对话。',
 
     // Tool Names
     'tool.edit': '编辑',

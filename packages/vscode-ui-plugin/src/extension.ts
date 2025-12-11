@@ -761,10 +761,19 @@ function setupBasicMessageHandlers() {
   // 🎯 处理项目设置更新请求
   communicationService.onProjectSettingsUpdate(async (data) => {
     try {
-      logger.info(`Received project settings update: YOLO mode ${data.yoloMode ? 'enabled' : 'disabled'}`);
+      logger.info(`Received project settings update: YOLO mode ${data.yoloMode ? 'enabled' : 'disabled'}, Preferred Model: ${data.preferredModel}`);
+
       // 同步YOLO模式设置到Core配置
       await sessionManager.setProjectYoloMode(data.yoloMode);
-      logger.info(`✅ Project YOLO mode synchronized: ${data.yoloMode}`);
+
+      // 🎯 更新默认模型配置
+      if (data.preferredModel) {
+        const config = vscode.workspace.getConfiguration('deepv');
+        await config.update('preferredModel', data.preferredModel, vscode.ConfigurationTarget.Global);
+        logger.info(`✅ Preferred model updated to: ${data.preferredModel}`);
+      }
+
+      logger.info(`✅ Project settings synchronized`);
     } catch (error) {
       logger.error('Failed to update project settings', error instanceof Error ? error : undefined);
     }
@@ -774,17 +783,24 @@ function setupBasicMessageHandlers() {
   communicationService.onProjectSettingsRequest(async () => {
     try {
       logger.info('Received project settings request');
-      // 从任意AI服务获取当前YOLO模式状态
+
+      // 获取 YOLO 模式
+      let yoloMode = false;
       const sessionIds = Array.from(sessionManager.getSessionIds());
       if (sessionIds.length > 0) {
         const aiService = sessionManager.getAIService(sessionIds[0]);
         if (aiService) {
           const config = aiService.getConfig();
-          const yoloMode = config?.getApprovalMode() === 'yolo';
-          await communicationService.sendProjectSettingsResponse({ yoloMode });
-          logger.info(`✅ Project settings response sent: YOLO mode ${yoloMode}`);
+          yoloMode = config?.getApprovalMode() === 'yolo';
         }
       }
+
+      // 🎯 获取默认模型配置
+      const config = vscode.workspace.getConfiguration('deepv');
+      const preferredModel = config.get<string>('preferredModel', 'auto');
+
+      await communicationService.sendProjectSettingsResponse({ yoloMode, preferredModel });
+      logger.info(`✅ Project settings response sent: YOLO mode ${yoloMode}, Preferred Model ${preferredModel}`);
     } catch (error) {
       logger.error('Failed to get project settings', error instanceof Error ? error : undefined);
     }
