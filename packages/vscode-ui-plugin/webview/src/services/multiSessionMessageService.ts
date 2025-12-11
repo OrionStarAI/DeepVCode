@@ -74,7 +74,10 @@ interface MultiSessionMessageFromExtension {
        'refine_result' |
        'refine_error' |
        // 🎯 MCP 状态更新
-       'mcp_status_update';
+       'mcp_status_update' |
+       // 🎯 循环检测和压缩通知
+       'loop_detected' |
+       'chat_compressed';
   payload: Record<string, unknown> & {
     sessionId?: string; // 大部分消息都包含sessionId
   };

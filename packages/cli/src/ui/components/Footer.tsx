@@ -60,9 +60,9 @@ export const Footer: React.FC<FooterProps> = ({
   const displayConfig = getFooterDisplayConfig(terminalWidth);
 
   // 计算显示内容
-  const contextPercentage = ((1 - percentage) * 100).toFixed(0);
+  const contextPercentage = ((1 - percentage) * 100).toFixed(1);
   const versionDisplay = version ? getShortVersion(version, displayConfig.showNodeVersion) : null;
-  const contextDisplay = getContextDisplay(parseInt(contextPercentage), displayConfig.simplifyContext);
+  const contextDisplay = getContextDisplay(contextPercentage, displayConfig.simplifyContext);
   const modelDisplay = getModelDisplayName(model, config);
   const modelShortDisplay = getShortModelName(modelDisplay, displayConfig.simplifyModel);
 

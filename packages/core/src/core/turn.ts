@@ -142,6 +142,14 @@ export interface ChatCompressionInfo {
   newTokenCount: number;
 }
 
+export interface ModelSwitchResult {
+  success: boolean;
+  modelName: string;
+  compressionInfo?: ChatCompressionInfo;
+  compressionSkipReason?: string;
+  error?: string;
+}
+
 export interface TokenUsageInfo {
   inputTokens: number;
   outputTokens: number;

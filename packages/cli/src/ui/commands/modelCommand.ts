@@ -609,13 +609,65 @@ export const modelCommand: SlashCommand = {
         // 设置模型（包括auto选项）- 使用实际的模型名称
         settings.setValue(SettingScope.User, 'preferredModel', actualModelName);
         if (config) {
-          config.setModel(actualModelName);
-
-          // 同时更新当前GeminiChat实例的specifiedModel
           const geminiClient = config.getGeminiClient();
+
           if (geminiClient) {
-            const chat = geminiClient.getChat();
-            chat.setSpecifiedModel(actualModelName);
+            // 显示正在切换的消息
+            if (context.ui && context.ui.addItem) {
+              const historyItem: HistoryItemWithoutId = {
+                type: 'info',
+                text: tp('model.command.switching', { model: actualModelName }) || `Switching to model ${actualModelName}, please wait...`
+              };
+              context.ui.addItem(historyItem, Date.now());
+            }
+
+            // 使用 switchModel 进行安全切换（包含自动压缩）
+            const switchResult = await geminiClient.switchModel(actualModelName, new AbortController().signal);
+
+            console.log('[modelCommand] switchResult:', {
+              success: switchResult.success,
+              hasCompressionInfo: !!switchResult.compressionInfo,
+              hasCompressionSkipReason: !!switchResult.compressionSkipReason,
+              hasError: !!switchResult.error
+            });
+
+            if (!switchResult.success) {
+              const content = `Failed to switch to model ${actualModelName}. ${switchResult.error || 'Context compression may have failed.'}`;
+              if (context.ui && context.ui.addItem) {
+                const historyItem: HistoryItemWithoutId = {
+                  type: 'error',
+                  text: content
+                };
+                context.ui.addItem(historyItem, Date.now());
+              }
+              return;
+            }
+
+            // 显示压缩结果或跳过原因
+            if (switchResult.compressionInfo) {
+              const compressionMsg = `📦 Context compressed: ${switchResult.compressionInfo.originalTokenCount} → ${switchResult.compressionInfo.newTokenCount} tokens`;
+              if (context.ui && context.ui.addItem) {
+                const historyItem: HistoryItemWithoutId = {
+                  type: 'info',
+                  text: compressionMsg
+                };
+                context.ui.addItem(historyItem, Date.now());
+              }
+            } else if (switchResult.compressionSkipReason) {
+              const skipMsg = `✓ ${switchResult.compressionSkipReason}`;
+              if (context.ui && context.ui.addItem) {
+                const historyItem: HistoryItemWithoutId = {
+                  type: 'info',
+                  text: skipMsg
+                };
+                context.ui.addItem(historyItem, Date.now());
+              }
+            } else {
+              console.log('[modelCommand] No compression info or skip reason found in switch result');
+            }
+          } else {
+            // Fallback if client not initialized
+            config.setModel(actualModelName);
           }
 
           // 发出模型变化事件，通知UI更新

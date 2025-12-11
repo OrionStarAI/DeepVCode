@@ -1375,17 +1375,36 @@ function setupLoginHandlers() {
         const currentAIService = sessionManager.getAIService(payload.sessionId);
         if (currentAIService) {
           const config = currentAIService.getConfig();
-          if (config && config.setModel) {
-            config.setModel(payload.modelName);
+          const geminiClient = config?.getGeminiClient();
 
-            // 更新GeminiChat实例的specifiedModel
-            const geminiClient = config.getGeminiClient();
-            if (geminiClient) {
-              const chat = geminiClient.getChat();
-              if (chat && chat.setSpecifiedModel) {
-                chat.setSpecifiedModel(payload.modelName);
+          if (geminiClient) {
+            logger.info(`Switching model to ${payload.modelName} with safety check...`);
+
+            // 使用 VS Code 进度条提示用户
+            await vscode.window.withProgress({
+              location: vscode.ProgressLocation.Notification,
+              title: `Switching model to ${payload.modelName}...`,
+              cancellable: false
+            }, async (progress) => {
+              progress.report({ message: "Checking context limits..." });
+
+              // 使用 switchModel 进行安全切换（包含自动压缩）
+              const switchResult = await geminiClient.switchModel(payload.modelName, new AbortController().signal);
+
+              if (!switchResult.success) {
+                throw new Error(`Failed to switch to model ${payload.modelName}. ${switchResult.error || 'Context compression may have failed.'}`);
               }
-            }
+
+              // 显示压缩结果或跳过原因
+              if (switchResult.compressionInfo) {
+                progress.report({ message: `Context compressed: ${switchResult.compressionInfo.originalTokenCount} → ${switchResult.compressionInfo.newTokenCount} tokens` });
+              } else if (switchResult.compressionSkipReason) {
+                progress.report({ message: switchResult.compressionSkipReason });
+              }
+            });
+          } else if (config && config.setModel) {
+            // Fallback
+            config.setModel(payload.modelName);
           }
         }
 

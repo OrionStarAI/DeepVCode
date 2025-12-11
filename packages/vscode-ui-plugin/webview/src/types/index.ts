@@ -44,7 +44,7 @@ export type MessageContent = MessageContentPart[];
 
 export interface ChatMessage {
   id: string;
-  type: 'user' | 'assistant' | 'system' | 'tool';
+  type: 'user' | 'assistant' | 'system' | 'tool' | 'notification';
   content: MessageContent;  // 🎯 直接使用新格式
   timestamp: number;
 
@@ -66,6 +66,14 @@ export interface ChatMessage {
   toolStatus?: 'executing' | 'success' | 'error' | 'cancelled';
   toolParameters?: Record<string, any>;
   toolMessageType?: 'status' | 'output';  // 区分状态消息和输出消息
+
+  // 🎯 系统通知字段（用于循环检测、压缩等通知）
+  notificationType?: 'loop_detected' | 'compression' | 'warning' | 'info';
+  notificationTitle?: string;
+  notificationDescription?: string;
+  notificationReason?: string;
+  notificationAction?: string;
+  severity?: 'info' | 'warning' | 'error';
 
   // 🎯 Token使用情况
   tokenUsage?: {

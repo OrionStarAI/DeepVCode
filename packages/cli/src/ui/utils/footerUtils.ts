@@ -65,7 +65,7 @@ export function getShortModelName(modelName: string, simplified: boolean = false
  * @param percentage 百分比数值
  * @param simplified 是否使用简化版本
  */
-export function getContextDisplay(percentage: number, simplified: boolean = false): string {
+export function getContextDisplay(percentage: number | string, simplified: boolean = false): string {
   const percentText = `${percentage}%`;
 
   if (simplified) {

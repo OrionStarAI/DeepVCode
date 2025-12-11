@@ -358,4 +358,25 @@ export const zhCN: Translations = {
     terminalOutput: '终端输出（最近 200 行）',
     loading: '加载中...',
   },
+
+  systemNotifications: {
+    'loop.consecutive.tool.calls.title': '🔄 检测到重复工具调用',
+    'loop.consecutive.tool.calls.description': 'AI 模型在反复调用相同的工具，浪费上下文和 API 配额，没有取得实质进展。',
+    'loop.consecutive.tool.calls.reason': '为什么会发生：\n• AI 可能被困在同一个方向的探索中\n• 当前的方法不可行\n• 任务描述不清楚或缺少关键信息',
+    'loop.consecutive.tool.calls.action': '应该做什么：\n1. 检查任务：请求是否足够清晰和具体？\n2. 提供新指导：告诉 AI 尝试不同的方向或提供新信息\n3. 如需要可重启：使用 /session new 清空上下文重新开始',
+
+    'loop.chanting.identical.sentences.title': '🔄 检测到重复内容',
+    'loop.chanting.identical.sentences.description': 'AI 模型在反复生成相同的文本或响应。',
+    'loop.chanting.identical.sentences.reason': '为什么会发生：\n• 模型可能被困在某个特定的模式中\n• 无法超越某个特定点取得进展',
+    'loop.chanting.identical.sentences.action': '应该做什么：\n• 用新的指示打破这个模式\n• 要求 AI 尝试不同的方法\n• 继续对话或重启以获得新的上下文',
+
+    'loop.llm.detected.title': '⚠️ 检测到无进展循环',
+    'loop.llm.detected.description': 'AI 模型似乎被困住了，没有在任务上取得有意义的进展。',
+    'loop.llm.detected.reason': '为什么会发生：\n• 当前方法没有推进任务\n• 可能在探索非生产性路径',
+    'loop.llm.detected.action': '应该做什么：\n• 澄清目标或提供更清晰的任务要求\n• 将 AI 重新聚焦于核心问题\n• 考虑将任务分解为更小的子任务',
+
+    'chat.compression.title': '✨ 上下文已优化',
+    'chat.compression.description': '对话历史已自动压缩以有效地管理上下文。',
+    'chat.compression.info': '这样做可以为新的上下文和响应腾出更多空间，继续对话。',
+  },
 };

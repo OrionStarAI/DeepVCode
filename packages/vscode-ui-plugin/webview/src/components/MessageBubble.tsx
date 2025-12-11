@@ -17,6 +17,7 @@ import { useTranslation } from '../hooks/useTranslation';
 
 import { ToolCallList } from './ToolCallList';
 import { ReasoningDisplay } from './ReasoningDisplay';
+import { SystemNotificationMessage } from './SystemNotificationMessage';
 import { messageContentToString } from '../utils/messageContentUtils';
 import { linkifyTextNode } from '../utils/filePathLinkifier';
 import './ToolCalls.css';
@@ -419,7 +420,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
   return (
     <div className={getMessageClass(message.type)}>
       <div className="message-content">
-        {message.type === 'user' ? (
+        {message.type === 'notification' ? (
+          <SystemNotificationMessage message={message} />
+        ) : message.type === 'user' ? (
           <div className="user-content">
             <span
               onClick={() => onStartEdit?.(message.id)}

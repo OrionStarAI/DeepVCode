@@ -20,6 +20,7 @@ import {
   ServerGeminiStreamEvent,
   GeminiEventType,
   ChatCompressionInfo,
+  ModelSwitchResult,
 } from './turn.js';
 import { Config } from '../config/config.js';
 import { UserTierId } from '../code_assist/types.js';
@@ -42,7 +43,7 @@ import { LoopDetectionService } from '../services/loopDetectionService.js';
 import { CompressionService } from '../services/compressionService.js';
 import { ideContext } from '../ide/ideContext.js';
 import { logFlashDecidedToContinue } from '../telemetry/loggers.js';
-import { FlashDecidedToContinueEvent } from '../telemetry/types.js';
+import { FlashDecidedToContinueEvent, LoopType } from '../telemetry/types.js';
 import { logger } from '../utils/enhancedLogger.js';
 
 import { DeepVServerAdapter } from './DeepVServerAdapter.js';
@@ -606,6 +607,8 @@ Use Glob and ReadFile tools to explore specific files during our conversation.
     if (loopDetected) {
       const loopType = this.loopDetector.getDetectedLoopType();
       yield { type: GeminiEventType.LoopDetected, value: loopType ? loopType.toString() : undefined };
+      // Add feedback to chat history so AI understands why it was stopped
+      this.addLoopDetectionFeedbackToHistory(loopType);
       return turn;
     }
 
@@ -614,6 +617,8 @@ Use Glob and ReadFile tools to explore specific files during our conversation.
       if (this.loopDetector.addAndCheck(event)) {
         const loopType = this.loopDetector.getDetectedLoopType();
         yield { type: GeminiEventType.LoopDetected, value: loopType ? loopType.toString() : undefined };
+        // Add feedback to chat history so AI understands why it was stopped
+        this.addLoopDetectionFeedbackToHistory(loopType);
         return turn;
       }
 
@@ -683,7 +688,16 @@ Use Glob and ReadFile tools to explore specific files during our conversation.
 
     try {
       const curatedHistory = this.getChat().getHistory(true);
-      const compressionModel = SceneManager.getModelForScene(SceneType.COMPRESSION);
+      let compressionModel = SceneManager.getModelForScene(SceneType.COMPRESSION);
+
+      // 🚀 Dynamic Model Upgrade: If current token count exceeds Flash's limit (~1M),
+      // upgrade to x-ai/grok-4.1-fast to ensure compression succeeds.
+      // Using 900,000 as a safe threshold to allow buffer for output and overhead.
+      if (this.sessionTokenCount > 900000) {
+        console.log(`[tryCompressChat] Token count (${this.sessionTokenCount}) exceeds Flash limit. Upgrading compression model to x-ai/grok-4.1-fast.`);
+        compressionModel = 'x-ai/grok-4.1-fast';
+      }
+
       const historyModel = this.config.getModel(); // history实际使用的模型，用于测算长度
 
       // 使用压缩服务
@@ -716,6 +730,197 @@ Use Glob and ReadFile tools to explore specific files during our conversation.
       // 确保异常情况下也能释放锁
       this.isCompressing = false;
     }
+  }
+
+  /**
+   * 切换模型并确保上下文安全
+   *
+   * 此方法在切换模型前检查当前历史是否适应新模型的上下文限制。
+   * 如果超出限制，会尝试进行激进压缩。
+   *
+   * @param newModel 目标模型名称
+   * @param abortSignal 中止信号
+   * @returns 切换结果，包含成功状态和压缩信息
+   */
+  async switchModel(newModel: string, abortSignal: AbortSignal): Promise<ModelSwitchResult> {
+    if (this.isCompressing) {
+      console.warn('[switchModel] Compression in progress, cannot switch model now.');
+      return {
+        success: false,
+        modelName: newModel,
+        error: 'Compression in progress, cannot switch model now.'
+      };
+    }
+
+    const currentModel = this.config.getModel();
+    if (currentModel === newModel) {
+      return { success: true, modelName: newModel };
+    }
+
+    console.log(`[switchModel] Attempting to switch from ${currentModel} to ${newModel}...`);
+
+    // 设置压缩锁
+    this.isCompressing = true;
+
+    try {
+      const curatedHistory = this.getChat().getHistory(true);
+      let compressionModel = SceneManager.getModelForScene(SceneType.COMPRESSION);
+
+      // 🚀 Dynamic Model Upgrade: If current token count exceeds Flash's limit (~1M),
+      // upgrade to x-ai/grok-4.1-fast to ensure compression succeeds.
+      // Using 900,000 as a safe threshold to allow buffer for output and overhead.
+      // We use sessionTokenCount as a proxy, or we could recount if needed.
+      if (this.sessionTokenCount > 900000) {
+        console.log(`[switchModel] Token count (${this.sessionTokenCount}) exceeds Flash limit. Upgrading compression model to x-ai/grok-4.1-fast.`);
+        compressionModel = 'x-ai/grok-4.1-fast';
+      }
+
+      // 尝试压缩以适应新模型
+      const compressionResult = await this.compressionService.compressToFit(
+        this.config,
+        curatedHistory,
+        currentModel,
+        newModel,
+        compressionModel!,
+        this,
+        `switch-model-${Date.now()}`,
+        abortSignal
+      );
+
+      const modelSwitchResult: ModelSwitchResult = {
+        success: true,
+        modelName: newModel
+      };
+
+      console.log(`[switchModel] compressionResult:`, {
+        success: compressionResult?.success,
+        hasSkipReason: !!compressionResult?.skipReason,
+        hasCompressionInfo: !!compressionResult?.compressionInfo,
+        hasNewHistory: !!compressionResult?.newHistory,
+        hasError: !!compressionResult?.error
+      });
+
+      if (compressionResult.skipReason) {
+        // 不需要压缩，显示原因
+        console.log(`[switchModel] ${compressionResult.skipReason}`);
+        modelSwitchResult.compressionSkipReason = compressionResult.skipReason;
+      } else if (compressionResult.success && compressionResult.newHistory) {
+        // 压缩成功
+        this.getChat().setHistory(compressionResult.newHistory);
+        if (compressionResult.compressionInfo) {
+          console.log(
+            `[switchModel] History compressed to fit new model: ` +
+            `${compressionResult.compressionInfo.originalTokenCount} → ` +
+            `${compressionResult.compressionInfo.newTokenCount} tokens`
+          );
+          modelSwitchResult.compressionInfo = compressionResult.compressionInfo;
+        } else {
+          console.log('[switchModel] History compressed to fit new model.');
+        }
+      } else {
+        console.warn(`[switchModel] Compression failed: ${compressionResult.error}`);
+        modelSwitchResult.success = false;
+        modelSwitchResult.error = compressionResult.error;
+        // 压缩失败，阻止切换
+        this.isCompressing = false;
+        return modelSwitchResult;
+      }
+
+      // 更新配置和Chat
+      this.config.setModel(newModel);
+      this.getChat().setSpecifiedModel(newModel);
+
+      // 重置压缩标记，因为上下文可能已经改变
+      this.resetCompressionFlag();
+
+      console.log(`[switchModel] Successfully switched to ${newModel}`);
+      return modelSwitchResult;
+
+    } catch (error) {
+      console.error('[switchModel] Error during model switch:', error);
+      return {
+        success: false,
+        modelName: newModel,
+        error: error instanceof Error ? error.message : String(error)
+      };
+    } finally {
+      this.isCompressing = false;
+    }
+  }
+
+  /**
+   * 循环检测触发时，向历史中添加给 AI 的反馈信息
+   * 这样 AI 能理解为什么被中止，以及应该如何改进
+   */
+  private addLoopDetectionFeedbackToHistory(loopType: LoopType | null): void {
+    let feedbackMessage = '';
+
+    switch (loopType) {
+      case LoopType.CONSECUTIVE_IDENTICAL_TOOL_CALLS:
+        feedbackMessage = `🔴 LOOP DETECTED: You were repeatedly calling the same tool, which wastes context and API quota.
+
+⚠️ Why this happened:
+• You may be stuck in the same approach
+• The current direction is not productive
+• Missing or unclear task context
+
+✅ What to do next:
+1. Review the task: Was the original request clear enough?
+2. Take a different approach: Try exploring from a different angle
+3. Ask for clarification: Request more specific guidance or context
+4. Example: Instead of reading many files, focus on specific files mentioned in the error or task
+
+💡 Tips:
+• Break complex tasks into smaller, focused subtasks
+• Be explicit about what you're trying to achieve
+• When stuck, ask for hints or a different approach`;
+        break;
+
+      case LoopType.CHANTING_IDENTICAL_SENTENCES:
+        feedbackMessage = `🔴 LOOP DETECTED: You were repeatedly generating the same text, which indicates being stuck.
+
+⚠️ Why this happened:
+• The model may be stuck on a specific pattern or thought
+• Unable to progress beyond a certain point
+• May need external guidance to break the pattern
+
+✅ What to do next:
+1. Acknowledge the issue: Understand what went wrong
+2. Take a fresh approach: Try a completely different angle
+3. Ask for help: Request guidance on how to proceed differently
+4. Example: If stuck explaining something, ask to try a different explanation method`;
+        break;
+
+      case LoopType.LLM_DETECTED_LOOP:
+        feedbackMessage = `🔴 LOOP DETECTED: The AI analysis detected that you're not making meaningful progress.
+
+⚠️ Why this happened:
+• The current approach is not advancing the task
+• May be exploring unproductive paths
+• Need to refocus on the core objective
+
+✅ What to do next:
+1. Clarify the goal: Restate what needs to be accomplished
+2. Provide constraints: Give clear boundaries or requirements
+3. Break it down: Divide into smaller, achievable steps
+4. Change direction: Try a fundamentally different approach`;
+        break;
+
+      default:
+        feedbackMessage = `🔴 LOOP DETECTED: The conversation entered a repetitive loop without making progress.
+
+✅ What to do next:
+• Provide more specific guidance or constraints
+• Clarify what you're trying to achieve
+• Try a different approach to the problem
+• Start fresh with /session new if needed`;
+    }
+
+    // 添加到历史记录中，标记为用户消息
+    this.getChat().addHistory({
+      role: MESSAGE_ROLES.USER,
+      parts: [{ text: feedbackMessage }],
+    });
   }
 
 }

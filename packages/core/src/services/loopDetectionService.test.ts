@@ -32,6 +32,7 @@ describe('LoopDetectionService', () => {
   beforeEach(() => {
     mockConfig = {
       getTelemetryEnabled: () => true,
+      getModel: () => 'gemini-2.0-flash', // Non-preview model for regular tests
     } as unknown as Config;
     service = new LoopDetectionService(mockConfig);
     vi.clearAllMocks();
@@ -250,4 +251,154 @@ describe('LoopDetectionService LLM Checks', () => {
     }
   };
 
+});
+
+describe('LoopDetectionService - Preview Model Strict Checking', () => {
+  let service: LoopDetectionService;
+  let mockConfig: Config;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const createToolCallRequestEvent = (
+    name: string,
+    args: Record<string, unknown>,
+  ): ServerGeminiToolCallRequestEvent => ({
+    type: GeminiEventType.ToolCallRequest,
+    value: {
+      name,
+      args,
+      callId: 'test-id',
+      isClientInitiated: false,
+      prompt_id: 'test-prompt-id',
+    },
+  });
+
+  it('should apply strict tool-name checking for preview models', () => {
+    // Setup mock config that returns a preview model
+    mockConfig = {
+      getTelemetryEnabled: () => true,
+      getModel: () => 'gemini-3-pro-preview',
+    } as unknown as Config;
+    service = new LoopDetectionService(mockConfig);
+    service.reset('test-prompt');
+
+    // Call read_file with different args 5 times (threshold for intensive tools)
+    const events = [
+      createToolCallRequestEvent('read_file', { file_path: '/path/file1.txt' }),
+      createToolCallRequestEvent('read_file', { file_path: '/path/file2.txt' }),
+      createToolCallRequestEvent('read_file', { file_path: '/path/file3.txt' }),
+      createToolCallRequestEvent('read_file', { file_path: '/path/file4.txt' }),
+    ];
+
+    // First 3 calls should not trigger
+    for (let i = 0; i < 3; i++) {
+      expect(service.addAndCheck(events[i])).toBe(false);
+    }
+    expect(loggers.logLoopDetected).not.toHaveBeenCalled();
+
+    // 4th call to read_file (intensive tool threshold = 4) should trigger
+    expect(service.addAndCheck(events[3])).toBe(true);
+    expect(loggers.logLoopDetected).toHaveBeenCalledTimes(1);
+  });
+
+  it('should use threshold of 5 for non-intensive tools in preview models', () => {
+    mockConfig = {
+      getTelemetryEnabled: () => true,
+      getModel: () => 'gemini-3-pro-preview',
+    } as unknown as Config;
+    service = new LoopDetectionService(mockConfig);
+    service.reset('test-prompt');
+
+    // Call shell with different args 5 times
+    const events = [
+      createToolCallRequestEvent('shell', { command: 'ls /dir1' }),
+      createToolCallRequestEvent('shell', { command: 'ls /dir2' }),
+      createToolCallRequestEvent('shell', { command: 'ls /dir3' }),
+      createToolCallRequestEvent('shell', { command: 'ls /dir4' }),
+      createToolCallRequestEvent('shell', { command: 'ls /dir5' }),
+    ];
+
+    // First 4 calls should not trigger
+    for (let i = 0; i < 4; i++) {
+      expect(service.addAndCheck(events[i])).toBe(false);
+    }
+    expect(loggers.logLoopDetected).not.toHaveBeenCalled();
+
+    // 5th call (non-intensive tool threshold = 5) should trigger
+    expect(service.addAndCheck(events[4])).toBe(true);
+    expect(loggers.logLoopDetected).toHaveBeenCalledTimes(1);
+  });
+
+  it('should not apply preview strict checking for non-preview models', () => {
+    mockConfig = {
+      getTelemetryEnabled: () => true,
+      getModel: () => 'gemini-2.0-flash', // Not a preview model
+    } as unknown as Config;
+    service = new LoopDetectionService(mockConfig);
+    service.reset('test-prompt');
+
+    // Call read_file 10 times with different args
+    for (let i = 0; i < 10; i++) {
+      const event = createToolCallRequestEvent('read_file', {
+        file_path: `/path/file${i}.txt`
+      });
+      // Should not trigger because args are different (exact match required for non-preview)
+      expect(service.addAndCheck(event)).toBe(false);
+    }
+    expect(loggers.logLoopDetected).not.toHaveBeenCalled();
+  });
+
+  it('should detect glob tool calls exceeding threshold in preview models', () => {
+    mockConfig = {
+      getTelemetryEnabled: () => true,
+      getModel: () => 'gemini-3-pro-preview',
+    } as unknown as Config;
+    service = new LoopDetectionService(mockConfig);
+    service.reset('test-prompt');
+
+    // glob is in PREVIEW_INTENSIVE_TOOLS, so threshold = 4
+    const events = [
+      createToolCallRequestEvent('glob', { pattern: '**/*.ts' }),
+      createToolCallRequestEvent('glob', { pattern: '**/*.js' }),
+      createToolCallRequestEvent('glob', { pattern: '**/*.json' }),
+      createToolCallRequestEvent('glob', { pattern: '**/*.md' }),
+    ];
+
+    // First 3 should pass
+    for (let i = 0; i < 3; i++) {
+      expect(service.addAndCheck(events[i])).toBe(false);
+    }
+
+    // 4th call should trigger
+    expect(service.addAndCheck(events[3])).toBe(true);
+    expect(loggers.logLoopDetected).toHaveBeenCalledTimes(1);
+  });
+
+  it('should detect search_file_content exceeding threshold in preview models', () => {
+    mockConfig = {
+      getTelemetryEnabled: () => true,
+      getModel: () => 'gemini-3-pro-preview',
+    } as unknown as Config;
+    service = new LoopDetectionService(mockConfig);
+    service.reset('test-prompt');
+
+    // search_file_content is in PREVIEW_INTENSIVE_TOOLS, so threshold = 4
+    const events = [
+      createToolCallRequestEvent('search_file_content', { pattern: 'TODO' }),
+      createToolCallRequestEvent('search_file_content', { pattern: 'FIXME' }),
+      createToolCallRequestEvent('search_file_content', { pattern: 'BUG' }),
+      createToolCallRequestEvent('search_file_content', { pattern: 'HACK' }),
+    ];
+
+    // First 3 should pass
+    for (let i = 0; i < 3; i++) {
+      expect(service.addAndCheck(events[i])).toBe(false);
+    }
+
+    // 4th call should trigger
+    expect(service.addAndCheck(events[3])).toBe(true);
+    expect(loggers.logLoopDetected).toHaveBeenCalledTimes(1);
+  });
 });

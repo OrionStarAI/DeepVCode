@@ -356,6 +356,24 @@ export interface Translations {
     terminalOutput: string;
     loading: string;
   };
+
+  systemNotifications: {
+    'loop.consecutive.tool.calls.title': string;
+    'loop.consecutive.tool.calls.description': string;
+    'loop.consecutive.tool.calls.reason': string;
+    'loop.consecutive.tool.calls.action': string;
+    'loop.chanting.identical.sentences.title': string;
+    'loop.chanting.identical.sentences.description': string;
+    'loop.chanting.identical.sentences.reason': string;
+    'loop.chanting.identical.sentences.action': string;
+    'loop.llm.detected.title': string;
+    'loop.llm.detected.description': string;
+    'loop.llm.detected.reason': string;
+    'loop.llm.detected.action': string;
+    'chat.compression.title': string;
+    'chat.compression.description': string;
+    'chat.compression.info': string;
+  };
 }
 
 export type SupportedLocale = 'zh-CN' | 'en-US';

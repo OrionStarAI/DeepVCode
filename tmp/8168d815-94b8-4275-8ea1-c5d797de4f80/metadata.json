@@ -1,0 +1,13 @@
+{
+  "sessionId": "8168d815-94b8-4275-8ea1-c5d797de4f80",
+  "title": "Session 12/11/2025, 1:06:53 PM",
+  "createdAt": "2025-12-11T05:06:53.330Z",
+  "lastActiveAt": "2025-12-11T07:52:09.251Z",
+  "messageCount": 281,
+  "totalTokens": 8430971,
+  "hasCheckpoint": false,
+  "workdirHash": "524963cd0f29b2152698973127b5ff7b8cb153cfe157c32d864c0271f4579b6f",
+  "model": "gemini-3-pro-preview",
+  "firstUserMessage": "你随便读取点文件，我测测上下文的消耗。读大一点的",
+  "lastAssistantMessage": "你还在吗"
+}
