@@ -186,6 +186,18 @@ export class AIService {
 
       await this.config.initialize();
 
+      // 🎯 从VSCode settings同步云端模型配置到config
+      try {
+        const vsCodeConfig = vscode.workspace.getConfiguration('deepv');
+        const cloudModels = vsCodeConfig.get<any[]>('cloudModels', []);
+        if (Array.isArray(cloudModels) && cloudModels.length > 0) {
+          this.config.setCloudModels(cloudModels);
+          this.logger.info(`📊 Synced ${cloudModels.length} cloud models to config`);
+        }
+      } catch (cloudModelsError) {
+        this.logger.warn('⚠️ Failed to sync cloud models to config', cloudModelsError instanceof Error ? cloudModelsError : undefined);
+      }
+
       await this.config.refreshAuth(AuthType.USE_CHEETH_OA);
       this.geminiClient = this.config.getGeminiClient();
       await this.initializeCoreToolScheduler();
@@ -1586,7 +1598,11 @@ export class AIService {
       }
 
       // 获取当前模型的token限制
-      const currentTokenLimit = tokenLimit(this.config.getModel(), this.config);
+      const currentModel = this.config.getModel();
+      const cloudModelInfo = this.config.getCloudModelInfo(currentModel);
+      const cloudModels = this.config.getCloudModels();
+      this.logger.info(`📊 [Context Left Debug] currentModel="${currentModel}", cloudModelInfo=${JSON.stringify(cloudModelInfo)}, availableModels=${cloudModels?.map(m => m.name).join(', ')}`);
+      const currentTokenLimit = tokenLimit(currentModel, this.config);
 
       // Calculate cache hit rate
       let cacheHitRate = 0;
@@ -1615,7 +1631,11 @@ export class AIService {
       // 更新Session信息
       await this.sessionHistoryManager.updateSessionInfo(this.sessionId, tokenUsageUpdate);
 
-      this.logger.info(`🎯 Token usage updated: ${tokenUsageInfo.totalTokens}/${currentTokenLimit} tokens (${Math.round((tokenUsageInfo.totalTokens / currentTokenLimit) * 100)}%)`);
+      // 🎯 详细的 Context Left 调试日志
+      const usedPercentage = (tokenUsageInfo.totalTokens / currentTokenLimit) * 100;
+      const contextLeftPercentage = Math.max(0, 100 - usedPercentage);
+      this.logger.info(`📊 [Context Left Debug] totalTokens=${tokenUsageInfo.totalTokens}, tokenLimit=${currentTokenLimit}, used=${usedPercentage.toFixed(2)}%, contextLeft=${Math.round(contextLeftPercentage)}%`);
+      this.logger.info(`📊 [Context Left Debug] inputTokens=${tokenUsageInfo.inputTokens}, outputTokens=${tokenUsageInfo.outputTokens}, cachedContentTokens=${tokenUsageInfo.cachedContentTokens || 0}`);
 
     } catch (error) {
       this.logger.error('❌ Failed to handle token usage', error instanceof Error ? error : undefined);
