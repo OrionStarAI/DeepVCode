@@ -175,19 +175,19 @@ ${outlinePreview}
 
       // 2. 提交大纲到 API
       logger.info('[PptGenerateTool] Submitting outline to API...');
-      const outlineResponse = await this.submitOutline(state, accessToken);
+      const outlineResponse = await this.submitOutline(state, accessToken, signal);
       const taskId = outlineResponse.id;
       manager.setTaskId(taskId);
       logger.info(`[PptGenerateTool] Outline submitted, task ID: ${taskId}`);
 
       // 3. 启动生成任务
       logger.info('[PptGenerateTool] Starting generate task...');
-      await this.startGenerateTask(taskId, accessToken);
+      await this.startGenerateTask(taskId, accessToken, signal);
       logger.info('[PptGenerateTool] Generate task started');
 
       // 4. 获取临时登录代码
       logger.info('[PptGenerateTool] Getting temp code for browser login...');
-      const tempCode = await this.getTempCode(accessToken);
+      const tempCode = await this.getTempCode(accessToken, signal);
       logger.info('[PptGenerateTool] Temp code obtained');
 
       // 5. 构建登录跳转URL
@@ -258,6 +258,7 @@ PPT模式已退出。`,
   private async submitOutline(
     state: { topic: string; pageCount: number; outline: string },
     accessToken: string,
+    signal: AbortSignal,
   ): Promise<PPTOutlineResponse> {
     const url = `${this.serverUrl}/web-api/ppt/outline`;
 
@@ -273,6 +274,7 @@ PPT模式已退出。`,
         page_count: state.pageCount,
         outline: state.outline,
       }),
+      signal,
     });
 
     if (!response.ok) {
@@ -286,7 +288,7 @@ PPT模式已退出。`,
   /**
    * 启动生成任务
    */
-  private async startGenerateTask(taskId: number, accessToken: string): Promise<void> {
+  private async startGenerateTask(taskId: number, accessToken: string, signal: AbortSignal): Promise<void> {
     const url = `${this.serverUrl}/web-api/ppt/generate/${taskId}`;
 
     const response = await fetch(url, {
@@ -296,6 +298,7 @@ PPT模式已退出。`,
         'Authorization': `Bearer ${accessToken}`,
         'User-Agent': 'DeepCode CLI',
       },
+      signal,
     });
 
     if (!response.ok) {
@@ -307,7 +310,7 @@ PPT模式已退出。`,
   /**
    * 获取临时登录代码
    */
-  private async getTempCode(accessToken: string): Promise<string> {
+  private async getTempCode(accessToken: string, signal: AbortSignal): Promise<string> {
     const url = `${this.serverUrl}/auth/temp-code/generate`;
 
     const response = await fetch(url, {
@@ -320,6 +323,7 @@ PPT模式已退出。`,
       body: JSON.stringify({
         expiresIn: 600, // 10分钟有效期
       }),
+      signal,
     });
 
     if (!response.ok) {

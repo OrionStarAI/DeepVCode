@@ -6,7 +6,7 @@
 
 import { CommandKind, SlashCommand, SlashCommandActionReturn, CommandContext } from './types.js';
 import { MessageType } from '../types.js';
-import { t } from '../utils/i18n.js';
+import { t, tp } from '../utils/i18n.js';
 
 /**
  * PPT命令实现 - 触发PPT大纲对话模式
@@ -51,12 +51,12 @@ export const pptCommand: SlashCommand = {
       return {
         type: 'message',
         messageType: 'info',
-        content: `请告诉我你想创建的PPT主题是什么？\n\n示例:\n  /ppt "AI在教育中的应用"\n  /ppt "2025年度总结" --pages 15`,
+        content: t('command.ppt.prompt'),
       };
     }
 
     // 构建初始化提示词，提交给AI处理PPT大纲
-    const pageCountHint = pageCount ? `\n\n预期页数: ${pageCount}页` : '';
+    const pageCountHint = pageCount ? tp('command.ppt.expected_pages', { count: pageCount }) : '';
     const initPrompt = `我想创建一个PPT演示文稿。
 
 **主题**: ${topic}${pageCountHint}
