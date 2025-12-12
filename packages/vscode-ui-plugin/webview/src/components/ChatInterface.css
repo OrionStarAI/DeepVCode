@@ -454,13 +454,29 @@
 }
 
 .system-message .message-content {
-  background-color: var(--vscode-inputValidation-infoBackground);
-  border: 1px solid var(--vscode-inputValidation-infoBorder);
-  font-size: 12px;
-  text-align: center;
-  margin: 4px 20px; /* 减少边距 */
-  padding: 6px; /* 减少内边距 */
-  border-radius: 4px; /* 减少圆角 */
+  /* VS Code 风格的提示卡片：克制、专业、可读性优先 */
+  background-color: var(
+    --vscode-notifications-background,
+    var(--vscode-editorWidget-background, var(--vscode-inputValidation-infoBackground))
+  );
+  border: 1px solid var(
+    --vscode-notifications-border,
+    var(--vscode-editorWidget-border, var(--vscode-inputValidation-infoBorder))
+  );
+  border-left: 3px solid var(--vscode-inputValidation-infoBorder);
+
+  color: var(--vscode-notifications-foreground, var(--vscode-foreground));
+  font-size: 13px;
+  line-height: 1.45;
+  text-align: left;
+
+  /* 更像 VS Code 的信息提示：不要铺满，也不要贴边 */
+  max-width: 88%;
+  margin: 8px auto;
+  padding: 10px 12px;
+  border-radius: 6px;
+
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.16);
 }
 
 .tool-message .message-content {
