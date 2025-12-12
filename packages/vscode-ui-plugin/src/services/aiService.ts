@@ -144,7 +144,13 @@ export class AIService {
         // 否则使用VS Code设置中的默认模型
         const vscodeConfig = vscode.workspace.getConfiguration('deepv');
         modelToUse = vscodeConfig.get<string>('preferredModel', 'auto');
-        this.logger.info(`⚙️ Using default model from settings: ${modelToUse}`);
+
+        // 🎯 确保 'auto' 模式被正确传递，不进行任何额外的解析或回退
+        if (modelToUse === 'auto') {
+          this.logger.info(`⚙️ Using default model from settings: auto (explicitly set)`);
+        } else {
+          this.logger.info(`⚙️ Using default model from settings: ${modelToUse}`);
+        }
       }
 
       // 🎯 加载 MCP 服务器配置（完全容错，失败不影响主流程）
