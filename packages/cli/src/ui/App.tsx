@@ -97,6 +97,7 @@ import { useVimMode, VimModeProvider } from './contexts/VimModeContext.js';
 import { KeypressProvider } from './contexts/KeypressContext.js';
 import { useVim } from './hooks/vim.js';
 import { useSmallWindowOptimization } from './hooks/useSmallWindowOptimization.js';
+import { useFlickerDetector } from './hooks/useFlickerDetector.js';
 import * as fs from 'fs';
 import { UpdateNotification } from './components/UpdateNotification.js';
 import {
@@ -1418,6 +1419,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
 
   const mainControlsRef = useRef<DOMElement>(null);
   const pendingHistoryItemRef = useRef<DOMElement>(null);
+  const rootUiRef = useRef<DOMElement>(null);
 
   useEffect(() => {
     if (mainControlsRef.current) {
@@ -1425,6 +1427,9 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
       setFooterHeight(fullFooterMeasurement.height);
     }
   }, [terminalHeight, consoleMessages, showErrorDetails]);
+
+  // Detect UI flickering (renders taller than terminal)
+  useFlickerDetector(rootUiRef, terminalHeight, config, constrainHeight);
 
   const staticExtraHeight = /* margins and padding */ 3;
   const availableTerminalHeight = useMemo(
@@ -1641,7 +1646,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
 
   return (
     <StreamingContext.Provider value={streamingState}>
-      <Box flexDirection="column" width="90%">
+      <Box flexDirection="column" width="90%" ref={rootUiRef}>
         {/* Move UpdateNotification outside Static so it can re-render when updateMessage changes */}
         {updateMessage && <UpdateNotification message={updateMessage} />}
 

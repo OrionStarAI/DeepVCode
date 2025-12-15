@@ -22,6 +22,9 @@ export enum AppEvent {
   ImagePollingStart = 'image-polling-start',
   ImagePollingProgress = 'image-polling-progress',
   ImagePollingEnd = 'image-polling-end',
+  SelectionWarning = 'selection-warning',
+  PasteTimeout = 'paste-timeout',
+  Flicker = 'flicker',
 }
 
 export const appEvents = new EventEmitter();

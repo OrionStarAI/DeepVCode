@@ -82,6 +82,7 @@ export class GeminiClient {
   // 上次请求的Token使用量
   private sessionTokenCount: number = 0; //
   private compressionThreshold: number = 0.8; // 动态压缩阈值
+  private readonly emergencyStopThreshold: number = 0.9; // 🚨 紧急制动阈值：90%
   private needsCompression: boolean = false; // 是否需要在下次对话前压缩
 
   constructor(private config: Config) {
@@ -919,6 +920,26 @@ Use Glob and ReadFile tools to explore specific files during our conversation.
     }
 
     // 添加到历史记录中，标记为用户消息
+    this.getChat().addHistory({
+      role: MESSAGE_ROLES.USER,
+      parts: [{ text: feedbackMessage }],
+    });
+  }
+
+  /**
+   * 当达到 90% Token 限制时，向历史记录添加反馈
+   */
+  private addContextLimitFeedbackToHistory(): void {
+    const feedbackMessage = `🛑 EMERGENCY STOP: Context limit reached (90%).
+
+⚠️ Execution has been paused to prevent context overflow.
+The system will now compress the conversation history to free up space.
+
+✅ What happens next:
+1. The context will be compressed automatically.
+2. You can continue your task with the compressed history.
+3. Please summarize your current progress and next steps after compression.`;
+
     this.getChat().addHistory({
       role: MESSAGE_ROLES.USER,
       parts: [{ text: feedbackMessage }],

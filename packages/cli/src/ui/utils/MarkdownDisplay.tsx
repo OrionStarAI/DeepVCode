@@ -51,8 +51,24 @@ const MarkdownDisplayInternal: React.FC<MarkdownDisplayProps> = ({
   let inTable = false;
   let tableRows: string[][] = [];
   let tableHeaders: string[] = [];
+  let isTruncated = false;
 
   function addContentBlock(block: React.ReactNode) {
+    if (isTruncated) return;
+
+    // Simple truncation for pending messages to prevent screen flickering
+    // We use a rough estimate: 1 block ~= 1 line (though some blocks are larger)
+    // This prevents the UI from growing indefinitely during generation
+    if (isPending && availableTerminalHeight && contentBlocks.length >= availableTerminalHeight) {
+      isTruncated = true;
+      contentBlocks.push(
+        <Box key="truncation-indicator" paddingLeft={1}>
+          <Text color={Colors.Gray}>... generating ...</Text>
+        </Box>
+      );
+      return;
+    }
+
     if (block) {
       contentBlocks.push(block);
       lastLineEmpty = false;
@@ -60,6 +76,7 @@ const MarkdownDisplayInternal: React.FC<MarkdownDisplayProps> = ({
   }
 
   lines.forEach((line, index) => {
+    if (isTruncated) return;
     const key = `line-${index}`;
 
     if (inCodeBlock) {

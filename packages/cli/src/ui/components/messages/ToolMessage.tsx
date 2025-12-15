@@ -19,6 +19,7 @@ import { MaxSizedBox } from '../shared/MaxSizedBox.js';
 import { getLocalizedToolName, isChineseLocale } from '../../utils/i18n.js';
 import { useSmallWindowOptimization, WindowSizeLevel } from '../../hooks/useSmallWindowOptimization.js';
 import stringWidth from 'string-width';
+import { truncateText } from '../../utils/textTruncator.js';
 
 const STATIC_HEIGHT = 1;
 const RESERVED_LINE_COUNT = 5; // for tool name, status, padding etc.
@@ -249,36 +250,52 @@ export const ToolMessage: React.FC<ToolMessageProps> = ({
               </Text>
             )}
             {typeof resultDisplay === 'string' && !renderOutputAsMarkdown && (
-              // 🔧 修复闪屏：执行中限制高度，完成后扩大限制（兼容Windows）
-              // Windows平台对大文本写入更敏感，需要保留MaxSizedBox但放宽限制
-              availableHeight !== undefined ? (
-                status === ToolCallStatus.Executing ? (
-                  // 执行中：严格限制高度
-                  <MaxSizedBox maxWidth={childWidth} maxHeight={availableHeight} overflowDirection="top">
-                    <Box>
+              (() => {
+                // 🔧 修复闪屏：执行中限制高度，完成后扩大限制（兼容Windows）
+                // Windows平台对大文本写入更敏感，需要保留MaxSizedBox但放宽限制
+                const maxRows = availableHeight !== undefined
+                  ? (status === ToolCallStatus.Executing ? availableHeight : availableHeight * 3)
+                  : 20;
+
+                const truncated = truncateText(resultDisplay, {
+                  maxRows,
+                  terminalWidth: childWidth,
+                });
+
+                if (truncated.isTruncated) {
+                  const parts = truncated.displayText.split(truncated.omittedPlaceholder || '');
+                  return (
+                    <Box flexDirection="column">
                       <Text wrap="wrap">
                         <Text color={Colors.Gray}>└ </Text>
-                        {resultDisplay}
+                        {parts[0]}
                       </Text>
-                    </Box>
-                  </MaxSizedBox>
-                ) : (
-                  // 执行完成：放宽高度限制（兼容Windows）
-                  <MaxSizedBox maxWidth={childWidth} maxHeight={availableHeight * 3} overflowDirection="top">
-                    <Box>
-                      <Text wrap="wrap">
-                        <Text color={Colors.Gray}>└ </Text>
-                        {resultDisplay}
+                      <Text color={Colors.Gray} wrap="truncate">
+                        ... omitted {truncated.omittedLines} lines ...
                       </Text>
+                      {parts[1] && <Text wrap="wrap">{parts[1]}</Text>}
                     </Box>
-                  </MaxSizedBox>
-                )
-              ) : (
-                <Text wrap="wrap">
-                  <Text color={Colors.Gray}>└ </Text>
-                  {resultDisplay}
-                </Text>
-              )
+                  );
+                }
+
+                return (
+                  availableHeight !== undefined ? (
+                    <MaxSizedBox maxWidth={childWidth} maxHeight={maxRows} overflowDirection="top">
+                      <Box>
+                        <Text wrap="wrap">
+                          <Text color={Colors.Gray}>└ </Text>
+                          {resultDisplay}
+                        </Text>
+                      </Box>
+                    </MaxSizedBox>
+                  ) : (
+                    <Text wrap="wrap">
+                      <Text color={Colors.Gray}>└ </Text>
+                      {resultDisplay}
+                    </Text>
+                  )
+                );
+              })()
             )}
             {typeof resultDisplay !== 'string' && (resultDisplay as any).type === 'todo_display' && (
               <Box flexDirection="row">
