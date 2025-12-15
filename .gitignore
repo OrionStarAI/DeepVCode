@@ -62,4 +62,6 @@ packages/vscode-ui-plugin/webview/build
 remote-client/build
 .deepvcode
 .npmrc
-.npmrc  
+
+# Temporary backup during publish
+.publish-backup

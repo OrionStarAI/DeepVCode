@@ -1,5 +1,29 @@
 # DeepV Code 白皮书
 
+## 📦 快速安装 (Quick Installation)
+
+使用全局安装 DeepV Code CLI，获得 `dvcode` 命令：
+
+**推荐：npm 全局安装**
+```bash
+npm install -g deepv-code
+```
+
+或使用 yarn：
+```bash
+yarn global add deepv-code
+```
+
+或使用 pnpm：
+```bash
+pnpm add -g deepv-code
+```
+
+安装完成后，即可在任何项目目录中使用 `dvcode` 命令启动 AI 助手：
+```bash
+dvcode
+```
+
 ---
 
 ### 1. 标题页 (Title Page)

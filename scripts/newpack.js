@@ -144,6 +144,20 @@ function main() {
     console.log(chalk.blue('   📋 prepare hook executes: npm run bundle (includes build and package)'));
 
     const tgzFileName = `deepv-code-${newVersion}.tgz`;
+
+    // Prepare for packaging: replace README with whitepaper
+    const prepareSpinner = ora({
+      text: chalk.cyan('📝 Preparing README for packaging...'),
+      spinner: 'dots'
+    }).start();
+    try {
+      run('node scripts/prepare-publish.js', { stdio: 'pipe' });
+      prepareSpinner.succeed(chalk.green('✅ README prepared for packaging'));
+    } catch (error) {
+      prepareSpinner.fail(chalk.red('💥 Failed to prepare README!'));
+      throw error;
+    }
+
     const packingSpinner = ora({
       text: chalk.cyan('📦 Executing: npm pack (auto-build + package)'),
       spinner: 'bouncingBall'
@@ -157,6 +171,18 @@ function main() {
     } catch (error) {
       packingSpinner.fail(chalk.red('💥 Build and packaging failed!'));
       throw error;
+    }
+
+    // Restore original README after packaging
+    const restoreSpinner = ora({
+      text: chalk.cyan('🔄 Restoring original README...'),
+      spinner: 'dots'
+    }).start();
+    try {
+      run('node scripts/restore-after-publish.js', { stdio: 'pipe' });
+      restoreSpinner.succeed(chalk.green('✅ Original README restored'));
+    } catch (error) {
+      restoreSpinner.warn(chalk.yellow('⚠️  Failed to restore README (will restore manually)'));
     }
 
     // Optional: Global installation
