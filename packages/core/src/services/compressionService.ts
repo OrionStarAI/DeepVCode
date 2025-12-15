@@ -15,6 +15,7 @@ import { getErrorMessage } from '../utils/errors.js';
 import { GeminiClient } from '../core/client.js';
 import { Config } from '../config/config.js';
 import { MESSAGE_ROLES } from '../config/messageRoles.js';
+import { retryWithBackoff } from '../utils/retry.js';
 
 /**
  * 对话历史压缩服务配置
@@ -678,17 +679,35 @@ export class CompressionService {
       return null;
     }
 
-    // 执行压缩，传递已计算的token数量避免重复计算
-    return await this.compressHistory(
-      config,
-      history,
-      model,
-      compressionModel,
-      geminiClient,
-      prompt_id,
-      abortSignal,
-      shouldCompressResult.tokenCount
-    );
+    // 使用 retryWithBackoff 包装压缩执行逻辑
+    return await retryWithBackoff(async () => {
+      // 执行压缩，传递已计算的token数量避免重复计算
+      const result = await this.compressHistory(
+        config,
+        history,
+        model,
+        compressionModel,
+        geminiClient,
+        prompt_id,
+        abortSignal,
+        shouldCompressResult.tokenCount
+      );
+
+      // 如果压缩失败且没有明确的跳过原因，抛出错误以触发重试
+      if (!result.success && !result.skipReason) {
+        throw new Error(result.error || 'Compression failed without specific error');
+      }
+
+      return result;
+    }, {
+      maxAttempts: 3, // 最多重试3次
+      shouldRetry: (error) => {
+        // 所有的错误都值得重试，除了明确的不可恢复错误（如果有的话）
+        // 这里简单地重试所有错误
+        console.warn(`[CompressionService] Compression attempt failed: ${error.message}. Retrying...`);
+        return true;
+      }
+    });
   }
 
   /**
@@ -716,92 +735,108 @@ export class CompressionService {
     abortSignal: AbortSignal,
     knownTokenCount?: number
   ): Promise<CompressionResult> {
-    console.log(`[CompressionService] compressToFit called: ${currentModel} → ${targetModel}${knownTokenCount ? ` (knownTokenCount: ${knownTokenCount})` : ''}`);
+    // 使用 retryWithBackoff 包装 compressToFit 逻辑
+    return await retryWithBackoff(async () => {
+      console.log(`[CompressionService] compressToFit called: ${currentModel} → ${targetModel}${knownTokenCount ? ` (knownTokenCount: ${knownTokenCount})` : ''}`);
 
-    // 1. 获取目标模型的Token限制
-    const targetLimit = tokenLimit(targetModel, config);
-    // 留 10% 的安全缓冲
-    const safeLimit = targetLimit * 0.9;
+      // 1. 获取目标模型的Token限制
+      const targetLimit = tokenLimit(targetModel, config);
+      // 留 10% 的安全缓冲
+      const safeLimit = targetLimit * 0.9;
 
-    // 2. 使用已知的token数量，或重新计算
-    let currentTokenCount: number | undefined = knownTokenCount;
+      // 2. 使用已知的token数量，或重新计算
+      let currentTokenCount: number | undefined = knownTokenCount;
 
-    if (currentTokenCount === undefined) {
-      try {
-        const result = await geminiClient.getContentGenerator().countTokens({
-          model: currentModel,
-          contents: history,
-        });
-        currentTokenCount = result.totalTokens;
-      } catch (error) {
-        console.warn(`[CompressionService] Could not count tokens for model switch check: ${getErrorMessage(error)}`);
-        // 如果无法计算，保守起见假设不需要压缩，返回成功但带有跳过原因
+      if (currentTokenCount === undefined) {
+        try {
+          const result = await geminiClient.getContentGenerator().countTokens({
+            model: currentModel,
+            contents: history,
+          });
+          currentTokenCount = result.totalTokens;
+        } catch (error) {
+          console.warn(`[CompressionService] Could not count tokens for model switch check: ${getErrorMessage(error)}`);
+          // 如果无法计算，保守起见假设不需要压缩，返回成功但带有跳过原因
+          return {
+            success: true,
+            skipReason: `Unable to count tokens for model switch: ${getErrorMessage(error)}. Proceeding without compression.`
+          };
+        }
+      }
+
+      if (currentTokenCount === undefined) {
         return {
           success: true,
-          skipReason: `Unable to count tokens for model switch: ${getErrorMessage(error)}. Proceeding without compression.`
+          skipReason: 'Unable to determine token count for model switch. Proceeding without compression.'
         };
       }
-    }
 
-    if (currentTokenCount === undefined) {
-      return {
-        success: true,
-        skipReason: 'Unable to determine token count for model switch. Proceeding without compression.'
-      };
-    }
+      console.log(`[CompressionService] Model Switch Check: Current Tokens=${currentTokenCount}, Target Limit=${targetLimit} (Safe=${safeLimit})`);
 
-    console.log(`[CompressionService] Model Switch Check: Current Tokens=${currentTokenCount}, Target Limit=${targetLimit} (Safe=${safeLimit})`);
+      // 3. 检查是否需要压缩
+      if (currentTokenCount <= safeLimit) {
+        // 不需要压缩，返回成功但带有跳过原因
+        return {
+          success: true,
+          skipReason: `Context sufficient for target model: ${currentTokenCount} tokens ≤ ${safeLimit} safe limit (model limit: ${targetLimit})`
+        };
+      }
 
-    // 3. 检查是否需要压缩
-    if (currentTokenCount <= safeLimit) {
-      // 不需要压缩，返回成功但带有跳过原因
-      return {
-        success: true,
-        skipReason: `Context sufficient for target model: ${currentTokenCount} tokens ≤ ${safeLimit} safe limit (model limit: ${targetLimit})`
-      };
-    }
+      console.log(`[CompressionService] History too large for target model ${targetModel}. Triggering aggressive compression.`);
 
-    console.log(`[CompressionService] History too large for target model ${targetModel}. Triggering aggressive compression.`);
+      // 4. 计算需要的压缩比例
+      // 我们需要将历史压缩到 safeLimit 以下
+      // 假设环境信息占用很少，主要压缩对话部分
+      // 这是一个简化的策略：直接使用更激进的保留阈值
+      // 如果当前超出很多，可能需要保留很少的历史
 
-    // 4. 计算需要的压缩比例
-    // 我们需要将历史压缩到 safeLimit 以下
-    // 假设环境信息占用很少，主要压缩对话部分
-    // 这是一个简化的策略：直接使用更激进的保留阈值
-    // 如果当前超出很多，可能需要保留很少的历史
+      // 动态调整保留阈值：
+      // 目标是让 (环境 + 摘要 + 保留历史) < safeLimit
+      // 假设 (环境 + 摘要) 占用约 1000 tokens
+      const estimatedOverhead = 1000;
+      const availableForHistory = Math.max(0, safeLimit - estimatedOverhead);
 
-    // 动态调整保留阈值：
-    // 目标是让 (环境 + 摘要 + 保留历史) < safeLimit
-    // 假设 (环境 + 摘要) 占用约 1000 tokens
-    const estimatedOverhead = 1000;
-    const availableForHistory = Math.max(0, safeLimit - estimatedOverhead);
+      // 计算需要的保留比例
+      // ratio = available / current
+      let requiredRatio = availableForHistory / currentTokenCount;
 
-    // 计算需要的保留比例
-    // ratio = available / current
-    let requiredRatio = availableForHistory / currentTokenCount;
+      // 限制比例在合理范围内 (0.05 - 0.5)
+      // 至少保留 5%，最多保留 50% (如果不需要压缩那么多，但为了安全起见)
+      // 如果 requiredRatio > 0.3 (默认值)，则使用默认值，因为 compressToFit 只有在超标时才调用
+      // 但这里我们已经确认超标了，所以 requiredRatio 肯定 < 1
 
-    // 限制比例在合理范围内 (0.05 - 0.5)
-    // 至少保留 5%，最多保留 50% (如果不需要压缩那么多，但为了安全起见)
-    // 如果 requiredRatio > 0.3 (默认值)，则使用默认值，因为 compressToFit 只有在超标时才调用
-    // 但这里我们已经确认超标了，所以 requiredRatio 肯定 < 1
+      // 如果 requiredRatio 非常小（例如 < 0.05），说明目标模型太小了，可能无法保留有意义的历史
+      // 但我们还是尽力而为
+      requiredRatio = Math.max(0.05, Math.min(requiredRatio, this.compressionPreserveThreshold));
 
-    // 如果 requiredRatio 非常小（例如 < 0.05），说明目标模型太小了，可能无法保留有意义的历史
-    // 但我们还是尽力而为
-    requiredRatio = Math.max(0.05, Math.min(requiredRatio, this.compressionPreserveThreshold));
+      console.log(`[CompressionService] Dynamic compression ratio calculated: ${requiredRatio.toFixed(4)} (Available: ${availableForHistory}, Current: ${currentTokenCount})`);
 
-    console.log(`[CompressionService] Dynamic compression ratio calculated: ${requiredRatio.toFixed(4)} (Available: ${availableForHistory}, Current: ${currentTokenCount})`);
+      const result = await this.compressHistory(
+        config,
+        history,
+        currentModel,
+        compressionModel,
+        geminiClient,
+        prompt_id,
+        abortSignal,
+        currentTokenCount,
+        requiredRatio, // 传入计算出的动态比例
+        true // 标记这是模型切换压缩
+      );
 
-    return await this.compressHistory(
-      config,
-      history,
-      currentModel,
-      compressionModel,
-      geminiClient,
-      prompt_id,
-      abortSignal,
-      currentTokenCount,
-      requiredRatio, // 传入计算出的动态比例
-      true // 标记这是模型切换压缩
-    );
+      // 如果压缩失败且没有明确的跳过原因，抛出错误以触发重试
+      if (!result.success && !result.skipReason) {
+        throw new Error(result.error || 'Compression failed without specific error');
+      }
+
+      return result;
+    }, {
+      maxAttempts: 3, // 最多重试3次
+      shouldRetry: (error: any) => {
+        console.warn(`[CompressionService] compressToFit attempt failed: ${error.message || String(error)}. Retrying...`);
+        return true;
+      }
+    });
   }
 
   /**

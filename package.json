@@ -1,6 +1,6 @@
 {
   "name": "deepv-code",
-  "version": "1.0.232",
+  "version": "1.0.233",
   "engines": {
     "node": ">=20.0.0"
   },
@@ -136,5 +136,9 @@
     "pidtree": "^0.6.0",
     "pidusage": "^4.0.1",
     "undici": "^7.10.0"
+  },
+  "overrides": {
+    "ink": "npm:@jrichman/ink@6.4.6",
+    "wrap-ansi": "9.0.2"
   }
 }

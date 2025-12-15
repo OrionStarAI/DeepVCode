@@ -123,18 +123,19 @@ export class McpPromptLoader implements ICommandLoader {
                 };
               }
 
-              if (!result.messages?.[0]?.content?.text) {
+              const messageContent = result.messages?.[0]?.content;
+              if (!messageContent || messageContent.type !== 'text' || !messageContent.text) {
                 return {
                   type: 'message',
                   messageType: 'error',
                   content:
-                    'Received an empty or invalid prompt response from the server.',
+                    'Received an empty or invalid prompt response from the server (expected text content).',
                 };
               }
 
               return {
                 type: 'submit_prompt',
-                content: JSON.stringify(result.messages[0].content.text),
+                content: JSON.stringify(messageContent.text),
               };
             } catch (error) {
               return {

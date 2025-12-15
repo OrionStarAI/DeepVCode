@@ -6,6 +6,7 @@
 
 import React from 'react';
 import { Text } from 'ink';
+import Link from 'ink-link';
 import { Colors } from '../colors.js';
 import stringWidth from 'string-width';
 
@@ -105,11 +106,19 @@ const RenderInlineInternal: React.FC<RenderInlineProps> = ({ text }) => {
         if (linkMatch) {
           const linkText = linkMatch[1];
           const url = linkMatch[2];
+
+          // Check if link text is essentially the same as the URL
+          // If so, we don't need to show the URL separately
+          const normalizedText = linkText.replace(/^https?:\/\//, '').replace(/\/$/, '');
+          const normalizedUrl = url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+          const isSame = normalizedText === normalizedUrl || url === linkText;
+
           renderedNode = (
-            <Text key={key}>
-              {linkText}
-              <Text color={Colors.AccentBlue}> ({url})</Text>
-            </Text>
+            <Link key={key} url={url}>
+              <Text color={Colors.AccentBlue} underline>
+                {linkText}
+              </Text>
+            </Link>
           );
         }
       } else if (
