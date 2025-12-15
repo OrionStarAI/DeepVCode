@@ -11,6 +11,7 @@ import { PPTOutlineManager } from './pptOutlineManager.js';
 import { ProxyAuthManager } from '../../core/proxyAuth.js';
 import open from 'open';
 import { logger } from '../../utils/enhancedLogger.js';
+import { t } from '../../utils/simpleI18n.js';
 
 export interface PptGenerateToolParams {
   /** 确认提交（默认true） */
@@ -41,10 +42,6 @@ interface TempCodeResponse {
   error?: string;
 }
 
-/**
- * PPT生成工具
- * 提交大纲并启动生成任务，自动打开浏览器预览
- */
 export class PptGenerateTool extends BaseTool<PptGenerateToolParams, ToolResult> {
   static readonly Name = 'ppt_generate';
 
@@ -56,23 +53,15 @@ export class PptGenerateTool extends BaseTool<PptGenerateToolParams, ToolResult>
   constructor(private readonly config: Config) {
     super(
       PptGenerateTool.Name,
-      'PPT生成',
-      `提交PPT大纲并启动生成任务。
-
-此工具会执行以下操作：
-1. 将当前大纲提交到服务端
-2. 启动PPT生成任务
-3. 自动打开浏览器跳转到PPT编辑预览页面
-4. 退出PPT编辑模式
-
-调用前请确保已通过 ppt_outline 工具设置好大纲内容（主题、页数、大纲文本）。`,
+      t('tool.ppt_generate'),
+      t('tool.ppt_generate.description'),
       Icon.Globe,
       {
         type: Type.OBJECT,
         properties: {
           confirm: {
             type: Type.BOOLEAN,
-            description: '确认提交（默认true）',
+            description: t('ppt_generate.param.confirm'),
           },
         },
         required: [],

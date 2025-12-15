@@ -19,6 +19,9 @@ const translations = {
     'websearch.results.returned': 'Search results for "{query}" returned.{truncated}',
     'websearch.results.truncated': ' (Content truncated)',
     'websearch.error.performing': 'Error performing web search.',
+    'tool.ppt_generate': 'PPT Generate',
+    'tool.ppt_generate.description': 'Submit PPT outline and start generation task.\n\nThis tool will perform the following operations:\n1. Submit the current outline to the server\n2. Start the PPT generation task\n3. Automatically open browser to the PPT editing preview page\n4. Exit PPT editing mode\n\nMake sure to set the outline content (topic, page count, outline text) via ppt_outline tool before calling.',
+    'ppt_generate.param.confirm': 'Confirm submission (default true)',
   },
   zh: {
     'task.timeout.warning': '⚠️ 任务执行超时：已执行{turns}轮对话但任务仍未完成',
@@ -28,6 +31,9 @@ const translations = {
     'websearch.results.returned': '"{query}"的搜索结果已返回。{truncated}',
     'websearch.results.truncated': '（内容已截断）',
     'websearch.error.performing': '执行网络搜索时出错。',
+    'tool.ppt_generate': 'PPT生成',
+    'tool.ppt_generate.description': '提交PPT大纲并启动生成任务。\n\n此工具会执行以下操作：\n1. 将当前大纲提交到服务端\n2. 启动PPT生成任务\n3. 自动打开浏览器跳转到PPT编辑预览页面\n4. 退出PPT编辑模式\n\n调用前请确保已通过 ppt_outline 工具设置好大纲内容（主题、页数、大纲文本）。',
+    'ppt_generate.param.confirm': '确认提交（默认true）',
   }
 } as const;
 
