@@ -835,7 +835,8 @@ export class RemoteSession {
         ));
       },
       getPreferredEditor: () => 'vscode' as EditorType, // 远程会话默认使用VSCode
-      config: this.config
+      config: this.config,
+      hookEventHandler: this.config.getHookSystem().getEventHandler()
     });
 
     // 使用专用调度器执行工具

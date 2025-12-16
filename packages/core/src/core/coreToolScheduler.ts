@@ -121,10 +121,10 @@ export function convertToFunctionResponse(
       );
       return [functionResponse, ...contentToProcess];
     }
-    
+
     // 检查是否为纯字符串数组（如read-many-files工具返回的内容）
     const isAllStrings = contentToProcess.every(item => typeof item === 'string');
-    
+
     if (isAllStrings) {
       // 将字符串数组合并为单个字符串放入response.output
       const combinedContent = (contentToProcess as string[]).join('');
@@ -206,6 +206,7 @@ interface CoreToolSchedulerOptions {
   approvalMode?: ApprovalMode;
   getPreferredEditor: () => EditorType | undefined;
   config: Config;
+  hookEventHandler?: any; // HookEventHandler type - optional
 }
 
 /**
@@ -239,6 +240,7 @@ export class CoreToolScheduler {
       toolRegistry: options.toolRegistry,
       adapter: this.adapter,
       config: options.config,
+      hookEventHandler: options.hookEventHandler,
       approvalMode: options.approvalMode ?? ApprovalMode.DEFAULT,
       getPreferredEditor: options.getPreferredEditor,
     });
@@ -254,7 +256,7 @@ export class CoreToolScheduler {
     signal: AbortSignal,
   ): Promise<void> {
     const requests = Array.isArray(request) ? request : [request];
-    
+
     // ✅ 直接转发给执行引擎，不维护本地状态
     await this.executionEngine.executeTools(requests, this.executionContext, signal);
   }

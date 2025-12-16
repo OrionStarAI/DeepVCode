@@ -27,6 +27,7 @@ import {
   ToolExecutionContext,
 } from './toolSchedulerAdapter.js';
 import { MCPResponseGuard } from '../services/mcpResponseGuard.js';
+import type { HookEventHandler } from '../hooks/hookEventHandler.js';
 
 // Re-export ToolExecutionContext for convenience
 export { ToolExecutionContext } from './toolSchedulerAdapter.js';
@@ -161,6 +162,7 @@ interface ToolExecutionEngineOptions {
   toolRegistry: Promise<ToolRegistry>;
   adapter: ToolSchedulerAdapter;
   config: Config;
+  hookEventHandler?: HookEventHandler;
   approvalMode?: ApprovalMode;
   getPreferredEditor: () => EditorType | undefined;
 }
@@ -199,6 +201,7 @@ export class ToolExecutionEngine {
   private approvalMode: ApprovalMode;
   private config: Config;
   private getPreferredEditor: () => EditorType | undefined;
+  private hookEventHandler?: HookEventHandler;
 
   // 🛡️ MCP响应保护
   private mcpResponseGuard: MCPResponseGuard;
@@ -210,6 +213,7 @@ export class ToolExecutionEngine {
     this.config = options.config;
     this.toolRegistry = options.toolRegistry;
     this.adapter = options.adapter;
+    this.hookEventHandler = options.hookEventHandler;
     this.approvalMode = options.approvalMode ?? ApprovalMode.DEFAULT;
     this.getPreferredEditor = options.getPreferredEditor;
     // 🛡️ 初始化MCP响应保护器
@@ -812,6 +816,20 @@ export class ToolExecutionEngine {
           },
         };
 
+        // 🪝 触发 BeforeTool 钩子
+        if (this.hookEventHandler) {
+          try {
+            await this.hookEventHandler.fireBeforeToolEvent(
+              reqInfo.name,
+              reqInfo.args,
+            );
+          } catch (hookError) {
+            console.warn(
+              `[ToolExecutionEngine] BeforeTool hook execution failed: ${hookError}`,
+            );
+          }
+        }
+
         const toolResult: ToolResult = await toolInstance.execute(
           reqInfo.args,
           signal,
@@ -908,12 +926,47 @@ export class ToolExecutionEngine {
         };
 
         this.setStatusInternal(reqInfo.callId, 'success', response, context);
+
+        // 🪝 触发 AfterTool 钩子
+        if (this.hookEventHandler) {
+          try {
+            const toolResponseData: Record<string, unknown> =
+              typeof toolResult.llmContent === 'string'
+                ? { content: toolResult.llmContent }
+                : { content: toolResult.llmContent || {} };
+
+            await this.hookEventHandler.fireAfterToolEvent(
+              reqInfo.name,
+              reqInfo.args,
+              toolResponseData,
+            );
+          } catch (hookError) {
+            console.warn(
+              `[ToolExecutionEngine] AfterTool hook execution failed: ${hookError}`,
+            );
+          }
+        }
       } catch (error) {
         const response = createErrorResponse(
           reqInfo,
           error instanceof Error ? error : new Error(String(error)),
         );
         this.setStatusInternal(reqInfo.callId, 'error', response, context);
+
+        // 🪝 触发 AfterTool 钩子（即使出错）
+        if (this.hookEventHandler) {
+          try {
+            await this.hookEventHandler.fireAfterToolEvent(
+              reqInfo.name,
+              reqInfo.args,
+              { error: response.error?.message || 'Unknown error' },
+            );
+          } catch (hookError) {
+            console.warn(
+              `[ToolExecutionEngine] AfterTool hook execution failed: ${hookError}`,
+            );
+          }
+        }
       }
     });
 

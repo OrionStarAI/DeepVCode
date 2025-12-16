@@ -205,14 +205,25 @@ export type ServerGeminiStreamEvent =
 export class Turn {
   readonly pendingToolCalls: ToolCallRequestInfo[];
   private debugResponses: GenerateContentResponse[];
+  private config: any; // Config reference for hook access
 
   constructor(
     private readonly chat: GeminiChat,
     private readonly prompt_id: string,
     private readonly modelName?: string,
+    configParam?: any,
   ) {
     this.pendingToolCalls = [];
     this.debugResponses = [];
+    // Get config from parameter or try to extract from chat
+    this.config = configParam;
+  }
+
+  /**
+   * 获取调试响应列表，用于 AfterAgent 钩子
+   */
+  getDebugResponses(): GenerateContentResponse[] {
+    return this.debugResponses;
   }
   // The run method yields simpler events suitable for server logic
   async *run(
@@ -220,6 +231,39 @@ export class Turn {
     signal: AbortSignal,
   ): AsyncGenerator<ServerGeminiStreamEvent> {
     try {
+      // 🪝 触发 BeforeModel 钩子
+      if (this.config) {
+        try {
+          const beforeModelResult = await this.config.getHookSystem()
+            .getEventHandler()
+            .fireBeforeModelEvent({
+              model: this.modelName,
+              contents: req,
+            });
+
+          // 检查是否有修改
+          if (beforeModelResult?.finalOutput?.applyLLMRequestModifications) {
+            req = beforeModelResult.finalOutput.applyLLMRequestModifications(req);
+          }
+        } catch (hookError) {
+          console.warn(`[Turn] BeforeModel hook execution failed: ${hookError}`);
+        }
+      }
+
+      // 🪝 触发 BeforeToolSelection 钩子
+      if (this.config) {
+        try {
+          await this.config.getHookSystem()
+            .getEventHandler()
+            .fireBeforeToolSelectionEvent({
+              model: this.modelName,
+              contents: req,
+            });
+        } catch (hookError) {
+          console.warn(`[Turn] BeforeToolSelection hook execution failed: ${hookError}`);
+        }
+      }
+
       const responseStream = await this.chat.sendMessageStream(
         {
           message: req,
@@ -320,6 +364,20 @@ export class Turn {
             }
           }
 
+          // 🪝 触发 AfterModel 钩子
+          if (this.config) {
+            try {
+              await this.config.getHookSystem()
+                .getEventHandler()
+                .fireAfterModelEvent(
+                  { model: this.modelName },
+                  resp
+                );
+            } catch (hookError) {
+              console.warn(`[Turn] AfterModel hook execution failed: ${hookError}`);
+            }
+          }
+
           yield {
             type: GeminiEventType.Finished,
             value: finishReason as FinishReason,
@@ -409,9 +467,5 @@ export class Turn {
 
     // Yield a request for the tool call, not the pending/confirming status
     return { type: GeminiEventType.ToolCallRequest, value: toolCallRequest };
-  }
-
-  getDebugResponses(): GenerateContentResponse[] {
-    return this.debugResponses;
   }
 }

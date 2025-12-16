@@ -195,6 +195,7 @@ export function useReactToolScheduler(
         approvalMode: config.getApprovalMode(),
         getPreferredEditor,
         config,
+        hookEventHandler: config.getHookSystem().getEventHandler(),
       }),
     [
       config,

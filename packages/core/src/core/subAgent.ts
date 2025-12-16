@@ -143,6 +143,7 @@ export class SubAgent {
       toolRegistry: Promise.resolve(this.createSubAgentToolRegistry()),
       adapter: this.adapter,
       config: this.config,
+      hookEventHandler: this.config.getHookSystem().getEventHandler(),
       approvalMode: this.config.getApprovalMode(),
       getPreferredEditor: () => undefined, // SubAgent通常不需要编辑器
     });
