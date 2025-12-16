@@ -186,19 +186,54 @@ export class CodeAssistServer implements ContentGenerator {
         crlfDelay: Infinity, // Recognizes '\r\n' and '\n' as line breaks
       });
 
-      let bufferedLines: string[] = [];
-      for await (const line of rl) {
-        // blank lines are used to separate JSON objects in the stream
-        if (line === '') {
-          if (bufferedLines.length === 0) {
-            continue; // no data to yield
+      // 🎯 关键保护机制：监听客户端取消信号（云模式）
+      // 当用户中止时，立即关闭 readline 接口并停止消费数据
+      const handleAbort = () => {
+        console.log('[CodeAssist] Stream cancelled by user - closing readline interface');
+        try {
+          rl.close();  // 立即关闭 readline，停止流消费
+        } catch (e) {
+          // 忽略close可能抛出的错误
+        }
+      };
+
+      let abortListener: (() => void) | undefined;
+      if (signal && !signal.aborted) {
+        abortListener = handleAbort;
+        signal.addEventListener('abort', abortListener);
+      }
+
+      try {
+        let bufferedLines: string[] = [];
+        for await (const line of rl) {
+          // 检查是否被用户中止（快速退出）
+          if (signal?.aborted) {
+            console.log('[CodeAssist] Stream generation cancelled by user - exiting loop');
+            break;
           }
-          yield JSON.parse(bufferedLines.join('\n')) as T;
-          bufferedLines = []; // Reset the buffer after yielding
-        } else if (line.startsWith('data: ')) {
-          bufferedLines.push(line.slice(6).trim());
-        } else {
-          throw new Error(`Unexpected line format in response: ${line}`);
+
+          // blank lines are used to separate JSON objects in the stream
+          if (line === '') {
+            if (bufferedLines.length === 0) {
+              continue; // no data to yield
+            }
+            yield JSON.parse(bufferedLines.join('\n')) as T;
+            bufferedLines = []; // Reset the buffer after yielding
+          } else if (line.startsWith('data: ')) {
+            bufferedLines.push(line.slice(6).trim());
+          } else {
+            throw new Error(`Unexpected line format in response: ${line}`);
+          }
+        }
+      } finally {
+        // 🧹 清理：移除 abort 监听器
+        if (abortListener && signal) {
+          signal.removeEventListener('abort', abortListener);
+        }
+        try {
+          rl.close();
+        } catch (e) {
+          // 忽略close可能的错误
         }
       }
     })();
