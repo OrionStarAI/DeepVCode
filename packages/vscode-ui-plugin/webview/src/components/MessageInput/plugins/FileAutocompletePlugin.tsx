@@ -12,9 +12,10 @@ import { TextNode } from 'lexical';
 import { $createTextNode } from 'lexical';
 import { atSymbolHandler, FileOption } from '../../../services/atSymbolHandler';
 import { FileSelectionMenu } from '../components/FileSelectionMenu';
+import { $createCodeReferenceNode } from '../nodes/CodeReferenceNode';
 import { $createFileReferenceNode } from '../nodes/FileReferenceNode';
 import { $createTerminalReferenceNode } from '../nodes/TerminalReferenceNode';
-import { FilesIcon, TerminalIcon } from '../../MenuIcons';
+import { FilesIcon, TerminalIcon, SymbolIcon } from '../../MenuIcons';
 
 interface FileAutocompletePluginProps {
   onFileSelect: (fileName: string, filePath: string) => void;
@@ -24,6 +25,7 @@ interface FileAutocompletePluginProps {
 // 🎯 默认主菜单选项（立即显示，不等待数据）
 const DEFAULT_MENU_OPTIONS: FileOption[] = [
   new FileOption('Files & Folders', '__category_files__', 'category', { icon: <FilesIcon />, hasSubmenu: true }),
+  new FileOption('Code Symbols', '__category_symbols__', 'category', { icon: <SymbolIcon />, hasSubmenu: true }),
   new FileOption('Terminals', '__category_terminals__', 'category', { icon: <TerminalIcon />, hasSubmenu: true }),
 ];
 
@@ -162,15 +164,28 @@ export function FileAutocompletePlugin({ onFileSelect, onTerminalSelect }: FileA
     if (!nodeToReplace) return;
 
     editor.update(() => {
-      // 创建文件引用节点
-      const fileReferenceNode = $createFileReferenceNode(selectedOption.fileName, selectedOption.filePath);
+      // 🎯 根据选项类型创建不同的节点
+      let referenceNode;
+
+      if (selectedOption.itemType === 'symbol' && selectedOption.range) {
+        // 如果是符号且有范围信息，创建代码引用节点
+        referenceNode = $createCodeReferenceNode(
+          selectedOption.fileName,
+          selectedOption.filePath,
+          selectedOption.range.startLine,
+          selectedOption.range.endLine
+        );
+      } else {
+        // 否则创建普通文件引用节点
+        referenceNode = $createFileReferenceNode(selectedOption.fileName, selectedOption.filePath);
+      }
 
       // 替换当前的 @ 文本
-      nodeToReplace.replace(fileReferenceNode);
+      nodeToReplace.replace(referenceNode);
 
-      // 在文件引用后添加一个空格，并将光标移动到空格后面
+      // 在引用后添加一个空格，并将光标移动到空格后面
       const spaceNode = $createTextNode(' ');
-      fileReferenceNode.insertAfter(spaceNode);
+      referenceNode.insertAfter(spaceNode);
       spaceNode.selectNext();
     });
 
@@ -223,7 +238,7 @@ export function FileAutocompletePlugin({ onFileSelect, onTerminalSelect }: FileA
             setHighlightedIndex={setHighlightedIndex}
             onSelectOption={(option) => {
               // 文件类型的选项触发替换
-              if (option.itemType === 'file' || option.itemType === 'recent_file') {
+              if (option.itemType === 'file' || option.itemType === 'recent_file' || option.itemType === 'symbol') {
                 selectOptionAndCleanUp(option);
               }
             }}

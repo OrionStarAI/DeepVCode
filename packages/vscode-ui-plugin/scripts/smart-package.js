@@ -23,6 +23,19 @@ function smartPackage() {
 
         let newVersion = originalVersion;
 
+        // 0. Type Check (Safety Net)
+        console.log('🛡️  Running type check...');
+        try {
+            execSync('npm run typecheck', {
+                stdio: 'inherit',
+                cwd: path.join(__dirname, '..')
+            });
+            console.log('✅ Type check passed\n');
+        } catch (error) {
+            console.error('❌ Type check failed. Please fix type errors before packaging.');
+            process.exit(1);
+        }
+
         // 1. Version upgrade
         if (shouldBumpVersion) {
             console.log(`📈 Upgrading version number (${versionType})...`);

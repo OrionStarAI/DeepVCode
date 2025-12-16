@@ -938,6 +938,99 @@ function setupBasicMessageHandlers() {
     }
   });
 
+  // 🎯 处理符号搜索请求
+  communicationService.onSymbolSearch(async (data) => {
+    try {
+      logger.info(`Received symbol search request for query: ${data.query}`);
+      // 使用 VS Code API 搜索符号
+      const symbols = await vscode.commands.executeCommand<vscode.SymbolInformation[]>(
+        'vscode.executeWorkspaceSymbolProvider',
+        data.query
+      );
+
+      // 转换符号为前端需要的格式
+      // 🎯 优化：只保留重要的符号类型（类、方法、函数、接口、模块），过滤掉变量、常量等细粒度符号
+      // 这样可以大幅减少数据传输量，提升响应速度，同时聚焦于用户最可能引用的代码块
+      const importantKinds = new Set([
+        vscode.SymbolKind.File,
+        vscode.SymbolKind.Module,
+        vscode.SymbolKind.Namespace,
+        vscode.SymbolKind.Package,
+        vscode.SymbolKind.Class,
+        vscode.SymbolKind.Method,
+        vscode.SymbolKind.Interface,
+        vscode.SymbolKind.Function,
+        vscode.SymbolKind.Constructor,
+        vscode.SymbolKind.Struct
+      ]);
+
+      // 🎯 优化：并行获取 DocumentSymbol 以获得完整范围
+      // Workspace Symbol Search 返回的 range 通常只是定义行。
+      // 为了获得完整的函数/类体，我们需要对结果中的文件调用 DocumentSymbolProvider。
+      // 为了性能，我们只对前 20 个结果这样做。
+
+      const enrichedSymbols = await Promise.all((symbols || [])
+        .filter(s => importantKinds.has(s.kind))
+        .slice(0, 20) // 限制增强数量
+        .map(async (s) => {
+          let fullRange = s.location.range;
+
+          try {
+            // 尝试获取 DocumentSymbol 以获得完整范围
+            const docSymbols = await vscode.commands.executeCommand<vscode.DocumentSymbol[]>(
+              'vscode.executeDocumentSymbolProvider',
+              s.location.uri
+            );
+
+            if (docSymbols) {
+              // 递归查找匹配的符号
+              const findSymbol = (nodes: vscode.DocumentSymbol[]): vscode.DocumentSymbol | undefined => {
+                for (const node of nodes) {
+                  // 检查名称和类型是否匹配
+                  // 并且 DocumentSymbol 的 selectionRange (定义位置) 应该包含 SymbolInformation 的 range
+                  // 或者它们有交集
+                  if (node.name === s.name && node.kind === s.kind) {
+                    if (node.selectionRange.intersection(s.location.range)) {
+                      return node;
+                    }
+                  }
+
+                  if (node.children) {
+                    const found = findSymbol(node.children);
+                    if (found) return found;
+                  }
+                }
+                return undefined;
+              };
+
+              const matchedSymbol = findSymbol(docSymbols);
+              if (matchedSymbol) {
+                fullRange = matchedSymbol.range; // 使用完整范围
+              }
+            }
+          } catch (e) {
+            // 忽略错误，回退到原始 range
+          }
+
+          return {
+            name: s.name,
+            kind: s.kind,
+            containerName: s.containerName,
+            location: {
+              uri: s.location.uri.toString(),
+              fsPath: s.location.uri.fsPath,
+              range: fullRange
+            }
+          };
+        }));
+
+      await communicationService.sendSymbolSearchResult(enrichedSymbols);
+    } catch (error) {
+      logger.error('Failed to process symbol search request', error instanceof Error ? error : undefined);
+      await communicationService.sendSymbolSearchResult([]);
+    }
+  });
+
   // 🎯 处理终端列表请求
   communicationService.onGetTerminals(async () => {
     try {

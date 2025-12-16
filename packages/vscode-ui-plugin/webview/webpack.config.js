@@ -48,6 +48,9 @@ module.exports = {
   },
   target: 'web',
   devtool: 'inline-source-map',
+  cache: {
+    type: 'filesystem', // 🚀 关键优化：启用文件系统缓存
+  },
   ignoreWarnings: [
     // 忽略 ws 库的可选依赖警告（webview 环境中不需要）
     /Can't resolve 'utf-8-validate'/,

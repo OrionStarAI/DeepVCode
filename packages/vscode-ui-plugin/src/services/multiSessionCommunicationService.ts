@@ -396,6 +396,13 @@ export class MultiSessionCommunicationService {
     });
   }
 
+  async sendSymbolSearchResult(symbols: any[]) {
+    await this.sendMessage({
+      type: 'symbol_search_result',
+      payload: { symbols }
+    });
+  }
+
   async sendFilePathsResolved(resolvedFiles: string[]) {
     await this.sendMessage({
       type: 'file_paths_resolved',
@@ -556,6 +563,10 @@ export class MultiSessionCommunicationService {
   // 🎯 文件搜索相关监听器
   onFileSearch(handler: (data: { prefix: string }) => void): vscode.Disposable {
     return this.addMessageHandler('file_search', handler);
+  }
+
+  onSymbolSearch(handler: (data: { query: string }) => void): vscode.Disposable {
+    return this.addMessageHandler('symbol_search', handler);
   }
 
   // 🎯 文件路径解析相关监听器

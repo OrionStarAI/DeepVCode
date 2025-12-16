@@ -2,7 +2,7 @@
  * @符号文件自动补全处理服务
  * 独立抽离的@符号处理逻辑，复用CLI的设计
  *
- * 🎯 增强版：支持最近文件、文件夹、终端选择
+ * 🎯 增强版：支持最近文件、文件夹、终端选择、代码符号
  *
  * @license Apache-2.0
  * Copyright 2025 DeepV Code
@@ -10,11 +10,11 @@
 
 import { MenuTextMatch, MenuOption } from '@lexical/react/LexicalTypeaheadMenuPlugin';
 import React from 'react';
-import { FilesIcon, TerminalIcon } from '../components/MenuIcons';
+import { FilesIcon, TerminalIcon, SymbolIcon } from '../components/MenuIcons';
 import { getFileIcon } from '../components/FileIcons';
 
 // 🎯 菜单项类型
-export type MenuItemType = 'recent_file' | 'file' | 'category' | 'terminal';
+export type MenuItemType = 'recent_file' | 'file' | 'category' | 'terminal' | 'symbol';
 
 // 文件选项类型（用于菜单显示）
 export class FileOption extends MenuOption {
@@ -24,6 +24,8 @@ export class FileOption extends MenuOption {
   icon?: string | React.ReactNode;
   hasSubmenu?: boolean;
   terminalId?: number;
+  // 🎯 新增：符号范围信息
+  range?: { startLine: number; endLine: number };
 
   constructor(
     fileName: string,
@@ -33,6 +35,7 @@ export class FileOption extends MenuOption {
       icon?: string | React.ReactNode;
       hasSubmenu?: boolean;
       terminalId?: number;
+      range?: { startLine: number; endLine: number };
     }
   ) {
     super(fileName);
@@ -42,6 +45,7 @@ export class FileOption extends MenuOption {
     this.icon = options?.icon;
     this.hasSubmenu = options?.hasSubmenu;
     this.terminalId = options?.terminalId;
+    this.range = options?.range;
   }
 }
 
@@ -78,7 +82,7 @@ export class AtSymbolHandler {
   // 🎯 缓存数据
   private recentFiles: FileOption[] = [];
   private terminals: TerminalInfo[] = [];
-  private currentView: 'main' | 'files' | 'terminals' = 'main';
+  private currentView: 'main' | 'files' | 'terminals' | 'symbols' = 'main';
 
   constructor(config: AtSymbolHandlerConfig = {}) {
     this.config = {
@@ -125,6 +129,13 @@ export class AtSymbolHandler {
     ));
 
     options.push(new FileOption(
+      'Code Symbols',
+      '__category_symbols__',
+      'category',
+      { icon: React.createElement(SymbolIcon), hasSubmenu: true }
+    ));
+
+    options.push(new FileOption(
       'Terminals',
       '__category_terminals__',
       'category',
@@ -132,6 +143,13 @@ export class AtSymbolHandler {
     ));
 
     return options;
+  }
+
+  /**
+   * 🎯 获取符号选项
+   */
+  async getSymbolOptions(query: string = ''): Promise<FileOption[]> {
+    return this.performSymbolSearch(query);
   }
 
   /**
@@ -297,7 +315,7 @@ export class AtSymbolHandler {
     }
 
     // 创建新的搜索Promise
-    this.currentPromise = this.performFileSearch(queryString);
+    this.currentPromise = this.performSearch(queryString);
 
     try {
       const results = await this.currentPromise;
@@ -336,9 +354,21 @@ export class AtSymbolHandler {
   }
 
   /**
+   * 执行综合搜索 (文件 + 符号)
+   */
+  private async performSearch(queryString: string): Promise<FileOption[]> {
+    const [files, symbols] = await Promise.all([
+      this.performFileSearchOnly(queryString),
+      this.performSymbolSearch(queryString)
+    ]);
+
+    return [...files, ...symbols];
+  }
+
+  /**
    * 执行文件搜索 (通过VSCode通信)
    */
-  private async performFileSearch(queryString: string): Promise<FileOption[]> {
+  private async performFileSearchOnly(queryString: string): Promise<FileOption[]> {
     return new Promise((resolve) => {
       // 发送文件搜索请求到VSCode
       if (window.vscode) {
@@ -385,16 +415,67 @@ export class AtSymbolHandler {
   }
 
   /**
+   * 执行符号搜索 (通过VSCode通信)
+   */
+  private async performSymbolSearch(queryString: string): Promise<FileOption[]> {
+    return new Promise((resolve) => {
+      if (window.vscode) {
+        const messageListener = (event: MessageEvent) => {
+          const message = event.data;
+          if (message.type === 'symbol_search_result') {
+            window.removeEventListener('message', messageListener);
+            const symbols: Array<{name: string; kind: number; containerName?: string; location: { fsPath: string; uri: string; range: any }}> = message.payload.symbols || [];
+
+            const symbolOptions = symbols.map(s => {
+              // 🎯 提取行号信息 (VS Code range 是 0-based，显示时通常 +1，但 CodeReferenceNode 可能需要 1-based)
+              // 注意：s.location.range 是从后端传来的，结构是 [{line: number, character: number}, {line: number, character: number}]
+              const range = s.location.range;
+              const startLine = range ? range[0].line + 1 : undefined;
+              const endLine = range ? range[1].line + 1 : undefined;
+
+              return new FileOption(
+                s.name,
+                s.location.fsPath, // 使用文件系统路径
+                'symbol',
+                {
+                  icon: React.createElement(SymbolIcon),
+                  // 传递范围信息
+                  range: (startLine && endLine) ? { startLine, endLine } : undefined
+                }
+              );
+            });
+
+            resolve(symbolOptions.slice(0, this.config.maxResults));
+          }
+        };
+
+        window.addEventListener('message', messageListener);
+        window.vscode.postMessage({
+          type: 'symbol_search',
+          payload: { query: queryString }
+        });
+
+        setTimeout(() => {
+          window.removeEventListener('message', messageListener);
+          resolve([]);
+        }, 5000);
+      } else {
+        resolve([]);
+      }
+    });
+  }
+
+  /**
    * 🎯 设置当前视图
    */
-  setCurrentView(view: 'main' | 'files' | 'terminals') {
+  setCurrentView(view: 'main' | 'files' | 'terminals' | 'symbols') {
     this.currentView = view;
   }
 
   /**
    * 🎯 获取当前视图
    */
-  getCurrentView(): 'main' | 'files' | 'terminals' {
+  getCurrentView(): 'main' | 'files' | 'terminals' | 'symbols' {
     return this.currentView;
   }
 
