@@ -413,7 +413,8 @@ export class GeminiChat {
    * 1. 检查历史中未完成的 function call
    * 2. 为未完成的 function call 添加 "user cancel" response
    * 3. 如果用户消息包含混合内容（text + function-response），调整顺序为 function-response 在前
-   * 4. 🆕 检测并警告多余的无匹配 function response（但保留原有行为）
+   * 4. 🆕 检测并移除重复的 function response（同一个 functionCall 对应多个 response 时取第一个）
+   * 5. 🆕 检测并警告多余的无匹配 function response（保留原有行为）
    *
    * @param requestContents 原始请求内容
    * @returns 修正后的请求内容
@@ -441,11 +442,56 @@ export class GeminiChat {
       }
     }
 
-    for (let i = 0; i < requestContents.length; i++) {
-      const current = requestContents[i];
+    // 🎯 第一步：去除重复的 functionResponse（关键修复）
+    // 当用户取消时，可能会有多个 response 对应同一个 functionCall
+    // 例如：["user cancel", 实际执行结果]，我们只保留第一个
+    const deduplicatedContents: Content[] = [];
+    const seenResponseIds: Set<string> = new Set();
+
+    for (const content of requestContents) {
+      if (content.role === MESSAGE_ROLES.USER && content.parts) {
+        const deduplicatedParts: Part[] = [];
+
+        for (const part of content.parts) {
+          if (part.functionResponse) {
+            const response = part.functionResponse;
+            const responseKey = `${response.name}:${response.id || 'unnamed'}`;
+
+            if (seenResponseIds.has(responseKey)) {
+              // 这是一个重复的 response，跳过它
+              console.warn(
+                `[fixRequestContents] ⚠️ 检测到重复的 functionResponse，将其移除：` +
+                `${response.name} (id: ${response.id || 'unnamed'})。` +
+                `这通常发生在用户取消后，后台仍返回了执行结果的情况下。`
+              );
+              continue;
+            }
+
+            seenResponseIds.add(responseKey);
+            deduplicatedParts.push(part);
+          } else {
+            deduplicatedParts.push(part);
+          }
+        }
+
+        if (deduplicatedParts.length > 0) {
+          deduplicatedContents.push({
+            ...content,
+            parts: deduplicatedParts
+          });
+        } else {
+          console.warn(`[fixRequestContents] Removing empty user message after deduplication`);
+        }
+      } else {
+        deduplicatedContents.push(content);
+      }
+    }
+
+    for (let i = 0; i < deduplicatedContents.length; i++) {
+      const current = deduplicatedContents[i];
       fixedContents.push(current);
 
-      // 🆕 检测用户消息中的多余 function response
+      // 🆕 检测用户消息中的孤立 function response（无匹配的 functionCall）
       if (current.role === MESSAGE_ROLES.USER && current.parts) {
         const functionResponses = current.parts.filter(part => part.functionResponse);
         if (functionResponses.length > 0) {
@@ -459,8 +505,14 @@ export class GeminiChat {
           });
 
           if (orphanedResponses.length > 0) {
-            console.log(`[fixRequestContents] 检测到第${i+1}条消息中有 ${orphanedResponses.length} 个多余的 function response:`,
-              orphanedResponses.map(r => ({ name: r.functionResponse!.name, id: r.functionResponse!.id })));
+            console.log(
+              `[fixRequestContents] 检测到第${i + 1}条消息中有 ${orphanedResponses.length} 个孤立的 function response:`,
+              orphanedResponses.map(r => ({
+                name: r.functionResponse!.name,
+                id: r.functionResponse!.id,
+                result: (r.functionResponse!.response as any)?.result
+              }))
+            );
           }
         }
       }
@@ -470,7 +522,7 @@ export class GeminiChat {
         current.parts?.some(part => part.functionCall);
 
       if (hasFunctionCall) {
-        const next = requestContents[i + 1];
+        const next = deduplicatedContents[i + 1];
 
         // 获取当前消息中的所有 function call
         const functionCalls = current.parts?.filter(part => part.functionCall) || [];
@@ -510,7 +562,7 @@ export class GeminiChat {
               parts: cancelResponses
             });
 
-            console.log(`[fixRequestContents] 为第${i+1}条消息补全了 ${unmatchedCalls.length} 个未匹配的 function call`);
+            console.log(`[fixRequestContents] 为第${i + 1}条消息补全了 ${unmatchedCalls.length} 个未匹配的 function call`);
           }
 
           // 如果下一条消息有混合内容，调整 parts 顺序：function-response 在前，text 在后
@@ -519,11 +571,11 @@ export class GeminiChat {
 
             if (textParts.length > 0) {
               // 修改下一条消息的 parts 顺序
-              requestContents[i + 1] = {
+              deduplicatedContents[i + 1] = {
                 ...next,
                 parts: [...nextFunctionResponses, ...textParts]
               };
-              console.log(`[fixRequestContents] 调整了第${i+2}条消息的内容顺序，function-response 在前`);
+              console.log(`[fixRequestContents] 调整了第${i + 2}条消息的内容顺序，function-response 在前`);
             }
           }
         }
@@ -559,7 +611,10 @@ export class GeminiChat {
           if (hasMatchingId || hasMatchingName) {
             return true;
           } else {
-            console.warn(`[fixRequestContents] Removing orphaned functionResponse: ${response.name} (id: ${response.id})`);
+            console.warn(
+              `[fixRequestContents] ❌ 移除孤立的 functionResponse：${response.name} (id: ${response.id})。` +
+              `这个 response 没有对应的 function call。`
+            );
             return false;
           }
         });
@@ -567,7 +622,7 @@ export class GeminiChat {
         if (validParts.length > 0) {
           finalContents.push({ ...content, parts: validParts });
         } else {
-          console.warn(`[fixRequestContents] Removing empty user message after filtering orphaned responses`);
+          console.warn(`[fixRequestContents] 移除空的用户消息（所有 functionResponse 都被过滤）`);
         }
       } else {
         finalContents.push(content);

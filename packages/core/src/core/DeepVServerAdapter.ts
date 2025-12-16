@@ -779,25 +779,71 @@ export class DeepVServerAdapter implements ContentGenerator {
 
     const decoder = new TextDecoder();
     let buffer = '';
+    let totalBytesRead = 0;
+    let lastUsageMetadata: any = null;
+
+    // 🎯 关键保护机制：监听客户端取消信号
+    // 当用户中断时，立即释放流读取器并停止消费数据
+    const handleAbort = () => {
+      console.log('[DeepV Server] Stream cancelled by user - releasing reader and stopping consumption');
+      try {
+        reader.cancel();  // 立即取消流读取
+      } catch (e) {
+        // 忽略cancel可能抛出的错误
+      }
+    };
+
+    // 为 abortSignal 添加监听器，一旦用户取消就立即调用 handleAbort
+    let abortListener: (() => void) | undefined;
+    if (abortSignal && !abortSignal.aborted) {
+      abortListener = handleAbort;
+      abortSignal.addEventListener('abort', abortListener);
+    }
 
     try {
       while (true) {
-        // 检查是否被用户中止
+        // 检查是否被用户中止（二次检查 + 快速退出）
         if (abortSignal?.aborted) {
-          console.log('[DeepV Server] Stream generation cancelled by user');
+          console.log('[DeepV Server] Stream generation cancelled by user - exiting loop');
+
+          // 📊 记录部分消费的tokens（如果有）
+          if (lastUsageMetadata) {
+            console.log('[DeepV Server] Partial token consumption recorded:', {
+              inputTokens: lastUsageMetadata.promptTokenCount || 0,
+              outputTokens: lastUsageMetadata.candidatesTokenCount || 0,
+              totalTokens: lastUsageMetadata.totalTokenCount || 0,
+              stoppedReason: 'user_cancelled',
+              bytesReceived: totalBytesRead,
+            });
+          }
           break;
         }
 
         // ⏱️ 为每个 read() 添加 300 秒的空闲超时
         // 保护机制：如果 300 秒内没有收到任何数据，认为连接已断或服务无响应
         // 但流中每来一个数据块，计时器就重置（新的 read() 调用）
-        const { done, value } = await this.withTimeout(
-          reader.read(),
-          300000,
-          '[DeepV Server] Stream read timeout after 300s (no data received in this chunk)'
-        );
+        let readResult;
+        try {
+          readResult = await this.withTimeout(
+            reader.read(),
+            300000,
+            '[DeepV Server] Stream read timeout after 300s (no data received in this chunk)'
+          );
+        } catch (readError) {
+          // 如果是 AbortError（由 reader.cancel() 引发），则优雅退出
+          if (readError instanceof Error &&
+              (readError.name === 'AbortError' || readError.message.includes('cancelled'))) {
+            console.log('[DeepV Server] Stream read cancelled - exiting');
+            break;
+          }
+          // 其他错误继续抛出
+          throw readError;
+        }
+
+        const { done, value } = readResult;
         if (done) break;
 
+        totalBytesRead += value.length;
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
         buffer = lines.pop() || '';
@@ -822,6 +868,11 @@ export class DeepVServerAdapter implements ContentGenerator {
                 throw new Error(chunk.error);
               }
 
+              // 📊 记录最新的使用数据以备客户端取消时记录
+              if (chunk.usageMetadata) {
+                lastUsageMetadata = chunk.usageMetadata;
+              }
+
               // 🚀 立即转换并发送 - 真正的流式
               const genaiResponse = this.convertStreamChunkToGenAI(chunk);
               if (genaiResponse) {
@@ -839,7 +890,16 @@ export class DeepVServerAdapter implements ContentGenerator {
         }
       }
     } finally {
-      reader.releaseLock();
+      // 🧹 清理：移除 abort 监听器
+      if (abortListener && abortSignal) {
+        abortSignal.removeEventListener('abort', abortListener);
+      }
+
+      try {
+        reader.releaseLock();
+      } catch (e) {
+        // 忽略release可能的错误
+      }
     }
   }
 
