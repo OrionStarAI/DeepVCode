@@ -49,6 +49,8 @@ export async function convertMessageContentToParts(
         return `@[${item.value.fileName}]`;
       case 'image_reference':
         return `[IMAGE:${item.value.fileName}]`;
+      case 'code_reference':  // 🎯 代码引用
+        return `@[${item.value.fileName} (${item.value.startLine}-${item.value.endLine})]`;
       case 'text_file_content':  // ✨ 新增
         return `@[${item.value.fileName}]`;
       case 'terminal_reference':  // 🎯 终端引用
@@ -78,6 +80,19 @@ export async function convertMessageContentToParts(
           skippedFiles++;
         } else {
           console.log(`✅ [MessageConverter] 文件内容已添加: ${item.value.fileName}, ${result.parts.length} parts`);
+          allParts.push(...result.parts);
+          fileParts++;
+        }
+      } else if (item.type === 'code_reference') {
+        // 🎯 代码引用：读取指定范围的文件内容
+        console.log(`🔍 [MessageConverter] 处理 code_reference: ${item.value.fileName}, range: ${item.value.startLine}-${item.value.endLine}`);
+        const result = await processFileToPartsList(item.value, workspaceRoot);
+        if (result.skipped) {
+          console.warn(`⚠️ [MessageConverter] 代码引用跳过: ${item.value.fileName} - ${result.skipReason}`);
+          warnings.push(`Code reference skipped: ${item.value.fileName} - ${result.skipReason}`);
+          skippedFiles++;
+        } else {
+          console.log(`✅ [MessageConverter] 代码引用内容已添加: ${item.value.fileName}, ${result.parts.length} parts`);
           allParts.push(...result.parts);
           fileParts++;
         }
@@ -158,6 +173,8 @@ export function messageContentToString(content: any): string {
         return `@[${part.value.fileName}]`;
       case 'image_reference':
         return `[IMAGE:${part.value.fileName}]`;
+      case 'code_reference':  // 🎯 代码引用
+        return `@[${part.value.fileName} (${part.value.startLine}-${part.value.endLine})]`;
       case 'text_file_content':  // ✨ 新增
         return `@[${part.value.fileName}]`;
       case 'terminal_reference':  // 🎯 终端引用

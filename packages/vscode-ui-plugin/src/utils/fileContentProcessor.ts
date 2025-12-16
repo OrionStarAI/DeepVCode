@@ -10,6 +10,8 @@ import { Part } from '@google/genai';
 export interface FileContentItem {
   fileName: string;
   filePath: string;
+  startLine?: number;
+  endLine?: number;
 }
 
 export interface FileProcessingResult {
@@ -60,7 +62,7 @@ function detectFileType(filePath: string): 'text' | 'binary' | 'image' {
 /**
  * 简化的文件内容处理
  */
-async function processSingleFileContent(filePath: string): Promise<{
+async function processSingleFileContent(filePath: string, startLine?: number, endLine?: number): Promise<{
   content: string;
   error?: string;
 }> {
@@ -91,7 +93,23 @@ async function processSingleFileContent(filePath: string): Promise<{
     }
 
     // 文本文件
-    const content = await fs.promises.readFile(filePath, 'utf8');
+    let content = await fs.promises.readFile(filePath, 'utf8');
+
+    // 🎯 如果指定了行号范围，截取内容
+    if (startLine !== undefined && endLine !== undefined) {
+      const lines = content.split(/\r?\n/);
+      // 行号是 1-based，数组索引是 0-based
+      // startLine - 1 是起始索引
+      // endLine 是结束索引（slice 不包含结束索引，所以不需要减 1，因为我们要包含 endLine 这一行）
+      // 但是 slice 的第二个参数是 end index (exclusive)，所以如果是 endLine 行，索引是 endLine-1，slice 应该是 endLine
+      const start = Math.max(0, startLine - 1);
+      const end = Math.min(lines.length, endLine);
+
+      if (start < lines.length) {
+        content = lines.slice(start, end).join('\n');
+      }
+    }
+
     return { content };
 
   } catch (error) {
@@ -111,9 +129,9 @@ export async function processFileToPartsList(
   fileItem: FileContentItem,
   workspaceRoot?: string
 ): Promise<FileProcessingResult> {
-  const { fileName, filePath } = fileItem;
+  const { fileName, filePath, startLine, endLine } = fileItem;
 
-  console.log(`🔍 [FileProcessor] 开始处理文件: ${fileName}, 路径: ${filePath}`);
+  console.log(`🔍 [FileProcessor] 开始处理文件: ${fileName}, 路径: ${filePath}, 范围: ${startLine}-${endLine}`);
 
   try {
     // 使用本地的文件类型检测
@@ -132,7 +150,7 @@ export async function processFileToPartsList(
     }
 
     // 使用本地的文件内容处理
-    const result = await processSingleFileContent(filePath);
+    const result = await processSingleFileContent(filePath, startLine, endLine);
 
     if (result.error) {
       console.error(`❌ [FileProcessor] 读取文件失败: ${fileName} - ${result.error}`);
@@ -155,7 +173,14 @@ export async function processFileToPartsList(
       ? path.relative(workspaceRoot, filePath).replace(/\\/g, '/')
       : filePath;
 
-    const fileInfoText = `--- File: ${relativePath} ---\n\nThe following content is from the file "${fileName}" located at "${filePath}" (type: ${fileType}):`;
+    let fileInfoText = `--- File: ${relativePath} ---\n\nThe following content is from the file "${fileName}" located at "${filePath}" (type: ${fileType})`;
+
+    if (startLine !== undefined && endLine !== undefined) {
+      fileInfoText += ` (lines ${startLine}-${endLine}):`;
+    } else {
+      fileInfoText += ':';
+    }
+
     parts.push({
       text: fileInfoText
     });

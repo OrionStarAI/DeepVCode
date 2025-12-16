@@ -36,6 +36,7 @@ export type MessageContentPart =
   | { type: 'text'; value: string }  // 原始文本片段
   | { type: 'file_reference'; value: { fileName: string; filePath: string } }  // 文件引用（项目中的文件）
   | { type: 'image_reference'; value: { fileName: string; data: string; mimeType: string; originalSize: number; compressedSize: number; width?: number; height?: number } }  // 图片引用
+  | { type: 'code_reference'; value: { fileName: string; filePath: string; code: string; startLine?: number; endLine?: number } }  // 🎯 代码引用（带行号）
   | { type: 'text_file_content'; value: { fileName: string; content: string; language?: string; size: number } }  // 文本文件内容（直接嵌入，不依赖文件路径）
   | { type: 'terminal_reference'; value: { terminalId: number; terminalName: string; output: string } };  // 🎯 终端引用（终端输出内容）
 
@@ -217,6 +218,8 @@ export type WebViewToExtensionMessage =
   | { type: 'save_session_ui_history'; payload: { sessionId: string; messages: ChatMessage[] } }
   // 🎯 文件搜索相关
   | { type: 'file_search'; payload: { prefix: string } }
+  // 🎯 符号搜索相关
+  | { type: 'symbol_search'; payload: { query: string } }
   // 🎯 终端列表和输出获取
   | { type: 'get_terminals'; payload: {} }
   | { type: 'get_terminal_output'; payload: { terminalId: number } }
@@ -303,6 +306,8 @@ export type ExtensionToWebViewMessage =
   | { type: 'update_rollbackable_ids'; payload: { sessionId: string; rollbackableMessageIds: string[] } }
   // 🎯 文件搜索结果
   | { type: 'file_search_result'; payload: { files: Array<{ label: string; value: string; description?: string }> } }
+  // 🎯 符号搜索结果
+  | { type: 'symbol_search_result'; payload: { symbols: Array<{ name: string; kind: number; containerName?: string; location?: any }> } }
   // 🎯 终端列表结果
   | { type: 'terminals_result'; payload: { terminals: Array<{ id: number; name: string }> } }
   // 🎯 终端输出结果

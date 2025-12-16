@@ -15,3 +15,11 @@ export const TerminalIcon = () => (
     <path d="M9 10H11" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
   </svg>
 );
+
+export const SymbolIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M5.5 4.5L2.5 8L5.5 11.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M10.5 4.5L13.5 8L10.5 11.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M9 3L7 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+  </svg>
+);

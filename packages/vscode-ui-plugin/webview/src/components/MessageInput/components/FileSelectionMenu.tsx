@@ -8,7 +8,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { FileOption, atSymbolHandler } from '../../../services/atSymbolHandler';
 import { useTranslation } from '../../../hooks/useTranslation';
-import { FilesIcon, TerminalIcon } from '../../MenuIcons';
+import { FilesIcon, TerminalIcon, SymbolIcon } from '../../MenuIcons';
 
 interface FileSelectionMenuProps {
   anchorElementRef: React.RefObject<HTMLElement>;
@@ -23,7 +23,7 @@ interface FileSelectionMenuProps {
 }
 
 // 🎯 菜单视图类型
-type MenuView = 'main' | 'files' | 'terminals';
+type MenuView = 'main' | 'files' | 'terminals' | 'symbols';
 
 // 🎯 文件选择菜单组件
 export function FileSelectionMenu({
@@ -62,6 +62,19 @@ export function FileSelectionMenu({
       } finally {
         setIsLoading(false);
       }
+    } else if (option.filePath === '__category_symbols__') {
+      setIsLoading(true);
+      try {
+        const symbols = await atSymbolHandler.getSymbolOptions(queryString);
+        setSubMenuOptions(symbols);
+        setCurrentView('symbols');
+        atSymbolHandler.setCurrentView('symbols');
+        setLocalSelectedIndex(0);
+      } catch (error) {
+        console.error('Failed to fetch symbols:', error);
+      } finally {
+        setIsLoading(false);
+      }
     } else if (option.filePath === '__category_terminals__') {
       setIsLoading(true);
       try {
@@ -76,7 +89,7 @@ export function FileSelectionMenu({
         setIsLoading(false);
       }
     }
-  }, []);
+  }, [queryString]);
 
   // 🎯 处理终端点击 - 只记录终端信息，不获取输出（延迟到发送时获取）
   const handleTerminalClick = useCallback((option: FileOption) => {
@@ -217,8 +230,12 @@ export function FileSelectionMenu({
       case 'recent_file':
       case 'file':
         return '📄';
+      case 'symbol':
+        return <SymbolIcon />;
       case 'category':
-        return option.filePath === '__category_files__' ? <FilesIcon /> : <TerminalIcon />;
+        if (option.filePath === '__category_files__') return <FilesIcon />;
+        if (option.filePath === '__category_symbols__') return <SymbolIcon />;
+        return <TerminalIcon />;
       case 'terminal':
         return <TerminalIcon />;
       default:
@@ -245,7 +262,7 @@ export function FileSelectionMenu({
         <span className="at-menu-item-icon">{icon}</span>
         <div className="at-menu-item-content">
           <div className="at-menu-item-name">{option.fileName}</div>
-          {(option.itemType === 'file' || option.itemType === 'recent_file') && option.filePath && (
+          {(option.itemType === 'file' || option.itemType === 'recent_file' || option.itemType === 'symbol') && option.filePath && (
             <div className="at-menu-item-path">{option.filePath}</div>
           )}
         </div>
@@ -288,12 +305,24 @@ export function FileSelectionMenu({
         </div>
       );
     }
+    if (currentView === 'symbols') {
+      return (
+        <div className="at-autocomplete-menu" ref={menuRef}>
+          <div className="at-menu-header">
+            <button className="at-menu-back" onClick={handleBack}>←</button>
+            <span>Code Symbols</span>
+          </div>
+          <div className="at-menu-empty">No symbols found</div>
+        </div>
+      );
+    }
     return null;
   }
 
   // 🎯 主视图：分离不同类型的选项
   const recentFiles = options.filter(o => o.itemType === 'recent_file');
   const searchResults = options.filter(o => o.itemType === 'file');
+  const symbolResults = options.filter(o => o.itemType === 'symbol');
   const categories = options.filter(o => o.itemType === 'category');
 
   // 🎯 计算正确的索引偏移
@@ -310,13 +339,26 @@ export function FileSelectionMenu({
           {searchResults.length > 0 && (
             <>
               <div className="at-menu-section-header">
-                {queryString ? `Search: "${queryString}"` : t('atMention.filesAndFolders')}
+                {queryString ? `Files: "${queryString}"` : t('atMention.filesAndFolders')}
               </div>
               {searchResults.map((option, index) => {
                 const actualIndex = indexOffset + index;
                 return renderMenuItem(option, actualIndex);
               })}
               {(() => { indexOffset += searchResults.length; return null; })()}
+              <div className="at-menu-divider"></div>
+            </>
+          )}
+
+          {/* 符号结果 */}
+          {symbolResults.length > 0 && (
+            <>
+              <div className="at-menu-section-header">Symbols</div>
+              {symbolResults.map((option, index) => {
+                const actualIndex = indexOffset + index;
+                return renderMenuItem(option, actualIndex);
+              })}
+              {(() => { indexOffset += symbolResults.length; return null; })()}
               <div className="at-menu-divider"></div>
             </>
           )}
@@ -348,6 +390,17 @@ export function FileSelectionMenu({
           <div className="at-menu-header">
             <button className="at-menu-back" onClick={handleBack}>←</button>
             <span>{t('atMention.filesAndFolders')}</span>
+          </div>
+          {subMenuOptions.map((option, index) => renderMenuItem(option, index))}
+        </>
+      )}
+
+      {/* 🎯 符号列表视图 */}
+      {currentView === 'symbols' && !isLoading && (
+        <>
+          <div className="at-menu-header">
+            <button className="at-menu-back" onClick={handleBack}>←</button>
+            <span>Code Symbols</span>
           </div>
           {subMenuOptions.map((option, index) => renderMenuItem(option, index))}
         </>

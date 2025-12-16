@@ -8,7 +8,7 @@ module.exports = [
     name: 'extension',
     target: 'node',
     mode: 'production',
-    entry: './dist/extension.js',
+    entry: './src/extension.ts', // 🚀 优化：直接从 TS 源码打包，跳过 tsc 中间步骤
     output: {
       path: path.resolve(__dirname, 'dist'),
       filename: 'extension.bundle.js',
@@ -20,7 +20,11 @@ module.exports = [
       'vscode': 'commonjs vscode',
     },
     resolve: {
-      extensions: ['.ts', '.js'],
+      extensions: ['.ts', '.js', '.tsx', '.jsx'], // 确保包含所有扩展名
+      extensionAlias: {
+        '.js': ['.ts', '.tsx', '.js'], // 🚀 关键修复：把 .js 映射回 .ts/.tsx
+        '.mjs': ['.mts', '.mjs']
+      },
       mainFields: ['module', 'main'],
       // 确保使用node版本的包
       aliasFields: ['main']
@@ -32,11 +36,17 @@ module.exports = [
           exclude: /node_modules/,
           use: [
             {
-              loader: 'ts-loader'
+              loader: 'ts-loader',
+              options: {
+                transpileOnly: true // 🚀 优化：关闭类型检查
+              }
             }
           ]
         }
       ]
+    },
+    cache: {
+      type: 'filesystem', // 🚀 优化：启用缓存
     },
     optimization: {
       minimize: true,

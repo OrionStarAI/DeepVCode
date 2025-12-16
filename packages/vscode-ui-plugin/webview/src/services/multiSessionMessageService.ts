@@ -48,6 +48,8 @@ interface MultiSessionMessageFromExtension {
        'update_rollbackable_ids' |
        // 🎯 文件搜索结果
        'file_search_result' |
+       // 🎯 符号搜索结果
+       'symbol_search_result' |
        // 🎯 文件路径解析结果
        'file_paths_resolved' |
        // 🎯 登录相关消息类型
@@ -116,6 +118,7 @@ export interface MultiSessionMessageToExtension {
        'save_session_ui_history' |
        // 🎯 文件搜索和路径解析相关
        'file_search' |
+       'symbol_search' |
        'resolve_file_paths' |
        // 🎯 登录相关消息类型
        'login_check_status' |
