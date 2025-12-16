@@ -2,7 +2,7 @@
   "name": "deepv-code-vscode-ui-plugin",
   "displayName": "DeepV Code for VSCode",
   "description": "AI-powered programming assistant with visual interface for VS Code",
-  "version": "1.0.198",
+  "version": "1.0.200",
   "publisher": "DeepX",
   "icon": "assets/icon.png",
   "repository": {
@@ -252,7 +252,7 @@
     "check:src": "node scripts/check-src-clean.js",
     "build": "npm run clean && npm run clean:src && npm run build:webview && npm run bundle",
     "prebuild": "npm run check:src",
-    "typecheck": "tsc -p . --noEmit",
+    "typecheck": "tsc -p . --noEmit && npm run type-check --prefix webview",
     "build:extension": "npm run typecheck",
     "build:webview": "cd webview && npm run build",
     "bundle": "webpack --mode production",
