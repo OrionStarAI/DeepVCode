@@ -16,6 +16,8 @@ import {
   TelemetrySettings,
   AuthType,
   logger,
+  HookEventName,
+  HookDefinition,
 } from 'deepv-code-core';
 import stripJsonComments from 'strip-json-comments';
 import { DefaultLight } from '../ui/themes/default-light.js';
@@ -140,6 +142,9 @@ export interface Settings {
     // 保留旧的字段以兼容性
     daysToKeep?: number; // 已弃用，使用maxSessions替代
   };
+
+  // Hook configuration
+  hooks?: { [K in HookEventName]?: HookDefinition[] };
 }
 
 export interface SettingsError {
@@ -196,6 +201,11 @@ export class LoadedSettings {
         ...(user.mcpServers || {}),
         ...(workspace.mcpServers || {}),
         ...(system.mcpServers || {}),
+      },
+      hooks: {
+        ...(user.hooks || {}),
+        ...(workspace.hooks || {}),
+        ...(system.hooks || {}),
       },
     };
 
@@ -335,8 +345,8 @@ export function loadEnvironment(): void {
 }
 
 /**
- * Loads settings from user and workspace directories.
- * Project settings override user settings.
+ * Loads settings from user, workspace, and project directories.
+ * Project settings override workspace settings, which override user settings.
  */
 export function loadSettings(workspaceDir: string): LoadedSettings {
   loadEnvironment();
@@ -421,6 +431,54 @@ export function loadSettings(workspaceDir: string): LoadedSettings {
       path: workspaceSettingsPath,
     });
   }
+
+  // Load project-level settings from .deepvcode/settings.json
+  let projectSettings: Settings = {};
+  const projectSettingsPath = path.join(
+    workspaceDir,
+    '.deepvcode',
+    'settings.json',
+  );
+  try {
+    if (fs.existsSync(projectSettingsPath)) {
+      const projectContent = fs.readFileSync(projectSettingsPath, 'utf-8');
+      const parsedProjectSettings = JSON.parse(
+        stripJsonComments(projectContent),
+      ) as Settings;
+      projectSettings = resolveEnvVarsInObject(parsedProjectSettings);
+      if (projectSettings.theme && projectSettings.theme === 'VS') {
+        projectSettings.theme = DefaultLight.name;
+      } else if (
+        projectSettings.theme &&
+        projectSettings.theme === 'VS2015'
+      ) {
+        projectSettings.theme = DefaultDark.name;
+      }
+    }
+  } catch (error: unknown) {
+    settingsErrors.push({
+      message: getErrorMessage(error),
+      path: projectSettingsPath,
+    });
+  }
+
+  // Merge project settings into workspace settings (project settings take precedence)
+  workspaceSettings = {
+    ...workspaceSettings,
+    ...projectSettings,
+    customThemes: {
+      ...(workspaceSettings.customThemes || {}),
+      ...(projectSettings.customThemes || {}),
+    },
+    mcpServers: {
+      ...(workspaceSettings.mcpServers || {}),
+      ...(projectSettings.mcpServers || {}),
+    },
+    hooks: {
+      ...(workspaceSettings.hooks || {}),
+      ...(projectSettings.hooks || {}),
+    },
+  };
 
   return new LoadedSettings(
     {

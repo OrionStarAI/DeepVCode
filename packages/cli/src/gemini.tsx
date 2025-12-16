@@ -745,6 +745,16 @@ export async function main() {
 
     // 注册会话清理函数，在程序退出时清理空会话
     registerCleanup(async () => {
+      // 🪝 触发 SessionEnd 钩子
+      try {
+        const client = config.getGeminiClient();
+        if (client && client.endSession) {
+          await client.endSession('user_exit');
+        }
+      } catch (error) {
+        // 忽略错误，避免影响退出
+      }
+
       // 使用 config.getSessionId() 获取当前会话ID，而不是闭包中的 finalSessionId
       // 这样可以确保在切换会话后，清理的是正确的会话
       const currentSessionId = config.getSessionId();

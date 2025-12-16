@@ -703,9 +703,9 @@ Use Glob and ReadFile tools to explore specific files during our conversation.
           new FlashDecidedToContinueEvent(prompt_id),
         );
         const nextRequest = [{ text: 'Please continue.' }];
-        // This recursive call's events will be yielded out, but the final
-        // turn object will be from the top-level call.
-        yield* this.sendMessageStream(
+        // This recursive call's events will be yielded out, and the final
+        // turn object will be from the recursive call.
+        return yield* this.sendMessageStream(
           nextRequest,
           signal,
           prompt_id,
@@ -715,7 +715,7 @@ Use Glob and ReadFile tools to explore specific files during our conversation.
       }
     }
 
-    // 🪝 触发 AfterAgent 钩子
+    // 🪝 触发 AfterAgent 钩子 - 在每个 turn 完成后执行（按照原版逻辑）
     try {
       const responses = turn.getDebugResponses();
       const lastResponse = responses.length > 0 ? responses[responses.length - 1] : {};

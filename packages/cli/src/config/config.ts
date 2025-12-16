@@ -511,6 +511,7 @@ export async function loadCliConfig(
     ideMode,
     ideClient,
     silentMode: isNonInteractiveMode,
+    hooks: settings.hooks,
   });
 }
 

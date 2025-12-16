@@ -13,6 +13,7 @@ import {
 } from '../core/contentGenerator.js';
 import { PromptRegistry } from '../prompts/prompt-registry.js';
 import { ToolRegistry } from '../tools/tool-registry.js';
+import type { HookDefinition, HookEventName } from '../hooks/types.js';
 import { isMCPDiscoveryTriggered, markMCPDiscoveryTriggered } from '../tools/mcp-client.js';
 import { LSTool } from '../tools/ls.js';
 import { ReadFileTool } from '../tools/read-file.js';
@@ -59,6 +60,7 @@ import { ClearcutLogger } from '../telemetry/clearcut-logger/clearcut-logger.js'
 import { shouldAttemptBrowserLaunch } from '../utils/browser.js';
 import { MCPOAuthConfig } from '../mcp/oauth-provider.js';
 import { IdeClient } from '../ide/ide-client.js';
+import { HookSystem } from '../hooks/hookSystem.js';
 
 // Re-export OAuth config type
 export type { MCPOAuthConfig };
@@ -103,6 +105,7 @@ export interface GeminiCLIExtension {
   name: string;
   version: string;
   isActive: boolean;
+  hooks?: { [K in HookEventName]?: HookDefinition[] };
 }
 export interface FileFilteringOptions {
   respectGitIgnore: boolean;
@@ -211,6 +214,7 @@ export interface ConfigParameters {
   silentMode?: boolean;
   vsCodePluginMode?: boolean;
   memoryTokenCount?: number; // 新增
+  hooks?: { [K in HookEventName]?: HookDefinition[] };
 }
 
 export class Config {
@@ -239,6 +243,7 @@ export class Config {
   private readonly telemetrySettings: TelemetrySettings;
   private readonly usageStatisticsEnabled: boolean;
   private geminiClient!: GeminiClient;
+  private hookSystem!: HookSystem;
   private readonly fileFiltering: {
     respectGitIgnore: boolean;
     respectGeminiIgnore: boolean;
@@ -276,6 +281,7 @@ export class Config {
   private readonly vsCodePluginMode: boolean;
   private projectSettingsManager: ProjectSettingsManager;
   private planModeActive: boolean = false;
+  private readonly hooks: { [K in HookEventName]?: HookDefinition[] };
 
   constructor(params: ConfigParameters) {
     this.sessionId = params.sessionId;
@@ -343,6 +349,7 @@ export class Config {
     this.ideMode = params.ideMode ?? false;
     this.ideClient = params.ideClient;
     this.vsCodePluginMode = params.vsCodePluginMode ?? false;
+    this.hooks = params.hooks ?? {};
 
     if (params.contextFileName) {
       setGeminiMdFilename(params.contextFileName);
@@ -374,6 +381,11 @@ export class Config {
       await this.getGitService();
     }
     this.promptRegistry = new PromptRegistry();
+
+    // 初始化钩子系统（在工具注册表之前）
+    this.hookSystem = new HookSystem(this);
+    await this.hookSystem.initialize();
+
     // 快速初始化：只加载核心工具和命令行工具，不等待MCP服务器
     this.toolRegistry = await this.createToolRegistry();
 
@@ -656,6 +668,10 @@ export class Config {
     return this.geminiClient;
   }
 
+  getHookSystem(): HookSystem {
+    return this.hookSystem;
+  }
+
   getGeminiDir(): string {
     return path.join(this.targetDir, GEMINI_DIR);
   }
@@ -766,6 +782,10 @@ export class Config {
 
   getVsCodePluginMode(): boolean {
     return this.vsCodePluginMode;
+  }
+
+  getHooks(): { [K in HookEventName]?: HookDefinition[] } {
+    return this.hooks;
   }
 
   async getGitService(): Promise<GitService> {

@@ -7,6 +7,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { ApprovalMode } from './config.js';
+import { HookEventName, HookDefinition } from '../hooks/types.js';
 
 /**
  * 项目级配置接口
@@ -14,6 +15,7 @@ import { ApprovalMode } from './config.js';
 export interface ProjectSettings {
   yolo?: boolean;  // YOLO模式开关
   autoTrimTrailingSpaces?: boolean;  // 自动删除行末空格（适用于C++、Python等源代码）
+  hooks?: { [K in HookEventName]?: HookDefinition[] };  // Hook配置
 }
 
 
@@ -61,7 +63,7 @@ export class ProjectSettingsManager {
   load(): ProjectSettings {
     try {
       const configPath = this.getConfigFilePath();
-      
+
       if (!fs.existsSync(configPath)) {
         // 文件不存在，返回默认配置
         this.settings = {};
@@ -70,13 +72,14 @@ export class ProjectSettingsManager {
 
       const content = fs.readFileSync(configPath, 'utf-8');
       const parsed = JSON.parse(content) as ProjectSettings;
-      
+
       // 验证配置格式
       this.settings = {
         yolo: typeof parsed.yolo === 'boolean' ? parsed.yolo : undefined,
         autoTrimTrailingSpaces: typeof parsed.autoTrimTrailingSpaces === 'boolean' ? parsed.autoTrimTrailingSpaces : undefined,
+        hooks: parsed.hooks ? JSON.parse(JSON.stringify(parsed.hooks)) : undefined,
       };
-      
+
       return this.settings;
     } catch (error) {
       console.warn('Failed to load project settings:', error);
@@ -91,10 +94,10 @@ export class ProjectSettingsManager {
   save(settings: ProjectSettings): void {
     try {
       this.ensureConfigDir();
-      
+
       const configPath = this.getConfigFilePath();
       const content = JSON.stringify(settings, null, 2);
-      
+
       fs.writeFileSync(configPath, content, 'utf-8');
       this.settings = { ...settings };
     } catch (error) {

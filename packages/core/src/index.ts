@@ -80,6 +80,9 @@ export * from './services/mcpResponseGuard.js';
 export * from './ide/ide-client.js';
 export * from './ide/ideContext.js';
 
+// Export hooks
+export * from './hooks/types.js';
+
 // Export base tool definitions
 export * from './tools/tools.js';
 export * from './tools/tool-registry.js';

@@ -1567,7 +1567,7 @@ Are you sure? (y/N):
 
 # 3. 安装插件
 /skill plugin install <marketplace-name> <plugin-name>
-/skill plugin install skills  document-skills   
+/skill plugin install skills  document-skills
 
 # 4. 查看所有 Skills
 /skill list
@@ -1576,7 +1576,7 @@ Are you sure? (y/N):
 /skill info <skill-id>
 
 # 6. 卸载 Skill
-/skill plugin uninstall <marketplace-name> <plugin-name> 
+/skill plugin uninstall <marketplace-name> <plugin-name>
 
 **配置和存储：**
 
@@ -1593,6 +1593,275 @@ Skills 系统数据存储在：
 2. 通过 `/use_skill` 工具加载完整的 SKILL.md 文档
 3. 执行 Skill 中的脚本（需要先加载文档）
 4. 根据 Skills 提供的工具和指引协助用户
+
+---
+
+### Q15: 如何使用 Hooks 系统进行安全控制和行为自定义？
+
+**A:** DeepV Code 提供了强大的 Hooks 系统，允许你用任何脚本语言（Python、Bash、PowerShell、Batch 等）在关键操作点插入自定义脚本来监控、控制和修改系统行为。
+
+#### 什么是 Hooks？
+
+Hooks 是在 11 个关键事件触发的自定义脚本：
+- **工具：** `BeforeTool`（前）、`AfterTool`（后）
+- **LLM：** `BeforeAgent`、`AfterAgent`、`BeforeModel`、`AfterModel`
+- **工具选择：** `BeforeToolSelection`（限制可用工具）
+- **会话：** `SessionStart`、`SessionEnd`
+- **其他：** `PreCompress`、`Notification`
+
+#### 快速开始（任选一种语言）
+
+**第 1 步：创建 hooks 目录**
+```bash
+mkdir -p .deepvcode/hooks
+```
+
+**第 2 步：选择你的脚本语言编写 Hook**
+
+**🐧 Linux/macOS（Bash）**
+```bash
+#!/bin/bash
+read INPUT
+TOOL=$(echo "$INPUT" | jq -r '.tool_name // empty')
+if [[ "$TOOL" == "delete_file" ]]; then
+  echo '{"decision":"deny","reason":"Forbidden"}'
+else
+  echo '{"decision":"allow"}'
+fi
+```
+配置：`"command": "bash .deepvcode/hooks/security.sh"`
+
+**🪟 Windows（Python - 推荐跨平台）**
+```python
+#!/usr/bin/env python3
+import json
+import sys
+
+input_data = json.loads(sys.stdin.read())
+tool_name = input_data.get('tool_name')
+
+if tool_name == 'delete_file':
+    output = {'decision': 'deny', 'reason': 'Forbidden'}
+else:
+    output = {'decision': 'allow'}
+
+print(json.dumps(output))
+sys.exit(0)
+```
+配置：`"command": "python .deepvcode/hooks/security.py"`
+
+**🪟 Windows（PowerShell）**
+```powershell
+$input_text = [Console]::In.ReadToEnd()
+$input_data = $input_text | ConvertFrom-Json
+
+if ($input_data.tool_name -eq 'delete_file') {
+    $output = @{'decision' = 'deny'; 'reason' = 'Forbidden'}
+} else {
+    $output = @{'decision' = 'allow'}
+}
+
+$output | ConvertTo-Json | Write-Output
+```
+配置：`"command": "powershell -ExecutionPolicy Bypass .deepvcode/hooks/security.ps1"`
+
+**第 3 步：配置到 `.deepvcode/settings.json`**
+```json
+{
+  "hooks": {
+    "BeforeTool": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .deepvcode/hooks/security.py",
+            "timeout": 5000
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+**第 4 步：测试**
+```bash
+echo '{"tool_name":"delete_file"}' | python .deepvcode/hooks/security.py
+# 输出：{"decision":"deny","reason":"Forbidden"}
+```
+
+#### 常见实用场景
+
+**场景 1：权限控制（基于角色）**
+
+Python 版本：
+```python
+import json, sys, os
+input_data = json.loads(sys.stdin.read())
+user_role = os.environ.get('USER_ROLE', 'viewer')
+
+if user_role == 'admin':
+    print(json.dumps({'decision': 'allow'}))
+else:
+    # 限制工具
+    print(json.dumps({
+        'hookSpecificOutput': {
+            'toolConfig': {
+                'allowedFunctionNames': ['read_file', 'list_directory']
+            }
+        }
+    }))
+```
+使用：`USER_ROLE=viewer deepv-cli`
+
+**场景 2：审计日志（记录所有操作）**
+
+Python 版本：
+```python
+import json, sys
+from datetime import datetime
+
+input_data = json.loads(sys.stdin.read())
+tool = input_data.get('tool_name')
+timestamp = input_data.get('timestamp')
+
+# 记录日志
+with open('logs/audit.log', 'a') as f:
+    f.write(f"[{timestamp}] Tool: {tool}\n")
+
+print(json.dumps({'decision': 'allow'}))
+```
+
+**场景 3：提示安全加固**
+
+Python 版本：
+```python
+import json, sys
+
+input_data = json.loads(sys.stdin.read())
+safety_instruction = """[SECURITY]
+- Verify before destructive operations
+- Never modify system-critical files
+[/SECURITY]"""
+
+print(json.dumps({
+    'decision': 'allow',
+    'hookSpecificOutput': {
+        'additionalContext': safety_instruction
+    }
+}))
+```
+
+**场景 4：LLM 参数优化**
+
+Python 版本：
+```python
+import json, sys
+
+input_data = json.loads(sys.stdin.read())
+prompt = input_data.get('llm_request', {}).get('messages', [{}])[0].get('content', '')
+
+# 根据长度调整参数
+temperature = 0.8 if len(prompt) > 2000 else 0.3
+max_tokens = 4096 if 'code' in prompt.lower() else 2048
+
+print(json.dumps({
+    'hookSpecificOutput': {
+        'llm_request': {
+            'config': {
+                'temperature': temperature,
+                'maxOutputTokens': max_tokens
+            }
+        }
+    }
+}))
+```
+
+#### Hook 数据格式
+
+**输入格式（via stdin）**
+```json
+{
+  "session_id": "abc123",
+  "cwd": "/current/dir",
+  "hook_event_name": "BeforeTool",
+  "timestamp": "2025-01-15T10:00:00Z",
+  "tool_name": "write_file",
+  "tool_input": {"path": "/tmp/file.txt"}
+}
+```
+
+**输出格式（via stdout，必须是 JSON）**
+```json
+{
+  "decision": "allow",
+  "reason": "optional",
+  "hookSpecificOutput": {}
+}
+```
+
+**Exit codes：** `0` (成功) | `1` (警告) | `2` (阻止)
+
+#### 配置参考
+
+```json
+{
+  "hooks": {
+    "BeforeTool": [{
+      "matcher": "delete_file|remove_directory",  // 可选：工具名正则
+      "sequential": false,                         // 可选：顺序/并行
+      "hooks": [{
+        "type": "command",
+        "command": "python .deepvcode/hooks/hook.py",
+        "timeout": 5000                            // 可选：超时毫秒数
+      }]
+    }]
+  }
+}
+```
+
+#### 最佳实践
+
+1. ✅ 使用 Python 编写（跨平台最简单）
+2. ✅ 验证 JSON 输入有效性
+3. ✅ 输出必须是有效的 JSON
+4. ✅ 设置合理的超时防止卡顿
+5. ✅ Hook 失败不会阻止系统运行
+6. ✅ 用版本控制管理 Hooks 脚本
+7. ✅ 轻量级脚本，复杂逻辑调用外部 API
+
+#### 支持的脚本语言
+
+| 语言 | 平台 | 推荐度 | 示例命令 |
+|-----|------|--------|--------|
+| **Python** | Windows/Mac/Linux | ⭐⭐⭐ | `python ./hook.py` |
+| **Bash** | Mac/Linux | ⭐⭐⭐ | `bash ./hook.sh` |
+| **PowerShell** | Windows | ⭐⭐ | `powershell -ExecutionPolicy Bypass ./hook.ps1` |
+| Batch | Windows | ⭐ | `cmd /c hook.bat` |
+| Node.js | 全平台 | ⭐⭐ | `node ./hook.js` |
+
+**提示：** Python 最推荐，因为一份代码在所有平台都能运行，且有内置的 JSON 模块。
+
+#### 常见问题
+
+**Q：Hook 脚本可以用其他语言吗？**
+A：可以！任何能读 stdin、写 stdout 的脚本都支持。Python、Bash、PowerShell、Node.js、Ruby、Go 等都可以。
+
+**Q：Windows 上不能用 Bash 吗？**
+A：可以用。安装 WSL（Windows Subsystem for Linux）或 Git Bash 后支持。但推荐用 Python 更方便。
+
+**Q：Hook 失败会导致系统停止吗？**
+A：不会。Hook 失败只会记录警告，系统继续运行。除非你的 Hook 返回 exit code 2 并设置了 `decision: deny`。
+
+**Q：多个 Hook 怎样按顺序执行？**
+A：在配置中设置 `"sequential": true`，后一个 Hook 可以看到前一个的修改。
+
+#### 更多帮助
+
+- 完整文档：`docs/hooks-user-guide.md`
+- 代码示例：`docs/hooks-examples.md`
+- 架构说明：`HOOKS_ARCHITECTURE.md`
+- **详细用法和配置：** 使用 `/hooks` 命令打开官方文档，或访问 https://dvcode.deepvlab.ai/hooks-help
 
 ---
 
