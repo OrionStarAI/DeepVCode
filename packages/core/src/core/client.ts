@@ -105,12 +105,41 @@ export class GeminiClient {
   }
 
   async initialize(contentGeneratorConfig: ContentGeneratorConfig) {
+    // 🪝 触发 SessionStart 钩子
+    try {
+      const { SessionStartSource } = await import('../hooks/types.js');
+      await this.config.getHookSystem()
+        .getEventHandler()
+        .fireSessionStartEvent(SessionStartSource.Startup);
+    } catch (hookError) {
+      logger.warn(`[GeminiClient] SessionStart hook execution failed: ${hookError}`);
+    }
+
     this.contentGenerator = await createContentGenerator(
       contentGeneratorConfig,
       this.config,
       this.config.getSessionId(),
     );
     this.chat = await this.startChat();
+  }
+
+  /**
+   * 结束会话并触发 SessionEnd 钩子
+   */
+  async endSession(reason: string = 'user_exit'): Promise<void> {
+    try {
+      const { SessionEndReason } = await import('../hooks/types.js');
+      // 映射字符串原因为枚举
+      let endReason = SessionEndReason.Exit;
+      if (reason === 'error') endReason = SessionEndReason.Other;
+      if (reason === 'timeout') endReason = SessionEndReason.Other;
+
+      await this.config.getHookSystem()
+        .getEventHandler()
+        .fireSessionEndEvent(endReason);
+    } catch (hookError) {
+      logger.warn(`[GeminiClient] SessionEnd hook execution failed: ${hookError}`);
+    }
   }
 
   getContentGenerator(): ContentGenerator {
@@ -506,6 +535,28 @@ Use Glob and ReadFile tools to explore specific files during our conversation.
     turns: number = this.MAX_TURNS,
     originalModel?: string,
   ): AsyncGenerator<ServerGeminiStreamEvent, Turn> {
+    // 🪝 触发 BeforeAgent 钩子
+    try {
+      const beforeAgentResult = await this.config.getHookSystem()
+        .getEventHandler()
+        .fireBeforeAgentEvent(JSON.stringify(request));
+
+      // 检查钩子是否阻止执行
+      if (beforeAgentResult?.finalOutput?.shouldStopExecution?.()) {
+        yield {
+          type: GeminiEventType.Error,
+          value: {
+            error: {
+              message: `Agent execution blocked by BeforeAgent hook`
+            }
+          }
+        } as any;
+        return new Turn(this.getChat(), prompt_id, this.config.getModel(), this.config);
+      }
+    } catch (hookError) {
+      logger.warn(`[GeminiClient] BeforeAgent hook execution failed: ${hookError}`);
+    }
+
     if (this.lastPromptId !== prompt_id) {
       this.loopDetector.reset(prompt_id);
       this.lastPromptId = prompt_id;
@@ -516,7 +567,7 @@ Use Glob and ReadFile tools to explore specific files during our conversation.
       this.sessionTurnCount > this.config.getMaxSessionTurns()
     ) {
       yield { type: GeminiEventType.MaxSessionTurns };
-      return new Turn(this.getChat(), prompt_id, this.config.getModel());
+      return new Turn(this.getChat(), prompt_id, this.config.getModel(), this.config);
     }
     // Ensure turns never exceeds MAX_TURNS to prevent infinite loops
     const boundedTurns = Math.min(turns, this.MAX_TURNS);
@@ -540,6 +591,7 @@ Use Glob and ReadFile tools to explore specific files during our conversation.
 
     this.checkCompression();
     // 基于响应的智能压缩：检查是否需要在本次对话前进行压缩
+    // 只有当 needsCompression 标记为 true 时才尝试压缩，否则不触发压缩流程和 PreCompress 钩子
     if (this.needsCompression) {
       console.log('[sendMessageStream] Token threshold exceeded, performing compression before new conversation');
       const compressed = await this.tryCompressChat(prompt_id, signal, true); // 强制压缩
@@ -548,12 +600,6 @@ Use Glob and ReadFile tools to explore specific files during our conversation.
         this.resetCompressionFlag(); // 压缩完成后重置标记
       } else {
         console.warn('[sendMessageStream] Failed to perform scheduled compression');
-      }
-    } else {
-      const compressed = await this.tryCompressChat(prompt_id, signal, false); // 非强制压缩
-      if (compressed) {
-        yield { type: GeminiEventType.ChatCompressed, value: compressed };
-        this.resetCompressionFlag(); // 压缩完成后重置标记
       }
     }
 
@@ -668,6 +714,23 @@ Use Glob and ReadFile tools to explore specific files during our conversation.
         );
       }
     }
+
+    // 🪝 触发 AfterAgent 钩子
+    try {
+      const responses = turn.getDebugResponses();
+      const lastResponse = responses.length > 0 ? responses[responses.length - 1] : {};
+
+      await this.config.getHookSystem()
+        .getEventHandler()
+        .fireAfterAgentEvent(
+          JSON.stringify(request),
+          JSON.stringify(lastResponse),
+          false
+        );
+    } catch (hookError) {
+      logger.warn(`[GeminiClient] AfterAgent hook execution failed: ${hookError}`);
+    }
+
     return turn;
   }
 
@@ -688,6 +751,18 @@ Use Glob and ReadFile tools to explore specific files during our conversation.
     this.isCompressing = true;
 
     try {
+      // 🪝 触发 PreCompress 钩子
+      try {
+        const { PreCompressTrigger } = await import('../hooks/types.js');
+        await this.config.getHookSystem()
+          .getEventHandler()
+          .firePreCompressEvent(
+            force ? PreCompressTrigger.Manual : PreCompressTrigger.Auto
+          );
+      } catch (hookError) {
+        logger.warn(`[GeminiClient] PreCompress hook execution failed: ${hookError}`);
+      }
+
       const curatedHistory = this.getChat().getHistory(true);
       let compressionModel = SceneManager.getModelForScene(SceneType.COMPRESSION);
 
