@@ -117,6 +117,14 @@ export class SkillContextInjector {
       lines.push('<name>');
       lines.push(skill.id); // 使用完整 ID，如 "plugin-name:skill-name"
       lines.push('</name>');
+
+      // 添加类型信息
+      if (skill.type) {
+        lines.push('<type>');
+        lines.push(skill.type);
+        lines.push('</type>');
+      }
+
       lines.push('<description>');
 
       // 构建描述，包含脚本信息

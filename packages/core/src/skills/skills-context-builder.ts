@@ -112,7 +112,21 @@ export class SkillsContextBuilder {
       if (!pluginDef) continue;
 
       // Process each skill in the plugin
-      for (const skillRelPath of pluginDef.skills) {
+      let skillsList = pluginDef.skills || [];
+
+      // Auto-discovery fallback if no skills defined
+      if (!Array.isArray(skillsList) || skillsList.length === 0) {
+        const pluginRoot = path.join(
+          this.marketplaceDir,
+          marketplace.id,
+          pluginDef.source || ''
+        );
+        skillsList = this.discoverComponents(pluginRoot);
+      }
+
+      if (!Array.isArray(skillsList)) continue;
+
+      for (const skillRelPath of skillsList) {
         // Construct skill path, taking plugin source into account
         let skillPath = path.join(
           this.marketplaceDir,
@@ -125,12 +139,30 @@ export class SkillsContextBuilder {
         }
 
         skillPath = path.join(skillPath, skillRelPath);
-        const skillMdPath = path.join(skillPath, 'skill.md');
+
+        // Determine MD file path
+        let skillMdPath = '';
+        let isFileComponent = false;
+
+        if (fs.existsSync(skillPath) && fs.statSync(skillPath).isFile()) {
+           // It's a file (Agent/Command)
+           skillMdPath = skillPath;
+           isFileComponent = true;
+        } else {
+           // It's a directory (Skill)
+           skillMdPath = path.join(skillPath, 'skill.md'); // Try lowercase first as per original code? No, original was 'skill.md'
+           if (!fs.existsSync(skillMdPath)) {
+             skillMdPath = path.join(skillPath, 'SKILL.md');
+           }
+        }
 
         if (!fs.existsSync(skillMdPath)) continue;
 
         // Extract skill name from path
-        const skillName = path.basename(skillRelPath);
+        let skillName = path.basename(skillRelPath);
+        if (isFileComponent) {
+          skillName = path.basename(skillRelPath, '.md');
+        }
 
         skills.push({
           id: `${pluginId}:${skillName}`,
@@ -138,7 +170,7 @@ export class SkillsContextBuilder {
           pluginId: pluginInfo.id,
           marketplaceId: marketplace.id,
           description: pluginDef.description,
-          path: skillPath,
+          path: isFileComponent ? path.dirname(skillPath) : skillPath,
           skillMdPath: skillMdPath,
           enabled: true,
         });
@@ -146,6 +178,43 @@ export class SkillsContextBuilder {
     }
 
     return skills;
+  }
+
+  /**
+   * Discover components in plugin directory
+   */
+  private discoverComponents(pluginRoot: string): string[] {
+    const components: string[] = [];
+
+    if (!fs.existsSync(pluginRoot)) return components;
+
+    const scanDir = (dirName: string) => {
+      const dirPath = path.join(pluginRoot, dirName);
+      if (fs.existsSync(dirPath) && fs.statSync(dirPath).isDirectory()) {
+        const files = fs.readdirSync(dirPath);
+        for (const file of files) {
+          if (file.startsWith('.')) continue;
+          const fullPath = path.join(dirPath, file);
+
+          // Skills (directories)
+          if (dirName === 'skills' && fs.statSync(fullPath).isDirectory()) {
+             if (fs.existsSync(path.join(fullPath, 'SKILL.md')) || fs.existsSync(path.join(fullPath, 'skill.md'))) {
+               components.push(path.join(dirName, file));
+             }
+          }
+          // Agents/Commands (markdown files)
+          else if ((dirName === 'agents' || dirName === 'commands') && file.endsWith('.md')) {
+             components.push(path.join(dirName, file));
+          }
+        }
+      }
+    };
+
+    scanDir('skills');
+    scanDir('agents');
+    scanDir('commands');
+
+    return components;
   }
 
   /**

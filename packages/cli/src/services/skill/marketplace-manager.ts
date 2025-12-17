@@ -499,21 +499,39 @@ export class MarketplaceManager {
     const isStrict = pluginDef.strict !== false; // Default to true
 
     if (sourcePath && await fs.pathExists(sourcePath)) {
-      const manifestPath = path.join(sourcePath, 'plugin.json');
-      const hasManifest = await fs.pathExists(manifestPath);
+      // Try two locations: plugin.json (DeepV Code) and .claude-plugin/plugin.json (Claude Code)
+      let manifestPath = path.join(sourcePath, 'plugin.json');
+      let hasManifest = await fs.pathExists(manifestPath);
 
-      if (isStrict && !hasManifest) {
-        console.warn(`Missing plugin.json for strict plugin ${pluginDef.name}`);
-      } else if (hasManifest) {
+      // Fallback to Claude Code convention
+      if (!hasManifest) {
+        manifestPath = path.join(sourcePath, '.claude-plugin', 'plugin.json');
+        hasManifest = await fs.pathExists(manifestPath);
+      }
+
+      if (hasManifest) {
         try {
           const manifest = await fs.readJson(manifestPath);
           // Marketplace definition supplements/overrides manifest?
           // Doc: "marketplace fields supplement those values" -> Manifest is base
           finalPluginDef = { ...manifest, ...pluginDef };
         } catch (e) {
-          console.warn(`Failed to read plugin.json for ${pluginDef.name}`, e);
+          console.warn(
+            `Failed to read plugin.json for ${pluginDef.name}\n` +
+            `  Path: ${manifestPath}\n` +
+            `  Error: ${e instanceof Error ? e.message : String(e)}`
+          );
         }
       }
+      // Note: If no plugin.json found, that's OK for Claude Code plugins
+      // They use directory convention (agents/, commands/, skills/) instead
+    } else {
+      console.warn(
+        `Plugin source path does not exist: ${pluginDef.name}\n` +
+        `  Expected source: ${sourcePath}\n` +
+        `  Marketplace path: ${marketplacePath}\n` +
+        `  Source definition: ${pluginDef.source}`
+      );
     }
 
     // 3. Resolve Skills/Commands/Agents
@@ -539,9 +557,60 @@ export class MarketplaceManager {
       }
     };
 
-    await processItems(finalPluginDef.skills, SkillType.SKILL);
-    await processItems(finalPluginDef.commands, SkillType.COMMAND);
-    await processItems(finalPluginDef.agents, SkillType.AGENT);
+    // 如果 plugin.json 中没有明确定义，则自动发现
+    if (!finalPluginDef.skills && !finalPluginDef.commands && !finalPluginDef.agents) {
+      // 自动发现：检查常见的目录名称
+      const autoDiscoverDirs = async (dirName: string, type: SkillType) => {
+        const dirPath = path.join(basePath, dirName);
+        if (await fs.pathExists(dirPath)) {
+          const stat = await fs.stat(dirPath);
+          if (stat.isDirectory()) {
+            const items_in_dir = await fs.readdir(dirPath);
+            for (const item of items_in_dir) {
+              // 跳过隐藏文件和特殊目录
+              if (item.startsWith('.')) continue;
+
+              const itemPath = path.join(dirPath, item);
+              const itemStat = await fs.stat(itemPath);
+
+              if (itemStat.isDirectory()) {
+                // 对于 skills，检查是否有 SKILL.md
+                if (type === SkillType.SKILL) {
+                  const skillFile = path.join(itemPath, 'SKILL.md');
+                  if (await fs.pathExists(skillFile)) {
+                    const relPath = path.relative(marketplacePath, itemPath);
+                    skillPaths.push(relPath);
+                    items.push({ path: relPath, type });
+                  }
+                } else {
+                  // 对于 commands/agents，只需要目录存在
+                  const relPath = path.relative(marketplacePath, itemPath);
+                  skillPaths.push(relPath);
+                  items.push({ path: relPath, type });
+                }
+              } else if (itemStat.isFile() && (item.endsWith('.md') || item.endsWith('.py') || item.endsWith('.sh'))) {
+                // 对于 commands/agents，也支持文件
+                if (type !== SkillType.SKILL) {
+                  const relPath = path.relative(marketplacePath, itemPath);
+                  skillPaths.push(relPath);
+                  items.push({ path: relPath, type });
+                }
+              }
+            }
+          }
+        }
+      };
+
+      // 按照 Claude Code 的约定发现 agents, commands, skills
+      await autoDiscoverDirs('agents', SkillType.AGENT);
+      await autoDiscoverDirs('commands', SkillType.COMMAND);
+      await autoDiscoverDirs('skills', SkillType.SKILL);
+    } else {
+      // 如果明确定义了，使用明确的定义
+      await processItems(finalPluginDef.skills, SkillType.SKILL);
+      await processItems(finalPluginDef.commands, SkillType.COMMAND);
+      await processItems(finalPluginDef.agents, SkillType.AGENT);
+    }
 
     // 检查是否已安装
     const installedPlugin = await this.settingsManager.getInstalledPlugin(pluginId);

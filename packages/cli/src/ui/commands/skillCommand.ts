@@ -12,6 +12,7 @@ import {
 } from './types.js';
 import type { Suggestion } from '../components/SuggestionsDisplay.js';
 import { t, tp } from '../utils/i18n.js';
+import { normalizeGitHubUrl } from '../../utils/gitUrlNormalizer.js';
 import {
   SettingsManager,
   MarketplaceManager,
@@ -73,7 +74,13 @@ function formatPlugin(plugin: Plugin, installed = false): string {
  */
 function formatSkill(skill: Skill): string {
   const lines: string[] = [];
-  lines.push(`⚡ ${skill.name}`);
+
+  // 根据类型选择图标
+  let icon = '⚡';
+  if (skill.type === 'agent') icon = '🤖';
+  if (skill.type === 'command') icon = '⌨️';
+
+  lines.push(`${icon} ${skill.name} (${skill.type || 'skill'})`);
   lines.push(`   ${skill.description}`);
   if (skill.metadata.allowedTools && skill.metadata.allowedTools.length > 0) {
     lines.push(`   ${t('skill.label.tools')}${skill.metadata.allowedTools.join(', ')}`);
@@ -184,7 +191,7 @@ export const skillCommand: SlashCommand = {
 
               // Parse options
               const parts = location.split(/\s+/);
-              const url = parts[0];
+              let url = parts[0];
 
               let name: string | undefined;
               const nameIndex = parts.indexOf('--name');
@@ -195,6 +202,9 @@ export const skillCommand: SlashCommand = {
                 // Support positional alias: /skill marketplace add <url> <alias>
                 name = parts[1];
               }
+
+              // Normalize GitHub short form (owner/repo) to full URL
+              url = normalizeGitHubUrl(url);
 
               context.ui.addItem(
                 {
@@ -588,13 +598,30 @@ export const skillCommand: SlashCommand = {
           kind: CommandKind.BUILT_IN,
 
           completion: async (context: CommandContext, partialArg: string): Promise<Suggestion[]> => {
+            // Prevent duplicate arguments: install only takes one argument
+            if (context.invocation) {
+               const parts = context.invocation.raw.trim().split(/\s+/);
+               const hasTrailingSpace = context.invocation.raw.endsWith(' ');
+
+               if (parts.length >= 4 && hasTrailingSpace) {
+                 return [];
+               }
+               if (parts.length > 4) {
+                 return [];
+               }
+            }
+
             try {
               const { marketplace } = await initSkillsSystem();
 
-              // Find the first space to separate marketplace ID from plugin name
-              const firstSpaceIndex = partialArg.indexOf(' ');
+              // Check for colon separator first (new format)
+              const colonIndex = partialArg.indexOf(':');
+              // Also check for space (legacy/fallback)
+              const spaceIndex = partialArg.indexOf(' ');
 
-              if (firstSpaceIndex === -1) {
+              const separatorIndex = colonIndex !== -1 ? colonIndex : spaceIndex;
+
+              if (separatorIndex === -1) {
                 // Case 1: Typing Marketplace ID
                 const input = partialArg.toLowerCase();
                 const mps = await marketplace.listMarketplaces();
@@ -602,14 +629,13 @@ export const skillCommand: SlashCommand = {
                   .filter(mp => mp.id.toLowerCase().startsWith(input))
                   .map(mp => ({
                     label: mp.name,
-                    value: mp.id + ' ', // Add space to auto-advance
+                    value: mp.id + ':', // Use colon to prepare for plugin name
                     description: mp.description || mp.url
                   }));
               } else {
-                // Case 2: Typing Plugin Name (Marketplace ID is fixed)
-                const marketplaceId = partialArg.substring(0, firstSpaceIndex);
-                // Use trimStart to handle multiple spaces between args
-                const pluginInput = partialArg.substring(firstSpaceIndex).trimStart().toLowerCase();
+                // Case 2: Typing Plugin Name
+                const marketplaceId = partialArg.substring(0, separatorIndex);
+                const pluginInput = partialArg.substring(separatorIndex + 1).trim().toLowerCase();
 
                 try {
                   const plugins = await marketplace.getPlugins(marketplaceId);
@@ -617,7 +643,7 @@ export const skillCommand: SlashCommand = {
                     .filter(p => p.name.toLowerCase().includes(pluginInput))
                     .map(p => ({
                       label: p.name,
-                      value: `${marketplaceId} ${p.name}`,
+                      value: `${marketplaceId}:${p.name}`,
                       description: p.description
                     }));
                 } catch (e) {
@@ -644,12 +670,13 @@ export const skillCommand: SlashCommand = {
             }
 
             try {
-              const parts = input.split(/\s+/);
-              if (parts.length < 2) {
+              const colonIndex = input.indexOf(':');
+              if (colonIndex === -1) {
                 throw new Error('Both marketplace and plugin name required');
               }
 
-              const [marketplaceId, pluginName] = parts;
+              const marketplaceId = input.substring(0, colonIndex);
+              const pluginName = input.substring(colonIndex + 1);
 
               const { installer } = await initSkillsSystem();
 

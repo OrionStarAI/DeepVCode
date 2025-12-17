@@ -52,8 +52,10 @@ export class PluginInstaller {
       const plugin = plugins.find((p) => p.name === pluginName);
 
       if (!plugin) {
+        const availablePlugins = plugins.map((p) => `${p.name} (id: ${p.id})`).join(', ');
         throw new PluginError(
-          `Plugin ${pluginName} not found in marketplace ${marketplaceId}`,
+          `Plugin "${pluginName}" not found in marketplace "${marketplaceId}"\n` +
+          `Available plugins: ${availablePlugins || 'none'}`,
           SkillErrorCode.PLUGIN_NOT_FOUND,
         );
       }
@@ -297,16 +299,30 @@ export class PluginInstaller {
   private async validatePlugin(plugin: Plugin, marketplaceId: string): Promise<void> {
     // 验证必需字段
     if (!plugin.id || !plugin.name || !plugin.marketplaceId) {
-      throw new ValidationError('Invalid plugin: missing required fields', {
-        plugin,
-      });
+      throw new ValidationError(
+        `Invalid plugin: missing required fields\n` +
+        `Plugin: ${JSON.stringify(plugin, null, 2)}`,
+        {
+          plugin,
+          marketplaceId,
+        },
+      );
     }
 
     // 验证 Skill 路径
     if (!plugin.skillPaths || plugin.skillPaths.length === 0) {
-      throw new ValidationError('Invalid plugin: no skills found', {
-        plugin,
-      });
+      throw new ValidationError(
+        `Invalid plugin: no skills found\n` +
+        `Plugin ID: ${plugin.id}\n` +
+        `Plugin Name: ${plugin.name}\n` +
+        `Marketplace: ${marketplaceId}\n` +
+        `Skill Paths: ${JSON.stringify(plugin.skillPaths)}\n` +
+        `Items: ${JSON.stringify(plugin.items)}`,
+        {
+          plugin,
+          marketplaceId,
+        },
+      );
     }
 
     // 获取 Marketplace 路径

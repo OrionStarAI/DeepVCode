@@ -646,6 +646,17 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
               }
             }
 
+            // 🚀 修复：如果当前输入已经与建议值完全匹配，则直接提交而不是再次补全
+            const trimmed = buffer.text.trim();
+            const parts = trimmed.split(/\s+/);
+            const lastPart = parts[parts.length - 1];
+
+            // 如果当前参数与建议值完全相等，说明用户已经输完了，按回车是想执行
+            if (lastPart === selectedSuggestion.value) {
+               handleSubmitAndClear(buffer.text);
+               return;
+            }
+
             // 普通补全：只补全到输入框，不自动执行
             completion.handleAutocomplete(completion.activeSuggestionIndex);
             return;
