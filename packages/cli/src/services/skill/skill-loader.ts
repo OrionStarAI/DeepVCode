@@ -25,6 +25,8 @@ import {
 } from './types.js';
 import { SettingsManager, SkillsPaths } from './settings-manager.js';
 import { MarketplaceManager } from './marketplace-manager.js';
+import { MarketplaceLoader } from './loaders/marketplace-loader.js';
+import { UnifiedComponent, ComponentType } from './models/unified.js';
 
 /**
  * Skill 缓存项
@@ -48,6 +50,7 @@ interface SkillCacheItem {
 export class SkillLoader {
   private cache: Map<string, SkillCacheItem> = new Map();
   private readonly cacheTTL: number;
+  private marketplaceLoader: MarketplaceLoader;
 
   constructor(
     private settingsManager: SettingsManager,
@@ -55,6 +58,7 @@ export class SkillLoader {
     cacheTTL = 3600000, // 默认 1 小时
   ) {
     this.cacheTTL = cacheTTL;
+    this.marketplaceLoader = new MarketplaceLoader(settingsManager);
   }
 
   // ============================================================================
@@ -102,72 +106,50 @@ export class SkillLoader {
     loadLevel: SkillLoadLevel = SkillLoadLevel.METADATA,
   ): Promise<Skill[]> {
     try {
-      const [marketplaceId, pluginName] = pluginId.split(':');
+      // 使用新的 MarketplaceLoader 加载
+      const plugins = await this.marketplaceLoader.loadPlugins();
+      const targetPlugin = plugins.find(p => p.id === pluginId);
 
-      // 获取 Plugin 信息
-      const plugins = await this.marketplaceManager.getPlugins(marketplaceId);
-      const plugin = plugins.find((p) => p.name === pluginName);
-
-      if (!plugin) {
-        throw new SkillError(
-          `Plugin ${pluginId} not found`,
-          SkillErrorCode.PLUGIN_NOT_FOUND,
-        );
+      if (targetPlugin) {
+        return targetPlugin.components.map(comp => this.convertToSkill(comp, loadLevel));
       }
 
-      // 获取 Marketplace 路径
-      const marketplace = await this.marketplaceManager.getMarketplace(marketplaceId);
-      const marketplacePath =
-        marketplace.source === 'git'
-          ? path.join(SkillsPaths.MARKETPLACE_ROOT, marketplaceId)
-          : marketplace.path!;
-
-      // 加载每个 Skill
-      const skills: Skill[] = [];
-
-      // Use new items structure if available, otherwise fallback to skillPaths
-      if (plugin.items && plugin.items.length > 0) {
-        for (const item of plugin.items) {
-          try {
-            const fullSkillPath = path.join(marketplacePath, item.path);
-            const skill = await this.parseSkillFile(
-              fullSkillPath,
-              pluginId,
-              marketplaceId,
-              loadLevel,
-              item.type // Pass type to parser
-            );
-            skills.push(skill);
-          } catch (error) {
-            console.warn(`Failed to parse ${item.type} at ${item.path}:`, error);
-          }
-        }
-      } else {
-        // Legacy fallback
-        for (const skillPath of plugin.skillPaths) {
-          try {
-            const fullSkillPath = path.join(marketplacePath, skillPath);
-            const skill = await this.parseSkillFile(
-              fullSkillPath,
-              pluginId,
-              marketplaceId,
-              loadLevel,
-            );
-            skills.push(skill);
-          } catch (error) {
-            console.warn(`Failed to parse skill at ${skillPath}:`, error);
-          }
-        }
-      }
-
-      return skills;
+      return [];
     } catch (error) {
-      throw new SkillError(
-        `Failed to load plugin skills: ${error instanceof Error ? error.message : String(error)}`,
-        SkillErrorCode.SKILL_LOAD_FAILED,
-        { pluginId, originalError: error },
-      );
+      console.warn(`Failed to load skills for plugin ${pluginId}:`, error);
+      return [];
     }
+  }
+
+  /**
+   * 将 UnifiedComponent 转换为 Skill
+   */
+  private convertToSkill(component: UnifiedComponent, loadLevel: SkillLoadLevel): Skill {
+    // 映射 ComponentType 到 SkillType
+    let type = SkillType.SKILL;
+    if (component.type === ComponentType.AGENT) type = SkillType.AGENT;
+    if (component.type === ComponentType.COMMAND) type = SkillType.COMMAND;
+
+    // 确保 metadata 存在
+    const metadata = (component.metadata || {}) as SkillMetadata;
+    if (!metadata.name) metadata.name = component.name;
+    if (!metadata.description) metadata.description = component.description;
+
+    return {
+      id: component.id,
+      type,
+      name: component.name,
+      description: component.description,
+      pluginId: component.pluginId || '',
+      marketplaceId: component.marketplaceId || '',
+      path: component.location.type === 'directory' ? component.location.path : path.dirname(component.location.path),
+      skillFilePath: component.location.path,
+      metadata,
+      content: component.content,
+      enabled: component.enabled,
+      loadLevel: loadLevel,
+      scripts: [],
+    };
   }
 
   /**
@@ -243,8 +225,8 @@ export class SkillLoader {
       // 解析 YAML frontmatter
       const { data, content } = matter(fileContent);
 
-      // 验证元数据
-      this.validateMetadata(data);
+      // 验证元数据（传递文件路径以便从文件名生成 name）
+      this.validateMetadata(data, skillFilePath);
 
       const metadata = data as SkillMetadata;
       const skillName = metadata.name;
@@ -378,7 +360,7 @@ export class SkillLoader {
   /**
    * 验证 Skill 元数据
    */
-  private validateMetadata(metadata: unknown): void {
+  private validateMetadata(metadata: unknown, skillFilePath?: string): void {
     if (!metadata || typeof metadata !== 'object') {
       throw new ValidationError('Invalid SKILL.md: missing frontmatter');
     }
@@ -386,8 +368,15 @@ export class SkillLoader {
     const data = metadata as Record<string, unknown>;
 
     // 验证必需字段
+    // 如果没有 name，尝试从文件名生成（支持 Claude Code 格式）
     if (!data.name || typeof data.name !== 'string') {
-      throw new ValidationError('Invalid SKILL.md: missing or invalid "name" field');
+      if (skillFilePath) {
+        // 从文件名生成 name（移除 .md 扩展名，支持 kebab-case）
+        const fileName = path.basename(skillFilePath, '.md');
+        data.name = fileName;
+      } else {
+        throw new ValidationError('Invalid SKILL.md: missing or invalid "name" field');
+      }
     }
 
     if (!data.description || typeof data.description !== 'string') {
@@ -398,9 +387,10 @@ export class SkillLoader {
 
     // 验证名称规则（小写字母、数字、连字符）
     const nameRegex = /^[a-z0-9-]+$/;
-    if (!nameRegex.test(data.name)) {
+    const nameStr = String(data.name);
+    if (!nameRegex.test(nameStr)) {
       throw new ValidationError(
-        `Invalid skill name "${data.name}": must contain only lowercase letters, numbers, and hyphens`,
+        `Invalid skill name "${nameStr}": must contain only lowercase letters, numbers, and hyphens`,
       );
     }
   }

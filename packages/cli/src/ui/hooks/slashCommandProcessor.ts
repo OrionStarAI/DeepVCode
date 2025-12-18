@@ -28,6 +28,10 @@ import { ExtensionCommandLoader } from '../../services/ExtensionCommandLoader.js
 import { FileCommandLoader } from '../../services/FileCommandLoader.js';
 import { InlineCommandLoader } from '../../services/InlineCommandLoader.js';
 import { McpPromptLoader } from '../../services/McpPromptLoader.js';
+import { PluginCommandLoader } from '../../services/skill/loaders/plugin-command-loader.js';
+import { SettingsManager } from '../../services/skill/settings-manager.js';
+import { MarketplaceManager } from '../../services/skill/marketplace-manager.js';
+import { SkillLoader } from '../../services/skill/skill-loader.js';
 
 /**
  * Hook to define and process slash commands (e.g., /help, /clear).
@@ -186,12 +190,18 @@ export const useSlashCommandProcessor = (
   useEffect(() => {
     const controller = new AbortController();
     const load = async () => {
+      // 初始化 Skill 系统组件
+      const settingsManager = new SettingsManager();
+      const marketplaceManager = new MarketplaceManager(settingsManager);
+      const skillLoader = new SkillLoader(settingsManager, marketplaceManager);
+
       const loaders = [
         new McpPromptLoader(config),
         new BuiltinCommandLoader(config),
         new InlineCommandLoader(config),
         new ExtensionCommandLoader(config),
         new FileCommandLoader(config),
+        new PluginCommandLoader(skillLoader, settingsManager),
       ];
       const commandService = await CommandService.create(
         loaders,

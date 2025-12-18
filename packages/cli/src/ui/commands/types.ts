@@ -165,6 +165,7 @@ export enum CommandKind {
   FILE = 'file',
   MCP_PROMPT = 'mcp-prompt',
   INLINE = 'inline',
+  PLUGIN = 'plugin',
 }
 
 // The standardized contract for any command in the system.

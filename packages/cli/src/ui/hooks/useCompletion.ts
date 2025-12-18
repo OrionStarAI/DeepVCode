@@ -887,7 +887,13 @@ export function useCompletion(
           hasTrailingSpace || isParentPath || isLastPartACompleteArg
             ? parts
             : parts.slice(0, -1);
-        const newValue = `/${[...basePath, suggestion].join(' ')} `;
+
+        let newValue = `/${[...basePath, suggestion].join(' ')}`;
+        // Don't add a trailing space if the suggestion ends with a colon (e.g. "marketplace:")
+        // This allows the user to immediately type the next part (e.g. "plugin") without a space.
+        if (!suggestion.endsWith(':')) {
+          newValue += ' ';
+        }
 
         buffer.setText(newValue);
       } else {
