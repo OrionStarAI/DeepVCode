@@ -1560,22 +1560,27 @@ Are you sure? (y/N):
 **快速开始：**
 ```
 # 1. 添加官方 Marketplace
-/skill marketplace add https://github.com/anthropics/skills.git
+/skill marketplace add anthropics/claude-code
 
-# 2. 浏览可进行安装的插件
-/skill plugin list [marketplace-name]
+# 成功后会看到类似这样的显示：
+# ℹ️✅ Successfully added: claude-code-plugins
+#       ID: claude-code
+#       Plugins: 13
 
-# 3. 安装插件
-/skill plugin install <marketplace-name> <plugin-name>
-/skill plugin install skills  document-skills
+# 2. 安装具体的 Skill（比如 feature-dev）
+/skill plugin install claude-code:feature-dev
 
-# 4. 查看所有 Skills
+# 过程中斜杠命令会自动补全
+
+# 3. 安装后，重启 CLI
+
+# 4. 查看所有已安装的 Skills
 /skill list
 
-# 5. 查看单个 Skill 详情
+# 4. 查看单个 Skill 详情
 /skill info <skill-id>
 
-# 6. 卸载 Skill
+# 5. 卸载 Skill
 /skill plugin uninstall <marketplace-name> <plugin-name>
 
 **配置和存储：**

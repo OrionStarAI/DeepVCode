@@ -354,9 +354,9 @@ export const skillCommand: SlashCommand = {
 
               const parts = marketplaceId.split(/\s+/);
               const id = parts[0];
-              const deleteFiles = parts.includes('--delete-files');
+              const preserveFiles = parts.includes('--keep-files') || parts.includes('--preserve-files');
 
-              await marketplace.removeMarketplace(id, deleteFiles);
+              await marketplace.removeMarketplace(id, preserveFiles);
 
               // Clear Skills context cache
               clearSkillsContextCache();
@@ -364,7 +364,7 @@ export const skillCommand: SlashCommand = {
               context.ui.addItem(
                 {
                   type: MessageType.INFO,
-                  text: tp('skill.marketplace.remove.success', { id, files: deleteFiles ? t('skill.marketplace.remove.files_deleted') : '' }),
+                  text: tp('skill.marketplace.remove.success', { id, files: preserveFiles ? '' : t('skill.marketplace.remove.files_deleted') }),
                 },
                 Date.now(),
               );

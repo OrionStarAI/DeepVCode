@@ -400,6 +400,47 @@ export class SettingsManager {
   }
 
   /**
+   * 移除指定 Marketplace 下的所有已安装 Plugins
+   */
+  async removeInstalledPluginsByMarketplace(marketplaceId: string): Promise<void> {
+    if (!marketplaceId?.trim()) {
+      throw new SkillError(
+        'Marketplace ID cannot be empty',
+        SkillErrorCode.INVALID_INPUT,
+      );
+    }
+
+    // 创建过滤条件：保留不属于该 marketplace 的 plugins
+    const isNotFromMarketplace = ([pluginId]: [string, any]) =>
+      !pluginId.startsWith(`${marketplaceId}:`);
+
+    // 从 enabledPlugins 中删除相关记录
+    await this.updateSettings((settings) => ({
+      ...settings,
+      enabledPlugins: Object.fromEntries(
+        Object.entries(settings.enabledPlugins).filter(isNotFromMarketplace),
+      ),
+    }));
+
+    // 从 installed_plugins.json 中删除相关记录
+    const record = await this.readInstalledPlugins();
+    const beforeCount = Object.keys(record.plugins).length;
+
+    const filtered = Object.fromEntries(
+      Object.entries(record.plugins).filter(isNotFromMarketplace),
+    );
+    await this.writeInstalledPlugins({ ...record, plugins: filtered });
+
+    const afterCount = Object.keys(filtered).length;
+    const removedCount = beforeCount - afterCount;
+    if (removedCount > 0) {
+      console.debug(
+        `Removed ${removedCount} plugin record(s) from marketplace: ${marketplaceId}`,
+      );
+    }
+  }
+
+  /**
    * 更新已安装 Plugin 信息
    */
   async updateInstalledPlugin(

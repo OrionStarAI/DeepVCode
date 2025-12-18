@@ -188,8 +188,16 @@ export class MarketplaceManager {
 
   /**
    * 移除 Marketplace（删除配置和文件）
+   *
+   * 行为说明：
+   * - 总是删除：marketplace 配置 + 相关的 installed plugins 记录
+   * - 条件删除：仅删除 Git Marketplace 的克隆目录（~/.deepv/marketplace/{id}）
+   * - 保护策略：本地 Marketplace 的原始目录永远不会被删除（用户拥有的文件）
+   *
+   * @param marketplaceId Marketplace ID
+   * @param preserveFiles 是否保留 Git Marketplace 的克隆目录（默认 false = 删除）
    */
-  async removeMarketplace(marketplaceId: string, deleteFiles = false): Promise<void> {
+  async removeMarketplace(marketplaceId: string, preserveFiles = false): Promise<void> {
     try {
       // 获取 Marketplace 配置
       const marketplaces = await this.settingsManager.getMarketplaces();
@@ -202,11 +210,15 @@ export class MarketplaceManager {
         );
       }
 
+      // 删除该 Marketplace 下的所有已安装 Plugin 记录
+      await this.settingsManager.removeInstalledPluginsByMarketplace(marketplaceId);
+
       // 删除配置
       await this.settingsManager.removeMarketplace(marketplaceId);
 
-      // 删除文件（仅对 Git Marketplace）
-      if (deleteFiles && config.source === MarketplaceSource.GIT) {
+      // 安全的文件删除：仅删除我们管理的 Git Marketplace 克隆目录
+      // 本地 Marketplace 的文件永远不会被删除，因为它们是用户拥有的原始文件
+      if (!preserveFiles && config.source === MarketplaceSource.GIT) {
         const marketplacePath = path.join(SkillsPaths.MARKETPLACE_ROOT, marketplaceId);
         await fs.remove(marketplacePath);
       }
