@@ -1081,6 +1081,8 @@ export const useMultiSessionState = () => {
         newSessions.set(sessionId, updatedSessionData);
 
         console.log(`🔄 [ROLLBACK] Updated rollbackable IDs for session ${sessionId}: ${rollbackableMessageIds.length} messages`);
+        console.log(`   IDs: ${rollbackableMessageIds.map(id => id.substring(0, 12)).join(', ')}`);
+        console.log(`   User messages in session: ${sessionData.messages.filter(m => m.type === 'user').map(m => m.id.substring(0, 12)).join(', ')}`);
         return { ...prev, sessions: newSessions };
       });
     }, [updateState]),

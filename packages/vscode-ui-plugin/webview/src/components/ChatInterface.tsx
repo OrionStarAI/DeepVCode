@@ -707,14 +707,14 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                         // 🎯 回退按钮显示条件：
                         // 1. 必须是用户消息
                         // 2. 必须在可回滚消息列表中
-                        // 3. 不能是最后一条消息（最后一条消息后面没有可回退的内容）
+                        // 🔧 FIX: 移除 index < messages.length - 1 条件，因为这在消息列表变化时会导致按钮闪现/消失
+                        // 回退功能本身会检查后续消息是否需要删除
                         message.type === 'user' &&
-                        rollbackableMessageIds.includes(message.id) &&
-                        index < messages.length - 1
+                        rollbackableMessageIds.includes(message.id)
                           ? handleRollback
                           : undefined
                       }
-                      canRevert={message.type === 'user' && rollbackableMessageIds.includes(message.id) && index < messages.length - 1}
+                      canRevert={message.type === 'user' && rollbackableMessageIds.includes(message.id)}
                       sessionId={sessionId}
                       messages={messages}
                       onUpdateMessages={onUpdateMessages}
