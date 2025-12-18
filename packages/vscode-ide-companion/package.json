@@ -2,7 +2,7 @@
   "name": "deepv-code-vscode-companion",
   "displayName": "IDE Companion for DeepV Code CLI",
   "description": "Integrate DeepV Code CLI seamlessly with your VS Code workspace.",
-  "version": "1.0.237",
+  "version": "1.0.238",
   "publisher": "DeepX",
   "icon": "assets/icon.png",
   "repository": {
