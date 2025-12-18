@@ -1080,9 +1080,17 @@ export const useMultiSessionState = () => {
         };
         newSessions.set(sessionId, updatedSessionData);
 
+        const rollbackIds = rollbackableMessageIds.map(id => id.substring(0, 12)).join(', ');
+        const userMsgIds = sessionData.messages.filter(m => m.type === 'user').map(m => m.id.substring(0, 12)).join(', ');
+
         console.log(`🔄 [ROLLBACK] Updated rollbackable IDs for session ${sessionId}: ${rollbackableMessageIds.length} messages`);
-        console.log(`   IDs: ${rollbackableMessageIds.map(id => id.substring(0, 12)).join(', ')}`);
-        console.log(`   User messages in session: ${sessionData.messages.filter(m => m.type === 'user').map(m => m.id.substring(0, 12)).join(', ')}`);
+        console.error(`   IDs: [${rollbackIds}]`);
+        console.error(`   User messages: [${userMsgIds}]`);
+
+        // 🔍 核心诊断：检查 rollbackableMessageIds 是否包含用户消息
+        const userMsgsInRollback = sessionData.messages.filter(m => m.type === 'user' && rollbackableMessageIds.includes(m.id));
+        console.error(`   User messages IN rollback list: ${userMsgsInRollback.length}`);
+
         return { ...prev, sessions: newSessions };
       });
     }, [updateState]),

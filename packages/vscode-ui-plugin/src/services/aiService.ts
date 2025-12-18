@@ -1334,8 +1334,8 @@ export class AIService {
    * 🎯 处理编辑消息并重新生成 - 回滚历史并重新处理
    */
   async processEditMessageAndRegenerate(messageId: string, newContent: any, context: ContextInfo): Promise<void> {
-    // 🎯 为编辑后的消息处理生成新的shared prompt_id
-    this.sharedPromptId = `edit-${messageId}-${Date.now()}`;
+    // 🎯 使用原始消息ID作为prompt_id，保持ID一致性，允许用户回滚到编辑前的状态
+    this.sharedPromptId = messageId;
 
     try {
       if (!this.isInitialized) {
@@ -1427,8 +1427,9 @@ export class AIService {
    * 🎯 处理聊天消息 - AI核心职责
    */
   async processChatMessage(message: ChatMessage, context?: ContextInfo): Promise<void> {
-    // 🎯 为整个消息处理周期生成一个共享的prompt_id，用于维持循环检测状态
-    this.sharedPromptId = `msg-${message.id}-${Date.now()}`;
+    // 🎯 使用前端消息ID作为prompt_id，确保回滚按钮可以正确匹配
+    // 原来的格式 `msg-${message.id}-${Date.now()}` 会导致前端无法识别此ID
+    this.sharedPromptId = message.id;
     const responseId = `ai-response-${Date.now()}`;
 
     try {
