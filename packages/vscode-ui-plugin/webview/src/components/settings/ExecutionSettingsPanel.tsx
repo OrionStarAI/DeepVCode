@@ -57,14 +57,17 @@ export const ExecutionSettingsPanel: React.FC<ExecutionSettingsPanelProps> = ({
         </h2>
       </div>
 
-      {/* YOLO模式开关 */}
+      {/* YOLO模式开关 - 直接生效，不需要Save按钮 */}
       <div className="execution-settings-panel__yolo-section">
         <BooleanSettingItem
           id="yolo-mode"
           label="YOLO Mode"
           description="Skip confirmations for file edits and shell commands. Dangerous operations still require approval."
           value={yoloMode}
-          onChange={(value) => onYoloModeChange(value)}
+          onChange={(value) => {
+            console.log('[YOLO] Toggle changed, immediately updating:', value);
+            onYoloModeChange(value);
+          }}
         />
       </div>
 

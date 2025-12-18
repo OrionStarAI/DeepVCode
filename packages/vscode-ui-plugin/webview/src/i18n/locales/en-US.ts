@@ -82,6 +82,8 @@ export const enUS: Translations = {
     cannotStop: '⚠️ Processing, cannot stop',
     sending: '⏳ Sending...',
     editPlaceholder: 'Edit your message...',
+    acceptChanges: 'Dismiss this list',
+    viewModifiedFiles: 'Click to expand and view all modified files',
     queue: {
       title: 'Pending Queue',
       hint: 'Auto-sends after AI reply',
@@ -96,6 +98,12 @@ export const enUS: Translations = {
       confirm: 'Confirm Edit',
       cancel: 'Cancel',
     },
+  },
+
+  fileStatus: {
+    new: 'new',
+    modified: 'modified',
+    deleted: 'deleted',
   },
 
   command: {
@@ -156,7 +164,9 @@ export const enUS: Translations = {
     noParameters: 'No parameters',
     more: 'more',
     unknownFile: 'Unknown file',
+    noDiffContent: 'No difference content',
     clickToViewDiff: 'Click to view complete diff in editor',
+    viewInEditor: 'View in Editor',
     working: 'Working...',
     toolNames: {
       write_file: 'Write File',

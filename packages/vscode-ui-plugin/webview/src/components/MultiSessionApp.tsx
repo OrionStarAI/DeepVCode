@@ -73,6 +73,20 @@ export const MultiSessionApp: React.FC = () => {
   const [uiReadyRetryCount, setUiReadyRetryCount] = useState(0);
   const maxRetries = 3;
 
+  // 🛡️ 超时管理（防止内存泄漏）
+  const loadingTimeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+
+  // 🎯 历史会话列表状态管理
+  const [historySessionsList, setHistorySessionsList] = useState<any[]>([]);
+  const [historyTotal, setHistoryTotal] = useState(0);
+  const [historyHasMore, setHistoryHasMore] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+  // 🎯 MCP状态管理
+  const [mcpServers, setMcpServers] = useState<any[]>([]);
+  const [mcpDiscoveryState, setMcpDiscoveryState] = useState<any>(null);
+  const [mcpStatusLoaded, setMcpStatusLoaded] = useState(false);
+
   // 🎯 模型选择状态管理
   // 🛡️ 改为 'auto' 让服务端决定成本最优的模型
   const [selectedModelId, setSelectedModelId] = useState('auto');
@@ -102,29 +116,8 @@ export const MultiSessionApp: React.FC = () => {
   const [compressionConfirmation, setCompressionConfirmation] = useState<CompressionConfirmationRequest | null>(null);
   // 🎯 压缩进行中状态
   const [isCompressing, setIsCompressing] = useState(false);
-  // 🎯 MCP 服务器状态管理
-  const [mcpServers, setMcpServers] = useState<Array<{
-    name: string;
-    status: 'disconnected' | 'connecting' | 'connected';
-    toolCount: number;
-    toolNames?: string[];
-    error?: string;
-  }>>([]);
-  const [mcpDiscoveryState, setMcpDiscoveryState] = useState<'not_started' | 'in_progress' | 'completed'>('not_started');
-  // 🎯 历史列表数据（分页加载）
-  const [historySessionsList, setHistorySessionsList] = useState<Array<{
-    id: string;
-    title: string;
-    timestamp: number;
-    messageCount: number;
-    messages: ChatMessage[];
-  }>>([]);
-  const [historyTotal, setHistoryTotal] = useState(0);
-  const [historyHasMore, setHistoryHasMore] = useState(true);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
-
-  // 🎯 BUG FIX: 保存加载超时ID，以便清理
-  const loadingTimeoutsRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  // 🎯 保存取消压缩时需要回滚到的原模型
+  const [previousModelBeforeSwitch, setPreviousModelBeforeSwitch] = useState<string | null>(null);
 
   const {
     state,
@@ -159,6 +152,31 @@ export const MultiSessionApp: React.FC = () => {
     getCurrentSession,
     getSession
   } = useMultiSessionState();
+
+  // 🎯 模型切换中状态（包含检查和压缩全过程）
+  const [isModelSwitching, setIsModelSwitching] = useState(false);
+
+  // 🎯 自动同步/轮询模型状态，防止界面卡死
+  useEffect(() => {
+    if (!isModelSwitching || !state.currentSessionId) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        // 🎯 如果正在压缩或等待确认，不要通过轮询关闭状态，由专门的消息监听器处理
+        if (isCompressing || compressionConfirmation) return;
+
+        const currentModel = await webviewModelService.getCurrentModel(state.currentSessionId || undefined);
+        if (currentModel === selectedModelId) {
+          console.log('🔄 [Polling] Model match detected, clearing switching state');
+          setIsModelSwitching(false);
+        }
+      } catch (error) {
+        console.warn('[Polling] Failed to sync model:', error);
+      }
+    }, 1000);
+
+    return () => clearInterval(pollInterval);
+  }, [isModelSwitching, state.currentSessionId, selectedModelId]);
 
   // 流式聊天支持：维护正在流式接收的消息
   const streamingMessages = useRef<Map<string, { messageId: string; content: string; sessionId: string }>>(new Map());
@@ -333,10 +351,16 @@ export const MultiSessionApp: React.FC = () => {
     // 2. 切换到目标session（更新前端状态）
     switchToSession(sessionId);
 
-    // 3. 通知后端切换session
+    // 3. 🎯 清除任何进行中的模型切换和压缩状态（新session应该有干净的状态）
+    setIsModelSwitching(false);
+    setCompressionConfirmation(null);
+    setIsCompressing(false);
+    setPreviousModelBeforeSwitch(null);
+
+    // 4. 通知后端切换session
     getGlobalMessageService().switchSession(sessionId);
 
-    // 4. 异步获取并同步该session的模型配置
+    // 5. 异步获取并同步该session的模型配置
     try {
       const currentModel = await webviewModelService.getCurrentModel(sessionId);
       if (currentModel && currentModel !== selectedModelId) {
@@ -361,12 +385,11 @@ export const MultiSessionApp: React.FC = () => {
     console.log('🚀 初始化主应用消息服务...');
     const messageService = getGlobalMessageService();
 
-    // =============================================================================
     // 🎯 压缩确认请求监听器（模型切换时上下文超限）
-    // =============================================================================
     webviewModelService.onCompressionConfirmationRequest((request) => {
       console.log('📊 [MultiSessionApp] Received compression confirmation request:', request);
       setCompressionConfirmation(request);
+      setIsModelSwitching(true); // 🎯 进入确认阶段，保持切换状态
     });
 
     // 🎯 压缩错误处理器
@@ -422,6 +445,19 @@ export const MultiSessionApp: React.FC = () => {
         // 此时sessions状态还在更新中，无法准确判断isContentLoaded
         console.log('🔄 [STARTUP] Requesting UI history for default session:', currentSessionId);
         messageService.switchSession(currentSessionId);
+
+        // 🎯 异步获取并同步该session的模型配置（防止兜底为Auto）
+        (async () => {
+          try {
+            const currentModel = await webviewModelService.getCurrentModel(currentSessionId);
+            if (currentModel) {
+              console.log('🔄 [STARTUP] Syncing model for current session:', currentSessionId, 'model:', currentModel);
+              setSelectedModelId(currentModel);
+            }
+          } catch (error) {
+            console.warn('[STARTUP] Failed to sync model for current session:', currentSessionId, error);
+          }
+        })();
       }
 
       // 🎯 会话列表加载完成（loading screen 由 onLoadingComplete 的一次性监听器处理）
@@ -752,7 +788,9 @@ export const MultiSessionApp: React.FC = () => {
         setSelectedModelId(payload.modelName);
         // 清除压缩状态
         setIsCompressing(false);
+        setIsModelSwitching(false); // 🎯 切换彻底完成
         setCompressionConfirmation(null);
+        setPreviousModelBeforeSwitch(null); // 🎯 清除保存的原模型
       } else {
         console.warn('📊 [MultiSessionApp] Missing sessionId or modelName in payload!');
       }
@@ -794,6 +832,26 @@ export const MultiSessionApp: React.FC = () => {
     });
 
     messageService.onToolCallsUpdate(({ sessionId, toolCalls, associatedMessageId }) => {
+      // 🎯 检查是否有subagent_update类型的工具，如果有，创建消息来显示进度
+      toolCalls.forEach(t => {
+        const resultStr = typeof t.result === 'string' ? t.result : JSON.stringify(t.result || '');
+        if (resultStr.includes('"type":"subagent_update"')) {
+          console.log('🎯 [SubagentUpdate] Found subagent_update in toolCall:', t.toolName, t.id);
+          console.log('🎯 [SubagentUpdate] Result type:', typeof t.result, 'length:', resultStr.length);
+
+          const subagentMessage: ChatMessage = {
+            id: `subagent-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+            type: 'assistant',
+            content: [{ type: 'text', value: resultStr }],
+            timestamp: Date.now(),
+            isStreaming: false,
+            isProcessingTools: false,
+            toolsCompleted: true
+          };
+          addMessage(sessionId, subagentMessage);
+          console.log('🎯 [SubagentUpdate] Added progress message:', subagentMessage.id);
+        }
+      });
 
       // 🎯 优先使用明确关联的messageId，否则回退到当前处理中的消息
       // 使用ref获取最新状态，避免闭包问题
@@ -949,7 +1007,8 @@ export const MultiSessionApp: React.FC = () => {
     let pendingMcpPayload: any = null;
 
     messageService.onMcpStatusUpdate((payload: any) => {
-      console.log('🔌 [MCP] Received MCP status update:', payload);
+      console.log('🔌 [MCP] Received MCP status update:', JSON.stringify(payload, null, 2));
+      console.log('🔌 [MCP] Servers in payload:', payload.servers?.map((s: any) => `${s.name}(tools:${s.toolCount}, enabled:${s.enabled})`).join(', '));
 
       // 🎯 保存最新的 payload
       pendingMcpPayload = payload;
@@ -961,15 +1020,34 @@ export const MultiSessionApp: React.FC = () => {
 
       mcpUpdateTimer = setTimeout(() => {
         if (pendingMcpPayload) {
-          if (pendingMcpPayload.servers) {
-            setMcpServers(pendingMcpPayload.servers);
+          if (pendingMcpPayload.servers !== undefined) {
+            console.log('🔌 [MCP] Applying servers update to state:', {
+              serverCount: pendingMcpPayload.servers.length,
+              servers: JSON.stringify(pendingMcpPayload.servers)
+            });
+            setMcpServers(pendingMcpPayload.servers); // 设置为数组（可能是空数组）
           }
           if (pendingMcpPayload.discoveryState) {
+            console.log('🔌 [MCP] Setting discoveryState to:', pendingMcpPayload.discoveryState);
             setMcpDiscoveryState(pendingMcpPayload.discoveryState);
           }
+          // 防抖后再延迟 500ms，确保收到最完整的数据
           pendingMcpPayload = null;
+          setTimeout(() => {
+            console.log('🔌 [MCP] Setting mcpStatusLoaded to true (防抖+延迟后)');
+            setMcpStatusLoaded(true);
+          }, 500);
         }
       }, 150);
+    });
+
+    // 🔌 监听 MCP enabled 状态更新
+    messageService.onMcpEnabledStates((payload: { states: Record<string, boolean> }) => {
+      console.log('🔌 [MCP] Received enabled states update:', payload);
+      setMcpServers(prev => prev.map(server => ({
+        ...server,
+        enabled: payload.states[server.name] ?? server.enabled ?? true
+      })));
     });
 
     return () => {
@@ -977,17 +1055,31 @@ export const MultiSessionApp: React.FC = () => {
 
   }, []);
 
-  // 🎯 请求 MCP 状态
+  // 🎯 切换会话时，清空 MCP 状态（等待后端自动发送）
   useEffect(() => {
     if (isLoggedIn !== true || !state.currentSessionId) return;
 
-    console.log('🔌 [MCP] Requesting MCP status for session:', state.currentSessionId);
+    console.log('🔌 [MCP] Session switched to:', state.currentSessionId);
+    console.log('🔌 [MCP] Clearing mcpServers and waiting for backend to send status');
+    // 立即清空服务器列表和加载状态，表示等待新数据
+    setMcpServers([]);
+    setMcpStatusLoaded(false);
+    // 后端会在 AIService 初始化完成后自动发送 mcp_status_update
+  }, [isLoggedIn, state.currentSessionId]);
+
+  // 🎯 打开设置面板时，请求 MCP 状态（用于历史对话）
+  useEffect(() => {
+    if (!state.ui.showProjectSettings || !state.currentSessionId) return;
+
+    console.log('🔌 [MCP] Settings panel opened, requesting MCP status');
+    setMcpStatusLoaded(false); // 标记为加载中
+
     const messageService = getGlobalMessageService();
     messageService.send({
       type: 'get_mcp_status',
       payload: { sessionId: state.currentSessionId }
     });
-  }, [isLoggedIn, state.currentSessionId]);
+  }, [state.ui.showProjectSettings, state.currentSessionId]);
 
   useEffect(() => {
     // 🎯 只有在已登录状态下才初始化消息服务
@@ -1007,27 +1099,8 @@ export const MultiSessionApp: React.FC = () => {
       setIsInitialized(true);
       setShowLoadingScreen(false);
     }
-  }, [
-    // 🎯 包含所有在事件监听器中使用的函数，确保依赖正确
-    isLoggedIn, // 🎯 添加登录状态依赖，只有登录后才初始化
-    createSession,
-    deleteSession,
-    switchToSession,
-    handleSessionSwitch,
-    updateSessionInfo,
-    restoreSessionMessages,
-    addMessage,
-    updateMessageContent,
-    setProcessingState,
-    setSessionLoading,
-    updateMessageToolCalls,
-    showConfirmationFor,
-    hideConfirmationDialog,
-    updateGlobalContext,
-    updateSessionContext,
-    abortCurrentProcess,
-    loadSessionContent,
-  ]);
+  }, [isLoggedIn]); // 🎯 只依赖登录状态，避免依赖函数导致重复初始化
+  // 注意：消息监听器在前面的独立useEffect中已注册，不需要再次注册
 
   // =============================================================================
   // 登录事件处理方法
@@ -1084,6 +1157,31 @@ export const MultiSessionApp: React.FC = () => {
   // =============================================================================
   // 事件处理方法
   // =============================================================================
+
+  // 🔌 处理 MCP 启用状态切换
+  const handleToggleMcpEnabled = React.useCallback((serverName: string, enabled: boolean) => {
+    console.log(`🔌 [MCP] Toggle ${serverName} enabled: ${enabled}`);
+
+    // 立即更新本地状态（乐观更新）
+    setMcpServers(prev => prev.map(server =>
+      server.name === serverName ? { ...server, enabled } : server
+    ));
+
+    // 发送消息给扩展
+    const messageService = getGlobalMessageService();
+    messageService.setMcpEnabled(serverName, enabled);
+
+    // 如果是启用操作，延迟刷新 MCP 状态以获取最新的工具信息
+    const sessionId = state.currentSessionId;
+    if (enabled && sessionId) {
+      setTimeout(() => {
+        messageService.send({
+          type: 'get_mcp_status',
+          payload: { sessionId }
+        });
+      }, 300);
+    }
+  }, [state.currentSessionId]);
 
   // 🎯 处理发送消息
   const handleSendMessage = React.useCallback((content: MessageContent, targetSessionId?: string) => {
@@ -1423,12 +1521,35 @@ User question: ${contentStr}`;
   /**
    * 🎯 处理模型变更
    */
-  const handleModelChange = (modelId: string) => {
-    console.log('🤖 Model changed to:', modelId);
-    setSelectedModelId(modelId);
+  const handleModelChange = async (modelId: string) => {
+    // 🎯 防止重复切换：如果已经在切换中或在弹窗确认中，忽略新请求
+    if (isModelSwitching || compressionConfirmation) {
+      console.warn('🚫 [ModelChange] Already switching or waiting for compression confirmation, ignoring new request');
+      return;
+    }
 
-    // TODO: 将模型选择发送到后端
-    // getGlobalMessageService().setModel(modelId);
+    // 🎯 记录旧模型，以便回滚
+    const previousModelId = selectedModelId;
+
+    console.log('🤖 Attempting to change model:', previousModelId, '→', modelId);
+    setSelectedModelId(modelId);
+    setPreviousModelBeforeSwitch(previousModelId); // 🎯 保存原模型用于取消时回滚
+    setIsModelSwitching(true); // 🎯 开始切换
+
+    try {
+      await webviewModelService.setCurrentModel(modelId, state.currentSessionId || undefined);
+
+      // 🎯 如果调用 setCurrentModel 成功但没有抛异常，说明请求已发送
+      // 后续的处理由以下几种情况处理：
+      // 1. 如果需要压缩，onCompressionConfirmationRequest 会被触发
+      // 2. 如果不需要压缩或压缩完成，轮询会检测到模型已切换并清除 isModelSwitching
+      // 3. 前端的轮询机制（1000ms）会定期检查当前模型是否匹配预期模型
+    } catch (error) {
+      console.error('❌ Failed to change model, rolling back:', error);
+      setSelectedModelId(previousModelId); // 🎯 失败回滚
+      setIsModelSwitching(false);
+      setPreviousModelBeforeSwitch(null);
+    }
   };
 
 
@@ -1811,6 +1932,7 @@ User question: ${contentStr}`;
                   updateMessageQueue(state.currentSessionId, newQueue);
                 }
               }}
+              isModelSwitching={isModelSwitching} // 🎯 传入模型切换状态
               isLoading={currentSession.isLoading}
               onSendMessage={handleSendMessage}
               onToolConfirm={handleToolConfirmationResponse}
@@ -1898,6 +2020,8 @@ User question: ${contentStr}`;
         onClose={() => toggleProjectSettings(false)}
         mcpServers={mcpServers}
         mcpDiscoveryState={mcpDiscoveryState}
+        mcpStatusLoaded={mcpStatusLoaded}
+        onToggleMcpEnabled={handleToggleMcpEnabled}
       />
 
       {/* 自定义规则管理对话框 */}
@@ -2003,13 +2127,24 @@ User question: ${contentStr}`;
         }}
         onCancel={() => {
           if (compressionConfirmation) {
+            // 🎯 立即发送取消响应
             webviewModelService.sendCompressionConfirmationResponse({
               requestId: compressionConfirmation.requestId,
               sessionId: compressionConfirmation.sessionId,
               targetModel: compressionConfirmation.targetModel,
               confirmed: false
             });
+
+            // 🎯 立即回滚到原模型
+            console.log('🔄 [Compression] User cancelled, rolling back to:', previousModelBeforeSwitch);
+            if (previousModelBeforeSwitch) {
+              setSelectedModelId(previousModelBeforeSwitch);
+            }
+
+            // 🎯 立即清除所有状态，停止模型切换流程
+            setIsModelSwitching(false);
             setCompressionConfirmation(null);
+            setPreviousModelBeforeSwitch(null);
           }
         }}
       />

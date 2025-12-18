@@ -45,6 +45,56 @@
   line-height: 1.4;
 }
 
+/* 🎯 任务头部样式 */
+.subagent-task-header {
+  padding: 8px 12px;
+  background: var(--vscode-list-hoverBackground);
+  border-left: 3px solid var(--vscode-charts-blue);
+  margin-bottom: 8px;
+  border-radius: 4px;
+}
+
+.subagent-task-title-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.subagent-status-icon {
+  font-size: 14px;
+  font-weight: bold;
+  flex-shrink: 0;
+}
+
+.subagent-task-brief {
+  color: var(--vscode-foreground);
+  font-weight: 600;
+  flex: 1;
+}
+
+.subagent-task-progress {
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
+  background: var(--vscode-badge-background);
+  color: var(--vscode-badge-foreground);
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.subagent-task-description {
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .subagent-running-tools {
   margin-left: 4px; /* 减少缩进 */
 }
@@ -52,8 +102,9 @@
 .subagent-tool-item {
   display: flex;
   align-items: center;
-  gap: 4px; /* 减少间距 */
-  margin-bottom: 1px; /* 减少下边距 */
+  gap: 4px;
+  margin-bottom: 1px;
+  width: 100%;
 }
 
 .subagent-connector {
@@ -73,19 +124,26 @@
 }
 
 .subagent-tool-name {
-  color: var(--vscode-symbolIcon-functionForeground);
-  font-weight: 500;
+  color: var(--vscode-editor-foreground) !important;
+  font-weight: 600;
   white-space: nowrap;
+  flex-shrink: 1; /* 🎯 允许名称在空间不足时收缩 */
+  max-width: 150px; /* 🎯 给个最大上限 */
+  min-width: 60px; /* 🎯 保证最少能看清工具名开头 */
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .subagent-tool-desc {
-  color: var(--vscode-descriptionForeground);
+  color: var(--vscode-descriptionForeground) !important;
   font-size: 11px;
-  margin-left: 4px;
+  margin-left: 8px;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-  flex: 1;
+  flex: 2; /* 🎯 描述信息占更多权重 */
+  min-width: 0;
+  opacity: 0.8;
 }
 
 .subagent-stats {
@@ -351,51 +409,84 @@
   }
 }
 
-/* Diff编辑器按钮样式 */
+/* Diff编辑器按钮样式 - VSCode风格 */
 .diff-open-editor-btn {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
   margin: 4px 0;
-  font-size: 11px;
-  line-height: 1.2;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
   color: var(--vscode-button-foreground);
   background-color: var(--vscode-button-background);
   border: 1px solid var(--vscode-button-border, transparent);
-  border-radius: 2px;
+  border-radius: 3px;
   cursor: pointer;
-  transition: background-color 0.2s ease;
+  user-select: none;
+  transition: all 0.15s ease-in-out;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
 }
 
 .diff-open-editor-btn:hover {
   background-color: var(--vscode-button-hoverBackground);
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
 }
 
 .diff-open-editor-btn:active {
   background-color: var(--vscode-button-activeBackground, var(--vscode-button-hoverBackground));
+  transform: translateY(0);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.diff-open-editor-btn:focus {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: 2px;
+}
+
+.diff-open-editor-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
 }
 
 .diff-header-actions {
   display: flex;
   justify-content: flex-end;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
+  gap: 8px;
+}
+
+.diff-display-container.simplified {
+  padding: 12px;
 }
 
 .diff-display-container.simplified .diff-open-editor-btn {
-  margin-left: 8px;
+  margin-left: auto;
+  margin-top: 12px;
 }
 
 /* 响应式调整 */
+@media (max-width: 768px) {
+  .diff-open-editor-btn {
+    font-size: 11px;
+    padding: 5px 10px;
+    gap: 4px;
+  }
+
+  .diff-header-actions {
+    margin-bottom: 10px;
+  }
+}
+
 @media (max-width: 480px) {
   .diff-stats {
     flex-direction: column;
     align-items: flex-end;
     gap: 2px;
-  }
-
-  .subagent-tool-desc {
-    display: none;
   }
 
   .todo-text,
@@ -405,6 +496,12 @@
 
   .diff-open-editor-btn {
     font-size: 10px;
-    padding: 3px 6px;
+    padding: 4px 8px;
+    gap: 3px;
+    width: 100%;
+  }
+
+  .diff-display-container.simplified .diff-open-editor-btn {
+    margin-left: 0;
   }
 }

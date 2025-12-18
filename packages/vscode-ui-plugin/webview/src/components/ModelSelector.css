@@ -67,6 +67,16 @@
   flex-shrink: 0;
 }
 
+.spinning {
+  animation: spin 1.5s linear infinite;
+  display: inline-block;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .model-info {
   display: flex;
   flex-direction: row;
@@ -84,7 +94,7 @@
   text-overflow: ellipsis;
   flex-shrink: 1;
   min-width: 0;
-  
+
   /* 🎯 Windows 字体渲染优化 - 确保文本清晰 */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -362,17 +372,17 @@
   pointer-events: none;
   opacity: 0;
   animation: tooltipFadeIn 0.2s ease-out forwards;
-  
+
   /* 🎯 Windows 字体渲染优化 */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
-  
+
   /* 🎯 Windows 高 DPI 渲染优化 - 确保像素对齐 */
   transform: translateZ(0);
   -webkit-transform: translateZ(0);
   will-change: transform, opacity;
-  
+
   /* 🎯 最大宽度限制，避免超长文本导致布局问题 */
   max-width: 300px;
   overflow: hidden;

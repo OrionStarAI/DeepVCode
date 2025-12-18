@@ -359,11 +359,11 @@ export class SessionManager extends EventEmitter {
    */
   async setProjectYoloMode(enabled: boolean): Promise<void> {
     try {
-      this.logger.info(`🚀 Setting project YOLO mode: ${enabled ? 'enabled' : 'disabled'}`);
+      this.logger.info(`[YOLO] Setting project YOLO mode: ${enabled ? 'enabled' : 'disabled'}`);
 
       const sessionIds = Array.from(this.aiServices.keys());
       if (sessionIds.length === 0) {
-        this.logger.warn('No AI services available for YOLO mode setting');
+        this.logger.warn('[YOLO] No AI services available');
         return;
       }
 
@@ -378,29 +378,22 @@ export class SessionManager extends EventEmitter {
             if (config) {
               const targetMode = enabled ? ApprovalMode.YOLO : ApprovalMode.DEFAULT;
 
-              // 🎯 只在第一个session上保存到项目配置，避免重复写入
-              if (!projectConfigUpdated) {
-                config.setApprovalModeWithProjectSync(targetMode, true);
-                projectConfigUpdated = true;
-                this.logger.info(`✅ YOLO mode set to: ${targetMode}, saved to project config`);
-              } else {
-                // 其他session只设置内存中的模式，不重复写项目文件
-                config.setApprovalModeWithProjectSync(targetMode, false);
-              }
-
-              this.logger.debug(`📝 Updated YOLO mode for session: ${sessionId}`);
+              // 🎯 所有session都禁止写项目文件（由webview层统一管理文件写入）
+              config.setApprovalModeWithProjectSync(targetMode, false);
+              projectConfigUpdated = true;
+              this.logger.debug(`[YOLO] Updated mode to: ${targetMode} for session: ${sessionId}`);
             }
           }
         } catch (error) {
-          this.logger.error(`❌ Failed to set YOLO mode for session ${sessionId}`, error instanceof Error ? error : undefined);
+          this.logger.error(`[YOLO] Failed to set mode for session ${sessionId}`, error instanceof Error ? error : undefined);
         }
       }
 
       // 🎯 通知SessionManager层面的状态变更（不需要通知前端，因为前端触发的）
-      this.logger.info(`✅ Project YOLO mode synchronized to all ${sessionIds.length} sessions`);
+      this.logger.info(`[YOLO] ✅ Synchronized to all ${sessionIds.length} sessions`);
 
     } catch (error) {
-      this.logger.error('❌ Failed to set project YOLO mode', error instanceof Error ? error : undefined);
+      this.logger.error('[YOLO] Failed to set project YOLO mode', error instanceof Error ? error : undefined);
       throw error;
     }
   }

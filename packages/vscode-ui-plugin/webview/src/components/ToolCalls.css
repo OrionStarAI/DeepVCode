@@ -144,7 +144,7 @@
 .tool-name {
   font-size: 13px;
   font-weight: 600;
-  color: var(--vscode-symbolIcon-functionForeground);
+  color: color-mix(in srgb, var(--vscode-editor-foreground) 80%, transparent);
   white-space: nowrap;
   flex-shrink: 0;
 }
@@ -595,6 +595,20 @@
 
 .animate-spin {
   animation: spin 1s linear infinite;
+}
+
+/* 🎯 闪烁动画 - 用于执行中的圆点 */
+@keyframes flashing {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.status-icon.executing.flashing {
+  animation: flashing 1s ease-in-out infinite;
 }
 
 /* 响应式 */

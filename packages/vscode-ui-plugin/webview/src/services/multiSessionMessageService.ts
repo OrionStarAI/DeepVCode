@@ -920,8 +920,36 @@ export class MultiSessionMessageService {
   /**
    * 🎯 监听 MCP 状态更新
    */
-  onMcpStatusUpdate(callback: (data: { discoveryState: string; servers: Array<{ name: string; status: string; toolCount: number }> }) => void): () => void {
+  onMcpStatusUpdate(callback: (data: { discoveryState: string; servers: Array<{ name: string; status: string; toolCount: number; enabled?: boolean }> }) => void): () => void {
     return this.addMessageHandler('mcp_status_update', callback);
+  }
+
+  /**
+   * 🔌 设置 MCP Server 启用状态
+   */
+  setMcpEnabled(serverName: string, enabled: boolean): void {
+    console.log(`🔌 [MCP WebView] Sending set_mcp_enabled: serverName='${serverName}', enabled=${enabled}`);
+    this.sendMessage({
+      type: 'set_mcp_enabled' as any,
+      payload: { serverName, enabled }
+    });
+  }
+
+  /**
+   * 🔌 获取 MCP Server 启用状态
+   */
+  getMcpEnabledStates(serverNames: string[]): void {
+    this.sendMessage({
+      type: 'get_mcp_enabled_states' as any,
+      payload: { serverNames }
+    });
+  }
+
+  /**
+   * 🔌 监听 MCP 启用状态更新
+   */
+  onMcpEnabledStates(callback: (data: { states: Record<string, boolean> }) => void): () => void {
+    return this.addMessageHandler('mcp_enabled_states', callback);
   }
 
   // =============================================================================
@@ -1037,8 +1065,8 @@ export class MultiSessionMessageService {
   /**
    * 监听来自扩展的消息
    */
-  onExtensionMessage(type: string, handler: (payload: any) => void) {
-    this.addMessageHandler(type, handler);
+  onExtensionMessage(type: string, handler: (payload: any) => void): () => void {
+    return this.addMessageHandler(type, handler);
   }
 
   // =============================================================================

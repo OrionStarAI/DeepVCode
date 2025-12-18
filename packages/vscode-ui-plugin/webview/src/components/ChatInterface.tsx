@@ -58,6 +58,8 @@ interface ChatInterfaceProps {
   onAddMessageToQueue?: (content: MessageContent) => void;
   onRemoveMessageFromQueue?: (id: string) => void;
   onUpdateMessageQueue?: (newQueue: MessageQueueItem[]) => void;
+  // 🎯 新增：模型切换状态
+  isModelSwitching?: boolean;
 }
 
 export const ChatInterface: React.FC<ChatInterfaceProps> = ({
@@ -82,7 +84,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   messageQueue = [],
   onAddMessageToQueue,
   onRemoveMessageFromQueue,
-  onUpdateMessageQueue
+  onUpdateMessageQueue,
+  isModelSwitching = false
 }) => {
   const { t } = useTranslation();
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
@@ -725,7 +728,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
               });
             })()}
 
-            {isLoading && (
+            {/* 🎯 服务初始化/准备中 - 显示"Planning next moves..." */}
+            {isLoading && !isProcessing && (
               <div className="loading-message">
                 <div className="loading-indicator">
                   <div className="loading-dots">
@@ -733,7 +737,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                     <span></span>
                     <span></span>
                   </div>
-                  <span className="loading-text">{t('chat.thinking')}</span>
+                  <span className="loading-text">Planning next moves...</span>
                 </div>
               </div>
             )}
@@ -855,6 +859,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         ref={messageInputRef}
         isLoading={isLoading}
         isProcessing={isProcessing}
+        isModelSwitching={isModelSwitching} // 🎯 传入模型切换状态
         canAbort={canAbort}
         onSendMessage={handleSendMessage}
         onAbortProcess={onAbortProcess}

@@ -4,6 +4,8 @@
  */
 
 import React from 'react';
+import { useTranslation } from '../../hooks/useTranslation';
+import { FileText, ExternalLink } from 'lucide-react';
 import './LintStyles.css';
 
 interface DiffLine {
@@ -334,7 +336,8 @@ const renderDetailedDiff = (parsedLines: DiffLine[], fileName?: string): React.R
 };
 
 export const DiffRenderer: React.FC<DiffRendererProps> = ({ data, simplified = false }) => {
-  const { fileDiff, fileName = '未知文件' } = data;
+  const { t } = useTranslation();
+  const { fileDiff, fileName = t('unknownFile', {}, 'Unknown File') } = data;
 
   console.log('🎯 [DiffRenderer] Rendering Diff data:', data);
 
@@ -365,7 +368,7 @@ export const DiffRenderer: React.FC<DiffRendererProps> = ({ data, simplified = f
   if (!fileDiff || typeof fileDiff !== 'string') {
     return (
       <div className="diff-display-container">
-        <div className="diff-no-content">无差异内容</div>
+        <div className="diff-no-content">{t('noDiffContent', {}, 'No difference content')}</div>
       </div>
     );
   }
@@ -381,9 +384,11 @@ export const DiffRenderer: React.FC<DiffRendererProps> = ({ data, simplified = f
         <button
           className="diff-open-editor-btn"
           onClick={handleOpenInEditor}
-          title="在编辑器中查看完整diff"
+          title={t('clickToViewDiff', {}, 'Click to view complete diff in editor')}
+          aria-label={t('clickToViewDiff', {}, 'Click to view complete diff in editor')}
         >
-          📝 在编辑器中查看
+          <FileText size={16} />
+          <span>{t('viewInEditor', {}, 'View in Editor')}</span>
         </button>
       </div>
     );
@@ -395,9 +400,11 @@ export const DiffRenderer: React.FC<DiffRendererProps> = ({ data, simplified = f
         <button
           className="diff-open-editor-btn"
           onClick={handleOpenInEditor}
-          title="在编辑器中查看完整diff"
+          title={t('clickToViewDiff', {}, 'Click to view complete diff in editor')}
+          aria-label={t('clickToViewDiff', {}, 'Click to view complete diff in editor')}
         >
-          📝 在编辑器中查看
+          <FileText size={16} />
+          <span>{t('viewInEditor', {}, 'View in Editor')}</span>
         </button>
       </div>
       {renderDetailedDiff(parsedLines, fileName)}

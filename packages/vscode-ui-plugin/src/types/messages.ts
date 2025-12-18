@@ -251,6 +251,8 @@ export type WebViewToExtensionMessage =
   // 🎯 MCP 相关
   | { type: 'get_mcp_status'; payload: { sessionId: string } }
   | { type: 'open_mcp_settings'; payload: {} }
+  | { type: 'set_mcp_enabled'; payload: { serverName: string; enabled: boolean } }
+  | { type: 'get_mcp_enabled_states'; payload: { serverNames: string[] } }
   // 🎯 文件路径跳转相关
   | { type: 'open_file'; payload: { filePath: string; line?: number; symbol?: string } }
   | { type: 'goto_symbol'; payload: { symbol: string } }
@@ -346,6 +348,7 @@ export type ExtensionToWebViewMessage =
   | { type: 'nanobanana_status_update'; payload: { taskId: string; status: 'pending' | 'processing' | 'completed' | 'failed'; progress?: number; resultUrls?: string[]; originalUrls?: string[]; errorMessage?: string; creditsDeducted?: number } }
   // 🔌 MCP 相关消息类型
   | { type: 'mcp_status_update'; payload: MCPStatusPayload }
+  | { type: 'mcp_enabled_states'; payload: { states: Record<string, boolean> } }
   // 🎯 自定义斜杠命令相关
   | { type: 'slash_commands_list'; payload: { commands: SlashCommandInfo[] } }
   | { type: 'slash_command_result'; payload: { success: boolean; prompt?: string; error?: string } }
@@ -371,6 +374,7 @@ export interface MCPStatusPayload {
 export interface MCPServerStatusInfo {
   name: string;
   status: 'disconnected' | 'connecting' | 'connected';
+  enabled?: boolean; // 是否启用（控制工具是否注册给 AI）
   toolCount: number;
   error?: string;
 }

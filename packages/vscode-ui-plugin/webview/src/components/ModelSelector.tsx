@@ -5,9 +5,10 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Check } from 'lucide-react';
+import { ChevronDown, Check, Loader2 } from 'lucide-react';
 import { useTranslation } from '../hooks/useTranslation';
 import { webviewModelService } from '../services/webViewModelService';
+import { getGlobalMessageService } from '../services/globalMessageService';
 import { getProviderIcon } from './ModelProviderIcons';
 import './ModelSelector.css';
 import './ModelProviderIcons.css';
@@ -69,6 +70,7 @@ interface ModelSelectorProps {
   disabled?: boolean;
   className?: string;
   sessionId?: string; // 🎯 新增：当前会话ID
+  isSwitchingFromParent?: boolean; // 🎯 新增：从父组件传入的切换状态
 }
 
 export const ModelSelector: React.FC<ModelSelectorProps> = ({
@@ -76,7 +78,8 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   onModelChange,
   disabled = false,
   className = '',
-  sessionId
+  sessionId,
+  isSwitchingFromParent = false
 }) => {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
@@ -85,6 +88,11 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   const [error, setError] = useState<string | null>(null);
 
   const [selectedModel, setSelectedModel] = useState<ModelOption | null>(null);
+  const [isSwitchingLocal, setIsSwitchingLocal] = useState(false); // 🎯 本地切换状态
+
+  // 🎯 最终切换状态：本地或父组件
+  const isSwitching = isSwitchingLocal || isSwitchingFromParent;
+
   const dropdownRef = useRef<HTMLDivElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -163,6 +171,9 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
 
   // 🎯 响应外部 selectedModelId 变化（如压缩后模型切换）
   useEffect(() => {
+    // 🎯 如果正在手动切换中，忽略外部属性同步，避免被旧属性值冲掉状态
+    if (isSwitchingLocal) return;
+
     if (selectedModelId && modelOptions.length > 0) {
       const newModel = modelOptions.find(opt => opt.id === selectedModelId);
       if (newModel && newModel.id !== selectedModel?.id) {
@@ -170,7 +181,20 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
         setSelectedModel(newModel);
       }
     }
-  }, [selectedModelId, modelOptions, selectedModel?.id]);
+  }, [selectedModelId, modelOptions, selectedModel?.id, isSwitchingLocal]);
+
+  // 🎯 监听模型切换完成消息
+  useEffect(() => {
+    const messageService = getGlobalMessageService();
+    const cleanup = messageService.onExtensionMessage('model_switch_complete', () => {
+      console.log('📊 [ModelSelector] Received model_switch_complete, clearing isSwitchingLocal');
+      setIsSwitchingLocal(false);
+    });
+
+    return () => {
+      if (typeof cleanup === 'function') cleanup();
+    };
+  }, []);
 
   // 点击外部关闭下拉菜单
   useEffect(() => {
@@ -191,20 +215,40 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
 
   // 处理模型选择
   const handleModelSelect = async (model: ModelOption) => {
-    if (!model.isAvailable || disabled) return;
+    if (!model.isAvailable || disabled || isSwitching) return;
 
+    setIsSwitchingLocal(true); // 🎯 开始切换
     setSelectedModel(model);
     setIsOpen(false);
 
+    // 🎯 增加安全超时保护，防止界面永久卡死
+    const safetyTimeout = setTimeout(() => {
+      setIsSwitchingLocal(current => {
+        if (current) {
+          console.warn('⚠️ [ModelSelector] Switch timeout safety triggered');
+          return false;
+        }
+        return current;
+      });
+    }, 10000);
+
     // 保存模型选择到扩展配置（传递sessionId）
+    let success = false;
     try {
       await webviewModelService.setCurrentModel(model.name, sessionId);
+      // 🎯 成功后立即清除状态
+      setIsSwitchingLocal(false);
+      clearTimeout(safetyTimeout);
+      success = true;
     } catch (err) {
       console.error('Failed to save model selection:', err);
-      // 可以在这里显示用户提示
+      setIsSwitchingLocal(false); // 失败时恢复
+      clearTimeout(safetyTimeout);
+      success = false;
     }
 
-    if (onModelChange) {
+    // 🎯 只有成功才调用 onModelChange 回调，避免失败时重复尝试
+    if (success && onModelChange) {
       onModelChange(model.id, model);
     }
   };
@@ -448,13 +492,13 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   return (
     <div
       ref={containerRef}
-      className={`model-selector ${className} ${disabled ? 'disabled' : ''} ${isOpen ? 'open' : ''}`}
+      className={`model-selector ${className} ${disabled || isSwitching ? 'disabled' : ''} ${isOpen ? 'open' : ''}`}
     >
       {/* 触发按钮 */}
       <button
         className="model-selector-trigger"
-        onClick={() => !disabled && !loading && setIsOpen(!isOpen)}
-        disabled={disabled || loading}
+        onClick={() => !disabled && !loading && !isSwitching && setIsOpen(!isOpen)}
+        disabled={disabled || loading || isSwitching}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
       >
@@ -464,6 +508,15 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
               <div className="model-icon">⏳</div>
               <div className="model-info">
                 <span className="model-name">{t('model.selector.loading', undefined, 'Loading...')}</span>
+              </div>
+            </>
+          ) : isSwitching ? (
+            <>
+              <div className="model-icon">
+                <Loader2 size={16} className="spinning" />
+              </div>
+              <div className="model-info">
+                <span className="model-name">{t('model.selector.switching', undefined, 'Switching...')}</span>
               </div>
             </>
           ) : error ? (

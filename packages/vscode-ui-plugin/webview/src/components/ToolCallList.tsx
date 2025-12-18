@@ -3,7 +3,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronDown, ChevronRight, Circle, RotateCcw, CheckCircle, XCircle, AlertTriangle, Square, HelpCircle, Info, Check, X, Zap, ShieldAlert, Repeat } from 'lucide-react';
+import { ChevronDown, ChevronRight, Circle, Disc, RotateCcw, CheckCircle, XCircle, AlertTriangle, Square, HelpCircle, Info, Check, X, Zap, ShieldAlert, Repeat } from 'lucide-react';
 import { ToolCall } from '../types';
 import { useTranslation } from '../hooks/useTranslation';
 import { TOOL_CALL_STATUS } from '../constants/toolConstants';
@@ -47,9 +47,28 @@ const renderResult = (result: any): React.ReactNode => {
     }
   }
 
-  // 字符串结果 - 直接显示
+  // 字符串结果 - 先检查是否是特殊JSON格式
   if (typeof result === 'string') {
     console.log('🎯 [renderResult] String result');
+    // 尝试parse字符串看是否是特殊格式
+    if (result.trim().startsWith('{')) {
+      try {
+        const parsed = JSON.parse(result);
+
+        // 🎯 SubAgent显示 - 支持两种格式
+        if (parsed.type === 'subagent_update' && parsed.data?.type === 'subagent_display') {
+          // 格式1: {"type":"subagent_update","data":{"type":"subagent_display",...}}
+          console.log('🎯 [renderResult] SubAgent update detected in string');
+          return <SubAgentDisplayRenderer data={parsed.data} />;
+        } else if (parsed.type === 'subagent_display') {
+          // 格式2: {"type":"subagent_display",...}
+          console.log('🎯 [renderResult] SubAgent display detected in string');
+          return <SubAgentDisplayRenderer data={parsed} />;
+        }
+      } catch (e) {
+        // 不是JSON，继续按字符串处理
+      }
+    }
     return <pre>{result}</pre>;
   }
 
@@ -377,18 +396,30 @@ const ToolCallItem: React.FC<{
             <span className="live-output-label">
               {toolCall.status === TOOL_CALL_STATUS.EXECUTING ? t('tools.status.executing', {}, '🔄 Executing...') : t('tools.output', {}, '📄 Output')}
             </span>
-            {toolCall.liveOutput && (
-              <span className="live-output-size">
-                {Math.round((toolCall.liveOutput.length / 1024) * 100) / 100}KB
-              </span>
-            )}
           </div>
           <div className="live-output-content" ref={liveOutputRef}>
-            {toolCall.liveOutput ? (
-              <pre className="live-output-text">{toolCall.liveOutput}</pre>
-            ) : (
-              <div className="live-output-placeholder">{t('tools.waitingForOutput', {}, 'Waiting for output...')}</div>
-            )}
+            {(() => {
+              if (!toolCall.liveOutput) {
+                return <div className="live-output-placeholder">{t('tools.waitingForOutput', {}, 'Waiting for output...')}</div>;
+              }
+
+              const output = toolCall.liveOutput.trim();
+              // 🎯 检查是否是 SubAgent 实时更新 JSON
+              if (output.startsWith('{') && output.includes('"subagent_')) {
+                try {
+                  const parsed = JSON.parse(output);
+                  if (parsed.type === 'subagent_update' && parsed.data?.type === 'subagent_display') {
+                    return <SubAgentDisplayRenderer data={parsed.data} />;
+                  } else if (parsed.type === 'subagent_display') {
+                    return <SubAgentDisplayRenderer data={parsed} />;
+                  }
+                } catch (e) {
+                  // 解析失败，回退到普通文本显示
+                }
+              }
+
+              return <pre className="live-output-text">{toolCall.liveOutput}</pre>;
+            })()}
           </div>
         </div>
       )}
@@ -434,21 +465,26 @@ const ToolCallItem: React.FC<{
 
 // 状态图标组件 - 参考CLI实现
 const getStatusIcon = (status: string) => {
-  const iconProps = { size: 16, className: "status-icon" };
+  const iconProps = { size: 8, className: "status-icon" };
+  const dotStyle = { fontSize: '10px', lineHeight: '1' };
 
   switch (status) {
     case TOOL_CALL_STATUS.SCHEDULED:
-      return <Circle {...iconProps} className="status-icon pending" />;
+      return <span className="status-icon pending" style={dotStyle}>●</span>;
     case TOOL_CALL_STATUS.EXECUTING:
-      return <RotateCcw {...iconProps} className="status-icon executing animate-spin" />;
+      // 🎯 闪烁的橙黄色实心小圆点
+      return <span className="status-icon executing flashing" style={dotStyle}>●</span>;
     case TOOL_CALL_STATUS.SUCCESS:
-      return <CheckCircle {...iconProps} className="status-icon success" />;
+      // 🎯 绿色实心小圆点
+      return <span className="status-icon success" style={dotStyle}>●</span>;
     case TOOL_CALL_STATUS.ERROR:
-      return <XCircle {...iconProps} className="status-icon error" />;
+      // 🎯 红色实心小圆点
+      return <span className="status-icon error" style={dotStyle}>●</span>;
     case TOOL_CALL_STATUS.WAITING_FOR_CONFIRMATION:
       return <AlertTriangle {...iconProps} className="status-icon confirming" />;
     case TOOL_CALL_STATUS.CANCELED:
-      return <Square {...iconProps} className="status-icon cancelled" />;
+      // 🎯 灰色实心小圆点 - 停止/取消状态
+      return <span className="status-icon cancelled" style={dotStyle}>●</span>;
     default:
       return <HelpCircle {...iconProps} className="status-icon unknown" />;
   }

@@ -6,6 +6,7 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
+import * as fs from 'fs';
 import { WebViewService } from './services/webviewService';
 import { ContextService } from './services/contextService';
 import { MultiSessionCommunicationService } from './services/multiSessionCommunicationService';
@@ -27,6 +28,8 @@ import { ROLLBACK_MESSAGES } from './i18n/messages';
 import { ClipboardCacheService } from './services/clipboardCacheService';
 import { SlashCommandService } from './services/slashCommandService';
 import { TerminalOutputService } from './services/terminalOutputService';
+import { McpEnabledStateService } from './services/mcpEnabledStateService';
+import { getAllMCPServerToolCounts, getAllMCPServerToolNames } from 'deepv-code-core';
 import { SessionType, SessionStatus } from './constants/sessionConstants';
 import { SessionInfo } from './types/sessionTypes';
 
@@ -131,6 +134,11 @@ export async function activate(context: vscode.ExtensionContext) {
     fileSearchService = new FileSearchService(logger);
     fileRollbackService = FileRollbackService.getInstance(logger);
     clipboardCache = new ClipboardCacheService(logger);
+
+    // 🔌 初始化 MCP 启用状态服务
+    const mcpEnabledStateService = McpEnabledStateService.getInstance();
+    mcpEnabledStateService.initialize(context);
+    logger.info('McpEnabledStateService initialized');
 
     // 🎯 初始化斜杠命令服务
     slashCommandService = new SlashCommandService(logger);
@@ -761,37 +769,114 @@ function setupBasicMessageHandlers() {
   // 🎯 处理项目设置更新请求
   communicationService.onProjectSettingsUpdate(async (data) => {
     try {
-      logger.info(`Received project settings update: YOLO mode ${data.yoloMode ? 'enabled' : 'disabled'}, Preferred Model: ${data.preferredModel}`);
+      logger.info(`[YOLO] Received project settings update: YOLO mode ${data.yoloMode ? 'enabled' : 'disabled'}, Preferred Model: ${data.preferredModel}`);
 
-      // 同步YOLO模式设置到Core配置
+      // 🎯 先保存YOLO设置到项目配置文件（在同步到Core之前，防止被覆盖）
+      const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      logger.debug(`[YOLO] Workspace root: ${workspaceRoot}`);
+
+      if (workspaceRoot) {
+        const settingsDir = path.join(workspaceRoot, '.deepvcode');
+        const settingsPath = path.join(settingsDir, 'settings.json');
+        logger.debug(`[YOLO] Settings path: ${settingsPath}`);
+
+        try {
+          // 确保目录存在
+          if (!fs.existsSync(settingsDir)) {
+            logger.debug(`[YOLO] Creating directory: ${settingsDir}`);
+            fs.mkdirSync(settingsDir, { recursive: true });
+          }
+
+          // 读取现有配置或创建新的
+          let settings: any = {};
+          if (fs.existsSync(settingsPath)) {
+            try {
+              const fileContent = fs.readFileSync(settingsPath, 'utf-8');
+              settings = JSON.parse(fileContent);
+              logger.debug(`[YOLO] Existing settings: ${JSON.stringify(settings)}`);
+            } catch (e) {
+              logger.warn('[YOLO] Failed to parse existing settings, will overwrite');
+              settings = {};
+            }
+          }
+
+          // 更新YOLO设置
+          settings.yolo = data.yoloMode;
+          logger.debug(`[YOLO] Updated settings to: ${JSON.stringify(settings)}`);
+
+          // 写入文件
+          const jsonContent = JSON.stringify(settings, null, 2);
+          fs.writeFileSync(settingsPath, jsonContent, 'utf-8');
+          logger.info(`[YOLO] ✅ Saved to project config: ${data.yoloMode}`);
+          logger.debug(`[YOLO] File content written: ${jsonContent}`);
+
+          // 验证文件是否真的被写入
+          if (fs.existsSync(settingsPath)) {
+            const verifyContent = fs.readFileSync(settingsPath, 'utf-8');
+            logger.info(`[YOLO] ✅ File verification success, content: ${verifyContent}`);
+          } else {
+            logger.error('[YOLO] ❌ File was not created after write operation');
+          }
+        } catch (e) {
+          logger.error('[YOLO] Failed to save settings', e instanceof Error ? e : undefined);
+          logger.error(`[YOLO] Error details: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      } else {
+        logger.warn('[YOLO] No workspace root found, cannot save settings');
+      }
+
+      // 🎯 然后同步YOLO模式设置到Core配置
       await sessionManager.setProjectYoloMode(data.yoloMode);
 
       // 🎯 更新默认模型配置
       if (data.preferredModel) {
         const config = vscode.workspace.getConfiguration('deepv');
         await config.update('preferredModel', data.preferredModel, vscode.ConfigurationTarget.Global);
-        logger.info(`✅ Preferred model updated to: ${data.preferredModel}`);
+        logger.info(`[YOLO] ✅ Preferred model updated to: ${data.preferredModel}`);
       }
 
-      logger.info(`✅ Project settings synchronized`);
+      logger.info(`[YOLO] ✅ Project settings synchronized`);
     } catch (error) {
-      logger.error('Failed to update project settings', error instanceof Error ? error : undefined);
+      logger.error('[YOLO] Failed to update project settings', error instanceof Error ? error : undefined);
     }
   });
 
   // 🎯 处理项目设置请求
   communicationService.onProjectSettingsRequest(async () => {
     try {
-      logger.info('Received project settings request');
+      logger.info('[YOLO] Received project settings request');
 
       // 获取 YOLO 模式
       let yoloMode = false;
-      const sessionIds = Array.from(sessionManager.getSessionIds());
-      if (sessionIds.length > 0) {
-        const aiService = sessionManager.getAIService(sessionIds[0]);
-        if (aiService) {
-          const config = aiService.getConfig();
-          yoloMode = config?.getApprovalMode() === 'yolo';
+
+      // 🎯 优先从项目配置文件读取，确保准确性
+      const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+      if (workspaceRoot) {
+        const settingsPath = path.join(workspaceRoot, '.deepvcode', 'settings.json');
+        if (fs.existsSync(settingsPath)) {
+          try {
+            const settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
+            if (settings.yolo !== undefined) {
+              yoloMode = !!settings.yolo;
+              logger.info(`[YOLO] ✅ Loaded from project config: ${yoloMode}`);
+            }
+          } catch (e) {
+            logger.warn('[YOLO] Failed to parse project settings');
+          }
+        }
+      }
+
+      // 如果没读到，回退到从活跃 session 获取
+      if (yoloMode === false) {
+        const sessionIds = Array.from(sessionManager.getSessionIds());
+        if (sessionIds.length > 0) {
+          const aiService = sessionManager.getAIService(sessionIds[0]);
+          if (aiService) {
+            const config = aiService.getConfig();
+            // 🎯 检查是否为 yolo 模式
+            yoloMode = config?.getApprovalMode() === 'yolo';
+            logger.debug(`[YOLO] Fallback to session config: ${yoloMode}`);
+          }
         }
       }
 
@@ -800,9 +885,9 @@ function setupBasicMessageHandlers() {
       const preferredModel = config.get<string>('preferredModel', 'auto');
 
       await communicationService.sendProjectSettingsResponse({ yoloMode, preferredModel });
-      logger.info(`✅ Project settings response sent: YOLO mode ${yoloMode}, Preferred Model ${preferredModel}`);
+      logger.info(`[YOLO] ✅ Response sent: YOLO=${yoloMode}, Model=${preferredModel}`);
     } catch (error) {
-      logger.error('Failed to get project settings', error instanceof Error ? error : undefined);
+      logger.error('[YOLO] Failed to get project settings', error instanceof Error ? error : undefined);
     }
   });
 
@@ -1207,7 +1292,7 @@ function setupBasicMessageHandlers() {
   // 🎯 处理 MCP 状态请求
   communicationService.addMessageHandler('get_mcp_status', async (payload: any) => {
     try {
-      logger.info(`🔌 [MCP] Received MCP status request for session: ${payload.sessionId}`);
+      logger.info(`🔌 [MCP] Received explicit MCP status request for session: ${payload.sessionId}`);
 
       const aiService = sessionManager.getAIService(payload.sessionId);
       if (!aiService) {
@@ -1218,14 +1303,24 @@ function setupBasicMessageHandlers() {
       const statuses = aiService.getMCPServerStatuses();
       const discoveryState = aiService.getMCPDiscoveryState();
 
-      // 转换状态数据为前端格式
+      // 🔌 使用全局缓存获取工具数量和名称
+      const globalToolCounts = getAllMCPServerToolCounts();
+      const globalToolNames = getAllMCPServerToolNames();
+      const mcpEnabledService = McpEnabledStateService.getInstance();
+
+      logger.info(`🔌 [MCP] Global tool counts: ${JSON.stringify(Array.from(globalToolCounts.entries()))}`);
+      logger.info(`🔌 [MCP] Global tool names keys: ${JSON.stringify(Array.from(globalToolNames.keys()))}`);
+
+      // 转换状态数据为前端格式（包含完整信息）
       const servers = Array.from(statuses?.entries() || []).map(([name, status]) => ({
         name,
         status,
-        toolCount: 0 // 工具数量将通过异步更新获得
+        toolCount: globalToolCounts.get(name) ?? 0,
+        toolNames: globalToolNames.get(name) ?? [],
+        enabled: mcpEnabledService.isEnabled(name)
       }));
 
-      logger.info(`🔌 [MCP] Sending MCP status: ${servers.length} servers, discovery: ${discoveryState}`);
+      logger.info(`🔌 [MCP] Sending MCP status: ${servers.map(s => `${s.name}(tools:${s.toolCount}, enabled:${s.enabled})`).join(', ')}`);
 
       await communicationService.sendMessage({
         type: 'mcp_status_update',
@@ -1238,6 +1333,61 @@ function setupBasicMessageHandlers() {
 
     } catch (error) {
       logger.error('🔌 [MCP] Failed to get MCP status', error instanceof Error ? error : undefined);
+    }
+  });
+
+  // 🔌 处理设置 MCP 启用状态
+  communicationService.addMessageHandler('set_mcp_enabled', async (payload: { serverName: string; enabled: boolean }) => {
+    try {
+      logger.info(`🔌 [MCP] Setting server '${payload.serverName}' enabled: ${payload.enabled}`);
+
+      const mcpEnabledService = McpEnabledStateService.getInstance();
+      await mcpEnabledService.setEnabled(payload.serverName, payload.enabled);
+
+      // 🎯 通知所有 AIService 更新工具列表
+      const allSessions = sessionManager.getAllSessionsInfo();
+      for (const session of allSessions) {
+        const aiService = sessionManager.getAIService(session.id);
+        if (aiService) {
+          try {
+            await aiService.refreshToolsWithMcpFilter();
+          } catch (err) {
+            logger.warn(`🔌 [MCP] Failed to update tools for session ${session.id}`, err instanceof Error ? err : undefined);
+          }
+        }
+      }
+
+      // 发送更新后的启用状态给前端
+      await communicationService.sendMessage({
+        type: 'mcp_enabled_states',
+        payload: {
+          states: { [payload.serverName]: payload.enabled }
+        }
+      });
+
+    } catch (error) {
+      logger.error('🔌 [MCP] Failed to set MCP enabled state', error instanceof Error ? error : undefined);
+    }
+  });
+
+  // 🔌 处理获取 MCP 启用状态
+  communicationService.addMessageHandler('get_mcp_enabled_states', async (payload: { serverNames: string[] }) => {
+    try {
+      logger.debug(`🔌 [MCP] Getting enabled states for: ${payload.serverNames.join(', ')}`);
+
+      const mcpEnabledService = McpEnabledStateService.getInstance();
+      const states: Record<string, boolean> = {};
+      for (const name of payload.serverNames) {
+        states[name] = mcpEnabledService.isEnabled(name);
+      }
+
+      await communicationService.sendMessage({
+        type: 'mcp_enabled_states',
+        payload: { states }
+      });
+
+    } catch (error) {
+      logger.error('🔌 [MCP] Failed to get MCP enabled states', error instanceof Error ? error : undefined);
     }
   });
 

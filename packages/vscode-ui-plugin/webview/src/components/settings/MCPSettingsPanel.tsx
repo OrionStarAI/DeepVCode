@@ -22,6 +22,7 @@ interface MCPServerInfo {
   toolCount: number;
   toolNames?: string[];
   error?: string;
+  enabled?: boolean; // 是否启用（控制工具是否注册给 AI）
 }
 
 interface MCPSettingsPanelProps {
@@ -29,8 +30,12 @@ interface MCPSettingsPanelProps {
   mcpServers: MCPServerInfo[];
   /** MCP 发现状态 */
   discoveryState: 'not_started' | 'in_progress' | 'completed';
+  /** 是否已收到 MCP 状态（用于区分加载中和真正没有配置） */
+  statusLoaded?: boolean;
   /** 打开配置文件的回调 */
   onOpenSettings: () => void;
+  /** 切换 MCP 启用状态的回调 */
+  onToggleEnabled?: (serverName: string, enabled: boolean) => void;
 }
 
 // =============================================================================
@@ -40,8 +45,21 @@ interface MCPSettingsPanelProps {
 export const MCPSettingsPanel: React.FC<MCPSettingsPanelProps> = ({
   mcpServers,
   discoveryState,
-  onOpenSettings
+  statusLoaded = false,
+  onOpenSettings,
+  onToggleEnabled
 }) => {
+  const isLoading = mcpServers.length === 0 && !statusLoaded;
+  const isEmpty = mcpServers.length === 0 && statusLoaded;
+
+  console.log('🔌 [MCPSettingsPanel] Render:', {
+    mcpServersLength: mcpServers?.length,
+    mcpServersValue: JSON.stringify(mcpServers),
+    discoveryState,
+    statusLoaded,
+    isLoading,
+    isEmpty
+  });
 
   // 获取状态图标
   const getStatusIcon = (status: MCPServerInfo['status']) => {
@@ -114,9 +132,22 @@ export const MCPSettingsPanel: React.FC<MCPSettingsPanelProps> = ({
       {/* MCP服务器状态概览 */}
       <SettingGroup
         title="Server Status"
-        description={`Discovery: ${getDiscoveryStateText()}`}
       >
-        {mcpServers.length === 0 ? (
+        {mcpServers.length === 0 && !statusLoaded ? (
+          // 还没收到后端响应，显示加载中
+          <div className="mcp-empty-state mcp-empty-state--loading">
+            <div className="mcp-empty-state__icon mcp-empty-state__icon--loading">
+              <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+                <circle cx="12" cy="12" r="10" strokeDasharray="32" strokeDashoffset="12"/>
+              </svg>
+            </div>
+            <p className="mcp-empty-state__title">Loading MCP Servers...</p>
+            <p className="mcp-empty-state__description">
+              Discovering available MCP servers and tools.
+            </p>
+          </div>
+        ) : mcpServers.length === 0 ? (
+          // 真正没有配置
           <div className="mcp-empty-state">
             <div className="mcp-empty-state__icon">
               <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -137,47 +168,77 @@ export const MCPSettingsPanel: React.FC<MCPSettingsPanelProps> = ({
           </div>
         ) : (
           <div className="mcp-server-list">
-            {mcpServers.map((server) => (
-              <div key={server.name} className="mcp-server-item">
-                <div className="mcp-server-item__header">
-                  <div className="mcp-server-item__name-row">
-                    <span
-                      className={`mcp-server-item__status-indicator ${getStatusClass(server.status)}`}
-                      title={getStatusText(server.status)}
-                    >
-                      {getStatusIcon(server.status)}
-                    </span>
-                    <span className="mcp-server-item__name">{server.name}</span>
-                  </div>
-                  <span className={`mcp-server-item__status-text ${getStatusClass(server.status)}`}>
-                    {getStatusText(server.status)}
-                  </span>
-                </div>
-
-                <div className="mcp-server-item__details">
-                  <div className="mcp-server-item__detail">
-                    <span className="mcp-server-item__detail-label">Tools:</span>
-                    <span className="mcp-server-item__detail-value">{server.toolCount}</span>
-                  </div>
-                  {server.toolNames && server.toolNames.length > 0 && (
-                    <div className="mcp-server-item__tools">
-                      {server.toolNames.map((toolName, index) => (
-                        <span key={index} className="mcp-server-item__tool-tag">
-                          {toolName}
+            {mcpServers.map((server) => {
+              const isEnabled = server.enabled !== false; // 默认启用
+              return (
+                <div key={server.name} className={`mcp-server-item ${!isEnabled ? 'mcp-server-item--disabled' : ''}`}>
+                  <div className="mcp-server-item__header">
+                    <div className="mcp-server-item__name-row">
+                      {/* 只在启用时显示状态指示器 */}
+                      {isEnabled && (
+                        <span
+                          className={`mcp-server-item__status-indicator ${getStatusClass(server.status)}`}
+                          title={getStatusText(server.status)}
+                        >
+                          {getStatusIcon(server.status)}
                         </span>
-                      ))}
+                      )}
+                      <span className="mcp-server-item__name">{server.name}</span>
+                      {!isEnabled && (
+                        <span className="mcp-server-item__disabled-badge">Disabled</span>
+                      )}
+                    </div>
+                    <div className="mcp-server-item__actions">
+                      {/* 只在启用时显示连接状态文本 */}
+                      {isEnabled && (
+                        <span className={`mcp-server-item__status-text ${getStatusClass(server.status)}`}>
+                          {getStatusText(server.status)}
+                        </span>
+                      )}
+                      {/* Toggle 开关 */}
+                      <label className="mcp-toggle" title={isEnabled ? 'Disable this MCP server' : 'Enable this MCP server'}>
+                        <input
+                          type="checkbox"
+                          checked={isEnabled}
+                          onChange={(e) => onToggleEnabled?.(server.name, e.target.checked)}
+                          className="mcp-toggle__input"
+                        />
+                        <span className="mcp-toggle__slider"></span>
+                      </label>
+                    </div>
+                  </div>
+
+                  {/* 只在启用时显示工具详情 */}
+                  {isEnabled && (
+                    <div className="mcp-server-item__details">
+                      <div className="mcp-server-item__detail">
+                        <span className="mcp-server-item__detail-label">Tools:</span>
+                        <span className="mcp-server-item__detail-value">
+                          {server.toolCount}
+                        </span>
+                      </div>
+                      {server.toolNames && server.toolNames.length > 0 && (
+                        <div className="mcp-server-item__tools">
+                          {server.toolNames.map((toolName, index) => (
+                            <span key={index} className="mcp-server-item__tool-tag">
+                              {toolName}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 只在启用时显示错误信息 */}
+                  {isEnabled && server.error && (
+                    <div className="mcp-server-item__error">
+                      <span className="mcp-server-item__error-icon">!</span>
+                      <span className="mcp-server-item__error-text">{server.error}</span>
                     </div>
                   )}
                 </div>
-
-                {server.error && (
-                  <div className="mcp-server-item__error">
-                    <span className="mcp-server-item__error-icon">!</span>
-                    <span className="mcp-server-item__error-text">{server.error}</span>
-                  </div>
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </SettingGroup>

@@ -23,6 +23,7 @@ interface MCPServerInfo {
   status: 'disconnected' | 'connecting' | 'connected';
   toolCount: number;
   error?: string;
+  enabled?: boolean; // 是否启用（控制工具是否注册给 AI）
 }
 
 interface YoloModeSettingsDialogProps {
@@ -37,6 +38,12 @@ interface YoloModeSettingsDialogProps {
 
   /** MCP 发现状态 */
   mcpDiscoveryState?: 'not_started' | 'in_progress' | 'completed';
+
+  /** 是否已收到 MCP 状态 */
+  mcpStatusLoaded?: boolean;
+
+  /** 切换 MCP 启用状态的回调 */
+  onToggleMcpEnabled?: (serverName: string, enabled: boolean) => void;
 }
 
 type SettingsTab = 'execution' | 'mcp';
@@ -49,7 +56,9 @@ export const YoloModeSettingsDialog: React.FC<YoloModeSettingsDialogProps> = ({
   isOpen,
   onClose,
   mcpServers = [],
-  mcpDiscoveryState = 'not_started'
+  mcpDiscoveryState = 'not_started',
+  mcpStatusLoaded = false,
+  onToggleMcpEnabled
 }) => {
   const { t } = useTranslation();
   const {
@@ -62,18 +71,15 @@ export const YoloModeSettingsDialog: React.FC<YoloModeSettingsDialogProps> = ({
     error
   } = useYoloMode();
 
-  const [currentYoloMode, setCurrentYoloMode] = useState<boolean>(originalYoloMode);
-  const [currentPreferredModel, setCurrentPreferredModel] = useState<string>(originalPreferredModel);
   const [activeTab, setActiveTab] = useState<SettingsTab>('execution');
   const [availableModels, setAvailableModels] = useState<any[]>([]);
 
-  // 监控原始设置变化，同步到本地状态
+  // 🎯 对话框打开时初始化数据（仅在isOpen改变时触发）
   React.useEffect(() => {
     if (isOpen) {
-      // 🎯 对话框打开时主动刷新底层数据
+      console.log('[YOLO] Dialog opened, initializing settings');
+      // 加载最新的设置
       loadYoloMode();
-      setCurrentYoloMode(originalYoloMode);
-      setCurrentPreferredModel(originalPreferredModel);
 
       // 获取可用模型
       webviewModelService.getAvailableModels().then(models => {
@@ -82,39 +88,41 @@ export const YoloModeSettingsDialog: React.FC<YoloModeSettingsDialogProps> = ({
         console.error('Failed to load models:', err);
       });
     }
-  }, [isOpen, originalYoloMode, originalPreferredModel, loadYoloMode]);
-
-  // 计算是否有变化
-  const hasChanges = currentYoloMode !== originalYoloMode || currentPreferredModel !== originalPreferredModel;
+  }, [isOpen, loadYoloMode]);
 
   // =============================================================================
   // 事件处理
   // =============================================================================
 
   /**
-   * 处理保存设置
+   * 处理YOLO模式改变 - 直接生效
    */
-  const handleSave = async () => {
+  const handleYoloModeChange = async (enabled: boolean) => {
+    console.log('[YOLO] YOLO mode toggle changed, immediately updating:', enabled);
     try {
-      // 保存当前设置到后端
-      // 并行保存
-      await Promise.all([
-        updateYoloMode(currentYoloMode),
-        updatePreferredModel(currentPreferredModel)
-      ]);
-      onClose();
+      await updateYoloMode(enabled);
     } catch (error) {
-      console.error('Failed to save settings:', error);
+      console.error('[YOLO] Failed to update YOLO mode:', error);
     }
   };
 
   /**
-   * 处理取消 - 直接关闭并恢复原始值，无需确认
+   * 处理默认模型改变 - 直接生效
+   */
+  const handlePreferredModelChange = async (model: string) => {
+    console.log('[YOLO] Preferred model changed, immediately updating:', model);
+    try {
+      await updatePreferredModel(model);
+    } catch (error) {
+      console.error('[YOLO] Failed to update preferred model:', error);
+    }
+  };
+
+  /**
+   * 处理关闭对话框
    */
   const handleCancel = () => {
-    // 恢复到原始设置
-    setCurrentYoloMode(originalYoloMode);
-    setCurrentPreferredModel(originalPreferredModel);
+    console.log('[YOLO] Dialog closed');
     onClose();
   };
 
@@ -124,8 +132,6 @@ export const YoloModeSettingsDialog: React.FC<YoloModeSettingsDialogProps> = ({
   const handleKeyDown = (event: React.KeyboardEvent) => {
     if (event.key === 'Escape') {
       handleCancel();
-    } else if (event.key === 'Enter' && (event.ctrlKey || event.metaKey) && activeTab === 'execution') {
-      handleSave();
     }
   };
 
@@ -202,10 +208,10 @@ export const YoloModeSettingsDialog: React.FC<YoloModeSettingsDialogProps> = ({
           <div className="project-settings-dialog__panel yolo-mode-panel">
             {activeTab === 'execution' && (
               <ExecutionSettingsPanel
-                yoloMode={currentYoloMode}
-                onYoloModeChange={setCurrentYoloMode}
-                preferredModel={currentPreferredModel}
-                onPreferredModelChange={setCurrentPreferredModel}
+                yoloMode={originalYoloMode}
+                onYoloModeChange={handleYoloModeChange}
+                preferredModel={originalPreferredModel}
+                onPreferredModelChange={handlePreferredModelChange}
                 availableModels={availableModels}
               />
             )}
@@ -213,17 +219,19 @@ export const YoloModeSettingsDialog: React.FC<YoloModeSettingsDialogProps> = ({
               <MCPSettingsPanel
                 mcpServers={mcpServers}
                 discoveryState={mcpDiscoveryState}
+                statusLoaded={mcpStatusLoaded}
                 onOpenSettings={handleOpenMCPSettings}
+                onToggleEnabled={onToggleMcpEnabled}
               />
             )}
           </div>
         </div>
 
-        {/* 对话框底部 */}
+        {/* 对话框底部 - 仅有Close按钮，YOLO模式toggle直接生效 */}
         {activeTab === 'execution' && (
           <div className="project-settings-dialog__footer">
             <div className="project-settings-dialog__footer-left">
-              {/* 可以添加重置YOLO模式的按钮 */}
+              {/* 可以添加帮助信息 */}
             </div>
 
             <div className="project-settings-dialog__footer-right">
@@ -232,16 +240,7 @@ export const YoloModeSettingsDialog: React.FC<YoloModeSettingsDialogProps> = ({
                 onClick={handleCancel}
                 disabled={isLoading}
               >
-                Cancel
-              </button>
-              <button
-                className={`project-settings-dialog__save-btn ${
-                  hasChanges ? 'project-settings-dialog__save-btn--highlight' : ''
-                }`}
-                onClick={handleSave}
-                disabled={isLoading || !hasChanges}
-              >
-                {isLoading ? 'Saving...' : 'Save'}
+                Close
               </button>
             </div>
           </div>

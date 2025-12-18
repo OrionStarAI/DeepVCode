@@ -60,21 +60,29 @@ function getDisplayPath(filePath: string, fileName: string, workspaceRoot?: stri
   // 如果filePath就是fileName，直接返回
   if (filePath === fileName) return fileName;
 
+  // 🎯 如果有工作区根目录，计算相对路径
   if (workspaceRoot && filePath.startsWith(workspaceRoot)) {
-    // 计算相对路径
     const relativePath = filePath.substring(workspaceRoot.length);
-
-    // 移除开头的斜杠
     let cleanPath = relativePath.startsWith('/') ? relativePath.substring(1) : relativePath;
     cleanPath = cleanPath.startsWith('\\') ? cleanPath.substring(1) : cleanPath;
 
-    // 如果是根目录的文件，显示为当前目录
     if (!cleanPath || cleanPath === fileName) {
       return '.';
     }
-
     return cleanPath;
   }
+
+  // 🎯 如果没有工作区根目录，但filePath看起来像个路径（包含斜杠），尝试返回它
+  if (filePath.includes('/') || filePath.includes('\\')) {
+    // 如果是绝对路径且没有workspaceRoot，我们至少返回文件名及其父目录
+    const parts = filePath.split(/[/\\]/);
+    if (parts.length >= 2) {
+      // 返回最后两级，例如 values-zh/strings.xml
+      return parts.slice(-2).join('/');
+    }
+    return filePath;
+  }
+
   return fileName;
 }
 
@@ -115,7 +123,9 @@ function updateDeletedFileFromFileDiff(filesMap: Map<string, ModifiedFile>, file
   // 计算删除的行数
   const deletedLines = deletedContent ? deletedContent.split('\n').length : 0;
 
-  const existingFile = filesMap.get(fileName);
+  // 🎯 使用完整路径作为Map的key，以区分同名但不同目录的文件（如Android项目的strings.xml）
+  const mapKey = filePath || fileName;
+  const existingFile = filesMap.get(mapKey);
 
   if (existingFile) {
     // 如果文件已存在于修改列表中，标记为已删除
@@ -129,7 +139,7 @@ function updateDeletedFileFromFileDiff(filesMap: Map<string, ModifiedFile>, file
     existingFile.latestNewContent = ''; // 删除后为空
   } else {
     // 添加新的删除文件记录
-    filesMap.set(fileName, {
+    filesMap.set(mapKey, {
       fileName,
       filePath: displayPath,
       isNewFile: false,
@@ -161,7 +171,9 @@ function updateFileInMap(filesMap: Map<string, ModifiedFile>, diffData: any, wor
   // 解析行数统计
   const { linesAdded, linesRemoved } = parseDiffStats(diffData.fileDiff || '');
 
-  const existingFile = filesMap.get(fileName);
+  // 🎯 使用完整路径作为Map的key，以区分同名但不同目录的文件（如Android项目的strings.xml）
+  const mapKey = rawFilePath || fileName;
+  const existingFile = filesMap.get(mapKey);
 
   if (existingFile) {
     // 更新现有文件
@@ -178,7 +190,7 @@ function updateFileInMap(filesMap: Map<string, ModifiedFile>, diffData: any, wor
     }
   } else {
     // 添加新文件
-    filesMap.set(fileName, {
+    filesMap.set(mapKey, {
       fileName,
       filePath: displayPath,
       isNewFile,
@@ -240,35 +252,3 @@ function detectNewFile(diffData: any): boolean {
   return false;
 }
 
-/**
- * 获取文件扩展名对应的图标
- */
-export function getFileIcon(fileName: string, isNewFile: boolean, isDeletedFile?: boolean): string {
-  if (isDeletedFile) {
-    return '🗑️';
-  }
-
-  if (isNewFile) {
-    return '🆕';
-  }
-
-  const extension = fileName.split('.').pop()?.toLowerCase();
-
-  const iconMap: Record<string, string> = {
-    'ts': '📘',
-    'tsx': '📘',
-    'js': '📙',
-    'jsx': '📙',
-    'py': '🐍',
-    'css': '🎨',
-    'scss': '🎨',
-    'html': '🌐',
-    'json': '📄',
-    'md': '📝',
-    'txt': '📄',
-    'yml': '⚙️',
-    'yaml': '⚙️'
-  };
-
-  return iconMap[extension || ''] || '📄';
-}
