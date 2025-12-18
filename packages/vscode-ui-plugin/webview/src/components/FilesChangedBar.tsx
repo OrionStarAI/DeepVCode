@@ -4,7 +4,8 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { FilesChangedBarProps, ModifiedFile } from '../types/fileChanges';
-import { getFileIcon } from '../utils/fileChangeExtractor';
+import { getFileIcon } from '../components/FileIcons';
+import { useTranslation } from '../hooks/useTranslation';
 import './FilesChangedBar.css';
 
 const FilesChangedBar: React.FC<FilesChangedBarProps> = ({
@@ -12,6 +13,7 @@ const FilesChangedBar: React.FC<FilesChangedBarProps> = ({
   onFileClick,
   onAcceptChanges
 }) => {
+  const { t } = useTranslation();
   const [isExpanded, setIsExpanded] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -46,6 +48,12 @@ const FilesChangedBar: React.FC<FilesChangedBarProps> = ({
     }
   };
 
+  // 获取文件的显示路径（相对路径或完整路径）
+  const getDisplayPath = (file: ModifiedFile): { fullPath: string; displayName: string } => {
+    const filePath = file.filePath || file.fileName;
+    return { fullPath: filePath, displayName: filePath };
+  };
+
   const handleAcceptChanges = (event: React.MouseEvent) => {
     try {
       event.stopPropagation();
@@ -70,40 +78,43 @@ const FilesChangedBar: React.FC<FilesChangedBarProps> = ({
       {/* 悬浮文件列表 - 在上方 */}
       {isExpanded && (
         <div className="files-expanded-list">
-          {filesArray.map(file => (
-            <div
-              key={file.fileName}
-              className="file-item"
-              onClick={(e) => handleFileClick(file, e)}
-              title={`${file.isDeletedFile ? '删除' : file.isNewFile ? '新建' : '修改'}: ${file.filePath || file.fileName}${file.modificationCount > 1 ? ` (${file.modificationCount}次修改)` : ''}`}
-            >
-              <div className="file-item-left">
-                <span className="file-icon">
-                  {getFileIcon(file.fileName, file.isNewFile, file.isDeletedFile)}
-                </span>
-                <div className="file-info">
-                  <div className="file-name">{file.fileName}</div>
-                  <div className="file-path">{file.filePath || file.fileName}</div>
+          {filesArray.map(file => {
+            const { fullPath, displayName } = getDisplayPath(file);
+            return (
+              <div
+                key={file.filePath || file.fileName}
+                className="file-item"
+                onClick={(e) => handleFileClick(file, e)}
+                title={`${file.isDeletedFile ? '删除' : file.isNewFile ? '新建' : '修改'}: ${fullPath}${file.modificationCount > 1 ? ` (${file.modificationCount}次修改)` : ''}`}
+              >
+                <div className="file-item-left">
+                  <span className="file-icon">
+                    {getFileIcon(file.fileName)}
+                  </span>
+                  <div className="file-info">
+                    <div className="file-name">{file.fileName}</div>
+                    <div className="file-path">{displayName}</div>
+                  </div>
+                </div>
+                <div className="file-item-right">
+                  <div className="line-stats">
+                    {file.isDeletedFile ? (
+                      <span className="file-deleted">DELETED</span>
+                    ) : (
+                      <>
+                        {file.linesAdded > 0 && (
+                          <span className="lines-added">+{file.linesAdded}</span>
+                        )}
+                        {file.linesRemoved > 0 && (
+                          <span className="lines-removed">-{file.linesRemoved}</span>
+                        )}
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
-              <div className="file-item-right">
-                <div className="line-stats">
-                  {file.isDeletedFile ? (
-                    <span className="file-deleted">DELETED</span>
-                  ) : (
-                    <>
-                      {file.linesAdded > 0 && (
-                        <span className="lines-added">+{file.linesAdded}</span>
-                      )}
-                      {file.linesRemoved > 0 && (
-                        <span className="lines-removed">-{file.linesRemoved}</span>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -130,14 +141,14 @@ const FilesChangedBar: React.FC<FilesChangedBarProps> = ({
           })()}
         </span>
 
-        {/* Keep 按钮 */}
+        {/* OK 按钮 */}
         {onAcceptChanges && (
           <button
             className="accept-changes-btn"
             onClick={handleAcceptChanges}
-            title="Keep current changes, only show new file changes afterwards"
+            title={t('chat.acceptChanges', {}, 'Clear this list')}
           >
-            Keep
+            {t('common.ok', {}, 'OK')}
           </button>
         )}
 

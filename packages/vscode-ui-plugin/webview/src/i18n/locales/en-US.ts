@@ -82,6 +82,7 @@ export const enUS: Translations = {
     cannotStop: '⚠️ Processing, cannot stop',
     sending: '⏳ Sending...',
     editPlaceholder: 'Edit your message...',
+    acceptChanges: 'Dismiss this list',
     queue: {
       title: 'Pending Queue',
       hint: 'Auto-sends after AI reply',

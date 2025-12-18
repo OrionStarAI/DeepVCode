@@ -64,11 +64,12 @@ export const YoloModeProvider: React.FC<YoloModeProviderProps> = ({ children }) 
    * 🎯 从Core配置同步YOLO模式设置
    */
   const syncFromCore = useCallback(() => {
+    console.log('[YOLO] syncFromCore called');
     const messageService = getGlobalMessageService();
     if (messageService) {
       // 监听响应
-      const cleanup = messageService.onProjectSettingsResponse((data: any) => {
-        console.log('✅ Received settings from Core:', data);
+      messageService.onProjectSettingsResponse((data: any) => {
+        console.log('[YOLO] Received settings from Core:', data);
         setYoloMode(data.yoloMode);
         if (data.preferredModel) {
           setPreferredModel(data.preferredModel);
@@ -76,9 +77,8 @@ export const YoloModeProvider: React.FC<YoloModeProviderProps> = ({ children }) 
       });
 
       // 请求当前设置
+      console.log('[YOLO] Requesting project settings from extension');
       messageService.requestProjectSettings();
-
-      return cleanup;
     }
   }, []);
 
@@ -158,9 +158,12 @@ export const YoloModeProvider: React.FC<YoloModeProviderProps> = ({ children }) 
   // 初始化加载
   // =============================================================================
 
-  useEffect(() => {
-    loadYoloMode();
-  }, [loadYoloMode]);
+  // 注意：不在这里自动加载，由使用者(ProjectSettingsDialog)主动调用loadYoloMode()
+  // 这样可以避免多个地方同时注册listener导致的重复触发
+  // useEffect(() => {
+  //   console.log('[YOLO] YoloModeProvider mounted, loading initial settings');
+  //   loadYoloMode();
+  // }, []);
 
   // =============================================================================
   // Context 值

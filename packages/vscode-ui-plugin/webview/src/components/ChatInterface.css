@@ -566,23 +566,28 @@
   justify-content: flex-start; /* 确保内容左对齐 */
 }
 
-/* 🎯 Loading菊花图标动画 */
+/* 🎯 Loading菊花图标动画 - 匀速圆润旋转 */
 .processing-spinner {
   animation: spin 1s linear infinite;
   color: var(--vscode-progressBar-foreground, #0e70c0);
   transform-origin: center center; /* 确保从中心点旋转 */
-  display: inline-block; /* 确保变换正常工作 */
+  display: inline-flex; /* 使用flex确保内容居中 */
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0; /* 防止在flex容器中收缩 */
+  /* 硬件加速确保稳定 */
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
 }
 
 @keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-/* 确保旋转动画硬件加速 */
-.processing-spinner {
-  will-change: transform;
+  0% {
+    transform: rotate(0deg) translateZ(0);
+  }
+  100% {
+    transform: rotate(360deg) translateZ(0);
+  }
 }
 
 .processing-text-wrapper {
@@ -596,14 +601,14 @@
   font-weight: 500;
   position: relative;
   display: inline-block;
-  /* 增强对比度的高光渐变背景 - 更强的明暗变化 */
+  color: var(--vscode-editor-foreground);
+  /* 🎯 浅色模式：用深色gradient (从暗灰到文字色再到暗灰)
+     深色模式：用浅色gradient (从浅灰到文字色再到浅灰) */
   background: linear-gradient(
     90deg,
-    rgba(255, 255, 255, 0.3) 0%,
-    rgba(255, 255, 255, 0.5) 20%,
-    rgba(255, 255, 255, 1) 50%,
-    rgba(255, 255, 255, 0.5) 80%,
-    rgba(255, 255, 255, 0.3) 100%
+    color-mix(in srgb, var(--vscode-editor-foreground) 30%, transparent),
+    var(--vscode-editor-foreground),
+    color-mix(in srgb, var(--vscode-editor-foreground) 30%, transparent)
   );
   background-size: 200% 100%;
   background-position: -200% 0;
@@ -614,8 +619,6 @@
   /* 确保平滑渲染 */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  /* 基础文字颜色作为后备 */
-  color: var(--vscode-editor-foreground);
 }
 
 /* Windows进度条风格的高光扫过效果 */
@@ -643,12 +646,13 @@
     left: -100%;
     width: 60%;
     height: 100%;
+    /* 🎯 适配浅色和深色模式的扫过效果 - 使用同一个文字色的gradient */
     background: linear-gradient(
       90deg,
       transparent 0%,
-      rgba(255, 255, 255, 0.3) 20%,
-      rgba(255, 255, 255, 0.9) 50%,
-      rgba(255, 255, 255, 0.3) 80%,
+      color-mix(in srgb, var(--vscode-editor-foreground) 30%, transparent) 20%,
+      var(--vscode-editor-foreground) 50%,
+      color-mix(in srgb, var(--vscode-editor-foreground) 30%, transparent) 80%,
       transparent 100%
     );
     animation: sweep 2s ease-in-out infinite;

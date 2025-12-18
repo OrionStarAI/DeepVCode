@@ -132,7 +132,6 @@ export const MCPSettingsPanel: React.FC<MCPSettingsPanelProps> = ({
       {/* MCP服务器状态概览 */}
       <SettingGroup
         title="Server Status"
-        description={`Discovery: ${getDiscoveryStateText()}`}
       >
         {mcpServers.length === 0 && !statusLoaded ? (
           // 还没收到后端响应，显示加载中

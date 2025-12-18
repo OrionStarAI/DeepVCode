@@ -80,6 +80,7 @@ export interface Translations {
     cannotStop: string;
     sending: string;
     editPlaceholder: string;
+    acceptChanges: string;
     queue: {
       title: string;
       hint: string;

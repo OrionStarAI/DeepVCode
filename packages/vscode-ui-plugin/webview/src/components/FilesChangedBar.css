@@ -45,15 +45,15 @@
   font-weight: 500;
 }
 
-/* Accept 按钮 */
+/* Accept 按钮 - 低调的次要按钮样式 */
 .accept-changes-btn {
-  background: var(--vscode-button-background, #0e639c);
-  color: var(--vscode-button-foreground, #ffffff);
+  background: var(--vscode-button-secondaryBackground, #3a3d41);
+  color: var(--vscode-button-secondaryForeground, #ffffff);
   border: 1px solid var(--vscode-button-border, transparent);
   border-radius: 3px;
-  padding: 2px 8px;
+  padding: 2px 10px;
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 400;
   cursor: pointer;
   transition: all 0.2s ease;
   flex-shrink: 0;
@@ -61,13 +61,12 @@
 }
 
 .accept-changes-btn:hover {
-  background: var(--vscode-button-hoverBackground, #1177bb);
-  transform: translateY(-1px);
+  background: var(--vscode-button-secondaryHoverBackground, #45494e);
 }
 
 .accept-changes-btn:active {
-  background: var(--vscode-button-activeBackground, #0e639c);
-  transform: translateY(0);
+  background: var(--vscode-button-secondaryBackground, #3a3d41);
+  transform: scale(0.98);
 }
 
 /* 展开箭头动画 */

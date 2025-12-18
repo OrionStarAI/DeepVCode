@@ -424,6 +424,19 @@ export const MultiSessionApp: React.FC = () => {
         // 此时sessions状态还在更新中，无法准确判断isContentLoaded
         console.log('🔄 [STARTUP] Requesting UI history for default session:', currentSessionId);
         messageService.switchSession(currentSessionId);
+
+        // 🎯 异步获取并同步该session的模型配置（防止兜底为Auto）
+        (async () => {
+          try {
+            const currentModel = await webviewModelService.getCurrentModel(currentSessionId);
+            if (currentModel) {
+              console.log('🔄 [STARTUP] Syncing model for current session:', currentSessionId, 'model:', currentModel);
+              setSelectedModelId(currentModel);
+            }
+          } catch (error) {
+            console.warn('[STARTUP] Failed to sync model for current session:', currentSessionId, error);
+          }
+        })();
       }
 
       // 🎯 会话列表加载完成（loading screen 由 onLoadingComplete 的一次性监听器处理）

@@ -82,6 +82,7 @@ export const zhCN: Translations = {
     cannotStop: '⚠️ 处理中，无法停止',
     sending: '⏳ 发送中...',
     editPlaceholder: '编辑你的消息...',
+    acceptChanges: '关闭此列表',
     queue: {
       title: '待发送队列',
       hint: 'AI回复完成后自动发送',

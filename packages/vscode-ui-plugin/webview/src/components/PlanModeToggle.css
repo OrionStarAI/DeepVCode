@@ -51,17 +51,18 @@
 
 /* Active state - Plan mode enabled */
 .plan-mode-toggle.active {
-  background-color: rgba(78, 201, 176, 0.2);
-  border-color: #4ec9b0;
+  background-color: var(--vscode-inputOption-activeBackground, rgba(0, 122, 204, 0.2));
+  border-color: var(--vscode-inputOption-activeBorder, #007acc);
+  color: var(--vscode-inputOption-activeForeground, #ffffff);
 }
 
 .plan-mode-toggle.active:hover:not(:disabled) {
-  background-color: rgba(78, 201, 176, 0.3);
-  border-color: #5fd9c3;
+  background-color: var(--vscode-inputOption-activeBackground, rgba(0, 122, 204, 0.3));
+  border-color: var(--vscode-inputOption-activeBorder, #007acc);
 }
 
 .plan-mode-toggle.active .toggle-icon {
-  color: #4ec9b0;
+  color: var(--vscode-inputOption-activeForeground, #ffffff);
 }
 
 .plan-mode-toggle:not(.active) .toggle-icon {

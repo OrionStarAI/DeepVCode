@@ -114,15 +114,15 @@ export class FileRollbackService {
 
     // 🎯 并行处理所有文件回滚
     const rollbackPromises = Array.from(filesToRollback.entries()).map(
-      async ([fileName, fileInfo]) => {
+      async ([mapKey, fileInfo]) => {
         try {
-          await this.rollbackSingleFile(fileName, fileInfo);
-          rolledBackFiles.push(fileName);
-          this.logger.info(`✅ 文件回滚成功: ${fileName}`);
+          await this.rollbackSingleFile(mapKey, fileInfo);
+          rolledBackFiles.push(fileInfo.fileName);
+          this.logger.info(`✅ 文件回滚成功: ${fileInfo.filePath || fileInfo.fileName}`);
         } catch (error) {
           const errorMsg = error instanceof Error ? error.message : String(error);
-          failedFiles.push({ fileName, error: errorMsg });
-          this.logger.error(`❌ 文件回滚失败 ${fileName}:`, error instanceof Error ? error : undefined);
+          failedFiles.push({ fileName: fileInfo.fileName, error: errorMsg });
+          this.logger.error(`❌ 文件回滚失败 ${fileInfo.filePath || fileInfo.fileName}:`, error instanceof Error ? error : undefined);
         }
       }
     );
@@ -140,30 +140,31 @@ export class FileRollbackService {
   /**
    * 🎯 回滚单个文件
    */
-  private async rollbackSingleFile(fileName: string, fileInfo: ModifiedFile): Promise<void> {
+  private async rollbackSingleFile(mapKey: string, fileInfo: ModifiedFile): Promise<void> {
     if (fileInfo.isDeletedFile) {
       // 🎯 恢复被删除的文件
-      await this.restoreDeletedFile(fileInfo, fileName);
+      await this.restoreDeletedFile(fileInfo);
 
     } else if (fileInfo.isNewFile) {
       // 🎯 删除新建的文件
-      await this.deleteNewFile(fileInfo, fileName);
+      await this.deleteNewFile(fileInfo);
 
     } else {
       // 🎯 恢复修改的文件到原始状态
-      await this.restoreModifiedFile(fileInfo, fileName);
+      await this.restoreModifiedFile(fileInfo);
     }
   }
 
   /**
    * 🎯 恢复被删除的文件
    */
-  private async restoreDeletedFile(fileInfo: ModifiedFile, fileName: string): Promise<void> {
-    this.logger.info(`🔄 ${FILE_OPERATION_MESSAGES.RESTORING_DELETED_FILE(fileName)}`);
+  private async restoreDeletedFile(fileInfo: ModifiedFile): Promise<void> {
+    const displayName = fileInfo.filePath || fileInfo.fileName;
+    this.logger.info(`🔄 ${FILE_OPERATION_MESSAGES.RESTORING_DELETED_FILE(displayName)}`);
 
     const contentToRestore = fileInfo.deletedContent || fileInfo.firstOriginalContent;
     if (!contentToRestore) {
-      throw new Error(`无法恢复文件 ${fileName}: 缺少原始内容`);
+      throw new Error(`无法恢复文件 ${displayName}: 缺少原始内容`);
     }
 
     // 🎯 确保目录存在
@@ -177,8 +178,9 @@ export class FileRollbackService {
   /**
    * 🎯 删除新建的文件
    */
-  private async deleteNewFile(fileInfo: ModifiedFile, fileName: string): Promise<void> {
-    this.logger.info(`🗑️ ${FILE_OPERATION_MESSAGES.DELETING_NEW_FILE(fileName)}`);
+  private async deleteNewFile(fileInfo: ModifiedFile): Promise<void> {
+    const displayName = fileInfo.filePath || fileInfo.fileName;
+    this.logger.info(`🗑️ ${FILE_OPERATION_MESSAGES.DELETING_NEW_FILE(displayName)}`);
 
     try {
       // 检查文件是否存在
@@ -190,7 +192,7 @@ export class FileRollbackService {
     } catch (error) {
       // 如果文件不存在，则认为已经达到目标状态
       if (error instanceof Error && (error as any).code === 'ENOENT') {
-        this.logger.info(FILE_OPERATION_MESSAGES.FILE_ALREADY_DELETED(fileName));
+        this.logger.info(FILE_OPERATION_MESSAGES.FILE_ALREADY_DELETED(displayName));
         return;
       }
       throw error;
@@ -200,11 +202,12 @@ export class FileRollbackService {
   /**
    * 🎯 恢复修改的文件到原始状态
    */
-  private async restoreModifiedFile(fileInfo: ModifiedFile, fileName: string): Promise<void> {
-    this.logger.info(`📝 ${FILE_OPERATION_MESSAGES.REVERTING_MODIFIED_FILE(fileName)}`);
+  private async restoreModifiedFile(fileInfo: ModifiedFile): Promise<void> {
+    const displayName = fileInfo.filePath || fileInfo.fileName;
+    this.logger.info(`📝 ${FILE_OPERATION_MESSAGES.REVERTING_MODIFIED_FILE(displayName)}`);
 
     if (!fileInfo.firstOriginalContent) {
-      throw new Error(`无法恢复文件 ${fileName}: 缺少原始内容`);
+      throw new Error(`无法恢复文件 ${displayName}: 缺少原始内容`);
     }
 
     try {
@@ -216,8 +219,8 @@ export class FileRollbackService {
 
     } catch (error) {
       if (error instanceof Error && (error as any).code === 'ENOENT') {
-        this.logger.warn(`文件 ${fileName} 不存在，无法恢复`);
-        throw new Error(`文件 ${fileName} 不存在，无法恢复`);
+        this.logger.warn(`文件 ${displayName} 不存在，无法恢复`);
+        throw new Error(`文件 ${displayName} 不存在，无法恢复`);
       }
       throw error;
     }
@@ -321,7 +324,9 @@ export class FileRollbackService {
     // 解析行数统计
     const { linesAdded, linesRemoved } = this.parseDiffStats(diffData.fileDiff || '');
 
-    const existingFile = filesMap.get(fileName);
+    // 🎯 使用绝对路径作为Map的key，以区分同名但不同目录的文件（如Android项目的strings.xml）
+    const mapKey = absolutePath || fileName;
+    const existingFile = filesMap.get(mapKey);
 
     if (existingFile) {
       // 更新现有文件
@@ -335,7 +340,7 @@ export class FileRollbackService {
       }
     } else {
       // 添加新文件
-      filesMap.set(fileName, {
+      filesMap.set(mapKey, {
         fileName,
         filePath: absolutePath, // 🎯 使用绝对路径用于文件操作
         isNewFile,
@@ -368,7 +373,9 @@ export class FileRollbackService {
     }
 
     const deletedLines = deletedContent ? deletedContent.split('\n').length : 0;
-    const existingFile = filesMap.get(fileName);
+    // 🎯 使用绝对路径作为Map的key，以区分同名但不同目录的文件（如Android项目的strings.xml）
+    const mapKey = absolutePath || fileName;
+    const existingFile = filesMap.get(mapKey);
 
     if (existingFile) {
       existingFile.isDeletedFile = true;
@@ -378,7 +385,7 @@ export class FileRollbackService {
       existingFile.latestFileDiff = fileDiffData.fileDiff || '';
       existingFile.latestNewContent = '';
     } else {
-      filesMap.set(fileName, {
+      filesMap.set(mapKey, {
         fileName,
         filePath: absolutePath, // 🎯 使用绝对路径用于文件操作
         isNewFile: false,
@@ -396,7 +403,7 @@ export class FileRollbackService {
 
   /**
    * 🎯 获取绝对路径用于文件操作
-   * 
+   *
    * 平台兼容性处理：
    * - Mac/Linux: 使用 / 作为路径分隔符
    * - Windows: 使用 \ 作为路径分隔符，支持 C:\ 格式的驱动器盘符

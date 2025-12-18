@@ -368,9 +368,9 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: var(--vscode-input-background, #3c3c3c);
-  border: 1px solid var(--vscode-input-border, #3c3c3c);
-  border-radius: 10px;
+  background-color: var(--vscode-checkbox-background, #3c3c3c);
+  border: 1px solid var(--vscode-checkbox-border, #6c6c6c);
+  border-radius: 20px;
   transition: all 0.2s ease;
 }
 
@@ -381,9 +381,10 @@
   width: 14px;
   left: 2px;
   bottom: 2px;
-  background-color: var(--vscode-foreground, #cccccc);
+  background-color: var(--vscode-checkbox-foreground, #ffffff);
   border-radius: 50%;
   transition: all 0.2s ease;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
 }
 
 .mcp-toggle__input:checked + .mcp-toggle__slider {
