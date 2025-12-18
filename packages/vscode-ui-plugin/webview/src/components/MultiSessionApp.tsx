@@ -109,8 +109,10 @@ export const MultiSessionApp: React.FC = () => {
     toolCount: number;
     toolNames?: string[];
     error?: string;
+    enabled?: boolean; // 是否启用（控制工具是否注册给 AI）
   }>>([]);
   const [mcpDiscoveryState, setMcpDiscoveryState] = useState<'not_started' | 'in_progress' | 'completed'>('not_started');
+  const [mcpStatusLoaded, setMcpStatusLoaded] = useState(true); // 初始值为 true，请求时设为 false
   // 🎯 历史列表数据（分页加载）
   const [historySessionsList, setHistorySessionsList] = useState<Array<{
     id: string;
@@ -949,7 +951,8 @@ export const MultiSessionApp: React.FC = () => {
     let pendingMcpPayload: any = null;
 
     messageService.onMcpStatusUpdate((payload: any) => {
-      console.log('🔌 [MCP] Received MCP status update:', payload);
+      console.log('🔌 [MCP] Received MCP status update:', JSON.stringify(payload, null, 2));
+      console.log('🔌 [MCP] Servers in payload:', payload.servers?.map((s: any) => `${s.name}(tools:${s.toolCount}, enabled:${s.enabled})`).join(', '));
 
       // 🎯 保存最新的 payload
       pendingMcpPayload = payload;
@@ -961,15 +964,34 @@ export const MultiSessionApp: React.FC = () => {
 
       mcpUpdateTimer = setTimeout(() => {
         if (pendingMcpPayload) {
-          if (pendingMcpPayload.servers) {
-            setMcpServers(pendingMcpPayload.servers);
+          if (pendingMcpPayload.servers !== undefined) {
+            console.log('🔌 [MCP] Applying servers update to state:', {
+              serverCount: pendingMcpPayload.servers.length,
+              servers: JSON.stringify(pendingMcpPayload.servers)
+            });
+            setMcpServers(pendingMcpPayload.servers); // 设置为数组（可能是空数组）
           }
           if (pendingMcpPayload.discoveryState) {
+            console.log('🔌 [MCP] Setting discoveryState to:', pendingMcpPayload.discoveryState);
             setMcpDiscoveryState(pendingMcpPayload.discoveryState);
           }
+          // 防抖后再延迟 500ms，确保收到最完整的数据
           pendingMcpPayload = null;
+          setTimeout(() => {
+            console.log('🔌 [MCP] Setting mcpStatusLoaded to true (防抖+延迟后)');
+            setMcpStatusLoaded(true);
+          }, 500);
         }
       }, 150);
+    });
+
+    // 🔌 监听 MCP enabled 状态更新
+    messageService.onMcpEnabledStates((payload: { states: Record<string, boolean> }) => {
+      console.log('🔌 [MCP] Received enabled states update:', payload);
+      setMcpServers(prev => prev.map(server => ({
+        ...server,
+        enabled: payload.states[server.name] ?? server.enabled ?? true
+      })));
     });
 
     return () => {
@@ -977,17 +999,31 @@ export const MultiSessionApp: React.FC = () => {
 
   }, []);
 
-  // 🎯 请求 MCP 状态
+  // 🎯 切换会话时，清空 MCP 状态（等待后端自动发送）
   useEffect(() => {
     if (isLoggedIn !== true || !state.currentSessionId) return;
 
-    console.log('🔌 [MCP] Requesting MCP status for session:', state.currentSessionId);
+    console.log('🔌 [MCP] Session switched to:', state.currentSessionId);
+    console.log('🔌 [MCP] Clearing mcpServers and waiting for backend to send status');
+    // 立即清空服务器列表和加载状态，表示等待新数据
+    setMcpServers([]);
+    setMcpStatusLoaded(false);
+    // 后端会在 AIService 初始化完成后自动发送 mcp_status_update
+  }, [isLoggedIn, state.currentSessionId]);
+
+  // 🎯 打开设置面板时，请求 MCP 状态（用于历史对话）
+  useEffect(() => {
+    if (!state.ui.showProjectSettings || !state.currentSessionId) return;
+
+    console.log('🔌 [MCP] Settings panel opened, requesting MCP status');
+    setMcpStatusLoaded(false); // 标记为加载中
+
     const messageService = getGlobalMessageService();
     messageService.send({
       type: 'get_mcp_status',
       payload: { sessionId: state.currentSessionId }
     });
-  }, [isLoggedIn, state.currentSessionId]);
+  }, [state.ui.showProjectSettings, state.currentSessionId]);
 
   useEffect(() => {
     // 🎯 只有在已登录状态下才初始化消息服务
@@ -1084,6 +1120,31 @@ export const MultiSessionApp: React.FC = () => {
   // =============================================================================
   // 事件处理方法
   // =============================================================================
+
+  // 🔌 处理 MCP 启用状态切换
+  const handleToggleMcpEnabled = React.useCallback((serverName: string, enabled: boolean) => {
+    console.log(`🔌 [MCP] Toggle ${serverName} enabled: ${enabled}`);
+
+    // 立即更新本地状态（乐观更新）
+    setMcpServers(prev => prev.map(server =>
+      server.name === serverName ? { ...server, enabled } : server
+    ));
+
+    // 发送消息给扩展
+    const messageService = getGlobalMessageService();
+    messageService.setMcpEnabled(serverName, enabled);
+
+    // 如果是启用操作，延迟刷新 MCP 状态以获取最新的工具信息
+    const sessionId = state.currentSessionId;
+    if (enabled && sessionId) {
+      setTimeout(() => {
+        messageService.send({
+          type: 'get_mcp_status',
+          payload: { sessionId }
+        });
+      }, 300);
+    }
+  }, [state.currentSessionId]);
 
   // 🎯 处理发送消息
   const handleSendMessage = React.useCallback((content: MessageContent, targetSessionId?: string) => {
@@ -1898,6 +1959,8 @@ User question: ${contentStr}`;
         onClose={() => toggleProjectSettings(false)}
         mcpServers={mcpServers}
         mcpDiscoveryState={mcpDiscoveryState}
+        mcpStatusLoaded={mcpStatusLoaded}
+        onToggleMcpEnabled={handleToggleMcpEnabled}
       />
 
       {/* 自定义规则管理对话框 */}

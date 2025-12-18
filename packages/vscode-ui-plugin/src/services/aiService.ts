@@ -227,6 +227,14 @@ export class AIService {
         this.logger.warn('⚠️ Failed to start MCP background loading, continuing without MCP', mcpStartError instanceof Error ? mcpStartError : undefined);
       }
 
+      // 🔌 立即应用 MCP 启用状态过滤（确保新会话遵守全局设置）
+      try {
+        await this.refreshToolsWithMcpFilter();
+        this.logger.info('🔌 Applied MCP enabled filter on initialization');
+      } catch (mcpFilterError) {
+        this.logger.warn('⚠️ Failed to apply MCP filter on init, tools may include disabled servers', mcpFilterError instanceof Error ? mcpFilterError : undefined);
+      }
+
       this.isInitialized = true;
       this.logger.info('✅ AIService initialized successfully');
 
@@ -391,8 +399,9 @@ export class AIService {
       await toolRegistry.discoverMcpTools();
       this.logger.debug('🔌 ToolRegistry MCP tools synced');
 
-      await this.geminiClient.setTools();
-      this.logger.info('🔌 AI tools updated successfully with MCP tools');
+      // 🔌 应用 MCP 启用状态过滤（使用 refreshToolsWithMcpFilter 统一逻辑）
+      await this.refreshToolsWithMcpFilter();
+      this.logger.info('🔌 AI tools updated successfully with MCP filter applied');
     } catch (error) {
       this.logger.error('🔌 Failed to update AI tools', error instanceof Error ? error : undefined);
     }
@@ -443,11 +452,17 @@ export class AIService {
       // 这确保所有 AIService 实例看到相同的工具信息
       const globalToolCounts = getAllMCPServerToolCounts();
       const globalToolNames = getAllMCPServerToolNames();
+
+      // 🔌 导入 McpEnabledStateService 获取启用状态
+      const { McpEnabledStateService } = await import('./mcpEnabledStateService.js');
+      const mcpEnabledService = McpEnabledStateService.getInstance();
+
       const servers = Array.from(this.mcpServerStatuses.entries()).map(([name, status]) => ({
         name,
         status,
         toolCount: globalToolCounts.get(name) ?? 0,
-        toolNames: globalToolNames.get(name) ?? []
+        toolNames: globalToolNames.get(name) ?? [],
+        enabled: mcpEnabledService.isEnabled(name) // 🔌 添加启用状态
       }));
 
       await this.communicationService.sendMessage({
@@ -459,7 +474,7 @@ export class AIService {
         }
       });
 
-      this.logger.debug(`🔌 [MCP] Status update sent: ${servers.map(s => `${s.name}(${s.status}:${s.toolCount})`).join(', ')}`);
+      this.logger.debug(`🔌 [MCP] Status update sent: ${servers.map(s => `${s.name}(${s.status}:${s.toolCount}:enabled=${s.enabled})`).join(', ')}`);
     } catch (error) {
       this.logger.error('Failed to send MCP status update', error instanceof Error ? error : undefined);
     }
@@ -2122,5 +2137,48 @@ export class AIService {
    */
   getMCPDiscoveryState(): MCPDiscoveryState {
     return getMCPDiscoveryState();
+  }
+
+  /**
+   * 🔌 刷新 AI 工具列表，根据 MCP 启用状态过滤工具
+   * 当用户启用/禁用某个 MCP Server 时调用此方法
+   */
+  async refreshToolsWithMcpFilter(): Promise<void> {
+    try {
+      if (!this.geminiClient || !this.config) {
+        this.logger.warn('🔌 Cannot refresh tools: geminiClient or config not initialized');
+        return;
+      }
+
+      // 导入 McpEnabledStateService
+      const { McpEnabledStateService } = await import('./mcpEnabledStateService.js');
+      const mcpEnabledService = McpEnabledStateService.getInstance();
+
+      // 获取 toolRegistry 和所有工具声明
+      const toolRegistry = await this.config.getToolRegistry();
+      const allTools = toolRegistry.getAllTools();
+
+      // 过滤工具：保留非 MCP 工具 + 启用的 MCP 工具
+      const filteredTools = allTools.filter(tool => {
+        const serverName = (tool as any).serverName;
+        if (!serverName) {
+          return true; // 非 MCP 工具，始终保留
+        }
+        return mcpEnabledService.isEnabled(serverName);
+      });
+
+      // 构建过滤后的工具声明并设置到 geminiChat
+      const filteredDeclarations = filteredTools.map(tool => tool.schema);
+      const tools = [{ functionDeclarations: filteredDeclarations }];
+      this.geminiClient.getChat().setTools(tools);
+
+      const totalCount = allTools.length;
+      const filteredCount = filteredTools.length;
+      const disabledCount = totalCount - filteredCount;
+
+      this.logger.info(`🔌 Tools refreshed with MCP filter: ${filteredCount}/${totalCount} tools enabled (${disabledCount} disabled)`);
+    } catch (error) {
+      this.logger.error('🔌 Failed to refresh tools with MCP filter', error instanceof Error ? error : undefined);
+    }
   }
 }

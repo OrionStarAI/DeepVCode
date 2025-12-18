@@ -16,12 +16,13 @@ import stripJsonComments from 'strip-json-comments';
  * 配置文件位置（优先级从低到高）：
  * 1. 系统级: /etc/deepv-cli/settings.json 或 C:\ProgramData\deepv-cli\settings.json
  * 2. 用户级: ~/.deepv/settings.json
- * 3. 工作区级: <workspace>/.deepv/settings.json
+ * 3. 工作区级: <workspace>/.deepvcode/settings.json
  *
  * 与 CLI 完全兼容，用户可以在 CLI 中配置 MCP 服务器，插件自动读取。
  */
 export class MCPSettingsService {
   private static readonly SETTINGS_DIRECTORY_NAME = '.deepv';
+  private static readonly WORKSPACE_SETTINGS_DIRECTORY_NAME = '.deepvcode'; // 工作区使用不同目录名
   private static readonly SETTINGS_FILE_NAME = 'settings.json';
 
   /**
@@ -40,9 +41,10 @@ export class MCPSettingsService {
 
   /**
    * 获取工作区级配置文件路径
+   * 注意：工作区使用 .deepvcode 目录，与用户级 .deepv 区分
    */
   private static getWorkspaceSettingsPath(workspaceRoot: string): string {
-    return path.join(workspaceRoot, this.SETTINGS_DIRECTORY_NAME, this.SETTINGS_FILE_NAME);
+    return path.join(workspaceRoot, this.WORKSPACE_SETTINGS_DIRECTORY_NAME, this.SETTINGS_FILE_NAME);
   }
 
   /**

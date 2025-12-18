@@ -181,6 +181,15 @@
   opacity: 0.6;
 }
 
+.mcp-empty-state__icon--loading svg {
+  animation: spin 1.5s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .mcp-empty-state__title {
   font-size: 14px;
   font-weight: 500;
@@ -330,6 +339,100 @@
 }
 
 /* =============================================================================
+   Toggle 开关样式
+   ============================================================================= */
+
+.mcp-server-item__actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.mcp-toggle {
+  position: relative;
+  display: inline-block;
+  width: 36px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.mcp-toggle__input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.mcp-toggle__slider {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--vscode-input-background, #3c3c3c);
+  border: 1px solid var(--vscode-input-border, #3c3c3c);
+  border-radius: 10px;
+  transition: all 0.2s ease;
+}
+
+.mcp-toggle__slider::before {
+  position: absolute;
+  content: "";
+  height: 14px;
+  width: 14px;
+  left: 2px;
+  bottom: 2px;
+  background-color: var(--vscode-foreground, #cccccc);
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.mcp-toggle__input:checked + .mcp-toggle__slider {
+  background-color: var(--vscode-button-background, #0e639c);
+  border-color: var(--vscode-button-background, #0e639c);
+}
+
+.mcp-toggle__input:checked + .mcp-toggle__slider::before {
+  transform: translateX(16px);
+  background-color: var(--vscode-button-foreground, #ffffff);
+}
+
+.mcp-toggle__input:focus + .mcp-toggle__slider {
+  box-shadow: 0 0 0 2px var(--vscode-focusBorder, #007acc);
+}
+
+.mcp-toggle:hover .mcp-toggle__slider {
+  border-color: var(--vscode-focusBorder, #007acc);
+}
+
+/* =============================================================================
+   禁用状态样式
+   ============================================================================= */
+
+.mcp-server-item--disabled {
+  opacity: 0.6;
+}
+
+.mcp-server-item--disabled .mcp-server-item__name {
+  color: var(--vscode-disabledForeground, #6c6c6c);
+}
+
+.mcp-server-item__disabled-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  background-color: var(--vscode-badge-background, #4d4d4d);
+  color: var(--vscode-badge-foreground, #ffffff);
+  border-radius: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-left: 8px;
+}
+
+.mcp-server-item__tool-tag--disabled {
+  opacity: 0.5;
+  text-decoration: line-through;
+}
+
+/* =============================================================================
    响应式设计
    ============================================================================= */
 
@@ -343,5 +446,10 @@
   .mcp-server-item__details {
     flex-direction: column;
     gap: 8px;
+  }
+
+  .mcp-server-item__actions {
+    width: 100%;
+    justify-content: space-between;
   }
 }

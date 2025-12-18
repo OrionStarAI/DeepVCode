@@ -23,6 +23,7 @@ interface MCPServerInfo {
   status: 'disconnected' | 'connecting' | 'connected';
   toolCount: number;
   error?: string;
+  enabled?: boolean; // 是否启用（控制工具是否注册给 AI）
 }
 
 interface YoloModeSettingsDialogProps {
@@ -37,6 +38,12 @@ interface YoloModeSettingsDialogProps {
 
   /** MCP 发现状态 */
   mcpDiscoveryState?: 'not_started' | 'in_progress' | 'completed';
+
+  /** 是否已收到 MCP 状态 */
+  mcpStatusLoaded?: boolean;
+
+  /** 切换 MCP 启用状态的回调 */
+  onToggleMcpEnabled?: (serverName: string, enabled: boolean) => void;
 }
 
 type SettingsTab = 'execution' | 'mcp';
@@ -49,7 +56,9 @@ export const YoloModeSettingsDialog: React.FC<YoloModeSettingsDialogProps> = ({
   isOpen,
   onClose,
   mcpServers = [],
-  mcpDiscoveryState = 'not_started'
+  mcpDiscoveryState = 'not_started',
+  mcpStatusLoaded = false,
+  onToggleMcpEnabled
 }) => {
   const { t } = useTranslation();
   const {
@@ -213,7 +222,9 @@ export const YoloModeSettingsDialog: React.FC<YoloModeSettingsDialogProps> = ({
               <MCPSettingsPanel
                 mcpServers={mcpServers}
                 discoveryState={mcpDiscoveryState}
+                statusLoaded={mcpStatusLoaded}
                 onOpenSettings={handleOpenMCPSettings}
+                onToggleEnabled={onToggleMcpEnabled}
               />
             )}
           </div>

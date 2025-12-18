@@ -27,6 +27,8 @@ import { ROLLBACK_MESSAGES } from './i18n/messages';
 import { ClipboardCacheService } from './services/clipboardCacheService';
 import { SlashCommandService } from './services/slashCommandService';
 import { TerminalOutputService } from './services/terminalOutputService';
+import { McpEnabledStateService } from './services/mcpEnabledStateService';
+import { getAllMCPServerToolCounts, getAllMCPServerToolNames } from 'deepv-code-core';
 import { SessionType, SessionStatus } from './constants/sessionConstants';
 import { SessionInfo } from './types/sessionTypes';
 
@@ -131,6 +133,11 @@ export async function activate(context: vscode.ExtensionContext) {
     fileSearchService = new FileSearchService(logger);
     fileRollbackService = FileRollbackService.getInstance(logger);
     clipboardCache = new ClipboardCacheService(logger);
+
+    // 🔌 初始化 MCP 启用状态服务
+    const mcpEnabledStateService = McpEnabledStateService.getInstance();
+    mcpEnabledStateService.initialize(context);
+    logger.info('McpEnabledStateService initialized');
 
     // 🎯 初始化斜杠命令服务
     slashCommandService = new SlashCommandService(logger);
@@ -1207,7 +1214,7 @@ function setupBasicMessageHandlers() {
   // 🎯 处理 MCP 状态请求
   communicationService.addMessageHandler('get_mcp_status', async (payload: any) => {
     try {
-      logger.info(`🔌 [MCP] Received MCP status request for session: ${payload.sessionId}`);
+      logger.info(`🔌 [MCP] Received explicit MCP status request for session: ${payload.sessionId}`);
 
       const aiService = sessionManager.getAIService(payload.sessionId);
       if (!aiService) {
@@ -1218,14 +1225,24 @@ function setupBasicMessageHandlers() {
       const statuses = aiService.getMCPServerStatuses();
       const discoveryState = aiService.getMCPDiscoveryState();
 
-      // 转换状态数据为前端格式
+      // 🔌 使用全局缓存获取工具数量和名称
+      const globalToolCounts = getAllMCPServerToolCounts();
+      const globalToolNames = getAllMCPServerToolNames();
+      const mcpEnabledService = McpEnabledStateService.getInstance();
+
+      logger.info(`🔌 [MCP] Global tool counts: ${JSON.stringify(Array.from(globalToolCounts.entries()))}`);
+      logger.info(`🔌 [MCP] Global tool names keys: ${JSON.stringify(Array.from(globalToolNames.keys()))}`);
+
+      // 转换状态数据为前端格式（包含完整信息）
       const servers = Array.from(statuses?.entries() || []).map(([name, status]) => ({
         name,
         status,
-        toolCount: 0 // 工具数量将通过异步更新获得
+        toolCount: globalToolCounts.get(name) ?? 0,
+        toolNames: globalToolNames.get(name) ?? [],
+        enabled: mcpEnabledService.isEnabled(name)
       }));
 
-      logger.info(`🔌 [MCP] Sending MCP status: ${servers.length} servers, discovery: ${discoveryState}`);
+      logger.info(`🔌 [MCP] Sending MCP status: ${servers.map(s => `${s.name}(tools:${s.toolCount}, enabled:${s.enabled})`).join(', ')}`);
 
       await communicationService.sendMessage({
         type: 'mcp_status_update',
@@ -1238,6 +1255,61 @@ function setupBasicMessageHandlers() {
 
     } catch (error) {
       logger.error('🔌 [MCP] Failed to get MCP status', error instanceof Error ? error : undefined);
+    }
+  });
+
+  // 🔌 处理设置 MCP 启用状态
+  communicationService.addMessageHandler('set_mcp_enabled', async (payload: { serverName: string; enabled: boolean }) => {
+    try {
+      logger.info(`🔌 [MCP] Setting server '${payload.serverName}' enabled: ${payload.enabled}`);
+
+      const mcpEnabledService = McpEnabledStateService.getInstance();
+      await mcpEnabledService.setEnabled(payload.serverName, payload.enabled);
+
+      // 🎯 通知所有 AIService 更新工具列表
+      const allSessions = sessionManager.getAllSessionsInfo();
+      for (const session of allSessions) {
+        const aiService = sessionManager.getAIService(session.id);
+        if (aiService) {
+          try {
+            await aiService.refreshToolsWithMcpFilter();
+          } catch (err) {
+            logger.warn(`🔌 [MCP] Failed to update tools for session ${session.id}`, err instanceof Error ? err : undefined);
+          }
+        }
+      }
+
+      // 发送更新后的启用状态给前端
+      await communicationService.sendMessage({
+        type: 'mcp_enabled_states',
+        payload: {
+          states: { [payload.serverName]: payload.enabled }
+        }
+      });
+
+    } catch (error) {
+      logger.error('🔌 [MCP] Failed to set MCP enabled state', error instanceof Error ? error : undefined);
+    }
+  });
+
+  // 🔌 处理获取 MCP 启用状态
+  communicationService.addMessageHandler('get_mcp_enabled_states', async (payload: { serverNames: string[] }) => {
+    try {
+      logger.debug(`🔌 [MCP] Getting enabled states for: ${payload.serverNames.join(', ')}`);
+
+      const mcpEnabledService = McpEnabledStateService.getInstance();
+      const states: Record<string, boolean> = {};
+      for (const name of payload.serverNames) {
+        states[name] = mcpEnabledService.isEnabled(name);
+      }
+
+      await communicationService.sendMessage({
+        type: 'mcp_enabled_states',
+        payload: { states }
+      });
+
+    } catch (error) {
+      logger.error('🔌 [MCP] Failed to get MCP enabled states', error instanceof Error ? error : undefined);
     }
   });
 
