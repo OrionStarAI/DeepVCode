@@ -764,17 +764,14 @@
 /* 🎯 重新生成按钮样式 */
 .regenerate-btn {
   transition: all 0.2s ease;
-  color: var(--vscode-textLink-foreground) !important;
 }
 
 .regenerate-btn:hover {
-  color: var(--vscode-textLink-activeForeground) !important;
   background-color: var(--vscode-toolbar-hoverBackground) !important;
-  transform: rotate(180deg);
 }
 
 .regenerate-btn:active {
-  transform: rotate(180deg) scale(0.9);
+  transform: scale(0.95);
 }
 
 /* 🎯 活动工具调用显示区域 */

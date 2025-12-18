@@ -80,29 +80,29 @@
   border-color: var(--vscode-descriptionForeground, #6b6b6b);
 }
 
-/* in_progress 状态 - 蓝色边框 + 点 */
+/* in_progress 状态 - 前景文本色边框 + 点 */
 .todo-checkbox.in_progress {
-  border-color: var(--vscode-charts-blue, #3794ff);
+  border-color: var(--vscode-foreground, #cccccc);
 }
 
 .todo-checkbox-dot {
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background-color: var(--vscode-charts-blue, #3794ff);
+  background-color: var(--vscode-foreground, #cccccc);
 }
 
-/* completed 状态 - 绿色填充 + 勾选 */
+/* completed 状态 - 前景文本色填充 + 勾选 */
 .todo-checkbox.completed {
-  border-color: var(--vscode-charts-green, #89d185);
-  background-color: var(--vscode-charts-green, #89d185);
+  border-color: var(--vscode-foreground, #cccccc);
+  background-color: var(--vscode-foreground, #cccccc);
   color: var(--vscode-editor-background, #1e1e1e);
 }
 
-/* cancelled 状态 - 红色边框 + X */
+/* cancelled 状态 - 描述文本色边框 + X */
 .todo-checkbox.cancelled {
-  border-color: var(--vscode-charts-red, #f14c4c);
-  color: var(--vscode-charts-red, #f14c4c);
+  border-color: var(--vscode-descriptionForeground, #8b8b8b);
+  color: var(--vscode-descriptionForeground, #8b8b8b);
 }
 
 /* 任务文本 */

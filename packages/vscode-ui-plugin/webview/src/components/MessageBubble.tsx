@@ -18,6 +18,7 @@ import { useTranslation } from '../hooks/useTranslation';
 import { ToolCallList } from './ToolCallList';
 import { ReasoningDisplay } from './ReasoningDisplay';
 import { SystemNotificationMessage } from './SystemNotificationMessage';
+import { SubAgentDisplayRenderer } from './renderers/SubAgentDisplayRenderer';
 import { messageContentToString } from '../utils/messageContentUtils';
 import { linkifyTextNode } from '../utils/filePathLinkifier';
 import './ToolCalls.css';
@@ -334,6 +335,34 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
   const [anchorRect, setAnchorRect] = React.useState<DOMRect | null>(null);
   const tokenInfoBtnRef = React.useRef<HTMLButtonElement>(null);
 
+  // 🎯 检测消息内容是否是特殊类型（subagent_update等）
+  const getSpecialContent = (): { type: string; data: any } | null => {
+    const contentStr = messageContentToString(message.content);
+    if (!contentStr.trim().startsWith('{')) {
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(contentStr);
+
+      // 🎯 支持两种格式：
+      // 1. {"type":"subagent_update","data":{"type":"subagent_display",...}}
+      // 2. {"type":"subagent_display",...} (直接的subagent_display)
+
+      if (parsed.type === 'subagent_update' && parsed.data?.type === 'subagent_display') {
+        // 格式1：subagent_update包装的数据
+        return { type: 'subagent_display', data: parsed.data };
+      } else if (parsed.type === 'subagent_display') {
+        // 格式2：直接的subagent_display
+        return { type: 'subagent_display', data: parsed };
+      }
+    } catch (e) {
+      // Not JSON, render as normal
+    }
+
+    return null;
+  };
+
   const formatTime = (timestamp: number) => {
     return new Date(timestamp).toLocaleTimeString('en-US', {
       hour: '2-digit',
@@ -461,190 +490,91 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
           <div className="tool-content">{messageContentToString(message.content)}</div>
         ) : (
           <>
-            {/* 🎯 AI思考过程显示 - 只在正在思考时显示，思考完成后隐藏 */}
-            {message.reasoning && message.isReasoning && (
-              <ReasoningDisplay
-                reasoning={message.reasoning}
-                isActive={true}
-              />
-            )}
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm, remarkMath]}
-            rehypePlugins={[rehypeRaw, rehypeKatex, rehypeHighlight]}
-            components={{
-              // 代码块美化 - 使用独立的 CodeBlock 组件
-              pre: CodeBlock,
+            {/* 🎯 检查是否是特殊内容（subagent_update等） */}
+            {(() => {
+              const specialContent = getSpecialContent();
+              if (specialContent?.type === 'subagent_display') {
+                return <SubAgentDisplayRenderer data={specialContent.data} />;
+              }
+              return (
+                <>
+                  {/* 🎯 AI思考过程显示 - 只在正在思考时显示，思考完成后隐藏 */}
+                  {message.reasoning && message.isReasoning && (
+                    <ReasoningDisplay
+                      reasoning={message.reasoning}
+                      isActive={true}
+                    />
+                  )}
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm, remarkMath]}
+                    rehypePlugins={[rehypeRaw, rehypeKatex, rehypeHighlight]}
+                    components={{
+                      // 代码块美化 - 使用独立的 CodeBlock 组件
+                      pre: CodeBlock,
 
-              // 行内代码 - 添加文件路径和方法名链接支持
-              code({node, className, children, ...props}: any) {
-                // 如果有 className，说明是代码块中的 code，直接渲染
-                if (className) {
-                  return <code className={className} {...props}>{children}</code>;
-                }
-                // 否则是行内代码，支持文件路径点击
-                return (
-                  <code className="inline-code" {...props}>
-                    {linkifyTextNode(children)}
-                  </code>
-                );
-              },
+                      // 行内代码 - 添加文件路径和方法名链接支持
+                      code({node, className, children, ...props}: any) {
+                        // 如果有 className，说明是代码块中的 code，直接渲染
+                        if (className) {
+                          return <code className={className} {...props}>{children}</code>;
+                        }
+                        // 否则是行内代码，支持文件路径点击
+                        return (
+                          <code className="inline-code" {...props}>
+                            {linkifyTextNode(children)}
+                          </code>
+                        );
+                      },
 
-              // 标题美化 - 添加文件路径和方法名链接支持
-              h1: ({children}) => <h1 className="markdown-h1">{linkifyTextNode(children)}</h1>,
-              h2: ({children}) => <h2 className="markdown-h2">{linkifyTextNode(children)}</h2>,
-              h3: ({children}) => <h3 className="markdown-h3">{linkifyTextNode(children)}</h3>,
+                      // 标题美化 - 添加文件路径和方法名链接支持
+                      h1: ({children}) => <h1 className="markdown-h1">{linkifyTextNode(children)}</h1>,
+                      h2: ({children}) => <h2 className="markdown-h2">{linkifyTextNode(children)}</h2>,
+                      h3: ({children}) => <h3 className="markdown-h3">{linkifyTextNode(children)}</h3>,
 
-              // 列表美化 - 添加文件路径和方法名链接支持
-              ul: ({children}) => <ul className="markdown-ul">{children}</ul>,
-              ol: ({children}) => <ol className="markdown-ol">{children}</ol>,
-              li: ({children, ...props}: any) => {
-                const checked = props.checked;
-                // 处理任务列表
-                if (typeof checked === 'boolean') {
-                  return (
-                    <li className="markdown-task-list-item">
-                      <input type="checkbox" checked={checked} disabled readOnly />
-                      <span>{linkifyTextNode(children)}</span>
-                    </li>
-                  );
-                }
-                return <li className="markdown-li">{linkifyTextNode(children)}</li>;
-              },
+                      // 列表美化 - 添加文件路径和方法名链接支持
+                      ul: ({children}) => <ul className="markdown-ul">{children}</ul>,
+                      ol: ({children}) => <ol className="markdown-ol">{children}</ol>,
+                      li: ({children, ...props}: any) => {
+                        const checked = props.checked;
+                        // 处理任务列表
+                        if (typeof checked === 'boolean') {
+                          return (
+                            <li className="markdown-task-list-item">
+                              <input type="checkbox" checked={checked} disabled readOnly />
+                              <span>{linkifyTextNode(children)}</span>
+                            </li>
+                          );
+                        }
+                        return <li className="markdown-li">{linkifyTextNode(children)}</li>;
+                      },
 
-              // 引用块美化
-              blockquote: ({children}) => (
-                <blockquote className="markdown-blockquote">
-                  {children}
-                </blockquote>
-              ),
+                      // 引用块美化
+                      blockquote: ({children}) => (
+                        <blockquote className="markdown-blockquote">
+                          {children}
+                        </blockquote>
+                      ),
 
-              // 表格美化 - 支持行号点击
-              table: ({children}) => (
-                <div className="table-wrapper">
-                  <table className="markdown-table">{children}</table>
-                </div>
-              ),
+                      // 链接美化
+                      a: ({href, children}: any) => (
+                        <a href={href} target="_blank" rel="noopener noreferrer" className="markdown-link">
+                          {children}
+                        </a>
+                      ),
 
-              // 表格行 - 文件地址用外面的逻辑，行号用独立的智能检测
-              tr: ({children}: any) => {
-                const cells = React.Children.toArray(children);
-
-                // 提取单元格的纯文本
-                const extractText = (node: React.ReactNode): string => {
-                  if (typeof node === 'string') return node;
-                  if (typeof node === 'number') return String(node);
-                  if (Array.isArray(node)) return node.map(extractText).join('');
-                  if (React.isValidElement(node) && node.props.children) {
-                    return extractText(node.props.children);
-                  }
-                  return '';
-                };
-
-                // 第一步：先提取文件路径（从原始单元格，不处理）
-                let filePath: string | null = null;
-
-                // 先找出文件路径（通过检查原始文本是否是文件名）
-                for (const cell of cells) {
-                  if (!React.isValidElement(cell)) continue;
-                  const cellText = extractText(cell).trim();
-
-                  // 简单检查：是否是文件名（有扩展名）
-                  // 支持 .py .js .ts .tsx .jsx .java .go .rs 等
-                  if (/\.(py|tsx?|jsx?|java|kt|go|rs|c|h|cpp|vue|rb|swift|cs|scala|json|ya?ml|toml|md|html?)$/i.test(cellText)) {
-                    filePath = cellText;
-                    break;
-                  }
-                }
-
-                // 第二步：处理每个单元格
-                const enhancedCells = cells.map((cell, index) => {
-                  if (!React.isValidElement(cell)) return cell;
-
-                  const cellText = extractText(cell).trim();
-
-                  // 检测行号：只要单元格中有数字，就认为是行号
-                  const lineNumberMatch = cellText.match(/\d+/);
-                  let lineNumber: number | null = null;
-
-                  if (lineNumberMatch && lineNumberMatch[0]) {
-                    lineNumber = parseInt(lineNumberMatch[0], 10);
-                  }
-
-                  // 情况1：找到文件路径 + 检测到行号 → 行号变成可点击蓝色链接
-                  if (filePath && lineNumber !== null) {
-                    return React.cloneElement(cell as React.ReactElement, {
-                      key: index,
-                      children: (
-                        <span
-                          className="file-path-link"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            if (window.vscode) {
-                              window.vscode.postMessage({
-                                type: 'open_file',
-                                payload: { filePath, line: lineNumber }
-                              });
-                            }
-                          }}
-                          role="button"
-                          tabIndex={0}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter' || e.key === ' ') {
-                              e.preventDefault();
-                              if (window.vscode) {
-                                window.vscode.postMessage({
-                                  type: 'open_file',
-                                  payload: { filePath, line: lineNumber }
-                                });
-                              }
-                            }
-                          }}
-                          title={`点击打开 ${filePath} (第 ${lineNumber} 行)`}
-                          style={{ cursor: 'pointer' }}
-                        >
-                          {cellText}
-                        </span>
-                      )
-                    });
-                  }
-
-                  // 情况2：不是行号 → 应用 linkifyTextNode（用于文件名链接）
-                  if (lineNumber === null) {
-                    return React.cloneElement(cell as React.ReactElement, {
-                      key: index,
-                      children: linkifyTextNode(cell.props.children)
-                    });
-                  }
-
-                  // 情况3：有行号但没有文件路径 → 保持原样（不处理）
-                  return React.cloneElement(cell as React.ReactElement, { key: index });
-                });
-
-                return <tr>{enhancedCells}</tr>;
-              },
-
-              // 链接美化
-              a: ({href, children}) => (
-                <a href={href} className="markdown-link" target="_blank" rel="noopener noreferrer">
-                  {children}
-                </a>
-              ),
-
-              // 段落间距 - 添加文件路径和方法名链接支持
-              p: ({children}) => <p className="markdown-p">{linkifyTextNode(children)}</p>,
-
-              // 分隔线
-              hr: () => <hr className="markdown-hr" />,
-
-              // 强调文本 - 添加文件路径和方法名链接支持
-              strong: ({children}) => <strong className="markdown-strong">{linkifyTextNode(children)}</strong>,
-              em: ({children}) => <em className="markdown-em">{linkifyTextNode(children)}</em>,
-              del: ({children}) => <del className="markdown-del">{linkifyTextNode(children)}</del>,
-            }}
-          >
-            {messageContentToString(message.content)}
-          </ReactMarkdown>
+                      // 表格美化
+                      table: ({children}) => (
+                        <div className="markdown-table-container">
+                          <table className="markdown-table">{children}</table>
+                        </div>
+                      ),
+                    }}
+                  >
+                    {messageContentToString(message.content)}
+                  </ReactMarkdown>
+                </>
+              );
+            })()}
           </>
         )}
 

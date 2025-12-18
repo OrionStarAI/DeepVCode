@@ -81,6 +81,7 @@ export interface Translations {
     sending: string;
     editPlaceholder: string;
     acceptChanges: string;
+    viewModifiedFiles: string;
     queue: {
       title: string;
       hint: string;
@@ -95,6 +96,12 @@ export interface Translations {
       confirm: string;
       cancel: string;
     };
+  };
+
+  fileStatus: {
+    new: string;
+    modified: string;
+    deleted: string;
   };
 
   command: {
@@ -155,7 +162,9 @@ export interface Translations {
     noParameters: string;
     more: string;
     unknownFile: string;
+    noDiffContent: string;
     clickToViewDiff: string;
+    viewInEditor: string;
     working: string;
     toolNames: {
       write_file: string;

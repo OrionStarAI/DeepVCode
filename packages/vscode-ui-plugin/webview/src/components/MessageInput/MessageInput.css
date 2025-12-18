@@ -1237,6 +1237,17 @@
 
 /* 🎯 当窗口 < 450px 时，完全隐藏 Context 指示器（不要留下空框） */
 @media (max-width: 449px) {
+  .context-label {
+    display: none;
+  }
+
+  .context-indicator {
+    min-width: 35px;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 250px) {
   .context-indicator {
     display: none;
   }

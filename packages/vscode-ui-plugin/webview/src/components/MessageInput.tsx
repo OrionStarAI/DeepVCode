@@ -78,6 +78,8 @@ interface MessageInputProps {
   // 🎯 新增：Plan模式
   isPlanMode?: boolean;                        // 是否在Plan模式
   onTogglePlanMode?: (enabled: boolean) => void;  // Plan模式切换回调
+  // 🎯 新增：模型切换状态
+  isModelSwitching?: boolean;
 }
 
 // Lexical 错误边界组件
@@ -116,6 +118,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
     initialContent,
     onSaveEdit,
     onCancelEdit,
+    isModelSwitching = false, // 🎯 接收模型切换状态
 
     // 🎯 样式和行为定制
     className = '',
@@ -1106,6 +1109,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
                 selectedModelId={selectedModelId}
                 onModelChange={(modelId) => onModelChange?.(modelId)}
                 disabled={isLoading || isProcessing}
+                isSwitchingFromParent={isModelSwitching} // 🎯 传入模型切换状态
                 className="message-input-model-selector"
                 sessionId={sessionId}
               />
@@ -1115,7 +1119,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
             {tokenUsage && getContextLeftPercentage() !== null && (
               <div className="context-indicator">
                 <span className="context-percentage">
-                  {getContextLeftPercentage()}% Context Left
+                  {getContextLeftPercentage()}%<span className="context-label"> Context Left</span>
                 </span>
               </div>
             )}

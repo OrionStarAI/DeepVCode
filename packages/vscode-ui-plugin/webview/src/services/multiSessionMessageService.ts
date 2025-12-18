@@ -1065,8 +1065,8 @@ export class MultiSessionMessageService {
   /**
    * 监听来自扩展的消息
    */
-  onExtensionMessage(type: string, handler: (payload: any) => void) {
-    this.addMessageHandler(type, handler);
+  onExtensionMessage(type: string, handler: (payload: any) => void): () => void {
+    return this.addMessageHandler(type, handler);
   }
 
   // =============================================================================

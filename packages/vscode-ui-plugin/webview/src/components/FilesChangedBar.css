@@ -11,30 +11,50 @@
 .files-changed-bar {
   display: flex;
   align-items: center;
-  padding: 4px 12px;
-  background: var(--vscode-tab-activeBackground, #181818);
+  padding: 6px 12px;
+  background: linear-gradient(
+    to right,
+    var(--vscode-tab-activeBackground, #181818),
+    var(--vscode-tab-activeBackground, #181818)
+  );
   border-top: 1px solid var(--vscode-tab-border, #2d2d30);
-  border-bottom: 1px solid var(--vscode-tab-border, #2d2d30);
+  border-bottom: 2px solid var(--vscode-tab-border, #2d2d30);
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
+  font-weight: 500;
   color: var(--vscode-tab-activeForeground, #cccccc);
   gap: 8px;
-  transition: background-color 0.2s ease;
+  transition: all 0.2s ease;
   user-select: none;
-  min-height: 28px;
+  min-height: 32px;
+  position: relative;
+  outline: none;
 }
 
 .files-changed-bar:hover {
-  background: var(--vscode-tab-hoverBackground, #2a2d2e);
+  background: linear-gradient(
+    to right,
+    var(--vscode-tab-hoverBackground, #2a2d2e),
+    var(--vscode-tab-hoverBackground, #2a2d2e)
+  );
+  border-bottom-color: var(--vscode-focusBorder, #0098ff);
+  box-shadow: inset 0 -2px 0 var(--vscode-focusBorder, #0098ff);
 }
 
-.files-changed-bar:active {
+.files-changed-bar:active,
+.files-changed-bar.expanded {
   background: var(--vscode-list-activeSelectionBackground, #094771);
+  border-bottom-color: var(--vscode-focusBorder, #0098ff);
+}
+
+.files-changed-bar:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder, #0098ff);
+  outline-offset: -1px;
 }
 
 .files-icon {
-  font-size: 12px;
   flex-shrink: 0;
+  color: var(--vscode-tab-activeForeground, #cccccc);
 }
 
 .files-count {
@@ -45,28 +65,38 @@
   font-weight: 500;
 }
 
+.expand-indicator {
+  flex-shrink: 0;
+  color: var(--vscode-tab-activeForeground, #cccccc);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* Accept 按钮 - 低调的次要按钮样式 */
 .accept-changes-btn {
-  background: var(--vscode-button-secondaryBackground, #3a3d41);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
   color: var(--vscode-button-secondaryForeground, #ffffff);
-  border: 1px solid var(--vscode-button-border, transparent);
+  border: none;
   border-radius: 3px;
-  padding: 2px 10px;
-  font-size: 11px;
-  font-weight: 400;
+  padding: 4px 6px;
   cursor: pointer;
   transition: all 0.2s ease;
   flex-shrink: 0;
-  line-height: 1.2;
+  line-height: 1;
 }
 
 .accept-changes-btn:hover {
-  background: var(--vscode-button-secondaryHoverBackground, #45494e);
+  background: var(--vscode-button-secondaryHoverBackground, rgba(255, 255, 255, 0.1));
+  color: var(--vscode-tab-activeForeground, #cccccc);
 }
 
 .accept-changes-btn:active {
-  background: var(--vscode-button-secondaryBackground, #3a3d41);
-  transform: scale(0.98);
+  background: var(--vscode-button-secondaryBackground, rgba(255, 255, 255, 0.15));
+  transform: scale(0.95);
 }
 
 /* 展开箭头动画 */

@@ -83,6 +83,7 @@ export const zhCN: Translations = {
     sending: '⏳ 发送中...',
     editPlaceholder: '编辑你的消息...',
     acceptChanges: '关闭此列表',
+    viewModifiedFiles: '点击展开查看所有修改的文件',
     queue: {
       title: '待发送队列',
       hint: 'AI回复完成后自动发送',
@@ -97,6 +98,12 @@ export const zhCN: Translations = {
       confirm: '确认编辑',
       cancel: '取消',
     },
+  },
+
+  fileStatus: {
+    new: '新建',
+    modified: '修改',
+    deleted: '删除',
   },
 
   command: {
@@ -157,7 +164,9 @@ export const zhCN: Translations = {
     noParameters: '无参数',
     more: '项',
     unknownFile: '未知文件',
+    noDiffContent: '无差异内容',
     clickToViewDiff: '点击在编辑器中查看完整diff',
+    viewInEditor: '在编辑器中查看',
     working: '工作中...',
     toolNames: {
       write_file: '写入文件',
