@@ -32,6 +32,15 @@ import {
 
 import { parseAndFormatApiError } from './ui/utils/errorParsing.js';
 import { SceneType } from 'deepv-code-core';
+import {
+  outputInit,
+  outputMessage,
+  outputToolUse,
+  outputToolResult,
+  outputFunctionCallFixed,
+  outputError,
+  outputResult,
+} from './utils/streamJsonOutput.js';
 
 function getResponseText(response: GenerateContentResponse): string | null {
   if (response.candidates && response.candidates.length > 0) {
@@ -80,6 +89,7 @@ export async function runNonInteractive(
   config: Config,
   input: string,
   prompt_id: string,
+  outputFormat: 'stream-json' | 'default' = 'default',
 ): Promise<void> {
   await config.initialize();
 
@@ -104,6 +114,13 @@ export async function runNonInteractive(
   let turnCount = 0;
   const modelName = config.getModel();
   const modelCapabilities = getModelCapabilities(modelName);
+
+  // Output init event if in stream-json mode
+  if (outputFormat === 'stream-json') {
+    outputInit(config.getSessionId(), modelName);
+    outputMessage('user', input);
+  }
+
   try {
     while (true) {
       turnCount++;
@@ -147,7 +164,11 @@ export async function runNonInteractive(
 
         const textPart = getResponseText(resp);
         if (textPart) {
-          process.stdout.write(textPart);
+          if (outputFormat === 'stream-json') {
+            outputMessage('assistant', textPart, true); // delta=true for streaming
+          } else {
+            process.stdout.write(textPart);
+          }
         }
         if (resp.functionCalls) {
           functionCalls.push(...resp.functionCalls);
@@ -159,7 +180,9 @@ export async function runNonInteractive(
         streamingIncomplete = appearIncompleteFromStreaming(functionCalls, modelName);
 
         if (streamingIncomplete) {
-          console.error('\n⚠️  Detected incomplete function calls from streaming. Attempting to fix...');
+          if (outputFormat !== 'stream-json') {
+            console.error('\n⚠️  Detected incomplete function calls from streaming. Attempting to fix...');
+          }
         }
       }
 
@@ -171,13 +194,20 @@ export async function runNonInteractive(
           const allValid = areAllFunctionCallsValid(functionCalls, modelName);
 
           if (!allValid || streamingIncomplete) {
-            console.error('\n🔧 Fixing function call format issues...');
+            // Only show in non-stream-json mode
+            if (outputFormat !== 'stream-json') {
+              console.error('\n🔧 Fixing function call format issues...');
+            }
             processedFunctionCalls = fixAllFunctionCalls(functionCalls, modelName);
 
             // Validate again after fixing
             const stillInvalid = !areAllFunctionCallsValid(processedFunctionCalls, modelName);
             if (stillInvalid && !modelCapabilities.enableMalformedRetry) {
-              console.error('\n❌ Function calls remain invalid after fixing. Aborting.');
+              if (outputFormat === 'stream-json') {
+                outputError('Function calls remain invalid after fixing. Aborting.');
+              } else {
+                console.error('\n❌ Function calls remain invalid after fixing. Aborting.');
+              }
               process.exit(1);
             }
           }
@@ -185,7 +215,9 @@ export async function runNonInteractive(
 
         // Handle malformed function call finish reason
         if (lastFinishReason === FinishReason.MALFORMED_FUNCTION_CALL && modelCapabilities.enableMalformedRetry) {
-          console.error('\n🔄 Model reported malformed function call. Retrying with fixed format...');
+          if (outputFormat !== 'stream-json') {
+            console.error('\n🔄 Model reported malformed function call. Retrying with fixed format...');
+          }
           processedFunctionCalls = fixAllFunctionCalls(functionCalls, modelName);
         }
 
@@ -211,6 +243,11 @@ export async function runNonInteractive(
             };
 
             try {
+              // Output tool use for stream-json
+              if (outputFormat === 'stream-json') {
+                outputToolUse(fc.name as string, callId, (fc.args ?? {}) as Record<string, unknown>);
+              }
+
               const toolResponse = await executeToolCall(
                 config,
                 requestInfo,
@@ -222,9 +259,16 @@ export async function runNonInteractive(
                 const isToolNotFound = toolResponse.error.message.includes(
                   'not found in registry',
                 );
-                console.error(
-                  `Error executing tool ${fc.name}: ${toolResponse.resultDisplay || toolResponse.error.message}`,
-                );
+                const resultDisplay = toolResponse.resultDisplay
+                  ? typeof toolResponse.resultDisplay === 'string'
+                    ? toolResponse.resultDisplay
+                    : JSON.stringify(toolResponse.resultDisplay)
+                  : toolResponse.error.message;
+                if (outputFormat === 'stream-json') {
+                  outputToolResult(callId, 'error', resultDisplay);
+                } else {
+                  console.error(`Error executing tool ${fc.name}: ${resultDisplay}`);
+                }
                 if (!isToolNotFound) {
                   failedToolCount++;
                   if (failedToolCount > 2 && !modelCapabilities.enableProgressiveDegradation) {
@@ -236,7 +280,12 @@ export async function runNonInteractive(
 
               return toolResponse;
             } catch (error) {
-              console.error(`Exception executing tool ${fc.name}:`, error);
+              const errorMsg = error instanceof Error ? error.message : String(error);
+              if (outputFormat === 'stream-json') {
+                outputToolResult(callId, 'error', errorMsg);
+              } else {
+                console.error(`Exception executing tool ${fc.name}:`, error);
+              }
               failedToolCount++;
               return null;
             }
@@ -244,16 +293,45 @@ export async function runNonInteractive(
 
           const chunkResults = await Promise.all(chunkPromises);
 
-          for (const toolResponse of chunkResults) {
+          for (let i = 0; i < chunkResults.length; i++) {
+            const toolResponse = chunkResults[i];
+            const fc = chunk[i];
+            const callId = fc.id ?? `${fc.name}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
             if (toolResponse?.responseParts) {
               const parts = Array.isArray(toolResponse.responseParts)
                 ? toolResponse.responseParts
                 : [toolResponse.responseParts];
               for (const part of parts) {
+                let outputForJson = '';
+
                 if (typeof part === 'string') {
+                  // Direct string output
+                  outputForJson = part;
                   toolResponseParts.push({ text: part });
-                } else if (part) {
+                } else if (part && typeof part === 'object') {
+                  // Try to extract the actual output from nested functionResponse
+                  let actualOutput = '';
+                  if ((part as any).functionResponse?.response?.output) {
+                    actualOutput = (part as any).functionResponse.response.output;
+                  } else if ((part as any).output) {
+                    actualOutput = String((part as any).output);
+                  } else {
+                    actualOutput = JSON.stringify(part);
+                  }
+                  outputForJson = actualOutput;
                   toolResponseParts.push(part);
+                } else if (part) {
+                  outputForJson = String(part);
+                  toolResponseParts.push(part);
+                }
+
+                // Output to JSON stream, with truncation for long outputs
+                if (outputFormat === 'stream-json' && outputForJson) {
+                  const outputStr = outputForJson.length > 500
+                    ? `${outputForJson.substring(0, 500)}... [truncated ${outputForJson.length - 500} chars]`
+                    : outputForJson;
+                  outputToolResult(callId, 'success', outputStr);
                 }
               }
             }
@@ -261,23 +339,41 @@ export async function runNonInteractive(
         }
 
         if (toolResponseParts.length === 0 && failedToolCount > 0) {
-          console.error('\n❌ All tool calls failed. Exiting.');
+          if (outputFormat === 'stream-json') {
+            outputError('All tool calls failed. Exiting.');
+          } else {
+            console.error('\n❌ All tool calls failed. Exiting.');
+          }
           process.exit(1);
         }
 
         currentMessages = [{ role: MESSAGE_ROLES.USER, parts: toolResponseParts }];
       } else {
-        process.stdout.write('\n'); // Ensure a final newline
+        if (outputFormat !== 'stream-json') {
+          process.stdout.write('\n'); // Ensure a final newline
+        }
+        if (outputFormat === 'stream-json') {
+          outputResult('success', {
+            total_tokens: 0, // TODO: track token usage
+            input_tokens: 0,
+            output_tokens: 0,
+            duration_ms: 0,
+          });
+        }
         return;
       }
     }
   } catch (error) {
-    console.error(
-      parseAndFormatApiError(
-        error,
-        config.getContentGeneratorConfig()?.authType,
-      ),
+    const errorMsg = parseAndFormatApiError(
+      error,
+      config.getContentGeneratorConfig()?.authType,
     );
+    if (outputFormat === 'stream-json') {
+      outputError(errorMsg);
+      outputResult('error');
+    } else {
+      console.error(errorMsg);
+    }
     process.exit(1);
   } finally {
     if (isTelemetrySdkInitialized()) {

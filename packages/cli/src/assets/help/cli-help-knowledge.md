@@ -1222,13 +1222,34 @@ CLI 自动加载 `.env` 文件，搜索顺序：
 
 - `--model <name>` / `-m <name>`：指定模型
 - `--prompt <text>` / `-p <text>`：非交互模式 prompt
+- `--output-format <format>`：非交互模式的输出格式
+  - `stream-json`：以 JSONL 格式（一行一个 JSON 对象）输出结果，适合自动化和第三方工具集成
+  - 示例：`dvcode --output-format stream-json --yolo "你的prompt内容"`
 - `--yolo`：自动批准所有工具调用
 - `--cloud-mode`：云模式，以便从Web上远程控制本机CLI工作
 
-**示例：**
+**非交互式模式适用场景：**
+- **CI/CD 集成**：在自动化工作流中无需人工确认
+- **第三方工具集成**：通过 JSONL 格式与其他程序交互
+- **批量处理**：在脚本中自动处理大量代码文件
+- **监控和告警**：自动分析日志和代码并触发告警
+- **自动化代码审查**：在代码提交时自动审查代码质量
+
+**非交互式模式示例：**
+```bash
+# 标准输出
+dvcode --prompt "解释 main.py" -a
+
+# JSONL 格式（一行一个 JSON 对象）
+dvcode --output-format stream-json --yolo "分析代码并生成改进建议" @src/
+
+# 与其他工具组合
+dvcode --output-format stream-json --yolo "生成代码" @schema.json | jq '.content'
+```
+
+**其他参数示例：**
 ```bash
 dvcode --model gemini-2.0-flash-exp --debug
-dvcode -p "解释 main.py" -a
 dvcode --checkpointing --sandbox
 dvcode -e my-extension -e another
 ```

@@ -718,8 +718,13 @@ export async function main() {
     // Ignore cleanup errors
   });
 
+  // If --output-format stream-json is specified, it's explicitly non-interactive mode
+  // This is a clear user intent to use programmatic output format
+  const isExplicitNonInteractiveMode = argv.outputFormat === 'stream-json';
+
   const shouldBeInteractive =
-    !!argv.promptInteractive || (process.stdin.isTTY && input?.length === 0);
+    !!argv.promptInteractive ||
+    (process.stdin.isTTY && input?.length === 0 && !isExplicitNonInteractiveMode);
 
   // Render UI, passing necessary config values. Check that there is no command line question.
   if (shouldBeInteractive) {
@@ -769,7 +774,14 @@ export async function main() {
     input += await readStdin();
   }
   if (!input) {
-    console.error('No input provided via stdin.');
+    if (argv.outputFormat && argv.outputFormat !== 'default') {
+      console.error('Error: No prompt provided. When using --output-format, you must provide a prompt via:');
+      console.error('  1. Positional argument: dvcode "your prompt" --output-format stream-json');
+      console.error('  2. -p flag: dvcode -p "your prompt" --output-format stream-json');
+      console.error('  3. stdin: echo "your prompt" | dvcode --output-format stream-json');
+    } else {
+      console.error('No input provided via stdin.');
+    }
     process.exit(1);
   }
 
@@ -791,7 +803,7 @@ export async function main() {
     argv,
   );
 
-  await runNonInteractive(nonInteractiveConfig, input, prompt_id);
+  await runNonInteractive(nonInteractiveConfig, input, prompt_id, argv.outputFormat);
 
   // 在非交互模式结束后，运行所有cleanup函数（包括空会话清理）
   await runExitCleanup();

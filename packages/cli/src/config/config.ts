@@ -59,6 +59,8 @@ export interface CliArgs {
   telemetry: boolean | undefined;
   checkpointing: boolean | undefined;
   telemetryTarget: string | undefined;
+  outputFormat: 'stream-json' | 'default' | undefined;
+  _: string[]; // positional arguments
   telemetryOtlpEndpoint: string | undefined;
   telemetryLogPrompts: boolean | undefined;
   telemetryOutfile: string | undefined;
@@ -253,6 +255,12 @@ export async function parseArguments(extensions: Extension[] = []): Promise<CliA
       type: 'string',
       description: 'Specify the working directory (supports both Windows and Unix paths)',
     })
+    .option('output-format', {
+      type: 'string',
+      choices: ['stream-json', 'default'],
+      description: 'Output format for non-interactive mode (stream-json for streaming line-delimited JSON)',
+      default: 'default',
+    })
     .command(extensionsCommand)
     .command(checkpointCommand);
 
@@ -280,7 +288,54 @@ export async function parseArguments(extensions: Extension[] = []): Promise<CliA
     });
 
   yargsInstance.wrap(yargsInstance.terminalWidth());
-  return yargsInstance.argv;
+  const parsedArgs = yargsInstance.argv as any;
+
+  // Type-safe conversion for outputFormat
+  if (parsedArgs.outputFormat && !['stream-json', 'default'].includes(parsedArgs.outputFormat)) {
+    parsedArgs.outputFormat = 'default';
+  }
+
+  // Handle positional arguments as prompt
+  // If no explicit --prompt/-p is provided, use positional arguments as the prompt
+  // This supports natural command syntax like: dvcode "your prompt" --yolo
+  if (!parsedArgs.prompt && !parsedArgs.promptInteractive) {
+    // First try to get from yargs parsed args
+    let positionalPrompt = '';
+
+    if (parsedArgs._ && parsedArgs._.length > 0) {
+      positionalPrompt = parsedArgs._.join(' ').trim();
+    }
+
+    // Fallback: manually check process.argv for the last non-option argument
+    // This handles cases where yargs might miss the positional argument
+    // especially when it appears after options: dvcode --output-format stream-json "prompt"
+    if (!positionalPrompt) {
+      const rawArgv = process.argv.slice(2);
+      for (let i = rawArgv.length - 1; i >= 0; i--) {
+        const arg = rawArgv[i];
+        // Skip if it's an option or a value for an option
+        if (!arg.startsWith('-') && !arg.startsWith('--')) {
+          // Check if previous argument was an option that expects a value
+          if (i > 0) {
+            const prevArg = rawArgv[i - 1];
+            // Options that take values
+            const valueOptions = ['--model', '-m', '--output-format', '--sandbox-image', '--prompt', '-p', '--prompt-interactive', '-i', '--workdir', '--telemetry-target', '--telemetry-otlp-endpoint', '--telemetry-outfile', '--allowed-mcp-server-names', '--extensions', '-e', '--session', '--cloud-server', '--proxy'];
+            if (valueOptions.includes(prevArg)) {
+              continue;
+            }
+          }
+          positionalPrompt = arg;
+          break;
+        }
+      }
+    }
+
+    if (positionalPrompt.length > 0) {
+      parsedArgs.prompt = positionalPrompt;
+    }
+  }
+
+  return parsedArgs as CliArgs;
 }
 
 // This function is now a thin wrapper around the server's implementation.

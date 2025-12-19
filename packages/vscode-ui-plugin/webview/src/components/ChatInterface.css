@@ -11,13 +11,30 @@
 /* Messages Container - 与输入框对齐 */
 .messages-container {
   flex: 1;
-  overflow-y: auto;
-  padding: 12px 12px 4px 12px; /* 🎯 与输入框左右padding对齐 */
-  scroll-behavior: smooth;
-  position: relative;
+  display: flex;
+  flex-direction: column;
   min-height: 0; /* Allow shrinking */
   /* 确保滚动不会影响到固定的header */
   z-index: 1; /* 低于header的层级 */
+}
+
+/* 🎯 Messages Scroll Area - 容纳滚动的消息列表 */
+.messages-scroll-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 12px 4px 12px; /* 🎯 与输入框左右padding对齐 */
+  scroll-behavior: auto;
+  position: relative;
+  overflow-anchor: auto; /* 🎯 浏览器原生底部粘性滚动，解决流式输出抖动 */
+}
+
+/* 🎯 Messages Loading Indicator - 固定在底部，不受消息滚动影响 */
+.messages-loading-footer {
+  flex: 0 0 auto;
+  padding: 8px 12px 12px 12px;
+  background-color: var(--vscode-editor-background);
+  border-top: 1px solid var(--vscode-panel-border);
+  min-height: 0;
 }
 
 /* Welcome Message - 参考截图的欢迎界面风格 */
@@ -566,27 +583,25 @@
   justify-content: flex-start; /* 确保内容左对齐 */
 }
 
-/* 🎯 Loading菊花图标动画 - 匀速圆润旋转 */
+/* 🎯 Loading圆形动画 - 匀速圆润旋转 */
 .processing-spinner {
-  animation: spin 1s linear infinite;
+  animation: spinSmooth 1.2s linear infinite;
   color: var(--vscode-progressBar-foreground, #0e70c0);
   transform-origin: center center; /* 确保从中心点旋转 */
-  display: inline-flex; /* 使用flex确保内容居中 */
-  align-items: center;
-  justify-content: center;
+  display: inline-block;
   flex-shrink: 0; /* 防止在flex容器中收缩 */
   /* 硬件加速确保稳定 */
   will-change: transform;
-  transform: translateZ(0);
   backface-visibility: hidden;
+  vertical-align: middle;
 }
 
-@keyframes spin {
+@keyframes spinSmooth {
   0% {
-    transform: rotate(0deg) translateZ(0);
+    transform: rotate(0deg);
   }
   100% {
-    transform: rotate(360deg) translateZ(0);
+    transform: rotate(360deg);
   }
 }
 

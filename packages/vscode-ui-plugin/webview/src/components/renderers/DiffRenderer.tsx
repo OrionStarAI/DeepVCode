@@ -155,14 +155,7 @@ const analyzeDiffStats = (diffContent: string): DiffStats => {
  * 渲染lint状态信息
  */
 const renderLintStatus = (lintStatus?: string, lintDiagnostics?: DiffDisplay['lintDiagnostics']): React.ReactNode => {
-  console.log('🔍 [LINT-RENDER] renderLintStatus called with:', {
-    lintStatus,
-    lintDiagnosticsCount: lintDiagnostics?.length || 0,
-    lintDiagnostics
-  });
-
   if (!lintStatus && (!lintDiagnostics || lintDiagnostics.length === 0)) {
-    console.log('🔍 [LINT-RENDER] No lint data to display, returning null');
     return null;
   }
 
@@ -263,7 +256,13 @@ const renderSimplifiedDiffStats = (stats: DiffStats, fileName: string): React.Re
 /**
  * 渲染详细的diff内容
  */
-const renderDetailedDiff = (parsedLines: DiffLine[], fileName?: string): React.ReactNode => {
+const renderDetailedDiff = (params: {
+  parsedLines: DiffLine[];
+  fileName?: string;
+  onOpenInEditor?: () => void;
+  t: (key: string, options?: any, defaultValue?: string) => string;
+}): React.ReactNode => {
+  const { parsedLines, fileName, onOpenInEditor, t } = params;
   const displayableLines = parsedLines.filter(
     (l) => l.type !== 'hunk' && l.type !== 'other'
   );
@@ -287,7 +286,20 @@ const renderDetailedDiff = (parsedLines: DiffLine[], fileName?: string): React.R
     <div className="diff-detailed-container">
       {fileName && (
         <div className="diff-file-header">
-          <span className="diff-file-name">{fileName}</span>
+          <div className="diff-file-info">
+            <FileText size={12} className="diff-file-icon-small" />
+            <span className="diff-file-name">{fileName}</span>
+          </div>
+          {onOpenInEditor && (
+            <button
+              className="diff-open-editor-btn-mini"
+              onClick={onOpenInEditor}
+              title={t('review', {}, 'Review')}
+            >
+              <ExternalLink size={12} />
+              <span>{t('review', {}, 'Review')}</span>
+            </button>
+          )}
         </div>
       )}
       <div className="diff-content">
@@ -339,17 +351,6 @@ export const DiffRenderer: React.FC<DiffRendererProps> = ({ data, simplified = f
   const { t } = useTranslation();
   const { fileDiff, fileName = t('unknownFile', {}, 'Unknown File') } = data;
 
-  console.log('🎯 [DiffRenderer] Rendering Diff data:', data);
-
-  // 🔍 专门检查lint数据
-  console.log('🔍 [LINT-CHECK] DiffRenderer received lint data:', {
-    hasLintStatus: !!data.lintStatus,
-    hasLintDiagnostics: !!data.lintDiagnostics,
-    lintStatus: data.lintStatus,
-    lintDiagnosticsCount: data.lintDiagnostics?.length || 0,
-    lintDiagnostics: data.lintDiagnostics
-  });
-
   // 处理在编辑器中查看diff的点击事件
   const handleOpenInEditor = () => {
     if (typeof window !== 'undefined' && window.vscode) {
@@ -396,18 +397,12 @@ export const DiffRenderer: React.FC<DiffRendererProps> = ({ data, simplified = f
 
   return (
     <div className="diff-display-container detailed">
-      <div className="diff-header-actions">
-        <button
-          className="diff-open-editor-btn"
-          onClick={handleOpenInEditor}
-          title={t('clickToViewDiff', {}, 'Click to view complete diff in editor')}
-          aria-label={t('clickToViewDiff', {}, 'Click to view complete diff in editor')}
-        >
-          <FileText size={16} />
-          <span>{t('viewInEditor', {}, 'View in Editor')}</span>
-        </button>
-      </div>
-      {renderDetailedDiff(parsedLines, fileName)}
+      {renderDetailedDiff({
+        parsedLines,
+        fileName,
+        onOpenInEditor: handleOpenInEditor,
+        t
+      })}
       {renderLintStatus(data.lintStatus, data.lintDiagnostics)}
     </div>
   );

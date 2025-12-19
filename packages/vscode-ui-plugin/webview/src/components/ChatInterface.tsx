@@ -159,7 +159,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       // 2. 用户在底部附近（容忍100px的偏差）
       // 3. 用户从未手动滚动过
       if (messages.length === 1 || isNearBottom || !userHasScrolled) {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        // 🎯 使用 'auto' 而不是 'smooth' 来避免流式输出时的抖动
+        // 原因：流式更新时内容高度不断变化，smooth滚动会与内容增长冲突
+        // overflow-anchor CSS属性会处理自动底部粘性，无需smooth动画
+        messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
 
         // 如果是因为新消息而滚动，重置手动滚动标记
         if (isNearBottom) {
@@ -659,104 +662,112 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
           </div>
         ) : (
           <>
-            {(() => {
-              // 🎯 提前计算最后一条助手消息的索引（优化性能，避免每次渲染都计算）
-              let lastAssistantMessageIndex = -1;
-              for (let i = messages.length - 1; i >= 0; i--) {
-                if (messages[i].type === 'assistant') {
-                  lastAssistantMessageIndex = i;
-                  break;
+            {/* 🎯 消息滚动区域 */}
+            <div className="messages-scroll-area">
+              {(() => {
+                // 🎯 提前计算最后一条助手消息的索引（优化性能，避免每次渲染都计算）
+                let lastAssistantMessageIndex = -1;
+                for (let i = messages.length - 1; i >= 0; i--) {
+                  if (messages[i].type === 'assistant') {
+                    lastAssistantMessageIndex = i;
+                    break;
+                  }
                 }
-              }
 
-              return messages.map((message, index) => {
-                // 🎯 判断是否是最后一条助手消息
-                const isLastAssistantMessage = index === lastAssistantMessageIndex;
+                return messages.map((message, index) => {
+                  // 🎯 判断是否是最后一条助手消息
+                  const isLastAssistantMessage = index === lastAssistantMessageIndex;
 
-                return (
-                <div key={message.id} data-message-id={message.id}>
-                  {/* 🎯 如果是正在编辑的用户消息，显示编辑器 */}
-                  {message.type === 'user' && editingMessageId === message.id ? (
-                    <div className="message-bubble user-message editing">
-                      <MessageInput
-                        mode="edit"
-                        editingMessageId={message.id}
-                        initialContent={message.content}
-                        onSendMessage={onSendMessage} // 🎯 编辑模式下不会调用这个，但是接口需要
-                        onSaveEdit={handleSaveEdit}
-                        onCancelEdit={handleCancelEdit}
-                        isLoading={false}
-                        isProcessing={false}
-                        selectedModelId={selectedModelId}
-                        onModelChange={onModelChange}
+                  return (
+                  <div key={message.id} data-message-id={message.id}>
+                    {/* 🎯 如果是正在编辑的用户消息，显示编辑器 */}
+                    {message.type === 'user' && editingMessageId === message.id ? (
+                      <div className="message-bubble user-message editing">
+                        <MessageInput
+                          mode="edit"
+                          editingMessageId={message.id}
+                          initialContent={message.content}
+                          onSendMessage={onSendMessage} // 🎯 编辑模式下不会调用这个，但是接口需要
+                          onSaveEdit={handleSaveEdit}
+                          onCancelEdit={handleCancelEdit}
+                          isLoading={false}
+                          isProcessing={false}
+                          selectedModelId={selectedModelId}
+                          onModelChange={onModelChange}
+                          sessionId={sessionId}
+                          tokenUsage={tokenUsage}
+                          showModelSelector={true}
+                          showTokenUsage={false}
+                          compact={true}
+                          className="message-editor"
+                          placeholder="编辑你的消息..."
+                          isPlanMode={isPlanMode}
+                          onTogglePlanMode={onTogglePlanMode}
+                        />
+                      </div>
+                    ) : (
+                      <MessageBubble
+                        message={message}
+                        onToolConfirm={onToolConfirm}
+                        onStartEdit={message.type === 'user' && rollbackableMessageIds.includes(message.id) ? handleStartEdit : undefined}
+                        onRegenerate={isLastAssistantMessage ? handleRegenerate : undefined}
+                        onRollback={
+                          // 🎯 回退按钮显示条件：
+                          // 1. 必须是用户消息
+                          // 2. 必须在可回滚消息列表中
+                          // 🔧 FIX: 移除 index < messages.length - 1 条件，因为这在消息列表变化时会导致按钮闪现/消失
+                          // 回退功能本身会检查后续消息是否需要删除
+                          message.type === 'user' &&
+                          rollbackableMessageIds.includes(message.id)
+                            ? handleRollback
+                            : undefined
+                        }
+                        canRevert={message.type === 'user' && rollbackableMessageIds.includes(message.id)}
                         sessionId={sessionId}
-                        tokenUsage={tokenUsage}
-                        showModelSelector={true}
-                        showTokenUsage={false}
-                        compact={true}
-                        className="message-editor"
-                        placeholder="编辑你的消息..."
-                        isPlanMode={isPlanMode}
-                        onTogglePlanMode={onTogglePlanMode}
+                        messages={messages}
+                        onUpdateMessages={onUpdateMessages}
                       />
+                    )}
+                  </div>
+                  );
+                });
+              })()}
+              <div ref={messagesEndRef} />
+            </div>
+
+            {/* 🎯 固定在底部的加载指示器 */}
+            <div className="messages-loading-footer">
+              {/* 🎯 服务初始化/准备中 - 显示"Planning next moves..." */}
+              {isLoading && !isProcessing && (
+                <div className="loading-message">
+                  <div className="loading-indicator">
+                    <div className="loading-dots">
+                      <span></span>
+                      <span></span>
+                      <span></span>
                     </div>
-                  ) : (
-                    <MessageBubble
-                      message={message}
-                      onToolConfirm={onToolConfirm}
-                      onStartEdit={message.type === 'user' && rollbackableMessageIds.includes(message.id) ? handleStartEdit : undefined}
-                      onRegenerate={isLastAssistantMessage ? handleRegenerate : undefined}
-                      onRollback={
-                        // 🎯 回退按钮显示条件：
-                        // 1. 必须是用户消息
-                        // 2. 必须在可回滚消息列表中
-                        // 🔧 FIX: 移除 index < messages.length - 1 条件，因为这在消息列表变化时会导致按钮闪现/消失
-                        // 回退功能本身会检查后续消息是否需要删除
-                        message.type === 'user' &&
-                        rollbackableMessageIds.includes(message.id)
-                          ? handleRollback
-                          : undefined
-                      }
-                      canRevert={message.type === 'user' && rollbackableMessageIds.includes(message.id)}
-                      sessionId={sessionId}
-                      messages={messages}
-                      onUpdateMessages={onUpdateMessages}
-                    />
-                  )}
-                </div>
-                );
-              });
-            })()}
-
-            {/* 🎯 服务初始化/准备中 - 显示"Planning next moves..." */}
-            {isLoading && !isProcessing && (
-              <div className="loading-message">
-                <div className="loading-indicator">
-                  <div className="loading-dots">
-                    <span></span>
-                    <span></span>
-                    <span></span>
-                  </div>
-                  <span className="loading-text">Planning next moves...</span>
-                </div>
-              </div>
-            )}
-
-            {/* 🎯 执行中状态显示 */}
-            {isProcessing && (
-              <div className="processing-message">
-                <div className="processing-indicator">
-                  <Loader2 className="processing-spinner" size={16} />
-                  <div className="processing-text-wrapper">
-                    <span className="processing-text">Generating response...</span>
+                    <span className="loading-text">Planning next moves...</span>
                   </div>
                 </div>
-              </div>
-            )}
+              )}
 
+              {/* 🎯 执行中状态显示 */}
+              {isProcessing && (
+                <div className="processing-message">
+                  <div className="processing-indicator">
+                    <svg className="processing-spinner" viewBox="0 0 24 24" width="16" height="16" xmlns="http://www.w3.org/2000/svg">
+                      <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" opacity="0.2"/>
+                      <circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" strokeWidth="2" strokeDasharray="15.7 62.8" strokeLinecap="round"/>
+                    </svg>
+                    <div className="processing-text-wrapper">
+                      <span className="processing-text">Generating response...</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </>
         )}
-        <div ref={messagesEndRef} />
       </div>
 
       {/* Files Changed Bar */}

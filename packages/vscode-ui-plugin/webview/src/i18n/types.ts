@@ -165,6 +165,7 @@ export interface Translations {
     noDiffContent: string;
     clickToViewDiff: string;
     viewInEditor: string;
+    review: string;
     working: string;
     toolNames: {
       write_file: string;

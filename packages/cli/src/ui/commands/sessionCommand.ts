@@ -2,6 +2,9 @@
  * @license
  * Copyright 2025 Google LLC
  * SPDX-License-Identifier: Apache-2.0
+ *
+ * Session command module - handles session management operations
+ * Provides commands for listing, selecting, creating, and rebuilding sessions
  */
 
 import { CommandContext, SlashCommand, MessageActionReturn, SwitchSessionActionReturn, CommandKind } from './types.js';
@@ -10,6 +13,7 @@ import { HistoryItemWithoutId } from '../types.js';
 import type { Suggestion } from '../components/SuggestionsDisplay.js';
 import { t } from '../utils/i18n.js';
 
+// Interface for session metadata and display information
 interface SessionOption {
   sessionId: string;
   title: string;
@@ -23,6 +27,7 @@ interface SessionOption {
   lastAssistantMessage?: string;
 }
 
+// Command for listing all available sessions
 const listSessionsCommand: SlashCommand = {
   name: 'list',
   description: t('command.session.list.description'),
