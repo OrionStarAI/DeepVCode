@@ -140,6 +140,7 @@
     "undici": "^7.10.0"
   },
   "overrides": {
+    "ajv": "^8.17.1",
     "ink": "npm:@jrichman/ink@6.4.6",
     "wrap-ansi": "9.0.2"
   }
