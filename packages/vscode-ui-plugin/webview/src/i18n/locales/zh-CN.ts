@@ -167,6 +167,7 @@ export const zhCN: Translations = {
     noDiffContent: '无差异内容',
     clickToViewDiff: '点击在编辑器中查看完整diff',
     viewInEditor: '在编辑器中查看',
+    review: 'Review',
     working: '工作中...',
     toolNames: {
       write_file: '写入文件',

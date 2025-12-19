@@ -344,11 +344,11 @@ The CLI automatically loads environment variables from an `.env` file. The loadi
 
 Arguments passed directly when running the CLI can override other configurations for that specific session.
 
+### General Arguments
+
 - **`--model <model_name>`** (**`-m <model_name>`**):
   - Specifies the Gemini model to use for this session.
   - Example: `npm start -- --model gemini-1.5-pro-latest`
-- **`--prompt <your_prompt>`** (**`-p <your_prompt>`**):
-  - Used to pass a prompt directly to the command. This invokes Gemini CLI in a non-interactive mode.
 - **`--sandbox`** (**`-s`**):
   - Enables sandbox mode for this session.
 - **`--sandbox-image`**:
@@ -361,8 +361,43 @@ Arguments passed directly when running the CLI can override other configurations
   - Displays help information about command-line arguments.
 - **`--show-memory-usage`**:
   - Displays the current memory usage.
+- **`--proxy`**:
+  - Sets the proxy for the CLI.
+  - Example: `--proxy http://localhost:7890`.
+- **`--version`**:
+  - Displays the version of the CLI.
+
+### Non-Interactive Mode Arguments
+
+Non-interactive mode allows you to invoke Gemini CLI programmatically without requiring user interaction, making it suitable for automation and third-party tool integration.
+
+- **`--prompt <your_prompt>`** (**`-p <your_prompt>`**):
+  - Used to pass a prompt directly to the command. This invokes Gemini CLI in a non-interactive mode.
+  - Example: `gemini --prompt "Explain this code" @myfile.js`
+
+- **`--output-format <format>`**:
+  - Specifies the output format for non-interactive mode. Currently supported formats:
+    - **`stream-json`**: Outputs one JSON object per line (JSONL format). Each line contains an event object with the following structure:
+      ```json
+      {
+        "type": "message|tool_call|tool_result|error|completion",
+        "content": "...",
+        "timestamp": "2025-12-19T10:30:00Z",
+        ...
+      }
+      ```
+      This format is ideal for parsing output in third-party applications and automation scripts.
+  - **Default:** Standard text output
+  - **Example:** `gemini --output-format stream-json --yolo "Generate a function"`
+
 - **`--yolo`**:
-  - Enables YOLO mode, which automatically approves all tool calls.
+  - Enables YOLO mode, which automatically approves all tool calls without requiring explicit user confirmation.
+  - When combined with `--output-format stream-json`, this enables fully automated, non-interactive execution.
+  - Sandbox is enabled by default in YOLO mode for additional safety.
+  - **Example:** `gemini --output-format stream-json --yolo --prompt "Your task here"`
+
+### Telemetry Arguments
+
 - **`--telemetry`**:
   - Enables [telemetry](../telemetry.md).
 - **`--telemetry-target`**:
@@ -371,6 +406,9 @@ Arguments passed directly when running the CLI can override other configurations
   - Sets the OTLP endpoint for telemetry. See [telemetry](../telemetry.md) for more information.
 - **`--telemetry-log-prompts`**:
   - Enables logging of prompts for telemetry. See [telemetry](../telemetry.md) for more information.
+
+### Other Arguments
+
 - **`--checkpointing`**:
   - Enables [checkpointing](../checkpointing.md).
 - **`--extensions <extension_name ...>`** (**`-e <extension_name ...>`**):
@@ -379,11 +417,32 @@ Arguments passed directly when running the CLI can override other configurations
   - Example: `gemini -e my-extension -e my-other-extension`
 - **`--list-extensions`** (**`-l`**):
   - Lists all available extensions and exits.
-- **`--proxy`**:
-  - Sets the proxy for the CLI.
-  - Example: `--proxy http://localhost:7890`.
-- **`--version`**:
-  - Displays the version of the CLI.
+
+### Non-Interactive Mode Usage Examples
+
+**Example 1: Simple automation with JSONL output**
+
+```bash
+dvcode --output-format stream-json --yolo "Analyze the code and suggest improvements"
+```
+
+This will output events as JSONL, one per line, allowing easy parsing by external tools.
+
+**Example 2: Piping to another tool**
+
+```bash
+dvcode --output-format stream-json --yolo "Generate unit tests" | jq '.content' | grep -E "describe|test"
+```
+
+**Example 3: Integration with CI/CD**
+
+```bash
+dvcode \
+  --output-format stream-json \
+  --yolo \
+  --model gemini-2.5-flash \
+  "Check the code style: @src/"
+```
 
 ## Context Files (Hierarchical Instructional Context)
 

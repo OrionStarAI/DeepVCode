@@ -167,6 +167,7 @@ export const enUS: Translations = {
     noDiffContent: 'No difference content',
     clickToViewDiff: 'Click to view complete diff in editor',
     viewInEditor: 'View in Editor',
+    review: 'Review',
     working: 'Working...',
     toolNames: {
       write_file: 'Write File',

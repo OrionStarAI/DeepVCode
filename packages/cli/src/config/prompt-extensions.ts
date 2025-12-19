@@ -99,7 +99,7 @@ export async function loadPromptExtensions(
 
           if (parsed.description) {
             console.log(
-              `[Prompt Extension] Loaded: /${promptId} - ${parsed.description}`
+              `[STARTUP] Loaded: /${promptId} - ${parsed.description}`
             );
           }
         } catch (error) {

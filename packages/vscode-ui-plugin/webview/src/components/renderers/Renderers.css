@@ -222,30 +222,24 @@
 /* 简化模式样式 */
 .diff-display-container.simplified {
   background: transparent;
+  padding: 8px;
+}
+
+.diff-display-container.simplified .diff-open-editor-btn {
+  margin-left: auto;
+  margin-top: 8px;
 }
 
 .diff-summary-line {
   display: flex;
   align-items: center;
-  gap: 4px; /* 减少间距 */
-  padding: 2px 0; /* 减少padding */
+  gap: 4px;
+  padding: 2px 0;
 }
 
 .diff-file-icon {
   font-size: 14px;
   flex-shrink: 0;
-}
-
-.diff-file-icon.new {
-  /* 绿色新建 */
-}
-
-.diff-file-icon.deleted {
-  /* 红色删除 */
-}
-
-.diff-file-icon.modified {
-  /* 蓝色修改 */
 }
 
 .diff-action {
@@ -300,44 +294,81 @@
   background: rgba(255, 255, 0, 0.1);
 }
 
-.diff-stat.no-change {
-  color: var(--vscode-descriptionForeground);
-  background: transparent;
-}
-
-/* 详细模式样式 */
+/* 详细模式样式 - 极致优化版 */
 .diff-display-container.detailed {
   background: var(--vscode-textCodeBlock-background);
   border: 1px solid var(--vscode-panel-border);
   border-radius: 4px;
   overflow: hidden;
+  margin: 4px 0;
 }
 
 .diff-file-header {
-  background: var(--vscode-tab-inactiveBackground);
+  background: var(--vscode-editor-background);
   border-bottom: 1px solid var(--vscode-panel-border);
-  padding: 6px 10px;
+  padding: 2px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 24px;
+}
+
+.diff-file-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+}
+
+.diff-file-icon-small {
+  color: var(--vscode-descriptionForeground);
+  flex-shrink: 0;
 }
 
 .diff-file-name {
-  color: var(--vscode-foreground);
-  font-family: monospace;
-  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  font-family: var(--vscode-font-family);
+  font-size: 11px;
   font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.diff-open-editor-btn-mini {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  font-size: 10px;
+  color: var(--vscode-textLink-foreground);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.1s;
+}
+
+.diff-open-editor-btn-mini:hover {
+  background: var(--vscode-toolbar-hoverBackground);
+  color: var(--vscode-textLink-activeForeground);
+  border-color: var(--vscode-panel-border);
 }
 
 .diff-content {
-  max-height: 300px;
+  max-height: 500px;
   overflow: auto;
-  font-family: var(--vscode-editor-font-family);
-  font-size: var(--vscode-editor-font-size, 12px);
+  font-family: var(--vscode-editor-font-family, 'Cascadia Code', 'Consolas', monospace);
+  font-size: 10.5px;
+  line-height: 1.25;
 }
 
 .diff-line {
   display: flex;
   align-items: flex-start;
-  min-height: 18px;
-  line-height: 18px;
+  min-height: 15px;
+  line-height: 15px;
 }
 
 .diff-line.added {
@@ -355,39 +386,41 @@
 .diff-gutter {
   background: var(--vscode-editorGutter-background);
   border-right: 1px solid var(--vscode-panel-border);
-  padding: 0 8px;
-  min-width: 40px;
+  padding: 0 4px;
+  min-width: 28px;
   text-align: right;
   flex-shrink: 0;
+  opacity: 0.7;
 }
 
 .diff-line-number {
   color: var(--vscode-editorLineNumber-foreground);
   font-family: monospace;
-  font-size: 11px;
+  font-size: 9px;
   user-select: none;
 }
 
 .diff-line-content {
   display: flex;
   flex: 1;
-  padding-left: 8px;
+  padding-left: 4px;
   min-width: 0;
 }
 
 .diff-line-prefix {
   color: var(--vscode-descriptionForeground);
   font-family: monospace;
-  width: 12px;
+  width: 10px;
   flex-shrink: 0;
   user-select: none;
+  font-size: 10px;
 }
 
 .diff-line-text {
   color: var(--vscode-editor-foreground);
-  font-family: monospace;
+  font-family: inherit;
   white-space: pre;
-  word-break: break-all;
+  word-break: normal;
   flex: 1;
 }
 
@@ -453,32 +486,12 @@
   transform: none;
 }
 
-.diff-header-actions {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: 12px;
-  gap: 8px;
-}
-
-.diff-display-container.simplified {
-  padding: 12px;
-}
-
-.diff-display-container.simplified .diff-open-editor-btn {
-  margin-left: auto;
-  margin-top: 12px;
-}
-
 /* 响应式调整 */
 @media (max-width: 768px) {
   .diff-open-editor-btn {
     font-size: 11px;
     padding: 5px 10px;
     gap: 4px;
-  }
-
-  .diff-header-actions {
-    margin-bottom: 10px;
   }
 }
 
@@ -499,9 +512,5 @@
     padding: 4px 8px;
     gap: 3px;
     width: 100%;
-  }
-
-  .diff-display-container.simplified .diff-open-editor-btn {
-    margin-left: 0;
   }
 }
