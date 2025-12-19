@@ -3,118 +3,65 @@
 .message-input-container {
   border-top: 1px solid var(--vscode-panel-border);
   background-color: var(--vscode-editor-background);
-  padding: 4px 12px 12px 12px; /* 🎯 减少左右padding，提供更多输入空间 */
-  width: 100%; /* 🎯 确保占据全宽 */
+  padding: 4px 12px 12px 12px;
+  width: 100%;
   max-width: 100%;
   position: relative;
-  height: 140px; /* 🎯 固定高度约3行 */
-  /* 确保容器底部固定，只向上扩展 */
-  flex-shrink: 0;
-  /* 🎯 平滑的高度变化动画 */
-  transition: height 0.2s ease-out;
-  box-sizing: border-box; /* 🎯 包含padding在宽度计算内 */
-}
-
-/* 🎯 编辑模式的特殊样式 */
-.message-input-container.edit-mode {
-  /* 适配消息气泡的样式 */
-  margin: 8px 0 8px 0;
-  border-radius: 8px;
-  background: var(--vscode-input-background);
-  border: 1px solid var(--vscode-focusBorder);
-  padding: 8px;
-  height: auto;  /* 🎯 自动高度，不固定 */
-  min-height: 80px;  /* 🎯 最小高度 */
-  max-height: 200px;  /* 🎯 最大高度限制 */
-}
-
-.message-input-container.edit-mode.compact {
-  /* 紧凑模式样式 */
-  margin: 4px 0 4px 0;
+  min-height: 140px;
+  /* 🎯 默认 auto，但允许通过 style 覆盖 */
   height: auto;
-  min-height: 70px;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  transition: height 0.2s ease-out;
+  box-sizing: border-box;
 }
 
-/* 🎯 当正在调整大小时禁用动画，避免拖拽时的延迟 */
+/* 🎯 当处于手动调整大小时，禁用过渡动画以保证流畅 */
 .message-input-container.resizing {
   transition: none;
 }
 
 .input-wrapper {
   position: relative;
-  height: calc(100% - 16px); /* 减去手柄高度 */
-  margin-top: 8px; /* 为拖拽手柄留出空间 */
-  margin-bottom: 0; /* 🎯 移除底部边距，贴底显示 */
+  /* 🎯 填满容器剩余空间 */
+  flex: 1;
   display: flex;
   flex-direction: column;
+  margin-top: 8px;
+  margin-bottom: 0;
+  min-height: 0; /* 允许 flex 子元素收缩 */
 }
 
-/* 🎯 编辑模式下的input-wrapper样式调整 */
-.message-input-container.edit-mode .input-wrapper {
-  height: calc(100% - 16px); /* 与撰写模式保持一致 */
-  margin-top: 8px; /* 与撰写模式保持一致，为拖拽手柄留空间（虽然隐藏了） */
-}
-
-/* 🎯 Lexical 编辑器容器 */
+/* 🎯 确保编辑器容器填满 wrapper */
 .lexical-editor-container {
   flex: 1;
-  position: relative;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  position: relative;
 }
 
-/* 🎯 RichText 包装器 */
+/* 🎯 确保富文本包装器填满容器 */
 .rich-text-wrapper {
   flex: 1;
-  position: relative;
   display: flex;
   flex-direction: column;
   min-height: 0;
 }
 
-/* 🎯 编辑框内浮动操作按钮容器 - Refine 按钮位置 */
-.editor-floating-actions {
-  position: absolute;
-  bottom: 10px;
-  right: 12px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  z-index: 10;
-  pointer-events: auto;
-}
-
-.message-input {
-  flex: 1;
-  background-color: var(--vscode-input-background);
-  color: var(--vscode-input-foreground);
-  border: 1px solid var(--vscode-input-border);
-  border-radius: 4px;
-  padding: 8px 12px;
-  font-family: var(--vscode-font-family);
-  font-size: var(--vscode-font-size);
-  resize: none;
-  outline: none;
-  transition: border-color 0.2s ease;
-  /* 🎯 多行输入框固定高度 */
-  height: 84px !important;         /* 约3行的固定高度 */
-  box-sizing: border-box;          /* 确保padding计算在height内 */
-  white-space: pre-wrap;           /* 保留换行和空格 */
-  overflow-x: hidden !important;   /* 隐藏水平滚动，文字自动换行 */
-  overflow-y: auto !important;     /* 需要时显示垂直滚动条 */
-  word-wrap: break-word;           /* 长词自动换行 */
-}
-
-/* Lexical ContentEditable 样式 - 充满整个区域，按钮在底部 */
+/* Lexical ContentEditable 样式 */
 .lexical-content-editable {
   width: 100%;
+  /* 🎯 关键：在自动模式下由内容撑开，在固定高度模式下填满容器 */
   flex: 1;
+  min-height: 72px;
+  height: auto;
   background-color: var(--vscode-input-background);
   color: var(--vscode-input-foreground);
   border: 1px solid var(--vscode-input-border);
   border-radius: 6px;
-  padding: 10px 12px; /* 🎯 进一步减少padding，提供更多文本编辑空间 */
+  padding: 10px 12px;
   font-family: var(--vscode-font-family);
   font-size: 14px;
   line-height: 1.5;
@@ -125,11 +72,9 @@
   overflow-x: hidden !important;
   overflow-y: auto !important;
   word-wrap: break-word;
-  word-break: break-word; /* 🎯 确保长单词也能换行 */
+  word-break: break-word;
   cursor: text;
   resize: none;
-  /* 🎯 确保编辑器能够响应容器高度变化 */
-  min-height: 0;
 }
 
 /* 🎯 确保 Lexical 内部元素正确内联显示 */
@@ -1275,11 +1220,15 @@
   top: 0;
   left: 0;
   right: 0;
-  height: 8px;
+  height: 12px; /* 🎯 增加高度，更容易点击 */
   background: transparent;
   cursor: ns-resize;
+  z-index: 100; /* 🎯 确保在最上层 */
   transition: background-color 0.2s ease;
-  /* 🎯 添加视觉提示，让用户知道这是可拖拽的区域 */
+}
+
+.resize-handle:hover {
+  background: var(--vscode-editor-lineHighlightBackground); /* 🎯 悬停时有视觉反馈 */
 }
 
 /* 🎯 编辑模式下隐藏拖拽手柄 */

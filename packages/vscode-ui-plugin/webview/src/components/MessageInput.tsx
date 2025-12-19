@@ -132,87 +132,33 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
     onTogglePlanMode
   } = props;
   const { t } = useTranslation();
+
+  // 🎯 从 useRefineCommand hook 获取 refine 功能
+  const {
+    refineResult,
+    isLoading: isRefineLoading,
+    executeRefine,
+    clearRefineResult
+  } = useRefineCommand();
+
+  // 🎯 编辑模式标志
+  const isEditMode = mode === 'edit';
+
   const [editorState, setEditorState] = useState<EditorState | null>(null);
   const [textContent, setTextContent] = useState('');
   const [isResizing, setIsResizing] = useState(false);
-  const [containerHeight, setContainerHeight] = useState(140); // 🎯 默认高度改为3行
-  const [isAutoExpanded, setIsAutoExpanded] = useState(false); // 是否是自动扩展状态
+  const [hasPopulatedContent, setHasPopulatedContent] = useState(false); // 🎯 标记初始内容是否已填充
+  // 🎯 FIX：重新引入 containerHeight，但默认为 undefined (即 auto)
+  const [containerHeight, setContainerHeight] = useState<number | undefined>(undefined);
+  const [isAutoExpanded, setIsAutoExpanded] = useState(false); // 状态标记，用于样式控制
   const editorRef = useRef<any>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const resizeStartY = useRef<number>(0);
   const resizeStartHeight = useRef<number>(0);
 
-  // 🎯 Refine 命令 Hook
-  const { refineResult, isLoading: isRefineLoading, executeRefine, clearRefineResult } = useRefineCommand();
-
-  // 🎯 模式判断
-  const isEditMode = mode === 'edit';
-  const isComposeMode = mode === 'compose' || !mode;
-
-  // 🎯 跟踪是否已经填充过初始内容
-  const [hasPopulatedContent, setHasPopulatedContent] = useState(false);
-
-  // 🎯 暴露方法给父组件
-  useImperativeHandle(ref, () => ({
-    insertCodeReference: (codeRef: {
-      fileName: string;
-      filePath: string;
-      code: string;
-      startLine?: number;
-      endLine?: number;
-    }) => {
-      if (!editorRef.current) {
-        console.warn('Editor not ready, cannot insert code reference');
-        return;
-      }
-
-      editorRef.current.update(() => {
-        const selection = $getSelection();
-
-        if ($isRangeSelection(selection)) {
-          // 🎯 创建代码引用节点
-          const codeNode = $createCodeReferenceNode(
-            codeRef.fileName,
-            codeRef.filePath,
-            codeRef.startLine,
-            codeRef.endLine,
-            codeRef.code
-          );
-
-          // 🎯 插入节点和一个空格
-          const spaceNode = $createTextNode(' ');
-          selection.insertNodes([codeNode, spaceNode]);
-
-          // 🎯 将光标移到空格后面
-          spaceNode.selectNext();
-        }
-      });
-
-      // 🎯 聚焦编辑器
-      editorRef.current.focus();
-    },
-    setContent: (content: MessageContent) => {
-      populateEditorWithContent(content);
-      // 聚焦编辑器
-      setTimeout(() => {
-        if (editorRef.current) {
-          editorRef.current.focus();
-        }
-      }, 100);
-    }
-  }));
-
-  // 🎯 重置填充状态当编辑模式变化或编辑不同消息时
-  useEffect(() => {
-    if (!isEditMode || !editingMessageId) {
-      setHasPopulatedContent(false);
-    }
-  }, [isEditMode, editingMessageId]);
-
   // 🎯 自动扩展配置
-  const MIN_HEIGHT = 140; // 🎯 编辑模式和撰写模式使用相同高度
-  const MAX_HEIGHT = 400; // 🎯 最大高度限制（约16-17行文本）
-  const LINE_HEIGHT = 24; // 大约每行的高度
+  const MIN_HEIGHT = 140;
+  const MAX_HEIGHT = 400; // 自动模式下的上限
 
   // 🎯 Lexical 初始化配置
   const initialConfig = {
@@ -257,117 +203,51 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
     });
 
     setTextContent(newTextContent);
+
+    // 🎯 FIX #4: 当用户输入内容时重新启用自动扩展
+    if (newTextContent.trim().length > 0 && !isAutoExpanded) {
+      setIsAutoExpanded(true);
+    }
   };
 
-  // 🎯 监听文本内容变化，自动调整高度
+  // 🎯 监听文本内容变化，更新自动扩展状态
   useEffect(() => {
-    // 延迟执行以确保DOM已更新
-    const timer = setTimeout(() => {
-      if (isEditMode) {
-        checkAndAutoExpandForEdit();
-      } else {
-        checkAndAutoExpand();
-      }
-    }, 50);
+    // 🎯 FIX：简化为仅管理状态，CSS处理真实高度
+    const hasContent = textContent.trim().length > 0;
+    if (hasContent && !isAutoExpanded) {
+      setIsAutoExpanded(true);
+    } else if (!hasContent && isAutoExpanded) {
+      setIsAutoExpanded(false);
+    }
+  }, [textContent, isAutoExpanded]);
 
-    return () => clearTimeout(timer);
-  }, [textContent, isEditMode]);
-
-  // 🎯 编辑模式专用的高度检查和调整
+  // 🎯 FIX：编辑模式现在由CSS完全处理高度
   const checkAndAutoExpandForEdit = () => {
     if (isResizing) return;
-
-    const contentEditable = containerRef.current?.querySelector('.lexical-content-editable') as HTMLElement;
-    if (!contentEditable) return;
-
-    const scrollHeight = contentEditable.scrollHeight;
-    console.log('🎯 编辑模式高度检查:', { scrollHeight, currentContainerHeight: containerHeight });
-
-    // 🎯 计算需要的容器高度（内容高度 + padding + 其他元素空间）
-    const padding = 24; // 12px top + 12px bottom padding
-    const toolbarHeight = 40; // 底部工具栏高度（包括边距和边框）
-    const handleHeight = 8; // 拖拽手柄高度（虽然编辑模式隐藏了，但预留空间）
-    const extraSpace = padding + toolbarHeight + handleHeight + 8; // 额外的8px缓冲
-
-    // 🎯 编辑模式下，根据内容实际需要的高度来设置，不等待溢出
-    const neededContainerHeight = Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, scrollHeight + extraSpace));
-
-    console.log('🎯 编辑模式高度计算:', {
-      scrollHeight,
-      extraSpace,
-      neededContainerHeight,
-      currentHeight: containerHeight,
-      MIN_HEIGHT,
-      MAX_HEIGHT
-    });
-
-    // 🎯 设置合适的高度
-    if (Math.abs(neededContainerHeight - containerHeight) > 5) {
-      setContainerHeight(neededContainerHeight);
-      setIsAutoExpanded(neededContainerHeight > MIN_HEIGHT);
-      console.log('🎯 编辑模式高度已调整为:', neededContainerHeight);
+    // CSS会自动处理编辑模式的高度，这里只需管理状态
+    const hasContent = textContent.trim().length > 0;
+    if (hasContent && !isAutoExpanded) {
+      setIsAutoExpanded(true);
+    } else if (!hasContent && isAutoExpanded) {
+      setIsAutoExpanded(false);
     }
   };
 
+
+
   // 🎯 检查并自动扩展容器高度（撰写模式）
+  // 🎯 FIX：简化逻辑 - CSS已经处理了自动扩展，这里只需要简单的状态管理
   const checkAndAutoExpand = () => {
-    console.log('🔍 checkAndAutoExpand 被调用');
+    if (isResizing) return;
 
-    if (isResizing) {
-      console.log('⏸️ 正在调整大小，跳过');
-      return;
-    }
-
-    // 🎯 通过查找DOM元素来获取内容编辑器
-    const contentEditable = containerRef.current?.querySelector('.lexical-content-editable') as HTMLElement;
-    if (!contentEditable) {
-      console.log('❌ 找不到内容编辑器元素');
-      return;
-    }
-
-    const scrollHeight = contentEditable.scrollHeight;
-    const clientHeight = contentEditable.clientHeight;
     const hasContent = textContent.trim().length > 0;
 
-    console.log('📏 当前状态:', {
-      scrollHeight,
-      clientHeight,
-      textLength: textContent.length,
-      hasContent,
-      currentContainerHeight: containerHeight
-    });
-
-    // 🎯 计算需要的容器高度（内容高度 + padding + 其他元素空间）
-    const padding = 24; // top + bottom padding (根据实际CSS的10px * 2 = 20，留些余量)
-    const toolbarHeight = 40; // 底部工具栏高度（包括边距和边框）
-    const handleHeight = 16; // 拖拽手柄高度（8px + margins）
-    const extraSpace = padding + toolbarHeight + handleHeight + 8; // 额外的8px缓冲
-
-    let neededContainerHeight;
-
-    if (!hasContent) {
-      // 🎯 没有内容时，重置为最小高度
-      neededContainerHeight = MIN_HEIGHT;
-    } else {
-      // 🎯 直接根据内容scrollHeight计算需要的高度，不等待溢出
-      neededContainerHeight = Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, scrollHeight + extraSpace));
-    }
-
-    console.log('💡 计算结果:', {
-      neededHeight: neededContainerHeight,
-      currentHeight: containerHeight,
-      diff: Math.abs(neededContainerHeight - containerHeight),
-      MIN_HEIGHT,
-      MAX_HEIGHT
-    });
-
-    // 🎯 如果需要的高度与当前高度差异超过5px才调整
-    if (Math.abs(neededContainerHeight - containerHeight) > 5) {
-      console.log('✅ 开始调整高度:', containerHeight, '→', neededContainerHeight);
-      setContainerHeight(neededContainerHeight);
-      setIsAutoExpanded(neededContainerHeight > MIN_HEIGHT);
-    } else {
-      console.log('⏭️ 高度差异小于5px，不调整');
+    // 🎯 FIX：不再手动计算高度，CSS flex会自动处理
+    // 只管理状态标志
+    if (hasContent && !isAutoExpanded) {
+      setIsAutoExpanded(true);
+    } else if (!hasContent && isAutoExpanded) {
+      setIsAutoExpanded(false);
     }
   };
 
@@ -637,7 +517,6 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
           const root = $getRoot();
           const newTextContent = root.getTextContent();
           setTextContent(newTextContent);
-          console.log('🎯 更新文本内容状态:', newTextContent);
         });
 
         // 🎯 编辑模式下，根据内容长度立即调整高度
@@ -747,7 +626,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
     } else if (refineResult && refineResult.error) {
       console.log('[MessageInput] Refine error:', refineResult.error);
     }
-  }, [refineResult]);
+  }, [refineResult, clearRefineResult]);
 
   // 🎯 处理剪切板图片粘贴
   const handleImagePaste = (imageData: ImageReference) => {
@@ -944,8 +823,8 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
     resetImageCounter();
     setHasPopulatedContent(false); // 🎯 重置填充状态
 
-    // 重置高度
-    setContainerHeight(MIN_HEIGHT);
+    // 🎯 FIX：发送后重置为自动高度
+    setContainerHeight(undefined);
     setIsAutoExpanded(false);
   };
 
@@ -957,35 +836,34 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
     clearEditor();
   };
 
-
-
-  // 拖拽调整大小处理函数
+  // 🎯 FIX：恢复手动拖拽调整大小逻辑
   const handleResizeStart = (e: React.MouseEvent) => {
+    console.log('[RESIZE] Start dragging');
     e.preventDefault();
     setIsResizing(true);
     resizeStartY.current = e.clientY;
-    resizeStartHeight.current = containerHeight;
+
+    // 获取当前实际高度
+    const currentHeight = containerRef.current?.offsetHeight || MIN_HEIGHT;
+    resizeStartHeight.current = currentHeight;
+    console.log('[RESIZE] Initial height:', currentHeight);
 
     const handleMouseMove = (e: MouseEvent) => {
-      // 🎯 修复拖拽方向：向上拖拽应该增加高度，向下拖拽应该减少高度
-      // 因为容器底部是固定的，所以向上拖拽手柄意味着增加容器高度
-      const deltaY = resizeStartY.current - e.clientY; // 向上拖为正值
-      const newHeight = Math.max(MIN_HEIGHT, Math.min(MAX_HEIGHT, resizeStartHeight.current + deltaY));
-      setContainerHeight(newHeight);
+      // 向上拖拽增加高度
+      const deltaY = resizeStartY.current - e.clientY;
+      // 🎯 限制最高为视口高度的 70%
+      const maxHeightLimit = window.innerHeight * 0.7;
+      const newHeight = Math.max(MIN_HEIGHT, Math.min(maxHeightLimit, resizeStartHeight.current + deltaY));
 
-      // 🎯 用户手动调整时，暂时禁用自动扩展
-      setIsAutoExpanded(false);
+      // 🎯 实时更新高度
+      setContainerHeight(newHeight);
     };
 
     const handleMouseUp = () => {
+      console.log('[RESIZE] Stop dragging');
       setIsResizing(false);
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
-
-      // 🎯 拖拽结束后，如果内容需要更多空间，重新启用自动扩展
-      setTimeout(() => {
-        checkAndAutoExpand();
-      }, 100);
     };
 
     document.addEventListener('mousemove', handleMouseMove);
@@ -1024,8 +902,8 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
       });
     }
     setTextContent('');
-    // 🎯 清空后重置为默认3行高度
-    setContainerHeight(MIN_HEIGHT);
+    // 🎯 FIX：清空后重置为自动高度
+    setContainerHeight(undefined);
     setIsAutoExpanded(false);
   };
 
@@ -1038,16 +916,15 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
     className
   ].filter(Boolean).join(' ');
 
-  // 🎯 根据模式调整高度 - 编辑模式和撰写模式保持一致
-  const getContainerHeight = () => {
-    return containerHeight;
-  };
-
   return (
     <div
       ref={containerRef}
       className={containerClasses}
-      style={{ height: `${getContainerHeight()}px` }}
+      style={{
+        height: containerHeight ? `${containerHeight}px` : 'auto',
+        // 🎯 始终限制最高不超过视口高度的 70%
+        maxHeight: containerHeight ? '70vh' : `${MAX_HEIGHT}px`
+      }}
     >
       {/* 拖拽调整大小手柄 */}
       <div
