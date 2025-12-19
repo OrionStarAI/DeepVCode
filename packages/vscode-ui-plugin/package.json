@@ -121,7 +121,7 @@
       "activitybar": [
         {
           "id": "deepv-ai-sidebar",
-          "title": "DeepV AI Assistant",
+          "title": "DeepV Code",
           "icon": "./assets/icon.svg"
         }
       ]

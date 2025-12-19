@@ -235,7 +235,7 @@ export const enUS: Translations = {
   },
 
   app: {
-    title: '🤖 DeepV AI Assistant',
+    title: '🤖 DeepV Code',
     toggleSidebar: 'Toggle Sidebar',
     expandSidebar: 'Expand Sidebar',
     collapseSidebar: 'Collapse Sidebar',

@@ -46,7 +46,7 @@ DeepV Code is a powerful AI-powered programming assistant that brings intelligen
 ### Quick Actions
 
 **Using the Chat Interface:**
-1. Open the DeepV AI Assistant panel from the sidebar
+1. Open the DeepV Code panel from the sidebar
 2. Type your question or request in natural language
 3. Review AI suggestions and approve tool operations
 4. See changes applied in real-time
