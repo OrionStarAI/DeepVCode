@@ -1,6 +1,6 @@
 {
   "name": "deepv-code-core",
-  "version": "1.0.239",
+  "version": "1.0.240",
   "description": "DeepV Code Core - Core functionality for AI-powered coding assistant",
   "repository": {
     "type": "git",
@@ -50,7 +50,7 @@
     "strip-ansi": "^7.1.0",
     "undici": "^7.10.0",
     "ws": "^8.18.0",
-    "xlsx": "^0.18.5"
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.2/xlsx-0.20.2.tgz"
   },
   "devDependencies": {
     "@types/diff": "^7.0.2",

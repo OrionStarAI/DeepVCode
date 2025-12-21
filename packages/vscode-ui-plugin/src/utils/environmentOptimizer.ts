@@ -19,6 +19,14 @@ interface OptimizedTerminalInfo {
 
 class EnvironmentOptimizer {
   private static cachedInfo: OptimizedTerminalInfo | null = null;
+  private static logger: any = null;
+
+  /**
+   * 设置 logger 引用（在 logger 初始化后调用）
+   */
+  static setLogger(logger: any): void {
+    this.logger = logger;
+  }
 
   /**
    * 获取优化后的环境信息
@@ -26,11 +34,21 @@ class EnvironmentOptimizer {
    */
   static getOptimizedEnvironment(): OptimizedTerminalInfo {
     if (this.cachedInfo) {
-      console.log('🚀 [EnvOptimizer] Using cached environment info');
+      const msg = '[EnvOptimizer] Using cached environment info';
+      if (this.logger) {
+        this.logger.debug(msg);
+      } else {
+        console.log(`🚀 ${msg}`);
+      }
       return this.cachedInfo;
     }
 
-    console.log('🔍 [EnvOptimizer] Detecting environment...');
+    const msg = '[EnvOptimizer] Detecting environment...';
+    if (this.logger) {
+      this.logger.debug(msg);
+    } else {
+      console.log(`🔍 ${msg}`);
+    }
 
     const isVSCode = this.isVSCodeEnvironment();
     const platform = process.platform;
@@ -44,10 +62,20 @@ class EnvironmentOptimizer {
     if (isVSCode) {
       // 在VSCode环境中，使用简化的检测逻辑
       optimizedInfo = this.getVSCodeOptimizedInfo(optimizedInfo);
-      console.log('✅ [EnvOptimizer] VSCode environment detected, skipping process tree detection');
+      const msg = '[EnvOptimizer] VSCode environment detected, skipping process tree detection';
+      if (this.logger) {
+        this.logger.info(msg);
+      } else {
+        console.log(`✅ ${msg}`);
+      }
     } else {
       // 非VSCode环境，使用默认检测
-      console.log('🔍 [EnvOptimizer] Non-VSCode environment, will use full detection');
+      const msg = '[EnvOptimizer] Non-VSCode environment, will use full detection';
+      if (this.logger) {
+        this.logger.debug(msg);
+      } else {
+        console.log(`🔍 ${msg}`);
+      }
     }
 
     this.cachedInfo = optimizedInfo;
@@ -70,17 +98,27 @@ class EnvironmentOptimizer {
 
       const isVSCode = hasVSCode || hasVSCodePID || hasVSCodeTerm || hasVSCodeIDE;
 
-      console.log(`🔍 [EnvOptimizer] VSCode detection:`, {
+      const msg = `[EnvOptimizer] VSCode detection: ${JSON.stringify({
         hasVSCode,
         hasVSCodePID,
         hasVSCodeTerm,
         hasVSCodeIDE,
         result: isVSCode
-      });
+      })}`;
+      if (this.logger) {
+        this.logger.debug(msg);
+      } else {
+        console.log(`🔍 ${msg}`);
+      }
 
       return isVSCode;
     } catch (error) {
-      console.warn('⚠️ [EnvOptimizer] Error detecting VSCode environment:', error);
+      const msg = `[EnvOptimizer] Error detecting VSCode environment: ${error}`;
+      if (this.logger) {
+        this.logger.warn(msg);
+      } else {
+        console.warn(`⚠️ ${msg}`);
+      }
       return false;
     }
   }
@@ -114,7 +152,12 @@ class EnvironmentOptimizer {
              env.SHELL || 'Unknown Shell';
     }
 
-    console.log(`🎯 [EnvOptimizer] VSCode optimized detection: ${shell} in ${terminal}`);
+    const msg = `[EnvOptimizer] VSCode optimized detection: ${shell} in ${terminal}`;
+    if (this.logger) {
+      this.logger.debug(msg);
+    } else {
+      console.log(`🎯 ${msg}`);
+    }
 
     return {
       ...baseInfo,
@@ -157,7 +200,12 @@ class EnvironmentOptimizer {
    * 重置缓存（用于测试或强制重新检测）
    */
   static resetCache(): void {
-    console.log('🔄 [EnvOptimizer] Cache reset');
+    const msg = '[EnvOptimizer] Cache reset';
+    if (this.logger) {
+      this.logger.debug(msg);
+    } else {
+      console.log(`🔄 ${msg}`);
+    }
     this.cachedInfo = null;
   }
 
@@ -173,7 +221,12 @@ class EnvironmentOptimizer {
       process.env.DEEPV_OPTIMIZED_SHELL = info.shell || 'Unknown';
       process.env.DEEPV_OPTIMIZED_TERMINAL = info.terminal || 'Unknown';
 
-      console.log('⚡ [EnvOptimizer] Global optimization installed - process detection will be skipped');
+      const msg = '[EnvOptimizer] Global optimization installed - process detection will be skipped';
+      if (this.logger) {
+        this.logger.info(msg);
+      } else {
+        console.log(`⚡ ${msg}`);
+      }
     }
   }
 }

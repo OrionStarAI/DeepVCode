@@ -72,22 +72,18 @@ export async function activate(context: vscode.ExtensionContext) {
     // 🎯 设置 CLI 版本号，用于 User-Agent
     // 直接从 context 获取扩展信息更可靠
     const extensionVersion = context.extension?.packageJSON?.version || 'unknown';
-    console.log(`[Extension] Version: ${extensionVersion}`);
     process.env.CLI_VERSION = `VSCode-${extensionVersion}`;
     // 同时通过 setCliVersion 设置（如果 ProxyAuthManager 已初始化）
     try {
       const { setCliVersion } = require('deepv-code-core');
       setCliVersion(`VSCode-${extensionVersion}`);
-      console.log(`[Extension] Set CLI version to VSCode-${extensionVersion}`);
+      // logger will be available after initialization
     } catch (e) {
-      console.log(`[Extension] Could not call setCliVersion: ${e}`);
       // core 可能还没加载，稍后会在 ProxyAuthManager 初始化时从环境变量读取
     }
 
     // 🚀 安装环境优化器
     EnvironmentOptimizer.installGlobalOptimization();
-    const envInfo = EnvironmentOptimizer.getFormattedInfo();
-    console.log(`🌍 [Extension] Environment: ${envInfo}`);
 
     startupOptimizer.endPhase();
     startupOptimizer.startPhase('Logger Initialization');
@@ -99,6 +95,11 @@ export async function activate(context: vscode.ExtensionContext) {
     // Initialize logger first
     const outputChannel = vscode.window.createOutputChannel('DeepV Code AI Assistant');
     logger = new Logger(context, outputChannel);
+
+    // 🎯 设置 logger 引用到优化工具，使其能使用统一的日志格式
+    startupOptimizer.setLogger(logger);
+    EnvironmentOptimizer.setLogger(logger);
+
     logger.info('DeepV Code AI Assistant is activating...');
     logger.info(`📁 Log file location: ${logger.getLogFilePath()}`);
     logger.info(`📁 Extension path: ${context.extensionPath}`);
@@ -950,14 +951,13 @@ function setupBasicMessageHandlers() {
       logger.info(`Update check API URL: ${apiUrl}`);
 
       const https = require('https');
-      const url = require('url');
 
       const result = await new Promise((resolve, reject) => {
-        const parsedUrl = url.parse(apiUrl);
+        const parsedUrl = new URL(apiUrl);
         const options = {
           hostname: parsedUrl.hostname,
           port: parsedUrl.port || 443,
-          path: parsedUrl.path,
+          path: parsedUrl.pathname + parsedUrl.search,
           method: 'GET',
           headers: {
             'Content-Type': 'application/json',
@@ -1308,8 +1308,8 @@ function setupBasicMessageHandlers() {
       const globalToolNames = getAllMCPServerToolNames();
       const mcpEnabledService = McpEnabledStateService.getInstance();
 
-      logger.info(`🔌 [MCP] Global tool counts: ${JSON.stringify(Array.from(globalToolCounts.entries()))}`);
-      logger.info(`🔌 [MCP] Global tool names keys: ${JSON.stringify(Array.from(globalToolNames.keys()))}`);
+      logger.info(`[MCP] Global tool counts: ${JSON.stringify(Array.from(globalToolCounts.entries()))}`);
+      logger.info(`[MCP] Global tool names keys: ${JSON.stringify(Array.from(globalToolNames.keys()))}`);
 
       // 转换状态数据为前端格式（包含完整信息）
       const servers = Array.from(statuses?.entries() || []).map(([name, status]) => ({
@@ -1320,7 +1320,7 @@ function setupBasicMessageHandlers() {
         enabled: mcpEnabledService.isEnabled(name)
       }));
 
-      logger.info(`🔌 [MCP] Sending MCP status: ${servers.map(s => `${s.name}(tools:${s.toolCount}, enabled:${s.enabled})`).join(', ')}`);
+      logger.info(`[MCP] Sending MCP status: ${servers.map(s => `${s.name}(tools:${s.toolCount}, enabled:${s.enabled})`).join(', ')}`);
 
       await communicationService.sendMessage({
         type: 'mcp_status_update',
@@ -1339,7 +1339,7 @@ function setupBasicMessageHandlers() {
   // 🔌 处理设置 MCP 启用状态
   communicationService.addMessageHandler('set_mcp_enabled', async (payload: { serverName: string; enabled: boolean }) => {
     try {
-      logger.info(`🔌 [MCP] Setting server '${payload.serverName}' enabled: ${payload.enabled}`);
+      logger.info(`[MCP] Setting server '${payload.serverName}' enabled: ${payload.enabled}`);
 
       const mcpEnabledService = McpEnabledStateService.getInstance();
       await mcpEnabledService.setEnabled(payload.serverName, payload.enabled);
@@ -1501,7 +1501,7 @@ function setupLoginHandlers() {
 
           // 友好提示
           const action = await vscode.window.showInformationMessage(
-            'Extension page opened in your browser. You can also search for "DeepV AI Assistant" in Extensions (Ctrl+Shift+X).',
+            'Extension page opened in your browser. You can also search for "DeepV Code" in Extensions (Ctrl+Shift+X).',
             'Open Extensions Panel'
           );
 

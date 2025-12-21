@@ -3,7 +3,12 @@ import { Icons } from './IconAssets';
 
 // Helper to render the icon
 const IconImg = ({ src, alt }: { src: string; alt: string }) => (
-  <img src={src} alt={alt} style={{ width: '16px', height: '16px', display: 'block' }} />
+  <img
+    src={src}
+    alt={alt}
+    className="file-icon-img"
+    style={{ width: '16px', height: '16px', display: 'block' }}
+  />
 );
 
 const extMap: Record<string, string> = {

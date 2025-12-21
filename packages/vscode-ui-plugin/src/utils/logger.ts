@@ -33,7 +33,7 @@ export class Logger {
       fs.mkdirSync(logDir, { recursive: true });
     }
     this.logFilePath = path.join(logDir, 'deepv-debug.log');
-    
+
     // 🗑️ 启动时删除旧日志文件
     try {
       if (fs.existsSync(this.logFilePath)) {
@@ -70,13 +70,13 @@ export class Logger {
     const timestamp = new Date().toISOString();
     const levelStr = LogLevel[level];
     const logMessage = `[${timestamp}] [${levelStr}] ${message}`;
-    
+
     // 输出到VSCode面板
     this.outputChannel.appendLine(logMessage);
-    
+
     // 🎯 同时写入日志文件
     this.writeToFile(`${logMessage}\n`);
-    
+
     if (data) {
       let dataStr = '';
       if (data instanceof Error) {
@@ -93,7 +93,7 @@ export class Logger {
         this.outputChannel.appendLine(dataInfo);
         dataStr += dataInfo + '\n';
       }
-      
+
       // 写入数据到文件
       this.writeToFile(dataStr);
     }
@@ -103,7 +103,13 @@ export class Logger {
       const consoleFn = level === LogLevel.ERROR ? console.error :
                        level === LogLevel.WARN ? console.warn :
                        console.log;
-      consoleFn(`[DeepV] ${message}`, data);
+      const now = new Date();
+      const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}.${String(now.getMilliseconds()).padStart(3, '0')}`;
+      if (data) {
+        consoleFn(`[DeepV] - ${timeStr} - ${message}`, data);
+      } else {
+        consoleFn(`[DeepV] - ${timeStr} - ${message}`);
+      }
     }
   }
 

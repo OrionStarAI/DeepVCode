@@ -21,12 +21,20 @@ class StartupOptimizer {
   private static instance: StartupOptimizer;
   private metrics: StartupMetrics;
   private currentPhase: string | null = null;
+  private logger: any = null;
 
   private constructor() {
     this.metrics = {
       startTime: Date.now(),
       phases: []
     };
+  }
+
+  /**
+   * 设置 logger 引用（在 logger 初始化后调用）
+   */
+  setLogger(logger: any): void {
+    this.logger = logger;
   }
 
   static getInstance(): StartupOptimizer {
@@ -47,7 +55,12 @@ class StartupOptimizer {
       this.endPhase();
     }
 
-    console.log(`🚀 [Startup] Starting phase: ${name}`);
+    const msg = `[Startup] Starting phase: ${name}`;
+    if (this.logger) {
+      this.logger.info(msg);
+    } else {
+      console.log(`🚀 ${msg}`);
+    }
     this.currentPhase = name;
     this.metrics.phases.push({
       name,
@@ -66,7 +79,12 @@ class StartupOptimizer {
       currentPhaseData.endTime = Date.now();
       currentPhaseData.duration = currentPhaseData.endTime - currentPhaseData.startTime;
 
-      console.log(`✅ [Startup] Completed phase: ${this.currentPhase} (${currentPhaseData.duration}ms)`);
+      const msg = `[Startup] Completed phase: ${this.currentPhase} (${currentPhaseData.duration}ms)`;
+      if (this.logger) {
+        this.logger.info(msg);
+      } else {
+        console.log(`✅ ${msg}`);
+      }
       this.currentPhase = null;
     }
   }

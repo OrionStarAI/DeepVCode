@@ -340,6 +340,14 @@
   border: 1px solid var(--vscode-panel-border);
 }
 
+/* 🎯 当行内代码包含文件链接时，移除默认样式，让文件链接样式生效 */
+.inline-code:has(.file-path-link) {
+  background-color: transparent;
+  border: none;
+  padding: 0;
+  color: inherit;
+}
+
 /* 列表样式 */
 .markdown-ul, .markdown-ol {
   padding-left: 16px;
@@ -623,6 +631,17 @@
   margin: 12px 0;
   border: 1px solid var(--vscode-panel-border);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* 🎯 文件图标样式重置 - 移除全局图片样式的影响 */
+.assistant-message img.file-icon-img {
+  border-radius: 0;
+  margin: 0;
+  border: none;
+  box-shadow: none;
+  max-width: none;
+  display: inline-block;
+  vertical-align: middle;
 }
 
 /* 改进引用块视觉效果 */

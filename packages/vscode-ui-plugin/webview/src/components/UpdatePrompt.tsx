@@ -125,7 +125,7 @@ export const UpdatePrompt: React.FC<UpdatePromptProps> = ({
         {/* Additional instructions */}
         <div className="update-prompt__footer">
           <p className="update-prompt__instructions">
-            Option 1: Search "DeepV AI Assistant" in VS Code Extensions marketplace
+            Option 1: Search "DeepV Code" in VS Code Extensions marketplace
             <br />
             Option 2: Download VSIX file and install via "Install from VSIX" in VS Code
           </p>

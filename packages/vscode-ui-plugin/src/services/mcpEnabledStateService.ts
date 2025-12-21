@@ -21,7 +21,7 @@ const DISABLED_MCP_SERVERS_KEY = 'deepv.disabledMcpServers';
 type McpEnabledStateChangeListener = (serverName: string, enabled: boolean) => void;
 
 // 简单日志工具（避免依赖需要 context 的 Logger）
-const LOG_PREFIX = '🔌 [McpEnabledState]';
+const LOG_PREFIX = '[McpEnabledState]';
 
 /**
  * MCP 启用状态管理服务
@@ -111,8 +111,6 @@ export class McpEnabledStateService {
       this.loadDisabledServers();
     }
     const isDisabled = this.disabledServersCache!.has(serverName);
-    // 🔍 调试日志
-    this.log('debug', `isEnabled check: serverName='${serverName}', disabledList=[${Array.from(this.disabledServersCache!).join(', ')}], result=${!isDisabled}`);
     // 不在禁用列表中 = 启用
     return !isDisabled;
   }

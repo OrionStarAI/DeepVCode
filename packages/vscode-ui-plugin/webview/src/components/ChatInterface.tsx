@@ -89,10 +89,18 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 }) => {
   const { t } = useTranslation();
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
-  const [userHasScrolled, setUserHasScrolled] = useState(false);
+  // 🎯 使用 Ref 替代 State 来追踪自动滚动状态，避免 React 状态更新的延迟导致的"对抗"问题
+  // 默认为 true，表示初始状态下允许自动滚动
+  const shouldAutoScrollRef = useRef(true);
   const [modifiedFiles, setModifiedFiles] = useState<Map<string, ModifiedFile>>(new Map());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+  // 🎯 新增：专门用于监听滚动的 Ref，绑定到 .messages-scroll-area
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  // 🎯 新增：记录最后一次点击"回到底部"的时间，用于实现"磁吸"效果
+  const lastScrollClickTimeRef = useRef<number>(0);
+  // 🎯 新增：记录上一次的 scrollTop，用于判断滚动方向
+  const lastScrollTopRef = useRef<number>(0);
 
   // 🎯 新增：编辑状态管理
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
@@ -144,6 +152,20 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   //   }
   // }, [isLoading, isProcessing, messageQueue, onSendMessage, isSendingQueue, pendingRemoveId]);
 
+  // 🎯 监听 isLoading 变化来重置锁
+  useEffect(() => {
+    if (isLoading || isProcessing) {
+      // 🎯 当 AI 开始处理新任务时，强制开启自动滚动
+      // 这解决了用户发送新消息后，如果之前处于停止滚动状态，新消息不会自动跟随的问题
+      shouldAutoScrollRef.current = true;
+
+      // 立即滚动到底部
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  }, [isLoading, isProcessing]);
+
   // 🎯 智能滚动：根据用户位置自动滚动到底部
   useEffect(() => {
     const container = messagesContainerRef.current;
@@ -151,55 +173,63 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
     // 使用requestAnimationFrame确保DOM完全渲染后再执行滚动判断
     const performScrollCheck = () => {
-      const { scrollTop, scrollHeight, clientHeight } = container;
-      const isNearBottom = scrollTop + clientHeight >= scrollHeight - 100; // 增加容错范围
+      // 如果是第一条消息，或者用户处于"自动滚动模式"（即在底部），则执行滚动
+      // 使用 Ref 可以确保在流式输出的高频更新中，能够即时响应用户的滚动意图
+      if (messages.length === 1 || shouldAutoScrollRef.current) {
+        // console.log('🎯 [AutoScroll] Triggering scroll. Reason:', messages.length === 1 ? 'First Message' : 'AutoScroll Enabled');
 
-      // 在以下情况自动滚动到底部：
-      // 1. 第一条消息
-      // 2. 用户在底部附近（容忍100px的偏差）
-      // 3. 用户从未手动滚动过
-      if (messages.length === 1 || isNearBottom || !userHasScrolled) {
         // 🎯 使用 'auto' 而不是 'smooth' 来避免流式输出时的抖动
         // 原因：流式更新时内容高度不断变化，smooth滚动会与内容增长冲突
         // overflow-anchor CSS属性会处理自动底部粘性，无需smooth动画
         messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
-
-        // 如果是因为新消息而滚动，重置手动滚动标记
-        if (isNearBottom) {
-          setUserHasScrolled(false);
-        }
+      } else {
+        // console.log('🎯 [AutoScroll] Skipped. User is scrolling (AutoScroll Disabled).');
       }
     };
 
     // 延迟执行，确保新消息的DOM已经渲染
     requestAnimationFrame(performScrollCheck);
-  }, [messages, userHasScrolled]);
+  }, [messages]); // 移除 userHasScrolled 依赖，只依赖 messages 变化
 
   // 🎯 监听滚动事件，检测用户位置和手动滚动
   useEffect(() => {
-    const container = messagesContainerRef.current;
+    const container = scrollAreaRef.current;
     if (!container) return;
 
     const handleScroll = () => {
       const { scrollTop, scrollHeight, clientHeight } = container;
-      const isNearBottom = scrollTop + clientHeight >= scrollHeight - 100; // 与自动滚动逻辑保持一致
 
-      // 显示/隐藏滚动到底部按钮
-      setShowScrollToBottom(!isNearBottom && messages.length > 0);
+      // 🎯 阈值分离策略：
+      // 1. 自动滚动判定：必须紧贴底部 (20px)
+      const isAtBottom = scrollTop + clientHeight >= scrollHeight - 20;
 
-      // 只有当用户明显离开底部区域时，才标记为手动滚动
-      // 这样可以避免因为内容渲染导致的轻微滚动位置变化被误判
-      if (!isNearBottom) {
-        setUserHasScrolled(true);
-      } else {
-        // 如果用户又回到了底部附近，重置手动滚动标记
-        setUserHasScrolled(false);
+      // 2. 按钮显示判定：离开底部一定距离 (300px)
+      const isNearBottom = scrollTop + clientHeight >= scrollHeight - 300;
+
+      // 🎯 磁吸逻辑：
+      const isForcedAutoScroll = Date.now() - lastScrollClickTimeRef.current < 1000;
+
+      // 🎯 关键修复：基于滚动方向的智能判断
+      // 只有当用户"向上"滚动，且确实离开了底部时，才关闭自动滚动。
+      // 这样可以防止 AI 输出长内容导致页面瞬间变长（此时 scrollTop 不变或增加）时误判为用户停止滚动。
+      if (scrollTop < lastScrollTopRef.current && !isAtBottom && !isForcedAutoScroll) {
+        shouldAutoScrollRef.current = false;
       }
+      // 如果用户回到了底部，或者处于磁吸状态，重新开启自动滚动
+      else if (isAtBottom || isForcedAutoScroll) {
+        shouldAutoScrollRef.current = true;
+      }
+
+      // 更新 lastScrollTop
+      lastScrollTopRef.current = scrollTop;
+
+      // 显示/隐藏滚动到底部按钮 (UI状态更新可以异步)
+      setShowScrollToBottom(!isNearBottom && messages.length > 0);
     };
 
     container.addEventListener('scroll', handleScroll, { passive: true });
     return () => container.removeEventListener('scroll', handleScroll);
-  }, [messages.length]);
+  }, [messages]); // 🎯 改为依赖 messages，确保每次渲染都检查绑定状态
 
   // 🎯 计算修改的文件
   useEffect(() => {
@@ -253,15 +283,19 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const scrollToBottom = () => {
     // 立即隐藏按钮，避免滚动过程中闪现
     setShowScrollToBottom(false);
-    setUserHasScrolled(false);
+    // 强制启用自动滚动
+    shouldAutoScrollRef.current = true;
+    // 🎯 记录点击时间，激活"磁吸"逻辑
+    lastScrollClickTimeRef.current = Date.now();
 
     // 开始滚动
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
 
     // 延迟1.5秒后重新检查是否需要显示按钮
     setTimeout(() => {
-      if (messagesContainerRef.current) {
-        const container = messagesContainerRef.current;
+      // 🎯 修正：使用 scrollAreaRef
+      if (scrollAreaRef.current) {
+        const container = scrollAreaRef.current;
         const scrollTop = container.scrollTop;
         const scrollHeight = container.scrollHeight;
         const clientHeight = container.clientHeight;
@@ -278,7 +312,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   // 🎯 强制滚动到底部（用于发送消息后）
   const forceScrollToBottom = () => {
     // 重置用户滚动状态，确保自动滚动生效
-    setUserHasScrolled(false);
+    shouldAutoScrollRef.current = true;
     // 立即滚动到底部
     setTimeout(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -287,6 +321,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
 
   // 🎯 处理发送消息并自动滚动到底部
   const handleSendMessage = (content: MessageContent) => {
+    // 🎯 强制开启自动滚动
+    shouldAutoScrollRef.current = true;
+
     // 🎯 如果正在处理中，加入队列
     if ((isLoading || isProcessing) && onAddMessageToQueue) {
       console.log('🎯 [QUEUE] System busy, adding message to queue');
@@ -342,12 +379,21 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       onUpdateMessages(newMessages);
     }
 
+    // 🎯 强制开启自动滚动
+    shouldAutoScrollRef.current = true;
+
     // 🎯 使用消息服务直接发送聊天请求，不通过onSendMessage（避免重复创建用户消息）
     const messageService = getGlobalMessageService();
     if (sessionId && messageService) {
       // 延迟发送，确保消息列表已更新
       setTimeout(() => {
-        messageService.sendChatMessage(sessionId, userMessage.content, userMessage.id);
+        // 使用编辑并重新生成接口，避免在后端重复创建/追加用户消息
+        messageService.sendEditMessageAndRegenerate(
+          sessionId,
+          userMessage.id,
+          userMessage.content,
+          messages // 传递原始完整消息历史，供后端回滚/分析使用
+        );
         forceScrollToBottom();
       }, 50);
     } else {
@@ -663,7 +709,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         ) : (
           <>
             {/* 🎯 消息滚动区域 */}
-            <div className="messages-scroll-area">
+            <div className="messages-scroll-area" ref={scrollAreaRef}>
               {(() => {
                 // 🎯 提前计算最后一条助手消息的索引（优化性能，避免每次渲染都计算）
                 let lastAssistantMessageIndex = -1;
