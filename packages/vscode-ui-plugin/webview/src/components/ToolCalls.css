@@ -87,18 +87,19 @@
 }
 
 .tool-call-item:hover {
-  border-color: var(--vscode-focusBorder);
+  border-color: var(--vscode-contrastBorder, var(--vscode-panel-border)); /* 使用对比边框或保持原样 */
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  background-color: var(--vscode-list-hoverBackground); /* 增加背景色变化 */
 }
 
 /* Diff可点击项的样式 */
 .tool-call-item.diff-clickable:hover {
-  border-color: var(--vscode-button-background);
+  border-color: var(--vscode-contrastBorder, var(--vscode-panel-border));
   background: var(--vscode-list-hoverBackground);
 }
 
 .tool-call-item.diff-clickable:active {
-  border-color: var(--vscode-button-hoverBackground);
+  border-color: var(--vscode-contrastBorder, var(--vscode-panel-border));
   background: var(--vscode-list-activeSelectionBackground);
 }
 

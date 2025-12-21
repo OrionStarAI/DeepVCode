@@ -245,8 +245,185 @@ const ToolCallItem: React.FC<{
     (onConfirm as any)(confirmed, userInput.trim() || undefined, outcome);
   };
 
+  // 🎯 获取工具执行结果摘要
+  const getToolResultSummary = (): React.ReactNode | null => {
+    if (toolCall.status !== TOOL_CALL_STATUS.SUCCESS || !toolCall.result) return null;
+
+    const { toolName, result, parameters } = toolCall;
+    const data = result.data || result;
+
+    try {
+      // 1. read_file / read_many_files
+      if (toolName === 'read_file' || toolName === 'read_many_files') {
+        const fileName = parameters.file_path || parameters.absolute_path || 'file';
+        const shortName = fileName.split(/[/\\]/).pop();
+
+        if (typeof data === 'string') {
+          // 🎯 优先匹配摘要格式 1: "(59 lines)"
+          const summaryMatch1 = data.match(/\((\d+)\s+lines\)/i);
+          if (summaryMatch1) {
+             return `Read ${shortName}, ${summaryMatch1[1]} lines`;
+          }
+
+          // 🎯 优先匹配摘要格式 2: "read lines: 1-40"
+          const summaryMatch2 = data.match(/read\s+lines:\s*(\d+-\d+)/i);
+          if (summaryMatch2) {
+             return `Read ${shortName}, lines ${summaryMatch2[1]}`;
+          }
+
+          // 可能是多文件合并的字符串
+          const fileCount = (data.match(/--- .*? ---/g) || []).length;
+          if (fileCount > 1) return `Read ${fileCount} files`;
+
+          // ❌ 移除不可靠的兜底行数计算
+          // const lineCount = data.split('\n').length;
+          // return `Read ${shortName}, ${lineCount} lines`;
+
+          // 如果无法解析，返回 null，不显示摘要
+          return null;
+        } else if (data && data.content) {
+          const lineCount = data.content.split('\n').length;
+          return `Read ${shortName}, ${lineCount} lines`;
+        }
+      }
+
+      // 2. list_directory / ls
+      if (toolName === 'list_directory' || toolName === 'ls') {
+        if (Array.isArray(data)) {
+          return `Listed ${data.length} items`;
+        } else if (typeof data === 'string') {
+          // 🎯 优先匹配摘要格式: "Listed 13 item(s)."
+          const summaryMatch = data.match(/Listed\s+(\d+)\s+item/i);
+          if (summaryMatch) {
+             return `Listed ${summaryMatch[1]} items`;
+          }
+
+          // 🎯 处理错误情况
+          if (data.startsWith('Error:') || data.includes('Failed to')) {
+             return data.split('\n')[0]; // 只显示第一行错误信息
+          }
+
+          // ❌ 移除不可靠的兜底行数计算
+          // const count = data.trim().split('\n').length;
+          // return `Listed ${count} items`;
+
+          return null;
+        } else if (data && data.files) {
+           return `Listed ${data.files.length} items`;
+        }
+      }
+
+      // 3. search_file_content / grep
+      if (toolName === 'search_file_content' || toolName === 'grep') {
+        const pattern = parameters.pattern || parameters.regex || '';
+        if (Array.isArray(data)) {
+           return `Found ${data.length} matches for "${pattern}"`;
+        } else if (typeof data === 'string') {
+           // 🎯 优先匹配摘要格式: "Found 20 matches (showing first 10)" 或 "Found 8 matches"
+           const summaryMatch = data.match(/Found\s+(\d+)\s+matches/i);
+           if (summaryMatch) {
+              return `Found ${summaryMatch[1]} matches for "${pattern}"`;
+           }
+
+           // 🎯 处理未找到的情况
+           if (data.includes('No matches found')) {
+              return `No matches found for "${pattern}"`;
+           }
+
+           // ❌ 移除不可靠的兜底行数计算
+           // const count = data.trim().split('\n').length;
+           // return `Found ${count} matches for "${pattern}"`;
+
+           return null;
+        }
+      }
+
+      // 4. run_shell_command
+      if (toolName === 'run_shell_command') {
+         if (data.exit_code !== undefined) {
+             return `Exit code: ${data.exit_code}`;
+         }
+      }
+
+      // 5. glob
+      if (toolName === 'glob') {
+        const pattern = parameters.pattern || '';
+        if (Array.isArray(data)) {
+           return `Found ${data.length} files for "${pattern}"`;
+        } else if (typeof data === 'string') {
+           // 🎯 优先匹配摘要格式: "Found 50 matching file(s)"
+           const summaryMatch = data.match(/Found\s+(\d+)\s+matching\s+file/i);
+           if (summaryMatch) {
+              return `Found ${summaryMatch[1]} files for "${pattern}"`;
+           }
+
+           // 🎯 处理未找到的情况
+           if (data.includes('No files found')) {
+              return `No files found for "${pattern}"`;
+           }
+
+           return null;
+        }
+      }
+
+      // 6. replace / edit
+      if (toolName === 'replace' || toolName === 'edit') {
+        const fileName = parameters.file_path || 'file';
+        const shortName = fileName.split(/[/\\]/).pop();
+
+        // 尝试从 diff 中获取增删行数
+        if (data && data.fileDiff) {
+           // 简单的 diff 解析逻辑 (或者后端直接提供 stats)
+           // 这里假设 fileDiff 是标准的 diff 字符串
+           const added = (data.fileDiff.match(/^\+/gm) || []).length;
+           const removed = (data.fileDiff.match(/^-/gm) || []).length;
+           // 减去 header 的 +++ / ---
+           const realAdded = Math.max(0, added - 1);
+           const realRemoved = Math.max(0, removed - 1);
+
+           return (
+             <span>
+               Edited {shortName}
+               <span style={{ color: 'var(--vscode-gitDecoration-addedResourceForeground)', marginLeft: '6px' }}>+{realAdded}</span>
+               <span style={{ color: 'var(--vscode-gitDecoration-deletedResourceForeground)', marginLeft: '6px' }}>-{realRemoved}</span>
+             </span>
+           );
+        }
+
+        // 如果没有 diff，尝试通过 old_string / new_string 计算
+        if (parameters.old_string && parameters.new_string) {
+            const oldLines = parameters.old_string.split('\n').length;
+            const newLines = parameters.new_string.split('\n').length;
+            const diff = newLines - oldLines;
+            const sign = diff >= 0 ? '+' : '';
+            const color = diff > 0 ? 'var(--vscode-gitDecoration-addedResourceForeground)' : (diff < 0 ? 'var(--vscode-gitDecoration-deletedResourceForeground)' : 'inherit');
+
+            return (
+              <span>
+                Edited {shortName}
+                <span style={{ color, marginLeft: '6px' }}>(lines: {sign}{diff})</span>
+              </span>
+            );
+        }
+
+        return `Edited ${shortName}`;
+      }
+
+    } catch (e) {
+      console.error('Error generating summary:', e);
+    }
+
+    return null;
+  };
+
   // 获取工具描述 - 优先使用动态描述，回退到参数格式化
-  const getToolDescription = (): string => {
+  const getToolDescription = (): React.ReactNode => {
+    // 🎯 如果有结果摘要，优先显示摘要
+    const summary = getToolResultSummary();
+    if (summary) {
+        return summary;
+    }
+
     // 🎯 优先使用工具的动态描述（不手动截断，让CSS处理）
     if (toolCall.description) {
       return toolCall.description;
@@ -303,7 +480,11 @@ const ToolCallItem: React.FC<{
       title={isDiffResult() ? t('tools.clickToViewDiff', {}, 'Click to view complete diff in editor') : undefined}
     >
       {/* 主要工具信息行 - 单行显示 */}
-      <div className="tool-main-line">
+      <div
+        className="tool-main-line"
+        onClick={onToggleExpand}
+        style={{ cursor: 'pointer' }}
+      >
         <div className="tool-info">
           {getStatusIcon(toolCall.status)}
           <span className="tool-name">{toolCall.displayName}</span>
@@ -313,7 +494,10 @@ const ToolCallItem: React.FC<{
         <div className="tool-controls">
           <button
             className="expand-btn"
-            onClick={onToggleExpand}
+            onClick={(e) => {
+              e.stopPropagation(); // 防止冒泡触发外层的 onClick
+              onToggleExpand();
+            }}
             title={isExpanded ? t('tools.collapseDetails', {}, 'Collapse details') : t('tools.expandDetails', {}, 'Expand details')}
           >
             {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}

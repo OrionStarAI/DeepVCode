@@ -633,6 +633,17 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
+/* 🎯 文件图标样式重置 - 移除全局图片样式的影响 */
+.assistant-message img.file-icon-img {
+  border-radius: 0;
+  margin: 0;
+  border: none;
+  box-shadow: none;
+  max-width: none;
+  display: inline-block;
+  vertical-align: middle;
+}
+
 /* 改进引用块视觉效果 */
 .markdown-blockquote {
   position: relative;

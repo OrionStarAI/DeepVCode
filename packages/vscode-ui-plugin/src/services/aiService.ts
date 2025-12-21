@@ -1909,6 +1909,8 @@ export class AIService {
   }
 
   private handleToolSchedulingError(requests: ToolCallRequestInfo[], error: any) {
+    const failedTools: VSCodeToolCall[] = [];
+
     requests.forEach(request => {
       const tool = this.currentToolCalls.get(request.callId);
       if (tool) {
@@ -1919,10 +1921,36 @@ export class AIService {
           executionTime: 0,
           toolName: tool.toolName
         };
+
+        // 🎯 构造 responseParts 以便回传给 AI
+        tool.responseParts = [{
+          functionResponse: {
+            id: request.callId,
+            name: tool.toolName,
+            response: {
+              error: tool.result.error
+            }
+          }
+        }];
+
         this.currentToolCalls.set(request.callId, tool);
+        failedTools.push(tool);
       }
     });
     this.notifyToolsUpdate();
+
+    // 🎯 将调度失败的错误回传给 AI，让 AI 知道工具调用失败了
+    if (failedTools.length > 0) {
+      const capturedUserMessageId = this.currentUserMessageId;
+      const capturedProcessingMessageId = this.currentProcessingMessageId;
+
+      this.logger.info(`⚠️ Reporting ${failedTools.length} scheduling errors back to AI`);
+
+      // 异步调用以避免阻塞当前流程
+      this.handleToolBatchCompleteWithIds(failedTools, capturedUserMessageId, capturedProcessingMessageId).catch(err => {
+        this.logger.error('❌ Failed to report scheduling errors to AI', err instanceof Error ? err : undefined);
+      });
+    }
   }
 
   // 🎯 工具确认方法
