@@ -4,6 +4,7 @@
  */
 
 import React from 'react';
+import { getFileIcon } from '../components/FileIcons';
 
 // 文件扩展名列表
 const FILE_EXTENSIONS = 'php|tsx?|jsx?|pyw?|java|kt|go|rs|c(?:pp)?|h(?:pp)?|vue|rb|swift|cs|scala|json|ya?ml|toml|md|html?';
@@ -96,7 +97,38 @@ const FileLink: React.FC<FileLinkProps> = ({ filePath, lineNumber, children }) =
         }
       }}
       title={`点击打开 ${filePath}${lineNumber ? ` (第 ${lineNumber} 行)` : ''}`}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '4px',
+        padding: '0 4px',
+        borderRadius: '4px',
+        border: '1px solid var(--vscode-panel-border)', // 默认灰色边框
+        backgroundColor: 'transparent',
+        color: 'var(--vscode-editor-foreground)', // 默认普通文本颜色
+        cursor: 'pointer',
+        fontSize: '0.9em',
+        verticalAlign: 'middle',
+        textDecoration: 'none',
+        opacity: 0.9,
+        transition: 'all 0.2s ease'
+      }}
+      onMouseOver={(e) => {
+        e.currentTarget.style.opacity = '1';
+        e.currentTarget.style.borderColor = 'var(--vscode-textLink-activeForeground)'; // Hover时边框变蓝
+        e.currentTarget.style.backgroundColor = 'color-mix(in srgb, var(--vscode-textLink-activeForeground) 10%, transparent)'; // Hover时背景微蓝
+        e.currentTarget.style.color = 'var(--vscode-textLink-activeForeground)'; // Hover时文字变蓝
+      }}
+      onMouseOut={(e) => {
+        e.currentTarget.style.opacity = '0.9';
+        e.currentTarget.style.borderColor = 'var(--vscode-panel-border)';
+        e.currentTarget.style.backgroundColor = 'transparent';
+        e.currentTarget.style.color = 'var(--vscode-editor-foreground)';
+      }}
     >
+      <span style={{ display: 'flex', alignItems: 'center', width: '16px', height: '16px' }}>
+        {getFileIcon(filePath)}
+      </span>
       {children}
     </span>
   );

@@ -36,6 +36,7 @@ import {
   ModifyContext,
   modifyWithEditor,
 } from '../tools/modifiable-tool.js';
+import { FileOperationQueue } from '../services/fileOperationQueue.js';
 
 /**
  * 工具调用的 Agent 上下文信息
@@ -206,6 +207,9 @@ export class ToolExecutionEngine {
   // 🛡️ MCP响应保护
   private mcpResponseGuard: MCPResponseGuard;
 
+  // 📁 文件操作队列 - 确保同一文件的编辑操作顺序执行
+  private fileOperationQueue: FileOperationQueue;
+
   // 用于 Promise 驱动的完成检测，避免轮询竞态条件
   private completionResolvers: Array<(calls: CompletedEngineToolCall[]) => void> = [];
 
@@ -222,6 +226,8 @@ export class ToolExecutionEngine {
       contextLowThreshold: 0.2, // 20%
       contextCriticalThreshold: 0.1, // 10%
     });
+    // 📁 初始化文件操作队列
+    this.fileOperationQueue = new FileOperationQueue();
   }
 
   /**
@@ -766,7 +772,218 @@ export class ToolExecutionEngine {
   }
 
   /**
+   * 获取工具调用涉及的文件路径列表
+   * 用于文件操作队列的排队决策
+   */
+  private getToolFilePaths(toolInstance: Tool, args: Record<string, unknown>): string[] {
+    try {
+      const locations = toolInstance.toolLocations(args);
+      return locations
+        .filter(loc => loc.path) // 过滤掉无效路径
+        .map(loc => loc.path);
+    } catch {
+      // 如果获取路径失败，返回空数组（不进行队列化）
+      return [];
+    }
+  }
+
+  /**
+   * 执行单个工具调用的核心逻辑
+   * 从 attemptExecutionOfScheduledCalls 提取出来以支持队列化
+   */
+  private async executeSingleToolCall(
+    toolCall: ScheduledToolCall,
+    signal: AbortSignal,
+    context: ToolExecutionContext,
+  ): Promise<void> {
+    const { request: reqInfo, tool: toolInstance } = toolCall;
+
+    try {
+      this.setStatusInternal(reqInfo.callId, 'executing', undefined, context);
+
+      // 创建工具执行服务对象
+      const services: ToolExecutionServices = {
+        getExecutionContext: () => ({
+          agentId: context.agentId,
+          agentType: context.agentType,
+          taskDescription: context.taskDescription,
+        }),
+        statusUpdateCallback: this.createStatusUpdateCallback(context, reqInfo.callId),
+
+        onPreToolExecution: async (toolCall: {
+          callId: string;
+          tool: Tool;
+          args: Record<string, unknown>;
+        }) => {
+          await this.adapter.onPreToolExecution(toolCall.callId, toolCall.tool, toolCall.args, context);
+        },
+      };
+
+      // 🪝 触发 BeforeTool 钩子
+      if (this.hookEventHandler) {
+        try {
+          await this.hookEventHandler.fireBeforeToolEvent(
+            reqInfo.name,
+            reqInfo.args,
+          );
+        } catch (hookError) {
+          console.warn(
+            `[ToolExecutionEngine] BeforeTool hook execution failed: ${hookError}`,
+          );
+        }
+      }
+
+      const toolResult: ToolResult = await toolInstance.execute(
+        reqInfo.args,
+        signal,
+        (output: string) => {
+          // 通过适配器更新输出
+          this.adapter.onOutputUpdate(reqInfo.callId, output, context);
+
+          // 更新实时输出
+          this.toolCalls = this.toolCalls.map((call) => {
+            if (call.request.callId === reqInfo.callId) {
+              let liveOutput: string | object = output;
+
+              // 🔧 如果是 task 工具且在 SubAgent 环境下，尝试解析结构化数据
+              if (call.request.name === 'task') {
+                try {
+                  // 尝试解析为结构化数据
+                  const parsed = JSON.parse(output);
+                  liveOutput = parsed;
+                } catch {
+                  // 解析失败，保持为字符串
+                  liveOutput = output;
+                }
+              }
+
+              return { ...call, liveOutput } as ExecutingToolCall;
+            }
+            return call;
+          });
+        },
+        services,
+      );
+
+      if (signal.aborted) {
+        this.setStatusInternal(
+          reqInfo.callId,
+          'cancelled',
+          'User cancelled tool execution.',
+        );
+        return;
+      }
+
+      // 🛡️ 应用MCP响应保护（验证、记录大小、智能截断）
+      let guardedLlmContent = toolResult.llmContent || '';
+      let guardDetails = '';
+
+      try {
+        // 只对Part数组类型的响应进行保护（主要是MCP工具）
+        if (Array.isArray(toolResult.llmContent) && toolResult.llmContent.length > 0 &&
+            typeof toolResult.llmContent[0] === 'object' && toolResult.llmContent[0] !== null &&
+            !Array.isArray(toolResult.llmContent[0]) && typeof toolResult.llmContent[0] !== 'string') {
+
+          // 估计当前上下文使用（保守估计：使用默认50%）
+          // TODO: 从client.ts的真实token统计中获取更准确的数据
+          const currentContextUsage = 50;
+
+          const guardResult = await this.mcpResponseGuard.guardResponse(
+            toolResult.llmContent as Part[],
+            this.config,
+            reqInfo.name,
+            currentContextUsage
+          );
+
+          guardedLlmContent = guardResult.parts;
+
+          // 记录保护详情用于日志
+          if (guardResult.wasTruncated) {
+            guardDetails = `[GUARD] ${guardResult.truncationReason || '无原因'} | 原始: ${(guardResult.originalSize / 1024).toFixed(2)}KB -> ${(guardResult.processedSize / 1024).toFixed(2)}KB`;
+            if (guardResult.wasStoredAsFile) {
+              guardDetails += ` | 已存储为: ${guardResult.tempFilePath}`;
+            }
+          } else {
+            guardDetails = `[GUARD] 响应安全 | 大小: ${(guardResult.originalSize / 1024).toFixed(2)}KB`;
+          }
+
+          console.log(`[ToolExecutionEngine] ${guardDetails}`);
+        }
+      } catch (guardError) {
+        console.warn(`[ToolExecutionEngine] MCP响应保护失败: ${guardError}`);
+        // 如果保护失败，继续使用原始响应（不中断工具执行）
+        guardedLlmContent = toolResult.llmContent || '';
+      }
+
+      // 转换为响应格式
+      const responseParts = convertToFunctionResponse(
+        reqInfo.name,
+        reqInfo.callId,
+        guardedLlmContent,
+      );
+      const response: ToolCallResponseInfo = {
+        callId: reqInfo.callId,
+        responseParts,
+        resultDisplay: toolResult.returnDisplay,
+        error: undefined,
+      };
+
+      this.setStatusInternal(reqInfo.callId, 'success', response, context);
+
+      // 🪝 触发 AfterTool 钩子
+      if (this.hookEventHandler) {
+        try {
+          const toolResponseData: Record<string, unknown> =
+            typeof toolResult.llmContent === 'string'
+              ? { content: toolResult.llmContent }
+              : { content: toolResult.llmContent || {} };
+
+          await this.hookEventHandler.fireAfterToolEvent(
+            reqInfo.name,
+            reqInfo.args,
+            toolResponseData,
+          );
+        } catch (hookError) {
+          console.warn(
+            `[ToolExecutionEngine] AfterTool hook execution failed: ${hookError}`,
+          );
+        }
+      }
+    } catch (error) {
+      const response = createErrorResponse(
+        reqInfo,
+        error instanceof Error ? error : new Error(String(error)),
+      );
+      this.setStatusInternal(reqInfo.callId, 'error', response, context);
+
+      // 🪝 触发 AfterTool 钩子（即使出错）
+      if (this.hookEventHandler) {
+        try {
+          await this.hookEventHandler.fireAfterToolEvent(
+            reqInfo.name,
+            reqInfo.args,
+            { error: response.error?.message || 'Unknown error' },
+          );
+        } catch (hookError) {
+          console.warn(
+            `[ToolExecutionEngine] AfterTool hook execution failed: ${hookError}`,
+          );
+        }
+      }
+    }
+  }
+
+  /**
    * 尝试执行已调度的工具调用
+   *
+   * 📁 文件操作队列机制：
+   * 当 AI 同时发起多个对同一文件的编辑调用时，这些调用会通过
+   * FileOperationQueue 自动排队，确保顺序执行，避免相互覆盖。
+   *
+   * 例如：AI 同时调用两个 replace 操作修改 foo.ts 的不同位置
+   * - 第一个 replace 读取原始内容，执行替换，写入
+   * - 第二个 replace 等待第一个完成后，读取已修改的内容，执行替换，写入
+   * - 最终结果：两处修改都生效
    */
   private async attemptExecutionOfScheduledCalls(
     signal: AbortSignal,
@@ -790,183 +1007,27 @@ export class ToolExecutionEngine {
       );
     }
 
-    // 🔥 关键修复：使用 Promise.all 并行执行所有工具，并等待它们完成
-    // 这确保了当用户点击"停止"时，所有任务都会被正确中断
+    // 🔥 关键修复：通过文件操作队列确保同一文件的操作顺序执行
+    // 不同文件的操作仍然可以并行执行
     const executionPromises = callsToExecute.map(async (toolCall) => {
-      const { request: reqInfo, tool: toolInstance } = toolCall;
+      const { tool: toolInstance, request: reqInfo } = toolCall;
 
-      try {
-        this.setStatusInternal(reqInfo.callId, 'executing', undefined, context);
+      // 获取此工具调用涉及的文件路径
+      const filePaths = this.getToolFilePaths(toolInstance, reqInfo.args);
 
-        // 创建工具执行服务对象
-        const services: ToolExecutionServices = {
-          getExecutionContext: () => ({
-            agentId: context.agentId,
-            agentType: context.agentType,
-            taskDescription: context.taskDescription,
-          }),
-          statusUpdateCallback: this.createStatusUpdateCallback(context, reqInfo.callId),
-
-          onPreToolExecution: async (toolCall: {
-            callId: string;
-            tool: Tool;
-            args: Record<string, unknown>;
-          }) => {
-            await this.adapter.onPreToolExecution(toolCall.callId, toolCall.tool, toolCall.args, context);
-          },
-        };
-
-        // 🪝 触发 BeforeTool 钩子
-        if (this.hookEventHandler) {
-          try {
-            await this.hookEventHandler.fireBeforeToolEvent(
-              reqInfo.name,
-              reqInfo.args,
-            );
-          } catch (hookError) {
-            console.warn(
-              `[ToolExecutionEngine] BeforeTool hook execution failed: ${hookError}`,
-            );
-          }
-        }
-
-        const toolResult: ToolResult = await toolInstance.execute(
-          reqInfo.args,
-          signal,
-          (output: string) => {
-            // 通过适配器更新输出
-            this.adapter.onOutputUpdate(reqInfo.callId, output, context);
-
-            // 更新实时输出
-            this.toolCalls = this.toolCalls.map((call) => {
-              if (call.request.callId === reqInfo.callId) {
-                let liveOutput: string | object = output;
-
-                // 🔧 如果是 task 工具且在 SubAgent 环境下，尝试解析结构化数据
-                if (call.request.name === 'task') {
-                  try {
-                    // 尝试解析为结构化数据
-                    const parsed = JSON.parse(output);
-                    liveOutput = parsed;
-                  } catch {
-                    // 解析失败，保持为字符串
-                    liveOutput = output;
-                  }
-                }
-
-                return { ...call, liveOutput } as ExecutingToolCall;
-              }
-              return call;
-            });
-          },
-          services,
+      if (filePaths.length === 0) {
+        // 不涉及文件操作，直接执行
+        return this.executeSingleToolCall(toolCall, signal, context);
+      } else if (filePaths.length === 1) {
+        // 涉及单个文件，通过队列执行
+        return this.fileOperationQueue.enqueue(filePaths[0], () =>
+          this.executeSingleToolCall(toolCall, signal, context)
         );
-
-        if (signal.aborted) {
-          this.setStatusInternal(
-            reqInfo.callId,
-            'cancelled',
-            'User cancelled tool execution.',
-          );
-          return;
-        }
-
-        // 🛡️ 应用MCP响应保护（验证、记录大小、智能截断）
-        let guardedLlmContent = toolResult.llmContent || '';
-        let guardDetails = '';
-
-        try {
-          // 只对Part数组类型的响应进行保护（主要是MCP工具）
-          if (Array.isArray(toolResult.llmContent) && toolResult.llmContent.length > 0 &&
-              typeof toolResult.llmContent[0] === 'object' && toolResult.llmContent[0] !== null &&
-              !Array.isArray(toolResult.llmContent[0]) && typeof toolResult.llmContent[0] !== 'string') {
-
-            // 估计当前上下文使用（保守估计：使用默认50%）
-            // TODO: 从client.ts的真实token统计中获取更准确的数据
-            const currentContextUsage = 50;
-
-            const guardResult = await this.mcpResponseGuard.guardResponse(
-              toolResult.llmContent as Part[],
-              this.config,
-              reqInfo.name,
-              currentContextUsage
-            );
-
-            guardedLlmContent = guardResult.parts;
-
-            // 记录保护详情用于日志
-            if (guardResult.wasTruncated) {
-              guardDetails = `[GUARD] ${guardResult.truncationReason || '无原因'} | 原始: ${(guardResult.originalSize / 1024).toFixed(2)}KB -> ${(guardResult.processedSize / 1024).toFixed(2)}KB`;
-              if (guardResult.wasStoredAsFile) {
-                guardDetails += ` | 已存储为: ${guardResult.tempFilePath}`;
-              }
-            } else {
-              guardDetails = `[GUARD] 响应安全 | 大小: ${(guardResult.originalSize / 1024).toFixed(2)}KB`;
-            }
-
-            console.log(`[ToolExecutionEngine] ${guardDetails}`);
-          }
-        } catch (guardError) {
-          console.warn(`[ToolExecutionEngine] MCP响应保护失败: ${guardError}`);
-          // 如果保护失败，继续使用原始响应（不中断工具执行）
-          guardedLlmContent = toolResult.llmContent || '';
-        }
-
-        // 转换为响应格式
-        const responseParts = convertToFunctionResponse(
-          reqInfo.name,
-          reqInfo.callId,
-          guardedLlmContent,
+      } else {
+        // 涉及多个文件，通过多文件队列执行
+        return this.fileOperationQueue.enqueueMultiple(filePaths, () =>
+          this.executeSingleToolCall(toolCall, signal, context)
         );
-        const response: ToolCallResponseInfo = {
-          callId: reqInfo.callId,
-          responseParts,
-          resultDisplay: toolResult.returnDisplay,
-          error: undefined,
-        };
-
-        this.setStatusInternal(reqInfo.callId, 'success', response, context);
-
-        // 🪝 触发 AfterTool 钩子
-        if (this.hookEventHandler) {
-          try {
-            const toolResponseData: Record<string, unknown> =
-              typeof toolResult.llmContent === 'string'
-                ? { content: toolResult.llmContent }
-                : { content: toolResult.llmContent || {} };
-
-            await this.hookEventHandler.fireAfterToolEvent(
-              reqInfo.name,
-              reqInfo.args,
-              toolResponseData,
-            );
-          } catch (hookError) {
-            console.warn(
-              `[ToolExecutionEngine] AfterTool hook execution failed: ${hookError}`,
-            );
-          }
-        }
-      } catch (error) {
-        const response = createErrorResponse(
-          reqInfo,
-          error instanceof Error ? error : new Error(String(error)),
-        );
-        this.setStatusInternal(reqInfo.callId, 'error', response, context);
-
-        // 🪝 触发 AfterTool 钩子（即使出错）
-        if (this.hookEventHandler) {
-          try {
-            await this.hookEventHandler.fireAfterToolEvent(
-              reqInfo.name,
-              reqInfo.args,
-              { error: response.error?.message || 'Unknown error' },
-            );
-          } catch (hookError) {
-            console.warn(
-              `[ToolExecutionEngine] AfterTool hook execution failed: ${hookError}`,
-            );
-          }
-        }
       }
     });
 
