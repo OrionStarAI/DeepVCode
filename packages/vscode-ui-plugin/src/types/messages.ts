@@ -242,6 +242,7 @@ export type WebViewToExtensionMessage =
   // 🎯 升级提示相关（用于解决webview沙箱限制）
   | { type: 'open_external_url'; payload: { url: string } }
   | { type: 'open_extension_marketplace'; payload: { extensionId: string } }
+  | { type: 'open_extension_settings'; payload: {} }
   // 🎯 剪贴板缓存请求（用于智能粘贴代码引用）
   | { type: 'request_clipboard_cache'; payload: { code: string } }
   // 🎯 自定义规则管理
@@ -394,5 +395,4 @@ export interface ExtensionConfiguration {
   enableAutoAnalysis: boolean;
   confirmDangerousOperations: boolean;
   maxHistoryItems: number;
-  feishuToken: string;
 }

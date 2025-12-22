@@ -212,6 +212,9 @@ export async function activate(context: vscode.ExtensionContext) {
     // 📝 监听记忆文件变化
     setupMemoryFileWatcher(context);
 
+    // 🎯 设置打开扩展设置的功能
+    setupOpenExtensionSettings(communicationService);
+
     // 🎯 立即初始化WebView服务，这样用户点击时就能看到loading界面
     try {
       await webviewService.initialize();
@@ -4014,4 +4017,18 @@ function setupMemoryFileWatcher(context: vscode.ExtensionContext) {
   context.subscriptions.push(fileWatcher);
 
   logger.info('📝 Memory file watcher initialized');
+}
+
+// 🎯 打开扩展设置
+function setupOpenExtensionSettings(communicationService: MultiSessionCommunicationService) {
+  communicationService.onOpenExtensionSettings(async () => {
+    try {
+      logger.info('Opening VS Code extension settings for DeepV Code');
+      // 使用 workbench.action.openSettings 命令打开设置面板，并通过 @ext: 过滤器显示扩展配置
+      await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:DeepX.deepv-code-vscode-ui-plugin');
+    } catch (error) {
+      logger.error('Failed to open extension settings', error instanceof Error ? error : undefined);
+      vscode.window.showErrorMessage('Failed to open extension settings');
+    }
+  });
 }

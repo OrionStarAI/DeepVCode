@@ -98,6 +98,31 @@ export const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, []);
 
+  // 鼠标滚轮支持 - 在hover状态下滚动tab
+  useEffect(() => {
+    const tabsElement = tabsContainerRef.current;
+    if (!tabsElement) return;
+
+    const handleWheel = (event: WheelEvent) => {
+      // 只在有滚动条时处理（内容溢出）
+      if (tabsElement.scrollWidth <= tabsElement.clientWidth) {
+        return;
+      }
+
+      event.preventDefault();
+
+      // 根据滚轮方向滚动
+      const scrollAmount = 50; // 每次滚动的像素数
+      const deltaX = event.deltaY > 0 ? scrollAmount : -scrollAmount;
+
+      tabsElement.scrollLeft += deltaX;
+    };
+
+    // 使用passive: false以允许preventDefault
+    tabsElement.addEventListener('wheel', handleWheel, { passive: false });
+    return () => tabsElement.removeEventListener('wheel', handleWheel);
+  }, []);
+
   // 当前session变化时自动滚动到该session
   useEffect(() => {
     if (currentSession?.id) {

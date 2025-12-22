@@ -980,6 +980,16 @@ export class MultiSessionMessageService {
     });
   }
 
+  /**
+   * 🎯 打开 VS Code 扩展设置
+   */
+  openExtensionSettings(): void {
+    this.sendMessage({
+      type: 'open_extension_settings' as any,
+      payload: {}
+    });
+  }
+
   // =============================================================================
   // 🎯 NanoBanana 图像生成
   // =============================================================================

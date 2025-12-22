@@ -24,7 +24,6 @@ import * as os from 'os';
 export interface ProxyAuthConfig {
   proxyServerUrl: string;
   userInfo?: FeishuUserInfo;
-  feishuToken?: string;
   cliVersion?: string;
 }
 

@@ -54,7 +54,7 @@ interface YoloModeSettingsDialogProps {
   memoryFileCount?: number;
 }
 
-type SettingsTab = 'general' | 'mcp' | 'memory';
+type SettingsTab = 'general' | 'mcp' | 'memory' | 'more';
 
 // =============================================================================
 // 主组件
@@ -213,30 +213,38 @@ export const YoloModeSettingsDialog: React.FC<YoloModeSettingsDialogProps> = ({
           </button>
         </div>
 
-        {/* 标签页导航 */}
-        <div className="project-settings-dialog__tabs">
-          <button
-            className={`project-settings-dialog__tab ${activeTab === 'general' ? 'project-settings-dialog__tab--active' : ''}`}
-            onClick={() => setActiveTab('general')}
-          >
-            General
-          </button>
-          <button
-            className={`project-settings-dialog__tab ${activeTab === 'mcp' ? 'project-settings-dialog__tab--active' : ''}`}
-            onClick={() => setActiveTab('mcp')}
-          >
-            MCP
-          </button>
-          <button
-            className={`project-settings-dialog__tab ${activeTab === 'memory' ? 'project-settings-dialog__tab--active' : ''}`}
-            onClick={() => setActiveTab('memory')}
-          >
-            Memory
-          </button>
-        </div>
+        {/* 标签页 + 内容包装器 */}
+        <div className="project-settings-dialog__wrapper">
+          {/* 标签页导航 */}
+          <div className="project-settings-dialog__tabs">
+            <button
+              className={`project-settings-dialog__tab ${activeTab === 'general' ? 'project-settings-dialog__tab--active' : ''}`}
+              onClick={() => setActiveTab('general')}
+            >
+              General
+            </button>
+            <button
+              className={`project-settings-dialog__tab ${activeTab === 'mcp' ? 'project-settings-dialog__tab--active' : ''}`}
+              onClick={() => setActiveTab('mcp')}
+            >
+              MCP
+            </button>
+            <button
+              className={`project-settings-dialog__tab ${activeTab === 'memory' ? 'project-settings-dialog__tab--active' : ''}`}
+              onClick={() => setActiveTab('memory')}
+            >
+              Memory
+            </button>
+            <button
+              className={`project-settings-dialog__tab ${activeTab === 'more' ? 'project-settings-dialog__tab--active' : ''}`}
+              onClick={() => setActiveTab('more')}
+            >
+              More
+            </button>
+          </div>
 
-        {/* 对话框主体 */}
-        <div className="project-settings-dialog__body yolo-mode-body">
+          {/* 对话框主体 */}
+          <div className="project-settings-dialog__body yolo-mode-body">
           {/* 错误提示 */}
           {error && activeTab === 'general' && (
             <div className="project-settings-dialog__error">
@@ -268,59 +276,34 @@ export const YoloModeSettingsDialog: React.FC<YoloModeSettingsDialogProps> = ({
               />
             )}
             {activeTab === 'memory' && (
-              <div style={{ padding: '16px' }}>
-                <div style={{ marginBottom: '16px' }}>
-                  <h3 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>
+              <div className="memory-panel">
+                <div className="memory-panel__header">
+                  <h3 className="memory-panel__title">
                     Memory Files
                   </h3>
-                  <p style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#999' }}>
+                  <p className="memory-panel__description">
                     {memoryFileCount > 0
                       ? `${memoryFileCount} memory file${memoryFileCount > 1 ? 's' : ''} loaded`
                       : 'No memory files found. Create a DEEPV.md or GEMINI.md file in your project.'}
                   </p>
                 </div>
                 {memoryFilePaths.length > 0 && (
-                  <div style={{
-                    backgroundColor: '#1e1e1e',
-                    border: '1px solid #3e3e42',
-                    borderRadius: '4px',
-                    padding: '12px',
-                    maxHeight: '300px',
-                    overflowY: 'auto'
-                  }}>
-                    <ul style={{ margin: '0', padding: '0', listStyle: 'none', fontSize: '12px' }}>
+                  <div className="memory-panel__list-container">
+                    <ul className="memory-panel__list">
                       {memoryFilePaths.map((filePath, index) => (
                         <li
                           key={index}
-                          style={{
-                            padding: '6px 0',
-                            borderBottom: index < memoryFilePaths.length - 1 ? '1px solid #3e3e42' : 'none'
-                          }}
+                          className="memory-panel__list-item"
                         >
                           <button
                             onClick={() => handleOpenMemoryFile(filePath)}
-                            style={{
-                              background: 'none',
-                              border: 'none',
-                              color: '#569cd6',
-                              cursor: 'pointer',
-                              textDecoration: 'none',
-                              padding: '0',
-                              font: 'inherit',
-                              textAlign: 'left',
-                              width: '100%'
-                            }}
-                            onMouseEnter={(e) => {
-                              (e.currentTarget as HTMLElement).style.color = '#9cdcfe';
-                              (e.currentTarget as HTMLElement).style.textDecoration = 'underline';
-                            }}
-                            onMouseLeave={(e) => {
-                              (e.currentTarget as HTMLElement).style.color = '#569cd6';
-                              (e.currentTarget as HTMLElement).style.textDecoration = 'none';
-                            }}
+                            className="memory-panel__file-button"
                             title={`Click to open: ${filePath}`}
                           >
-                            📄 {getDisplayPath(filePath, 52)}
+                            <svg className="memory-panel__file-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
+                              <path d="M10 1H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V5l-4-4zm0 2.5V5h2.5L10 3.5z"/>
+                            </svg>
+                            {getDisplayPath(filePath, 52)}
                           </button>
                         </li>
                       ))}
@@ -331,55 +314,52 @@ export const YoloModeSettingsDialog: React.FC<YoloModeSettingsDialogProps> = ({
                   <button
                     onClick={handleRefreshMemory}
                     disabled={isRefreshingMemory}
-                    style={{
-                      marginTop: '12px',
-                      padding: '8px 12px',
-                      backgroundColor: '#0e639c',
-                      color: '#fff',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: isRefreshingMemory ? 'not-allowed' : 'pointer',
-                      fontSize: '12px',
-                      fontWeight: '500',
-                      opacity: isRefreshingMemory ? 0.6 : 1,
-                      transition: 'background-color 0.2s'
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isRefreshingMemory) {
-                        (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#1177bb';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#0e639c';
-                    }}
-                    title="Manually refresh memory files (usually auto-detected on file changes)"
+                    className="memory-panel__refresh-button"
                   >
-                    {isRefreshingMemory ? '🔄 Refreshing...' : '🔄 Refresh Memory'}
+                    <svg className="memory-panel__refresh-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M13 2L11 3.99545L11.0592 4.05474M11 18.0001L13 19.9108L12.9703 19.9417M11.0592 4.05474L13 6M11.0592 4.05474C11.3677 4.01859 11.6817 4 12 4C16.4183 4 20 7.58172 20 12C20 14.5264 18.8289 16.7793 17 18.2454M7 5.75463C5.17107 7.22075 4 9.47362 4 12C4 16.4183 7.58172 20 12 20C12.3284 20 12.6523 19.9802 12.9703 19.9417M11 22.0001L12.9703 19.9417"/>
+                    </svg>
+                    {isRefreshingMemory ? 'Refreshing...' : 'Refresh Memory'}
                   </button>
                 )}
               </div>
             )}
+            {activeTab === 'more' && (
+              <div className="more-panel">
+                <div className="more-panel__section">
+                  <h3 className="more-panel__title">Extension Settings</h3>
+                  <p className="more-panel__description">
+                    Open the VS Code extension settings to configure additional options.
+                  </p>
+                  <button
+                    className="more-panel__button"
+                    onClick={() => {
+                      getGlobalMessageService().openExtensionSettings();
+                    }}
+                    title="Open VS Code extension settings"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M22 6.5H16" stroke="currentColor" strokeWidth="1.5" strokeMiterlimit="10" strokeLinecap="round" strokeLinejoin="round"/>
+                      <g opacity="0.4">
+                        <path d="M6 6.5H2" stroke="currentColor" strokeWidth="1.5" strokeMiterlimit="10" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M10 10C11.933 10 13.5 8.433 13.5 6.5C13.5 4.567 11.933 3 10 3C8.067 3 6.5 4.567 6.5 6.5C6.5 8.433 8.067 10 10 10Z" stroke="currentColor" strokeWidth="1.5" strokeMiterlimit="10" strokeLinecap="round" strokeLinejoin="round"/>
+                      </g>
+                      <path d="M8 17.5H2" stroke="currentColor" strokeWidth="1.5" strokeMiterlimit="10" strokeLinecap="round" strokeLinejoin="round"/>
+                      <g opacity="0.4">
+                        <path d="M22 17.5H18" stroke="currentColor" strokeWidth="1.5" strokeMiterlimit="10" strokeLinecap="round" strokeLinejoin="round"/>
+                        <path d="M14 21C15.933 21 17.5 19.433 17.5 17.5C17.5 15.567 15.933 14 14 14C12.067 14 10.5 15.567 10.5 17.5C10.5 19.433 12.067 21 14 21Z" stroke="currentColor" strokeWidth="1.5" strokeMiterlimit="10" strokeLinecap="round" strokeLinejoin="round"/>
+                      </g>
+                    </svg>
+                    Open Extension Settings
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
+        </div>
 
-        {/* 对话框底部 - 仅有Close按钮，YOLO模式toggle直接生效 */}
-        {activeTab === 'general' && (
-          <div className="project-settings-dialog__footer">
-            <div className="project-settings-dialog__footer-left">
-              {/* 可以添加帮助信息 */}
-            </div>
 
-            <div className="project-settings-dialog__footer-right">
-              <button
-                className="project-settings-dialog__cancel-btn"
-                onClick={handleCancel}
-                disabled={isLoading}
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

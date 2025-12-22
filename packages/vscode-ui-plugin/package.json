@@ -180,27 +180,6 @@
     "configuration": {
       "title": "DeepV Code",
       "properties": {
-        "deepv.enableAutoAnalysis": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable automatic code analysis"
-        },
-        "deepv.confirmDangerousOperations": {
-          "type": "boolean",
-          "default": true,
-          "description": "Show confirmation dialog for dangerous operations"
-        },
-        "deepv.maxHistoryItems": {
-          "type": "number",
-          "default": 100,
-          "description": "Maximum number of history items to keep"
-        },
-        "deepv.feishuToken": {
-          "type": "string",
-          "default": "",
-          "description": "Feishu access token for authentication",
-          "markdownDescription": "Feishu access token for authentication. You can get it from the Feishu Developer Console."
-        },
         "deepv.logLevel": {
           "type": "string",
           "enum": [

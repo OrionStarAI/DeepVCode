@@ -85,30 +85,7 @@ export class LoginService {
         this.logger.info('📋 本地未找到有效的JWT token');
       }
 
-      // 第三步：检查VSCode配置中的Feishu token（备用方案）
-      const config = vscode.workspace.getConfiguration('deepv');
-      const feishuToken = config.get<string>('feishuToken', '');
 
-      if (feishuToken && feishuToken.trim()) {
-        this.logger.info('📋 检查VSCode配置中的Feishu token');
-        try {
-          this.proxyAuthManager.configure({
-            proxyServerUrl: this.proxyAuthManager.getProxyServerUrl(),
-            feishuToken: feishuToken.trim()
-          });
-
-          // 设置环境变量
-          process.env.FEISHU_ACCESS_TOKEN = feishuToken.trim();
-
-          this.logger.info('✅ 使用Feishu token登录');
-          return {
-            isLoggedIn: true,
-            userInfo: { source: 'feishu_token' }
-          };
-        } catch (error) {
-          this.logger.warn('❌ Feishu token可能已过期', error instanceof Error ? error : undefined);
-        }
-      }
 
       this.logger.info('❌ 未找到有效的认证信息，需要登录');
       return {
@@ -167,13 +144,6 @@ export class LoginService {
    */
   async logout(): Promise<void> {
     try {
-      // 清除VSCode配置
-      const config = vscode.workspace.getConfiguration('deepv');
-      await config.update('feishuToken', undefined, vscode.ConfigurationTarget.Global);
-
-      // 清除环境变量
-      delete process.env.FEISHU_ACCESS_TOKEN;
-
       // 重置ProxyAuthManager
       this.proxyAuthManager.configure({
         proxyServerUrl: this.proxyAuthManager.getProxyServerUrl()
@@ -263,13 +233,6 @@ export class LoginService {
       // 清除JWT token数据
       this.proxyAuthManager.setJwtTokenData(null);
       this.proxyAuthManager.setUserInfo(null);
-
-      // 清除VSCode配置中的token（如果存在）
-      const config = vscode.workspace.getConfiguration('deepv');
-      await config.update('feishuToken', undefined, vscode.ConfigurationTarget.Global);
-
-      // 清除环境变量
-      delete process.env.FEISHU_ACCESS_TOKEN;
 
       this.logger.info('🧹 已清除无效的认证信息');
     } catch (error) {

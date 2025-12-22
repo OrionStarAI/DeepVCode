@@ -645,6 +645,11 @@ export class MultiSessionCommunicationService {
     return this.addMessageHandler('goto_line', handler);
   }
 
+  // 🎯 打开扩展设置
+  onOpenExtensionSettings(handler: () => void): vscode.Disposable {
+    return this.addMessageHandler('open_extension_settings', handler);
+  }
+
   // 🎯 发送项目设置响应
   async sendProjectSettingsResponse(settings: { yoloMode: boolean; preferredModel?: string }) {
     await this.sendMessage({
