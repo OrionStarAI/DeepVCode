@@ -105,7 +105,7 @@ export class RemoteSession {
 
       // 初始化认证 - 这是关键步骤
 
-      await this.config.refreshAuth(AuthType.USE_CHEETH_OA);
+      await this.config.refreshAuth(AuthType.USE_PROXY_AUTH);
 
       // 设置远程模式为YOLO模式 - 自动执行所有工具，不需要确认
 

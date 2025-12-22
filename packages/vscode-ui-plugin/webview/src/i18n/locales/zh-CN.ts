@@ -377,6 +377,8 @@ export const zhCN: Translations = {
     openInBrowser: '在浏览器中打开',
     tryAgain: '重试',
     remaining: '剩余',
+    imageTooLarge: '图片较大，请点击查看',
+    clickToView: '点击查看',
     error: {
       emptyPrompt: '请输入提示词来生成图像。',
       invalidImageType: '无效的图片类型。请使用 JPG、PNG、WebP、GIF 或 BMP 格式。',

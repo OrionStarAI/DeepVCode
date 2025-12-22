@@ -10,7 +10,7 @@ import { validateAuthMethod } from './config/auth.js';
 
 function getAuthTypeFromEnv(): AuthType | undefined {
   // 默认使用 Cheeth OA 认证
-  return AuthType.USE_CHEETH_OA;
+  return AuthType.USE_PROXY_AUTH;
 }
 
 export async function validateNonInteractiveAuth(

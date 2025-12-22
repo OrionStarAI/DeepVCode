@@ -98,7 +98,7 @@ export function LoginDialog({
   // 影响范围: LoginDialog组件的认证选项列表
   // 实现日期: 2025-01-26
   const items = [
-    { label: t('auth.option.deepvlab'), value: AuthType.USE_CHEETH_OA },
+    { label: t('auth.option.deepvlab'), value: AuthType.USE_PROXY_AUTH },
   ];
 
   // 隐藏的认证选项（保留代码以便未来恢复）:
@@ -132,8 +132,8 @@ export function LoginDialog({
       return;
     }
 
-    if (authMethod === AuthType.USE_CHEETH_OA) {
-      console.log('🚀 AuthDialog: Cheeth OA selected, starting auth server...');
+    if (authMethod === AuthType.USE_PROXY_AUTH) {
+      console.log('🚀 AuthDialog: Proxy auth selected, starting auth server...');
       setIsAuthenticating(true); // 设置认证状态为进行中
       setErrorMessage('🚀 正在启动认证服务器，请稍候...');
 

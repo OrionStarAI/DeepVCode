@@ -7,11 +7,12 @@
 import fs from 'fs/promises';
 import * as os from 'os';
 import path from 'path';
-import { t } from '../ui/utils/i18n.js';
+import { t, tp } from '../ui/utils/i18n.js';
+import { LoadedSettings } from '../config/settings.js';
 
 type WarningCheck = {
   id: string;
-  check: (workspaceRoot: string) => Promise<string | null>;
+  check: (workspaceRoot: string, settings: LoadedSettings) => Promise<string | null>;
 };
 
 // Individual warning checks
@@ -52,17 +53,26 @@ const rootDirectoryCheck: WarningCheck = {
   },
 };
 
+const customProxyServerCheck: WarningCheck = {
+  id: 'custom-proxy-server',
+  check: async (_workspaceRoot: string, _settings: LoadedSettings) => {
+    return null;
+  },
+};
+
 // All warning checks
 const WARNING_CHECKS: readonly WarningCheck[] = [
   homeDirectoryCheck,
   rootDirectoryCheck,
+  customProxyServerCheck,
 ];
 
 export async function getUserStartupWarnings(
   workspaceRoot: string,
+  settings: LoadedSettings,
 ): Promise<string[]> {
   const results = await Promise.all(
-    WARNING_CHECKS.map((check) => check.check(workspaceRoot)),
+    WARNING_CHECKS.map((check) => check.check(workspaceRoot, settings)),
   );
   return results.filter((msg) => msg !== null);
 }

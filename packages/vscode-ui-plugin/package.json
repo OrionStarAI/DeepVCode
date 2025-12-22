@@ -221,6 +221,12 @@
           "default": true,
           "description": "Use suffix context for suggestions (FIM mode)",
           "markdownDescription": "When enabled, uses Fill-in-Middle (FIM) mode with suffix context. When disabled, uses pure suggestion mode which may work better for comments and line endings."
+        },
+        "deepv.customProxyServerUrl": {
+          "type": "string",
+          "default": "",
+          "description": "Custom proxy server URL",
+          "markdownDescription": "Custom proxy server URL for enterprise deployments. Leave empty to use the default DeepV Code server. Example: `http://localhost:3001`. To deploy your own server, see [DeepVCode-Server-mini](https://github.com/OrionStarAI/DeepVCode-Server-mini)"
         }
       }
     }

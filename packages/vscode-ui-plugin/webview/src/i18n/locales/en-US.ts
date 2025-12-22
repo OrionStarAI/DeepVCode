@@ -377,6 +377,8 @@ export const enUS: Translations = {
     openInBrowser: 'Open in browser',
     tryAgain: 'Try Again',
     remaining: 'remaining',
+    imageTooLarge: 'Image is large, please click to view',
+    clickToView: 'Click to View',
     error: {
       emptyPrompt: 'Please enter a prompt to generate an image.',
       invalidImageType: 'Invalid image type. Please use JPG, PNG, WebP, GIF, or BMP.',

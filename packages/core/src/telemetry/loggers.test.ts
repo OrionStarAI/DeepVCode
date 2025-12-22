@@ -78,7 +78,7 @@ describe('loggers', () => {
         getContentGeneratorConfig: () => ({
           model: 'test-model',
           apiKey: 'test-api-key',
-          authType: AuthType.USE_CHEETH_OA,
+          authType: AuthType.USE_PROXY_AUTH,
         }),
         getTelemetryEnabled: () => true,
         getUsageStatisticsEnabled: () => true,
@@ -133,7 +133,7 @@ describe('loggers', () => {
       const event = new UserPromptEvent(
         11,
         'prompt-id-8',
-        AuthType.USE_CHEETH_OA,
+        AuthType.USE_PROXY_AUTH,
         'test-prompt',
       );
 
@@ -162,7 +162,7 @@ describe('loggers', () => {
       const event = new UserPromptEvent(
         11,
         'test-prompt',
-        AuthType.USE_CHEETH_OA,
+        AuthType.USE_PROXY_AUTH,
       );
 
       logUserPrompt(mockConfig, event);
@@ -214,7 +214,7 @@ describe('loggers', () => {
         'test-model',
         100,
         'prompt-id-1',
-        AuthType.USE_CHEETH_OA,
+        AuthType.USE_PROXY_AUTH,
         usageData,
         'test-response',
       );
@@ -277,7 +277,7 @@ describe('loggers', () => {
         'test-model',
         100,
         'prompt-id-1',
-        AuthType.USE_CHEETH_OA,
+        AuthType.USE_PROXY_AUTH,
         usageData,
         'test-response',
         'test-error',
@@ -360,7 +360,7 @@ describe('loggers', () => {
     } as unknown as Config;
 
     it('should log flash fallback event', () => {
-      const event = new FlashFallbackEvent(AuthType.USE_CHEETH_OA);
+      const event = new FlashFallbackEvent(AuthType.USE_PROXY_AUTH);
 
       logFlashFallback(mockConfig, event);
 

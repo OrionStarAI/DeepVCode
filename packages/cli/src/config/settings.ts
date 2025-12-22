@@ -70,7 +70,7 @@ export interface Settings {
   theme?: string;
   customThemes?: Record<string, CustomTheme>;
   selectedAuthType?: AuthType;
-  feishuToken?: string; // 飞书访问令牌，用于Cheeth OA认证
+  customProxyServerUrl?: string; // Custom proxy server URL (overrides default)
   sandbox?: boolean | string;
   coreTools?: string[];
   excludeTools?: string[];

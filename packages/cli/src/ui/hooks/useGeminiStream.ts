@@ -285,6 +285,7 @@ export const useGeminiStream = (
   setModelSwitchedFromQuotaError: React.Dispatch<React.SetStateAction<boolean>>,
   setEstimatedInputTokens?: React.Dispatch<React.SetStateAction<number | undefined>>,
   settings?: LoadedSettings,
+  customProxyUrl?: string,
 ) => {
   const [initError, setInitError] = useState<string | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -1500,7 +1501,12 @@ User question: ${queryStr}`;
         }
 
         if (error instanceof UnauthorizedError) {
-          onAuthError();
+          // 如果配置了自定义代理URL，跳过认证错误处理
+          if (customProxyUrl) {
+            console.log('[useGeminiStream] Custom proxy URL configured, ignoring UnauthorizedError');
+          } else {
+            onAuthError();
+          }
         } else if (!isNodeError(error) || error.name !== 'AbortError') {
           // BUG修复: 用户取消请求时不显示错误堆栈
           // 修复策略: 检查错误消息是否包含用户取消相关内容，如果是则不显示错误

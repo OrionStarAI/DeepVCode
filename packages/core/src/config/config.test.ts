@@ -143,7 +143,7 @@ describe('Server Config (config.ts)', () => {
   describe('refreshAuth', () => {
     it('should refresh auth and update config', async () => {
       const config = new Config(baseParams);
-      const authType = AuthType.USE_CHEETH_OA;
+      const authType = AuthType.USE_PROXY_AUTH;
       const newModel = 'gemini-flash';
       const mockContentConfig = {
         model: newModel,

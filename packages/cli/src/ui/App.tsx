@@ -166,6 +166,7 @@ interface AppProps {
   startupWarnings?: string[];
   version: string;
   promptExtensions?: any[]; // PromptExtension[] - imported from prompt-extensions
+  customProxyUrl?: string;
 }
 
 export const AppWrapper = (props: AppProps) => {
@@ -185,7 +186,7 @@ export const AppWrapper = (props: AppProps) => {
   );
 };
 
-const App = ({ config, settings, startupWarnings = [], version, promptExtensions = [] }: AppProps) => {
+const App = ({ config, settings, startupWarnings = [], version, promptExtensions = [], customProxyUrl }: AppProps) => {
   const isFocused = useFocus();
   useBracketedPaste();
 
@@ -598,7 +599,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     isAuthenticating,
     isPreparingEnvironment,
     cancelAuthentication,
-  } = useAuthCommand(settings, setAuthError, config, setCurrentModel);
+  } = useAuthCommand(settings, setAuthError, config, setCurrentModel, customProxyUrl);
 
   const {
     isLoginDialogOpen,
@@ -606,7 +607,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     handleLoginSelect,
     isAuthenticating: isLoginAuthenticating,
     cancelAuthentication: cancelLoginAuthentication,
-  } = useLoginCommand(settings, setLoginError, config, setCurrentModel);
+  } = useLoginCommand(settings, setLoginError, config, setCurrentModel, customProxyUrl);
 
   // BUG修复: 避免在初始化时显示认证错误，只在用户主动选择后验证
   // 修复策略: 移除自动验证逻辑，让用户在选择时才进行验证
@@ -739,7 +740,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
 
       if (
         config.getContentGeneratorConfig().authType ===
-        AuthType.USE_CHEETH_OA
+        AuthType.USE_PROXY_AUTH
       ) {
         // Use actual user tier if available; otherwise, default to FREE tier behavior (safe default)
         const isPaidTier =
@@ -851,9 +852,14 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   }, [settings, openEditorDialog]);
 
   const onAuthError = useCallback(() => {
+    // 如果配置了自定义代理URL，跳过认证错误处理
+    if (customProxyUrl) {
+      console.log('[AuthError] Custom proxy URL configured, ignoring authentication error');
+      return;
+    }
     setAuthError('reauth required');
     openAuthDialog();
-  }, [openAuthDialog, setAuthError]);
+  }, [openAuthDialog, setAuthError, customProxyUrl]);
 
   // Core hooks and processors
   const {
@@ -916,6 +922,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     setModelSwitchedFromQuotaError,
     setEstimatedInputTokens, // 传递预估token设置函数
     settings, // 传递设置对象以支持异步模型配置更新
+    customProxyUrl,
   );
 
   const sendPromptImmediately = useCallback(
@@ -1487,6 +1494,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
           <WelcomeScreen
             config={config}
             version={version}
+            customProxyUrl={customProxyUrl}
           />
         )}
       </Box>

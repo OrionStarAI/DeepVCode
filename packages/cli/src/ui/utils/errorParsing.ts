@@ -66,7 +66,7 @@ function getRateLimitMessage(
   fallbackModel?: string,
 ): string {
   switch (authType) {
-    case AuthType.USE_CHEETH_OA: {
+    case AuthType.USE_PROXY_AUTH: {
       // Determine if user is on a paid tier (Legacy or Standard) - default to FREE if not specified
       const isPaidTier =
         userTier === UserTierId.LEGACY || userTier === UserTierId.STANDARD;

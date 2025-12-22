@@ -437,6 +437,7 @@ export const translations = {
     'startup.warning.home.directory': 'You are running DeepV Code CLI in your home directory. It is recommended to run in a project-specific directory.',
     'startup.warning.root.directory': 'Warning: You are running DeepV Code CLI in the root directory. Your entire folder structure will be used for context. It is strongly recommended to run in a project-specific directory.',
     'startup.warning.filesystem.error': 'Could not verify the current directory due to a file system error.',
+    'startup.warning.custom.proxy.server': '🔗 Custom server: {url}\n   Please verify trustworthiness and monitor your API usage.',
 
     // DeepX Quota Error Messages
     'deepx.quota.no.configuration': '─────────────────────────────────────────────────────\n🚫 Your account\'s available Credits are insufficient to continue using this service\n💡 Please consider subscribing to a higher quota plan. Details: https://dvcode.deepvlab.ai/\n\n\x1b[33m🎁 For free trial opportunities, contact our Boss: https://x.com/fusheng_0306\x1b[0m\n─────────────────────────────────────────────────────',
@@ -1527,6 +1528,7 @@ export const translations = {
     'startup.warning.home.directory': '您正在主目录中运行 DeepV Code CLI。建议在项目特定目录中运行。',
     'startup.warning.root.directory': '警告：您正在根目录中运行 DeepV Code CLI。将使用整个文件夹结构作为上下文。强烈建议在项目特定目录中运行。',
     'startup.warning.filesystem.error': '由于文件系统错误，无法验证当前目录。',
+    'startup.warning.custom.proxy.server': '🔗 检测到自定义代理服务器地址：{url}\n   您正在使用企业级服务器地址。',
 
     // DeepX Quota Error Messages
     'deepx.quota.no.configuration': '─────────────────────────────────────────────────────\n🚫 当前账户可用的 Credit（积分）不足以继续使用本服务\n💡 请考虑订阅更多额度的套餐。详情请访问官网：https://dvcode.deepvlab.ai/\n\n\x1b[33m🎁 如果希望获得免费体验机会，请联系我们的Boss：https://x.com/fusheng_0306\x1b[0m\n─────────────────────────────────────────────────────',

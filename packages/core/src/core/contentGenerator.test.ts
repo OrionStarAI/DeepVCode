@@ -28,7 +28,7 @@ describe('createContentGenerator', () => {
     const generator = await createContentGenerator(
       {
         //  model: 'test-model',
-        authType: AuthType.USE_CHEETH_OA,
+        authType: AuthType.USE_PROXY_AUTH,
       },
       mockConfig,
     );
@@ -44,7 +44,7 @@ describe('createContentGenerator', () => {
     const generator = await createContentGenerator(
       {
         // model: 'test-model',
-        authType: AuthType.USE_CHEETH_OA,
+        authType: AuthType.USE_PROXY_AUTH,
       },
       mockConfig,
     );
@@ -87,30 +87,30 @@ describe('createContentGeneratorConfig', () => {
     process.env.GEMINI_API_KEY = 'env-gemini-key';
     const config = await createContentGeneratorConfig(
       mockConfig,
-      AuthType.USE_CHEETH_OA,
+      AuthType.USE_PROXY_AUTH,
     );
     // apiKey and vertexai properties removed from ContentGeneratorConfig
-    expect(config.authType).toBe(AuthType.USE_CHEETH_OA);
+    expect(config.authType).toBe(AuthType.USE_PROXY_AUTH);
   });
 
   it('should not configure for Gemini if GEMINI_API_KEY is empty', async () => {
     process.env.GEMINI_API_KEY = '';
     const config = await createContentGeneratorConfig(
       mockConfig,
-      AuthType.USE_CHEETH_OA,
+      AuthType.USE_PROXY_AUTH,
     );
-    // apiKey and vertexai properties removed from ContentGeneratorConfig  
-    expect(config.authType).toBe(AuthType.USE_CHEETH_OA);
+    // apiKey and vertexai properties removed from ContentGeneratorConfig
+    expect(config.authType).toBe(AuthType.USE_PROXY_AUTH);
   });
 
   it('should configure for Vertex AI using GOOGLE_API_KEY when set', async () => {
     process.env.GOOGLE_API_KEY = 'env-google-key';
     const config = await createContentGeneratorConfig(
       mockConfig,
-      AuthType.USE_CHEETH_OA,
+      AuthType.USE_PROXY_AUTH,
     );
     // apiKey and vertexai properties removed from ContentGeneratorConfig
-    expect(config.authType).toBe(AuthType.USE_CHEETH_OA);
+    expect(config.authType).toBe(AuthType.USE_PROXY_AUTH);
   });
 
   it('should configure for Vertex AI using GCP project and location when set', async () => {
@@ -118,12 +118,12 @@ describe('createContentGeneratorConfig', () => {
     process.env.GOOGLE_CLOUD_LOCATION = 'env-gcp-location';
     const config = await createContentGeneratorConfig(
       mockConfig,
-      AuthType.USE_CHEETH_OA,
+      AuthType.USE_PROXY_AUTH,
     );
     // vertexai property removed from ContentGeneratorConfig
-    expect(config.authType).toBe(AuthType.USE_CHEETH_OA);
+    expect(config.authType).toBe(AuthType.USE_PROXY_AUTH);
     // apiKey property removed from ContentGeneratorConfig
-    expect(config.authType).toBe(AuthType.USE_CHEETH_OA);
+    expect(config.authType).toBe(AuthType.USE_PROXY_AUTH);
   });
 
   it('should not configure for Vertex AI if required env vars are empty', async () => {
@@ -132,9 +132,9 @@ describe('createContentGeneratorConfig', () => {
     process.env.GOOGLE_CLOUD_LOCATION = '';
     const config = await createContentGeneratorConfig(
       mockConfig,
-      AuthType.USE_CHEETH_OA,
+      AuthType.USE_PROXY_AUTH,
     );
-    // apiKey and vertexai properties removed from ContentGeneratorConfig  
-    expect(config.authType).toBe(AuthType.USE_CHEETH_OA);
+    // apiKey and vertexai properties removed from ContentGeneratorConfig
+    expect(config.authType).toBe(AuthType.USE_PROXY_AUTH);
   });
 });

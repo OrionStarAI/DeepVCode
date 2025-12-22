@@ -42,8 +42,32 @@ export class AuthManager {
     this.logger?.info('🔄 Initializing authentication system...');
 
     try {
+      // 🎯 从 VSCode 扩展设置中读取 customProxyServerUrl
+      let customProxyServerUrl: string | undefined;
+      const vscodeConfig = vscode.workspace.getConfiguration('deepv');
+      const vscodeCustomProxyUrl = vscodeConfig.get<string>('customProxyServerUrl', '');
+      if (vscodeCustomProxyUrl && vscodeCustomProxyUrl.trim()) {
+        customProxyServerUrl = vscodeCustomProxyUrl.trim();
+        this.logger?.info(`🌐 Using custom proxy server from VSCode settings: ${customProxyServerUrl}`);
+      }
+
+      // 🎯 如果 VSCode 设置中没有，尝试从文件配置中读取
+      if (!customProxyServerUrl) {
+        try {
+          const { MCPSettingsService } = await import('./mcpSettingsService.js');
+          const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+          const fileSettings = MCPSettingsService.loadSettings(workspaceRoot);
+          if (fileSettings.customProxyServerUrl) {
+            customProxyServerUrl = fileSettings.customProxyServerUrl;
+            this.logger?.info(`🌐 Using custom proxy server from file settings: ${customProxyServerUrl}`);
+          }
+        } catch (fileLoadError) {
+          this.logger?.debug('Could not load customProxyServerUrl from file settings');
+        }
+      }
+
       // 确保ProxyAuthManager已正确配置代理服务器URL
-      const proxyServerUrl = this.proxyAuthManager.getProxyServerUrl();
+      const proxyServerUrl = customProxyServerUrl || this.proxyAuthManager.getProxyServerUrl();
       this.logger?.info(`🌐 Proxy server configured: ${proxyServerUrl}`);
 
       // 🔍 检查是否已有有效的JWT token
@@ -64,7 +88,7 @@ export class AuthManager {
       } else {
         // 确保基本的代理配置
         this.logger?.info('ℹ️ No valid JWT token found, setting up basic proxy configuration...');
-        await this.ensureProxyConfig();
+        await this.ensureProxyConfig(proxyServerUrl);
       }
 
       this.isInitialized = true;
@@ -79,11 +103,11 @@ export class AuthManager {
   /**
    * 确保基本的代理服务器配置
    */
-  private async ensureProxyConfig(): Promise<void> {
+  private async ensureProxyConfig(proxyServerUrl?: string): Promise<void> {
     try {
-      const proxyServerUrl = this.proxyAuthManager.getProxyServerUrl();
+      const serverUrl = proxyServerUrl || this.proxyAuthManager.getProxyServerUrl();
       this.proxyAuthManager.configure({
-        proxyServerUrl: proxyServerUrl
+        proxyServerUrl: serverUrl
       });
       this.logger?.info('ℹ️ ProxyAuthManager configured with server URL');
     } catch (configError) {
@@ -111,23 +135,7 @@ export class AuthManager {
     }
   }
 
-  /**
-   * 获取当前的Feishu Token
-   */
-  getFeishuToken(): string | undefined {
-    try {
-      const config = vscode.workspace.getConfiguration('deepv');
-      const feishuToken = config.get<string>('feishuToken', '');
-      return feishuToken && feishuToken.trim() ? feishuToken.trim() : undefined;
-    } catch (error) {
-      this.logger?.warn('Failed to get Feishu token from configuration', error instanceof Error ? error : undefined);
-      return undefined;
-    }
-  }
 
-  /**
-   * 更新Feishu Token配置
-   */
   /**
    * 获取ProxyAuthManager实例（供其他服务使用）
    */

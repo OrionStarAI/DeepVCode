@@ -339,6 +339,22 @@ class DeepVWebviewViewProvider implements vscode.WebviewViewProvider {
       window.vscode = acquireVsCodeApi();
       window.isVSCodeSidebar = true;
 
+      // 🎯 初始化VSCode webview状态（用于传递customProxyServerUrl等配置）
+      (function initializeWebViewState() {
+        const vsCodeApi = window.vscode;
+        if (vsCodeApi && typeof vsCodeApi.getState === 'function') {
+          try {
+            const currentState = vsCodeApi.getState?.() || {};
+            // 🎯 从VSCode配置中读取customProxyServerUrl
+            // 这里可以通过postMessage向extension请求配置，或者直接从扩展传递
+            // 由于脚本在初始化时无法访问异步数据，customProxyServerUrl将由MessageInput组件通过postMessage获取
+            vsCodeApi.setState(currentState);
+          } catch (error) {
+            console.debug('Failed to initialize webview state:', error);
+          }
+        }
+      })();
+
       // 🎯 恢复简单的拖拽事件支持（需要Shift键）
       console.log('🎯 Sidebar WebView initialized with standard drag support');
 

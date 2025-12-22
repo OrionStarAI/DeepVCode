@@ -114,6 +114,9 @@ export const NanoBananaDialog: React.FC<NanoBananaDialogProps> = ({
   // 生成任务状态
   const [task, setTask] = useState<GenerationTask | null>(null);
 
+  // 图片加载失败跟踪
+  const [failedImageIndices, setFailedImageIndices] = useState<Set<number>>(new Set());
+
   // Refs
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -447,6 +450,15 @@ export const NanoBananaDialog: React.FC<NanoBananaDialogProps> = ({
   }, [prompt, aspectRatio, imageSize, referenceImage, t, clearAllIntervals]);
 
   // 打开生成的图片
+  // 处理图片加载失败
+  const handleImageLoadError = useCallback((index: number) => {
+    setFailedImageIndices(prev => {
+      const newSet = new Set(prev);
+      newSet.add(index);
+      return newSet;
+    });
+  }, []);
+
   const openImage = useCallback((url: string) => {
     // 如果是data URL，需要特殊处理
     if (url.startsWith('data:')) {
@@ -466,6 +478,7 @@ export const NanoBananaDialog: React.FC<NanoBananaDialogProps> = ({
     clearAllIntervals();
     currentTaskIdRef.current = null;
     setTask(null);
+    setFailedImageIndices(new Set());
     setTimeout(() => textareaRef.current?.focus(), 100);
   }, [clearAllIntervals]);
 
@@ -515,21 +528,42 @@ export const NanoBananaDialog: React.FC<NanoBananaDialogProps> = ({
                 {task?.resultUrls.map((url, index) => {
                   // 使用原始URL打开浏览器，使用resultUrl（base64）显示预览
                   const originalUrl = task.originalUrls?.[index] || url;
+                  const hasFailed = failedImageIndices.has(index);
+
                   return (
                     <div key={index} className="nanobanana-dialog__image-wrapper">
-                      <img
-                        src={url}
-                        alt={`Generated ${index + 1}`}
-                        className="nanobanana-dialog__result-image"
-                        onClick={() => openImage(originalUrl)}
-                      />
-                      <button
-                        className="nanobanana-dialog__open-btn"
-                        onClick={() => openImage(originalUrl)}
-                        title={t('nanoBanana.openInBrowser', {}, 'Open in browser')}
-                      >
-                        <ExternalLink size={14} />
-                      </button>
+                      {hasFailed ? (
+                        <div className="nanobanana-dialog__image-failed">
+                          <div className="nanobanana-dialog__image-failed-content">
+                            <p className="nanobanana-dialog__image-failed-text">
+                              {t('nanoBanana.imageTooLarge', {}, 'Image is large, please click to view')}
+                            </p>
+                            <button
+                              className="nanobanana-dialog__image-failed-link"
+                              onClick={() => openImage(originalUrl)}
+                            >
+                              {t('nanoBanana.clickToView', {}, 'Click to View')}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <img
+                            src={url}
+                            alt={`Generated ${index + 1}`}
+                            className="nanobanana-dialog__result-image"
+                            onClick={() => openImage(originalUrl)}
+                            onError={() => handleImageLoadError(index)}
+                          />
+                          <button
+                            className="nanobanana-dialog__open-btn"
+                            onClick={() => openImage(originalUrl)}
+                            title={t('nanoBanana.openInBrowser', {}, 'Open in browser')}
+                          >
+                            <ExternalLink size={14} />
+                          </button>
+                        </>
+                      )}
                     </div>
                   );
                 })}

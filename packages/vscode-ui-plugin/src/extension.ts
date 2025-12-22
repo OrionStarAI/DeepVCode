@@ -227,6 +227,20 @@ export async function activate(context: vscode.ExtensionContext) {
 
     startupOptimizer.startPhase('Background Services Startup');
 
+    // 🎯 启动时发送customProxyServerUrl给webview
+    setImmediate(async () => {
+      try {
+        const vscodeConfig = vscode.workspace.getConfiguration('deepv');
+        const customProxyUrl = (vscodeConfig.get<string>('customProxyServerUrl', '') || '').trim();
+        logger.info(`🌐 Sending customProxyServerUrl to webview: "${customProxyUrl}"`);
+        await communicationService.sendGenericMessage('config_update', {
+          customProxyServerUrl: customProxyUrl
+        });
+      } catch (error) {
+        logger.debug('Failed to send customProxyServerUrl on startup', error instanceof Error ? error : undefined);
+      }
+    });
+
     // 🎯 异步启动核心服务 - 不阻塞扩展激活
     // 设计理念:
     // 1. WebView 已经初始化完成,用户可以立即看到界面
@@ -298,6 +312,24 @@ export async function deactivate(): Promise<void> {
 }
 
 function setupServiceCommunication() {
+
+  // 🎯 监听customProxyServerUrl设置变化
+  vscode.workspace.onDidChangeConfiguration((event) => {
+    if (event.affectsConfiguration('deepv.customProxyServerUrl')) {
+      setImmediate(async () => {
+        try {
+          const vscodeConfig = vscode.workspace.getConfiguration('deepv');
+          const customProxyUrl = (vscodeConfig.get<string>('customProxyServerUrl', '') || '').trim();
+          logger.info(`🔄 customProxyServerUrl changed: "${customProxyUrl}"`);
+          await communicationService.sendGenericMessage('config_update', {
+            customProxyServerUrl: customProxyUrl
+          });
+        } catch (error) {
+          logger.debug('Failed to sync customProxyServerUrl on config change', error instanceof Error ? error : undefined);
+        }
+      });
+    }
+  });
 
   // 🎯 设置 /refine 命令处理器（文本优化功能，需在登录前立即注册）
   setupRefineCommandHandler();
@@ -922,10 +954,34 @@ function setupBasicMessageHandlers() {
     }
   });
 
+  // 🎯 处理webview请求配置
+  communicationService.addMessageHandler('request_config', async (data: any) => {
+    try {
+      const vscodeConfig = vscode.workspace.getConfiguration('deepv');
+      const customProxyUrl = (vscodeConfig.get<string>('customProxyServerUrl', '') || '').trim();
+      logger.debug(`📤 Responding to request_config: "${customProxyUrl}"`);
+      await communicationService.sendGenericMessage('config_update', {
+        customProxyServerUrl: customProxyUrl
+      });
+    } catch (error) {
+      logger.debug('Failed to handle request_config', error instanceof Error ? error : undefined);
+    }
+  });
+
   // 🎯 处理服务启动请求
   communicationService.onStartServices(async (data) => {
     try {
       logger.info('Received start services request');
+
+      // 🎯 读取customProxyServerUrl并发送给webview
+      const vscodeConfig = vscode.workspace.getConfiguration('deepv');
+      const customProxyUrl = vscodeConfig.get<string>('customProxyServerUrl', '');
+      if (customProxyUrl && customProxyUrl.trim()) {
+        logger.info(`Sending customProxyServerUrl to webview: ${customProxyUrl}`);
+        await communicationService.sendGenericMessage('config_update', {
+          customProxyServerUrl: customProxyUrl.trim()
+        });
+      }
 
       // 调用startServices函数
       await startServices();

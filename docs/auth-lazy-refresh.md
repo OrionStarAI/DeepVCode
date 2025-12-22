@@ -62,7 +62,7 @@ useEffect(() => {
 
     try {
       // ✅ 只检查认证状态，不刷新
-      if (authType === AuthType.USE_CHEETH_OA) {
+      if (authType === AuthType.USE_PROXY_AUTH) {
         const { ProxyAuthManager } = await import('deepv-code-core');
         const proxyAuthManager = ProxyAuthManager.getInstance();
 

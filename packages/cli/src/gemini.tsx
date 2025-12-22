@@ -420,29 +420,7 @@ export async function main() {
   // 初始化ProxyAuthManager，从设置文件中恢复飞书token
   // 调试信息已关闭
   // Skip ProxyAuthManager initialization in non-interactive mode to avoid logging
-  if (settings.merged.feishuToken && !shouldEnableSilentMode) {
-    try {
-      const { ProxyAuthManager } = await import('deepv-code-core');
-      const proxyAuthManager = ProxyAuthManager.getInstance();
 
-      // 调试信息已关闭
-
-      proxyAuthManager.configure({
-        feishuToken: settings.merged.feishuToken
-      });
-
-      // 调试信息已关闭
-
-      // 同时设置环境变量作为备份
-      process.env.FEISHU_ACCESS_TOKEN = settings.merged.feishuToken;
-      console.log('🔄 从设置文件恢复飞书token');
-      // 调试信息已关闭
-    } catch (error) {
-      console.warn('⚠️ 恢复飞书token失败:', error);
-    }
-  } else {
-    // 调试信息已关闭
-  }
 
   //await cleanupCheckpoints();
   if (settings.errors.length > 0) {
@@ -609,7 +587,7 @@ export async function main() {
     settings.setValue(
       SettingScope.User,
       'selectedAuthType',
-      AuthType.USE_CHEETH_OA,
+      AuthType.USE_PROXY_AUTH,
     );
   }
 
@@ -697,8 +675,13 @@ export async function main() {
   let input = config.getQuestion();
   const startupWarnings = [
     ...(await getStartupWarnings()),
-    ...(await getUserStartupWarnings(workspaceRoot)),
+    ...(await getUserStartupWarnings(workspaceRoot, settings)),
   ];
+
+  // Get custom proxy server URL if configured
+  const customProxyUrl = settings.user?.settings?.customProxyServerUrl ||
+                        settings.workspace?.settings?.customProxyServerUrl ||
+                        settings.system?.settings?.customProxyServerUrl;
 
   // Check for cloud mode
   if (argv.cloudMode) {
@@ -741,6 +724,7 @@ export async function main() {
           startupWarnings={startupWarnings}
           version={version}
           promptExtensions={promptExtensions}
+          customProxyUrl={customProxyUrl}
         />
       </React.StrictMode>,
       { exitOnCtrlC: false },
