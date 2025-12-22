@@ -15,6 +15,7 @@ import { makeRelative, shortenPath } from '../utils/paths.js';
 import { getErrorMessage, isNodeError } from '../utils/errors.js';
 import { Config } from '../config/config.js';
 import { logger } from '../utils/enhancedLogger.js';
+import { isVSCodeEnvironment } from '../utils/environment/index.js';
 
 // --- Constants ---
 
@@ -48,14 +49,7 @@ function getRipgrepPath(): string {
   }
 }
 
-/**
- * Detect if we're running in VSCode environment
- */
-function isVSCodeEnvironment(): boolean {
-  // Check if VSCODE_PLUGIN environment variable is set
-  // (This is set by the VSCode extension in extension.ts)
-  return process.env.VSCODE_PLUGIN === '1';
-}
+
 
 /**
  * Find VSCode's built-in ripgrep binary

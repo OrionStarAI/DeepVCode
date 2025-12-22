@@ -234,9 +234,6 @@ export class MultiSessionMessageService {
           console.error(`❌ Handler error for ${message.type}:`, error);
         }
       });
-    } else {
-      console.warn(`❌ No handler for message type: ${message.type}`);
-      console.log(`📋 Available handlers:`, Array.from(this.listeners.keys()));
     }
   }
 

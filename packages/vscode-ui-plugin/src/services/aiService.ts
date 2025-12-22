@@ -192,19 +192,12 @@ export class AIService {
 
       await this.config.initialize();
 
-      // 🎯 从VSCode settings同步云端模型配置到config
-      try {
-        const vsCodeConfig = vscode.workspace.getConfiguration('deepv');
-        const cloudModels = vsCodeConfig.get<any[]>('cloudModels', []);
-        if (Array.isArray(cloudModels) && cloudModels.length > 0) {
-          this.config.setCloudModels(cloudModels);
-          this.logger.info(`📊 Synced ${cloudModels.length} cloud models to config`);
-        }
-      } catch (cloudModelsError) {
-        this.logger.warn('⚠️ Failed to sync cloud models to config', cloudModelsError instanceof Error ? cloudModelsError : undefined);
-      }
-
+      // 等待必需的授权初始化（会话启动前必要）
       await this.config.refreshAuth(AuthType.USE_CHEETH_OA);
+
+      // 🎯 异步同步云端模型配置（不阻塞会话初始化）
+      // 云模型列表的更新可以在后台进行，不影响会话的启动和使用
+      this.syncCloudModelsInBackground();
       this.geminiClient = this.config.getGeminiClient();
       await this.initializeCoreToolScheduler();
 
@@ -377,6 +370,32 @@ export class AIService {
 
       } catch (error) {
         this.logger.warn('⚠️ [MCP] Background MCP sync failed, continuing without MCP', error instanceof Error ? error : undefined);
+      }
+    });
+  }
+
+  /**
+   * 🎯 后台异步同步云端模型配置
+   * 不阻塞会话初始化 - 模型列表会在后台更新
+   * 使用 setImmediate 确保优先级在当前调用栈之后
+   */
+  private syncCloudModelsInBackground(): void {
+    setImmediate(async () => {
+      try {
+        this.logger.debug('[Cloud Models] Starting background sync...');
+
+        const vsCodeConfig = vscode.workspace.getConfiguration('deepv');
+        const cloudModels = vsCodeConfig.get<any[]>('cloudModels', []);
+
+        if (Array.isArray(cloudModels) && cloudModels.length > 0) {
+          this.config?.setCloudModels(cloudModels);
+          this.logger.info(`✅ Cloud models synced in background: ${cloudModels.length} models available`);
+        } else {
+          this.logger.debug('[Cloud Models] No cloud models found in VSCode settings');
+        }
+      } catch (error) {
+        this.logger.warn('[Cloud Models] Background sync failed', error instanceof Error ? error : undefined);
+        // 失败不影响会话初始化，仅记录警告
       }
     });
   }

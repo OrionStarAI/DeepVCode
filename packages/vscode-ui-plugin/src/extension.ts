@@ -24,7 +24,7 @@ import { ContextBuilder } from './services/contextBuilder';
 import { Logger } from './utils/logger';
 import { startupOptimizer } from './utils/startupOptimizer';
 import { EnvironmentOptimizer } from './utils/environmentOptimizer';
-import { ROLLBACK_MESSAGES } from './i18n/messages';
+import { ROLLBACK_MESSAGES, INLINE_COMPLETION_MESSAGES } from './i18n/messages';
 import { ClipboardCacheService } from './services/clipboardCacheService';
 import { SlashCommandService } from './services/slashCommandService';
 import { TerminalOutputService } from './services/terminalOutputService';
@@ -3258,8 +3258,16 @@ function registerCommands(context: vscode.ExtensionContext) {
       // 更新状态栏显示（tooltip会显示新状态，无需额外提示）
       updateInlineCompletionStatusBar();
 
-      // 🎯 使用状态栏消息代替弹窗提示，更轻量级，5秒后自动消失
-      const statusMessage = newState ? 'DeepV 代码补全已启用' : 'DeepV 代码补全已禁用';
+      // 🎯 使用状态栏消息代替弹窗提示，更轻量级，3秒后自动消失
+      const statusMessage = newState
+        ? getI18nText(
+            INLINE_COMPLETION_MESSAGES.COMPLETION_ENABLED,
+            INLINE_COMPLETION_MESSAGES.COMPLETION_ENABLED_ZH
+          )
+        : getI18nText(
+            INLINE_COMPLETION_MESSAGES.COMPLETION_DISABLED,
+            INLINE_COMPLETION_MESSAGES.COMPLETION_DISABLED_ZH
+          );
       vscode.window.setStatusBarMessage(statusMessage, 3000);
     }),
 
@@ -3443,6 +3451,21 @@ function registerCommands(context: vscode.ExtensionContext) {
 }
 
 /**
+ * 获取当前语言（中文或英文）
+ */
+function getCurrentLanguage(): 'zh' | 'en' {
+  const locale = vscode.env.language;
+  return locale.startsWith('zh') ? 'zh' : 'en';
+}
+
+/**
+ * 获取国际化文本
+ */
+function getI18nText(enText: string, zhText: string): string {
+  return getCurrentLanguage() === 'zh' ? zhText : enText;
+}
+
+/**
  * 更新状态栏显示
  */
 function updateInlineCompletionStatusBar() {
@@ -3452,19 +3475,31 @@ function updateInlineCompletionStatusBar() {
 
   const config = vscode.workspace.getConfiguration('deepv');
   const isEnabled = config.get<boolean>('enableInlineCompletion', false);
+  const statusText = getI18nText(
+    INLINE_COMPLETION_MESSAGES.STATUS_BAR_TEXT,
+    INLINE_COMPLETION_MESSAGES.STATUS_BAR_TEXT_ZH
+  );
 
   if (isEnabled) {
-    // 开启状态：使用DeepV品牌标识 - "D" + check图标代表DeepV
-    inlineCompletionStatusBar.text = 'D$(check)';
-    inlineCompletionStatusBar.tooltip = 'DeepV 代码补全：已启用（点击关闭）';
+    // 开启状态：使用lightbulb图标表示AI能力已激活
+    inlineCompletionStatusBar.text = `$(lightbulb) ${statusText}`;
+    inlineCompletionStatusBar.tooltip = getI18nText(
+      INLINE_COMPLETION_MESSAGES.STATUS_BAR_ENABLED_TOOLTIP,
+      INLINE_COMPLETION_MESSAGES.STATUS_BAR_ENABLED_TOOLTIP_ZH
+    );
+    // 使用主题色保持统一外观
     inlineCompletionStatusBar.backgroundColor = undefined;
-    inlineCompletionStatusBar.color = undefined;
+    inlineCompletionStatusBar.color = new vscode.ThemeColor('statusBarItem.foreground');
   } else {
-    // 关闭状态：使用D + X表示禁用
-    inlineCompletionStatusBar.text = 'D$(x)';
-    inlineCompletionStatusBar.tooltip = 'DeepV 代码补全：已禁用（点击启用）';
+    // 关闭状态：使用circle-slash图标表示已禁用
+    inlineCompletionStatusBar.text = `$(circle-slash) ${statusText}`;
+    inlineCompletionStatusBar.tooltip = getI18nText(
+      INLINE_COMPLETION_MESSAGES.STATUS_BAR_DISABLED_TOOLTIP,
+      INLINE_COMPLETION_MESSAGES.STATUS_BAR_DISABLED_TOOLTIP_ZH
+    );
+    // 使用主题色保持统一外观
     inlineCompletionStatusBar.backgroundColor = undefined;
-    inlineCompletionStatusBar.color = new vscode.ThemeColor('statusBarItem.warningForeground');
+    inlineCompletionStatusBar.color = new vscode.ThemeColor('statusBarItem.foreground');
   }
 }
 

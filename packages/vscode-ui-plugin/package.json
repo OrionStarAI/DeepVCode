@@ -73,17 +73,17 @@
       },
       {
         "command": "deepv.testInlineCompletion",
-        "title": "Test Inline Completion",
+        "title": "Test DeepV Suggestions",
         "category": "DeepV Code"
       },
       {
         "command": "deepv.toggleInlineCompletion",
-        "title": "Toggle Inline Completion",
+        "title": "Toggle DeepV Suggestions",
         "category": "DeepV Code"
       },
       {
         "command": "deepv.toggleInlineCompletionFromStatusBar",
-        "title": "Toggle Inline Completion from Status Bar",
+        "title": "Toggle DeepV Suggestions",
         "category": "DeepV Code"
       },
       {
@@ -228,20 +228,20 @@
         "deepv.enableInlineCompletion": {
           "type": "boolean",
           "default": false,
-          "description": "Enable AI-powered inline code completions",
-          "markdownDescription": "Enable or disable inline code completion suggestions powered by AI. When enabled, you'll see completion suggestions as you type."
+          "description": "Enable DeepV Inline Suggestions",
+          "markdownDescription": "Enable or disable DeepV Inline Suggestions powered by AI. When enabled, you'll see inline code suggestions as you type."
         },
         "deepv.inlineCompletionDelay": {
           "type": "number",
           "default": 300,
-          "description": "Delay in milliseconds before triggering inline completion",
-          "markdownDescription": "Delay (in milliseconds) before AI suggestions appear. Lower values mean faster suggestions but may use more resources. Recommended range: 100-1000ms."
+          "description": "Delay before showing inline suggestions (milliseconds)",
+          "markdownDescription": "Delay (in milliseconds) before inline suggestions appear. Lower values mean faster suggestions but may use more resources. Recommended range: 100-1000ms."
         },
         "deepv.inlineCompletionUseSuffix": {
           "type": "boolean",
           "default": true,
-          "description": "Use suffix context for code completion (FIM mode)",
-          "markdownDescription": "When enabled, uses Fill-in-Middle (FIM) mode with suffix context. When disabled, uses pure completion mode which may work better for comments and line endings."
+          "description": "Use suffix context for suggestions (FIM mode)",
+          "markdownDescription": "When enabled, uses Fill-in-Middle (FIM) mode with suffix context. When disabled, uses pure suggestion mode which may work better for comments and line endings."
         }
       }
     }

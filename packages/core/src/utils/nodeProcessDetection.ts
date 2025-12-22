@@ -1,7 +1,15 @@
 /**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+/**
  * 跨平台Node.js进程树检测
  * 使用可靠的npm包替代直接的系统命令调用
  */
+
+import { isVSCodeEnvironment, getEnvironmentDetectionDetails } from './environment/index.js';
 
 interface NodeProcessInfo {
   pid: number;
@@ -36,24 +44,18 @@ async function importProcessDetectionPackages(): Promise<{ pidtree: PidTree } | 
 }
 
 /**
- * 检测是否运行在VSCode插件环境中
- * 与ripgrepAdapter.ts中的检测逻辑保持一致
- */
-function isVSCodePluginEnvironment(): boolean {
-  return typeof process !== 'undefined' &&
-         (process.env.VSCODE_PID !== undefined ||
-          process.env.TERM_PROGRAM === 'vscode');
-}
-
-/**
  * 使用混合策略获取Node.js进程树：pidtree+pidusage+系统命令
  * 充分发挥各工具的优势，提供完整的进程信息
  * @param skipInVSCode 是否在VSCode环境中跳过进程检测（默认true）
  */
 export async function getNodeProcessTreeAsync(skipInVSCode: boolean = true): Promise<NodeProcessInfo[]> {
   // 如果在VSCode插件环境中且设置了跳过，则直接返回当前进程信息
-  if (skipInVSCode && isVSCodePluginEnvironment()) {
-    console.info('[Process Detection] VSCode plugin environment detected, skipping process tree detection to avoid CLI self-termination risks');
+  if (skipInVSCode && isVSCodeEnvironment()) {
+    const details = getEnvironmentDetectionDetails();
+    console.info(
+      `[Process Detection] VSCode environment detected (${details.method}), ` +
+      'skipping process tree detection to avoid CLI self-termination risks'
+    );
     return [await getBasicCurrentProcessInfo()];
   }
 
@@ -101,7 +103,13 @@ export async function getNodeProcessTreeAsync(skipInVSCode: boolean = true): Pro
         }
 
       } catch (treeError) {
-        console.warn('[Process Detection] pidtree failed, using system command fallback:', treeError);
+        const details = getEnvironmentDetectionDetails();
+        console.warn(
+          `[Process Detection] Strategy 1 (pidtree) failed. ` +
+          `Environment: ${details.type}. ` +
+          `Fallback to Strategy 2 (system commands). ` +
+          `Error: ${treeError instanceof Error ? treeError.message : 'Unknown error'}`
+        );
 
         // 🚀 策略2: 直接使用系统命令查找Node.js进程
         const systemProcesses = await getNodeProcessesBySystemCommand();
@@ -353,8 +361,12 @@ async function getBasicCurrentProcessInfo(): Promise<NodeProcessInfo> {
  */
 export function getNodeProcessTree(skipInVSCode: boolean = true): NodeProcessInfo[] {
   // 如果在VSCode插件环境中且设置了跳过，则直接返回当前进程信息
-  if (skipInVSCode && isVSCodePluginEnvironment()) {
-    console.info('[Process Detection] VSCode plugin environment detected, skipping process tree detection to avoid CLI self-termination risks');
+  if (skipInVSCode && isVSCodeEnvironment()) {
+    const details = getEnvironmentDetectionDetails();
+    console.info(
+      `[Process Detection] VSCode environment detected (${details.method}), ` +
+      'skipping process tree detection to avoid CLI self-termination risks'
+    );
     return [{
       pid: process.pid,
       ppid: process.ppid || 0,
