@@ -12,6 +12,8 @@ import { useTranslation } from '../hooks/useTranslation';
 import { ExecutionSettingsPanel } from './settings/ExecutionSettingsPanel';
 import { MCPSettingsPanel } from './settings/MCPSettingsPanel';
 import { webviewModelService } from '../services/webViewModelService';
+import { getGlobalMessageService } from '../services/globalMessageService';
+import { getDisplayPath } from '../utils/pathUtils';
 import './ProjectSettingsDialog.css';
 
 // =============================================================================
@@ -44,9 +46,15 @@ interface YoloModeSettingsDialogProps {
 
   /** 切换 MCP 启用状态的回调 */
   onToggleMcpEnabled?: (serverName: string, enabled: boolean) => void;
+
+  /** 记忆文件路径列表 */
+  memoryFilePaths?: string[];
+
+  /** 记忆文件数量 */
+  memoryFileCount?: number;
 }
 
-type SettingsTab = 'execution' | 'mcp';
+type SettingsTab = 'general' | 'mcp' | 'memory';
 
 // =============================================================================
 // 主组件
@@ -58,7 +66,9 @@ export const YoloModeSettingsDialog: React.FC<YoloModeSettingsDialogProps> = ({
   mcpServers = [],
   mcpDiscoveryState = 'not_started',
   mcpStatusLoaded = false,
-  onToggleMcpEnabled
+  onToggleMcpEnabled,
+  memoryFilePaths = [],
+  memoryFileCount = 0
 }) => {
   const { t } = useTranslation();
   const {
@@ -71,8 +81,9 @@ export const YoloModeSettingsDialog: React.FC<YoloModeSettingsDialogProps> = ({
     error
   } = useYoloMode();
 
-  const [activeTab, setActiveTab] = useState<SettingsTab>('execution');
+  const [activeTab, setActiveTab] = useState<SettingsTab>('general');
   const [availableModels, setAvailableModels] = useState<any[]>([]);
+  const [isRefreshingMemory, setIsRefreshingMemory] = useState(false);
 
   // 🎯 对话框打开时初始化数据（仅在isOpen改变时触发）
   React.useEffect(() => {
@@ -146,6 +157,32 @@ export const YoloModeSettingsDialog: React.FC<YoloModeSettingsDialogProps> = ({
     });
   };
 
+  /**
+   * 打开记忆文件
+   */
+  const handleOpenMemoryFile = (filePath: string) => {
+    console.log('[Memory] Opening memory file:', filePath);
+    getGlobalMessageService().openFile(filePath);
+  };
+
+  /**
+   * 手动刷新内存文件
+   */
+  const handleRefreshMemory = async () => {
+    setIsRefreshingMemory(true);
+    try {
+      console.log('[Memory] Manually refreshing memory');
+      getGlobalMessageService().refreshMemory();
+      // 显示成功提示
+      setTimeout(() => {
+        setIsRefreshingMemory(false);
+      }, 1500);
+    } catch (error) {
+      console.error('[Memory] Failed to refresh memory:', error);
+      setIsRefreshingMemory(false);
+    }
+  };
+
   // =============================================================================
   // 渲染
   // =============================================================================
@@ -179,23 +216,29 @@ export const YoloModeSettingsDialog: React.FC<YoloModeSettingsDialogProps> = ({
         {/* 标签页导航 */}
         <div className="project-settings-dialog__tabs">
           <button
-            className={`project-settings-dialog__tab ${activeTab === 'execution' ? 'project-settings-dialog__tab--active' : ''}`}
-            onClick={() => setActiveTab('execution')}
+            className={`project-settings-dialog__tab ${activeTab === 'general' ? 'project-settings-dialog__tab--active' : ''}`}
+            onClick={() => setActiveTab('general')}
           >
-            Execution
+            General
           </button>
           <button
             className={`project-settings-dialog__tab ${activeTab === 'mcp' ? 'project-settings-dialog__tab--active' : ''}`}
             onClick={() => setActiveTab('mcp')}
           >
-            MCP Servers
+            MCP
+          </button>
+          <button
+            className={`project-settings-dialog__tab ${activeTab === 'memory' ? 'project-settings-dialog__tab--active' : ''}`}
+            onClick={() => setActiveTab('memory')}
+          >
+            Memory
           </button>
         </div>
 
         {/* 对话框主体 */}
         <div className="project-settings-dialog__body yolo-mode-body">
           {/* 错误提示 */}
-          {error && activeTab === 'execution' && (
+          {error && activeTab === 'general' && (
             <div className="project-settings-dialog__error">
               <svg className="project-settings-dialog__error-icon" width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
                 <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
@@ -206,7 +249,7 @@ export const YoloModeSettingsDialog: React.FC<YoloModeSettingsDialogProps> = ({
 
           {/* 设置面板 */}
           <div className="project-settings-dialog__panel yolo-mode-panel">
-            {activeTab === 'execution' && (
+            {activeTab === 'general' && (
               <ExecutionSettingsPanel
                 yoloMode={originalYoloMode}
                 onYoloModeChange={handleYoloModeChange}
@@ -224,11 +267,103 @@ export const YoloModeSettingsDialog: React.FC<YoloModeSettingsDialogProps> = ({
                 onToggleEnabled={onToggleMcpEnabled}
               />
             )}
+            {activeTab === 'memory' && (
+              <div style={{ padding: '16px' }}>
+                <div style={{ marginBottom: '16px' }}>
+                  <h3 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>
+                    Memory Files
+                  </h3>
+                  <p style={{ margin: '0 0 12px 0', fontSize: '13px', color: '#999' }}>
+                    {memoryFileCount > 0
+                      ? `${memoryFileCount} memory file${memoryFileCount > 1 ? 's' : ''} loaded`
+                      : 'No memory files found. Create a DEEPV.md or GEMINI.md file in your project.'}
+                  </p>
+                </div>
+                {memoryFilePaths.length > 0 && (
+                  <div style={{
+                    backgroundColor: '#1e1e1e',
+                    border: '1px solid #3e3e42',
+                    borderRadius: '4px',
+                    padding: '12px',
+                    maxHeight: '300px',
+                    overflowY: 'auto'
+                  }}>
+                    <ul style={{ margin: '0', padding: '0', listStyle: 'none', fontSize: '12px' }}>
+                      {memoryFilePaths.map((filePath, index) => (
+                        <li
+                          key={index}
+                          style={{
+                            padding: '6px 0',
+                            borderBottom: index < memoryFilePaths.length - 1 ? '1px solid #3e3e42' : 'none'
+                          }}
+                        >
+                          <button
+                            onClick={() => handleOpenMemoryFile(filePath)}
+                            style={{
+                              background: 'none',
+                              border: 'none',
+                              color: '#569cd6',
+                              cursor: 'pointer',
+                              textDecoration: 'none',
+                              padding: '0',
+                              font: 'inherit',
+                              textAlign: 'left',
+                              width: '100%'
+                            }}
+                            onMouseEnter={(e) => {
+                              (e.currentTarget as HTMLElement).style.color = '#9cdcfe';
+                              (e.currentTarget as HTMLElement).style.textDecoration = 'underline';
+                            }}
+                            onMouseLeave={(e) => {
+                              (e.currentTarget as HTMLElement).style.color = '#569cd6';
+                              (e.currentTarget as HTMLElement).style.textDecoration = 'none';
+                            }}
+                            title={`Click to open: ${filePath}`}
+                          >
+                            📄 {getDisplayPath(filePath, 52)}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {memoryFileCount > 0 && (
+                  <button
+                    onClick={handleRefreshMemory}
+                    disabled={isRefreshingMemory}
+                    style={{
+                      marginTop: '12px',
+                      padding: '8px 12px',
+                      backgroundColor: '#0e639c',
+                      color: '#fff',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: isRefreshingMemory ? 'not-allowed' : 'pointer',
+                      fontSize: '12px',
+                      fontWeight: '500',
+                      opacity: isRefreshingMemory ? 0.6 : 1,
+                      transition: 'background-color 0.2s'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isRefreshingMemory) {
+                        (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#1177bb';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.backgroundColor = '#0e639c';
+                    }}
+                    title="Manually refresh memory files (usually auto-detected on file changes)"
+                  >
+                    {isRefreshingMemory ? '🔄 Refreshing...' : '🔄 Refresh Memory'}
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
         {/* 对话框底部 - 仅有Close按钮，YOLO模式toggle直接生效 */}
-        {activeTab === 'execution' && (
+        {activeTab === 'general' && (
           <div className="project-settings-dialog__footer">
             <div className="project-settings-dialog__footer-left">
               {/* 可以添加帮助信息 */}

@@ -208,7 +208,7 @@ vi.mock('../config/config.js', async (importOriginal) => {
     ...actual,
     loadHierarchicalGeminiMemory: vi
       .fn()
-      .mockResolvedValue({ memoryContent: '', fileCount: 0 }),
+      .mockResolvedValue({ memoryContent: '', fileCount: 0, filePaths: [] }),
   };
 });
 

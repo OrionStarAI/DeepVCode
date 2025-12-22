@@ -237,6 +237,7 @@ export class Config {
   private userMemory: string;
   private memoryTokenCount: number = 0; // 新增
   private geminiMdFileCount: number;
+  private geminiMdFilePaths: string[] = [];
   private approvalMode: ApprovalMode;
   private readonly showMemoryUsage: boolean;
   private readonly accessibility: AccessibilitySettings;
@@ -584,6 +585,14 @@ export class Config {
 
   setGeminiMdFileCount(count: number): void {
     this.geminiMdFileCount = count;
+  }
+
+  getGeminiMdFilePaths(): string[] {
+    return this.geminiMdFilePaths;
+  }
+
+  setGeminiMdFilePaths(paths: string[]): void {
+    this.geminiMdFilePaths = paths;
   }
 
   updateMcpServers(servers: Record<string, MCPServerConfig> | undefined): void {

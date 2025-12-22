@@ -150,6 +150,14 @@ export class MultiSessionCommunicationService {
     });
   }
 
+  // 🎯 记忆文件路径更新
+  async sendMemoryFilesUpdate(filePaths: string[], fileCount: number) {
+    await this.sendMessage({
+      type: 'memory_files_update',
+      payload: { filePaths, fileCount }
+    });
+  }
+
   // 🎯 UI历史恢复消息发送
   async sendRestoreUIHistory(sessionId: string, messages: any[], rollbackableMessageIds: string[] = []): Promise<void> {
     await this.sendMessage({

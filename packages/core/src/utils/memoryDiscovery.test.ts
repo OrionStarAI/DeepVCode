@@ -74,6 +74,7 @@ describe('loadServerHierarchicalMemory', () => {
     expect(result).toEqual({
       memoryContent: '',
       fileCount: 0,
+      filePaths: [],
     });
   });
 
@@ -94,6 +95,7 @@ describe('loadServerHierarchicalMemory', () => {
 default context content
 --- End of Context from: ${path.relative(cwd, defaultContextFile)} ---`,
       fileCount: 1,
+      filePaths: [defaultContextFile],
     });
   });
 
@@ -117,6 +119,7 @@ default context content
 custom context content
 --- End of Context from: ${path.relative(cwd, customContextFile)} ---`,
       fileCount: 1,
+      filePaths: [customContextFile],
     });
   });
 
@@ -148,6 +151,7 @@ project context content
 cwd context content
 --- End of Context from: ${path.relative(cwd, cwdContextFile)} ---`,
       fileCount: 2,
+      filePaths: [projectContextFile, cwdContextFile],
     });
   });
 
@@ -155,11 +159,11 @@ cwd context content
     const customFilename = 'LOCAL_CONTEXT.md';
     setGeminiMdFilename(customFilename);
 
-    await createTestFile(
+    const subDirFile = await createTestFile(
       path.join(cwd, 'subdir', customFilename),
       'Subdir custom memory',
     );
-    await createTestFile(path.join(cwd, customFilename), 'CWD custom memory');
+    const cwdFile = await createTestFile(path.join(cwd, customFilename), 'CWD custom memory');
 
     const result = await loadServerHierarchicalMemory(
       cwd,
@@ -176,6 +180,7 @@ CWD custom memory
 Subdir custom memory
 --- End of Context from: ${path.join('subdir', customFilename)} ---`,
       fileCount: 2,
+      filePaths: [cwdFile, subDirFile],
     });
   });
 
@@ -204,15 +209,16 @@ Project root memory
 Src directory memory
 --- End of Context from: ${path.relative(cwd, srcGeminiFile)} ---`,
       fileCount: 2,
+      filePaths: [projectRootGeminiFile, srcGeminiFile],
     });
   });
 
   it('should load ORIGINAL_GEMINI_MD_FILENAME files by downward traversal from CWD', async () => {
-    await createTestFile(
+    const subDirFile = await createTestFile(
       path.join(cwd, 'subdir', DEFAULT_CONTEXT_FILENAME),
       'Subdir memory',
     );
-    await createTestFile(
+    const cwdFile = await createTestFile(
       path.join(cwd, DEFAULT_CONTEXT_FILENAME),
       'CWD memory',
     );
@@ -232,6 +238,7 @@ CWD memory
 Subdir memory
 --- End of Context from: ${path.join('subdir', DEFAULT_CONTEXT_FILENAME)} ---`,
       fileCount: 2,
+      filePaths: [cwdFile, subDirFile],
     });
   });
 
@@ -284,6 +291,7 @@ CWD memory
 Subdir memory
 --- End of Context from: ${path.relative(cwd, subDirGeminiFile)} ---`,
       fileCount: 5,
+      filePaths: [defaultContextFile, rootGeminiFile, projectRootGeminiFile, cwdGeminiFile, subDirGeminiFile],
     });
   });
 
@@ -316,6 +324,7 @@ Subdir memory
 My code memory
 --- End of Context from: ${path.relative(cwd, regularSubDirGeminiFile)} ---`,
       fileCount: 1,
+      filePaths: [regularSubDirGeminiFile],
     });
   });
 
@@ -357,6 +366,7 @@ My code memory
     expect(result).toEqual({
       memoryContent: '',
       fileCount: 0,
+      filePaths: [],
     });
   });
 
@@ -378,6 +388,7 @@ My code memory
 Extension memory content
 --- End of Context from: ${path.relative(cwd, extensionFilePath)} ---`,
       fileCount: 1,
+      filePaths: [extensionFilePath],
     });
   });
 });

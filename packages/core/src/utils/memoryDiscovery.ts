@@ -297,7 +297,7 @@ export async function loadServerHierarchicalMemory(
   extensionContextFilePaths: string[] = [],
   fileFilteringOptions?: FileFilteringOptions,
   maxDirs: number = 200,
-): Promise<{ memoryContent: string; fileCount: number }> {
+): Promise<{ memoryContent: string; fileCount: number; filePaths: string[] }> {
   if (debugMode)
     logger.debug(
       `Loading server hierarchical memory for CWD: ${currentWorkingDirectory}`,
@@ -317,7 +317,7 @@ export async function loadServerHierarchicalMemory(
   );
   if (filePaths.length === 0) {
     if (debugMode) logger.debug('No GEMINI.md files found in hierarchy.');
-    return { memoryContent: '', fileCount: 0 };
+    return { memoryContent: '', fileCount: 0, filePaths: [] };
   }
   const contentsWithPaths = await readGeminiMdFiles(filePaths, debugMode);
   // Pass CWD for relative path display in concatenated content
@@ -333,5 +333,5 @@ export async function loadServerHierarchicalMemory(
     logger.debug(
       `Combined instructions (snippet): ${combinedInstructions.substring(0, 500)}...`,
     );
-  return { memoryContent: combinedInstructions, fileCount: filePaths.length };
+  return { memoryContent: combinedInstructions, fileCount: filePaths.length, filePaths };
 }

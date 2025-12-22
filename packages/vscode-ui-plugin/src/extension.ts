@@ -209,6 +209,9 @@ export async function activate(context: vscode.ExtensionContext) {
     // 🎯 监听文本选择变化 + 剪贴板监听（用于缓存复制的代码信息）
     setupClipboardMonitoring(context);
 
+    // 📝 监听记忆文件变化
+    setupMemoryFileWatcher(context);
+
     // 🎯 立即初始化WebView服务，这样用户点击时就能看到loading界面
     try {
       await webviewService.initialize();
@@ -1537,6 +1540,34 @@ function setupLoginHandlers() {
       await vscode.commands.executeCommand('deepv.openMCPSettings');
     } catch (error) {
       logger.error('Failed to open MCP settings', error instanceof Error ? error : undefined);
+    }
+  });
+
+  // 📝 处理打开文件请求
+  communicationService.addMessageHandler('open_file', async (payload: { filePath: string; line?: number }) => {
+    try {
+      logger.info('Opening file:', payload.filePath);
+      const fileUri = vscode.Uri.file(payload.filePath);
+      const options: vscode.TextDocumentShowOptions | undefined = payload.line
+        ? { selection: new vscode.Range(payload.line - 1, 0, payload.line - 1, 0) }
+        : undefined;
+      await vscode.window.showTextDocument(fileUri, options);
+    } catch (error) {
+      logger.error('Failed to open file', error instanceof Error ? error : undefined);
+      vscode.window.showErrorMessage(`Failed to open file: ${payload.filePath}`);
+    }
+  });
+
+  // 📝 处理手动刷新内存请求
+  communicationService.addMessageHandler('refresh_memory', async () => {
+    try {
+      logger.info('📝 Manual memory refresh requested');
+      await sessionManager.refreshUserMemory();
+      logger.info('📝 Memory refreshed successfully');
+      vscode.window.showInformationMessage('Memory files refreshed successfully');
+    } catch (error) {
+      logger.error('Failed to refresh memory', error instanceof Error ? error : undefined);
+      vscode.window.showErrorMessage(`Failed to refresh memory: ${error instanceof Error ? error.message : String(error)}`);
     }
   });
 
@@ -3935,4 +3966,52 @@ function setupClipboardMonitoring(context: vscode.ExtensionContext) {
   });
 
   logger.info('📋 Clipboard monitoring enabled');
+}
+
+/**
+ * 📝 设置记忆文件监听 - 自动检测记忆文件变化并刷新
+ */
+function setupMemoryFileWatcher(context: vscode.ExtensionContext) {
+  if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
+    logger.info('📝 No workspace open, skipping memory file watcher setup');
+    return;
+  }
+
+  const workspaceRoot = vscode.workspace.workspaceFolders[0].uri.fsPath;
+
+  // 监听记忆文件变化（DEEPV.md, GEMINI.md, AGENTS.md, CLAUDE.md 等）
+  const memoryFilePatterns = ['**/{DEEPV,GEMINI,AGENTS,CLAUDE}.md'];
+  const fileWatcher = vscode.workspace.createFileSystemWatcher(
+    new vscode.RelativePattern(workspaceRoot, '{DEEPV,GEMINI,AGENTS,CLAUDE}.md')
+  );
+
+  let refreshTimeout: NodeJS.Timeout | null = null;
+
+  const refreshMemory = async () => {
+    if (refreshTimeout) {
+      clearTimeout(refreshTimeout);
+    }
+
+    // 防抖：延迟 500ms 后刷新，避免频繁刷新（如持续编辑文件）
+    refreshTimeout = setTimeout(async () => {
+      try {
+        logger.info('📝 Memory file changed, refreshing memory for active sessions');
+        await sessionManager.refreshUserMemory();
+        logger.info('📝 Memory refreshed successfully');
+      } catch (error) {
+        logger.error('Failed to refresh memory after file change', error instanceof Error ? error : undefined);
+      }
+      refreshTimeout = null;
+    }, 500);
+  };
+
+  // 监听文件创建、修改、删除
+  fileWatcher.onDidChange(refreshMemory);
+  fileWatcher.onDidCreate(refreshMemory);
+  fileWatcher.onDidDelete(refreshMemory);
+
+  // 注册清理函数
+  context.subscriptions.push(fileWatcher);
+
+  logger.info('📝 Memory file watcher initialized');
 }

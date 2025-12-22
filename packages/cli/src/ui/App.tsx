@@ -357,6 +357,20 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   // Session restoration
   useSessionRestore({ config, loadHistory });
 
+  // Display memory files info on initialization
+  useEffect(() => {
+    const memoryFilePaths = config.getGeminiMdFilePaths();
+    if (memoryFilePaths.length > 0) {
+      const fileList = memoryFilePaths.map(f => `  - ${f}`).join('\n');
+      addItem(
+        {
+          type: MessageType.INFO,
+          text: `Using: ${memoryFilePaths.length} memory file${memoryFilePaths.length > 1 ? 's' : ''}\n${fileList}`,
+        },
+        Date.now(),
+      );
+    }
+  }, []); // Run only once on mount
 
   useEffect(() => {
     const consolePatcher = new ConsolePatcher({
@@ -658,7 +672,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
       Date.now(),
     );
     try {
-      const { memoryContent, fileCount } = await loadHierarchicalGeminiMemory(
+      const { memoryContent, fileCount, filePaths } = await loadHierarchicalGeminiMemory(
         process.cwd(),
         config.getDebugMode(),
         config.getFileService(),
@@ -671,10 +685,15 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
       config.setGeminiMdFileCount(fileCount);
       setGeminiMdFileCount(fileCount);
 
+      let successMessage = `Memory refreshed successfully. ${memoryContent.length > 0 ? `Loaded ${memoryContent.length} characters from ${fileCount} file(s).` : 'No memory content found.'}`;
+      if (fileCount > 0 && filePaths.length > 0) {
+        successMessage += `\nMemory files:\n${filePaths.map(f => `  - ${f}`).join('\n')}`;
+      }
+
       addItem(
         {
           type: MessageType.INFO,
-          text: `Memory refreshed successfully. ${memoryContent.length > 0 ? `Loaded ${memoryContent.length} characters from ${fileCount} file(s).` : 'No memory content found.'}`,
+          text: successMessage,
         },
         Date.now(),
       );
@@ -682,6 +701,9 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
         console.log(
           `[DEBUG] Refreshed memory content in config: ${memoryContent.substring(0, 200)}...`,
         );
+        filePaths.forEach((filePath) => {
+          console.log(`[DEBUG] Memory file: ${filePath}`);
+        });
       }
     } catch (error) {
       const errorMessage = getErrorMessage(error);

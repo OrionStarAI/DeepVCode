@@ -258,6 +258,8 @@ export type WebViewToExtensionMessage =
   | { type: 'goto_symbol'; payload: { symbol: string } }
   | { type: 'goto_line'; payload: { line: number } } // 🎯 跳转到当前文件的指定行
   | { type: 'open_extension_marketplace'; payload: { extensionId: string } }
+  // 📝 记忆文件相关
+  | { type: 'refresh_memory'; payload: {} }
   // 🎯 版本控制相关
   | { type: 'revert_to_message'; payload: { sessionId: string; messageId: string } }
   | { type: 'version_timeline_request'; payload: { sessionId: string } }
@@ -328,6 +330,8 @@ export type ExtensionToWebViewMessage =
   // 🎯 增强的 Lint 智能通知
   | { type: 'smart_notification'; payload: { notificationData: any; sessionId: string | null; timestamp: number } }
   | { type: 'lint_suggestions'; payload: { suggestions: any[]; sessionId: string | null; timestamp: number } }
+  // 🎯 记忆文件路径信息更新
+  | { type: 'memory_files_update'; payload: { filePaths: string[]; fileCount: number } }
   | { type: 'tool_suggestion'; payload: { sessionId: string; toolName: string; params: any; timestamp: number } }
   // 🎯 模型配置相关
   | { type: 'model_response'; payload: { requestId: string; success: boolean; models?: any[]; currentModel?: string; error?: string } }

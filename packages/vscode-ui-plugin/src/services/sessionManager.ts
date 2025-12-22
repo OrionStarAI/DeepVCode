@@ -58,6 +58,7 @@ export class SessionManager extends EventEmitter {
   // 🎯 用户内存/上下文内容缓存（全局共享）
   private userMemoryContent: string = '';
   private userMemoryFileCount: number = 0;
+  private userMemoryFilePaths: string[] = [];
   private memoryInitialized = false;
 
   // 🎯 等待UI历史记录的Promise映射
@@ -187,7 +188,7 @@ export class SessionManager extends EventEmitter {
       const workspaceRoot = this.getWorkspaceRoot();
       const fileService = new FileDiscoveryService(workspaceRoot);
 
-      const { memoryContent, fileCount } = await loadServerHierarchicalMemory(
+      const { memoryContent, fileCount, filePaths } = await loadServerHierarchicalMemory(
         workspaceRoot,
         false, // debugMode - 在生产环境中关闭
         fileService,
@@ -197,6 +198,7 @@ export class SessionManager extends EventEmitter {
 
       this.userMemoryContent = memoryContent;
       this.userMemoryFileCount = fileCount;
+      this.userMemoryFilePaths = filePaths;
       this.memoryInitialized = true;
 
       if (memoryContent.length > 0) {
@@ -207,12 +209,20 @@ export class SessionManager extends EventEmitter {
         this.logger.info(`ℹ️ No user memory content ${action} (no DEEPV.md/GEMINI.md files)`);
       }
 
+      // 发送记忆文件路径更新到 webview
+      try {
+        await this.communicationService.sendMemoryFilesUpdate(filePaths, fileCount);
+      } catch (sendError) {
+        this.logger.debug('Failed to send memory files update to webview', sendError instanceof Error ? sendError : undefined);
+      }
+
     } catch (error) {
       const action = isInitialLoad ? 'initialize' : 'refresh';
       this.logger.warn(`⚠️ Failed to ${action} user memory, continuing without context files`, error instanceof Error ? error : undefined);
-      // 不抛出错误，允许系统在没有内存文件的情况下继续运行
+      // 不抛出错误，允许系统在没有记忆文件的情况下继续运行
       this.userMemoryContent = '';
       this.userMemoryFileCount = 0;
+      this.userMemoryFilePaths = [];
       this.memoryInitialized = true;
     }
   }
@@ -1329,6 +1339,13 @@ export class SessionManager extends EventEmitter {
     } catch (error) {
       this.logger.error('❌ Failed to save sessions', error instanceof Error ? error : undefined);
     }
+  }
+
+  /**
+   * 获取用户记忆文件路径列表
+   */
+  public getUserMemoryFilePaths(): string[] {
+    return this.userMemoryFilePaths;
   }
 
   /**
