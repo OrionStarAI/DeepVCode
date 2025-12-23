@@ -454,6 +454,19 @@ export class MultiSessionMessageService {
   }
 
   /**
+   * 🎯 撤销单个文件的变更
+   */
+  undoFileChange(sessionId: string, fileData: { fileName: string; filePath?: string; originalContent: string; isNewFile: boolean; isDeletedFile: boolean }) {
+    this.sendMessage({
+      type: 'undo_file_change' as any,
+      payload: {
+        sessionId,
+        ...fileData
+      }
+    });
+  }
+
+  /**
    * 发送工具执行请求
    */
   sendToolExecutionRequest(sessionId: string, request: {

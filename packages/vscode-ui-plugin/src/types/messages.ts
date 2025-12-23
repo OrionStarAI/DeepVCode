@@ -229,11 +229,13 @@ export type WebViewToExtensionMessage =
   | { type: 'resolve_file_paths'; payload: { files: string[] } }
   // 🎯 文件变更接受相关
   | { type: 'acceptFileChanges'; payload: { lastAcceptedMessageId: string } }
+  // 🎯 Undo 模块
+  | { type: 'undo_file_change'; payload: { sessionId: string; fileName: string; filePath?: string; originalContent: string; isNewFile: boolean; isDeletedFile: boolean } }
   // 🎯 项目设置相关
   | { type: 'project_settings_update'; payload: { yoloMode: boolean } }
   | { type: 'project_settings_request'; payload: {} }
   // 🎯 Diff编辑器相关
-  | { type: 'openDiffInEditor'; payload: { fileDiff: string; fileName: string; originalContent: string; newContent: string } }
+  | { type: 'openDiffInEditor'; payload: { fileDiff: string; fileName: string; originalContent: string; newContent: string; filePath?: string } }
   | { type: 'openDeletedFileContent'; payload: { fileName: string; filePath?: string; deletedContent: string } }
   // 🎯 增强的 Lint 智能通知相关
   | { type: 'smart_notification_action'; payload: { sessionId: string; action: string; notificationId?: string; additionalData?: any } }

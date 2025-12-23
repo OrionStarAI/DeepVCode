@@ -80,6 +80,9 @@ export interface Translations {
     cannotStop: string;
     sending: string;
     editPlaceholder: string;
+    undoneFileHistory: string;
+    fileChangesTitle: string;
+    undoFileTooltip: string;
     acceptChanges: string;
     viewModifiedFiles: string;
     customProxyServer: string;
@@ -331,6 +334,7 @@ export interface Translations {
     title: string;
     totalTokens: string;
     credits: string;
+    creditsSuffix: string;
     input: string;
     output: string;
     cacheRead: string;

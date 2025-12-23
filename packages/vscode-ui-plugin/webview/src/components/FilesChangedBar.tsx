@@ -6,12 +6,13 @@ import React, { useState, useRef, useEffect } from 'react';
 import { FilesChangedBarProps, ModifiedFile } from '../types/fileChanges';
 import { getFileIcon } from '../components/FileIcons';
 import { useTranslation } from '../hooks/useTranslation';
-import { FileText, ChevronDown, ChevronRight, X } from 'lucide-react';
+import { FileText, ChevronDown, ChevronRight, X, Undo2 } from 'lucide-react';
 import './FilesChangedBar.css';
 
 const FilesChangedBar: React.FC<FilesChangedBarProps> = ({
   modifiedFiles,
   onFileClick,
+  onUndoFile,
   onAcceptChanges
 }) => {
   const { t } = useTranslation();
@@ -112,6 +113,19 @@ const FilesChangedBar: React.FC<FilesChangedBarProps> = ({
                       </>
                     )}
                   </div>
+                  {onUndoFile && (
+                    <button
+                      className="file-undo-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onUndoFile(file);
+                      }}
+                      title={t('chat.undoFileTooltip', {}, 'Undo changes to this file')}
+                      aria-label={t('chat.undoFileTooltip', {}, 'Undo changes to this file')}
+                    >
+                      <Undo2 size={14} />
+                    </button>
+                  )}
                 </div>
               </div>
             );
@@ -133,39 +147,44 @@ const FilesChangedBar: React.FC<FilesChangedBarProps> = ({
           }
         }}
       >
-        <FileText className="files-icon" size={16} />
-        <span className="files-count">
-          {(() => {
-            const parts = [];
-            if (newFilesCount > 0) {
-              parts.push(`${newFilesCount} ${t('fileStatus.new', {}, 'new')}`);
-            }
-            if (modifiedFilesCount > 0) {
-              parts.push(`${modifiedFilesCount} ${t('fileStatus.modified', {}, 'modified')}`);
-            }
-            if (deletedFilesCount > 0) {
-              parts.push(`${deletedFilesCount} ${t('fileStatus.deleted', {}, 'deleted')}`);
-            }
-            return parts.join(', ');
-          })()}
-        </span>
-        {isExpanded ? (
-          <ChevronDown className="expand-indicator" size={16} />
-        ) : (
-          <ChevronRight className="expand-indicator" size={16} />
-        )}
+        <div className="bar-left">
+          <span className="bar-title">{t('chat.fileChangesTitle', {}, 'CHANGES')}</span>
+          <span className="files-count">
+            {(() => {
+              const parts = [];
+              if (newFilesCount > 0) {
+                parts.push(`${newFilesCount} ${t('fileStatus.new', {}, 'new')}`);
+              }
+              if (modifiedFilesCount > 0) {
+                parts.push(`${modifiedFilesCount} ${t('fileStatus.modified', {}, 'modified')}`);
+              }
+              if (deletedFilesCount > 0) {
+                parts.push(`${deletedFilesCount} ${t('fileStatus.deleted', {}, 'deleted')}`);
+              }
+              return parts.join(', ');
+            })()}
+          </span>
+        </div>
 
-        {/* OK 按钮 */}
-        {onAcceptChanges && (
-          <button
-            className="accept-changes-btn"
-            onClick={handleAcceptChanges}
-            title={t('chat.acceptChanges', {}, 'Clear this list')}
-            aria-label={t('chat.acceptChanges', {}, 'Clear this list')}
-          >
-            <X size={14} />
-          </button>
-        )}
+        <div className="bar-right">
+          {isExpanded ? (
+            <ChevronDown className="expand-indicator" size={14} />
+          ) : (
+            <ChevronRight className="expand-indicator" size={14} />
+          )}
+
+          {/* OK 按钮 */}
+          {onAcceptChanges && (
+            <button
+              className="accept-changes-btn"
+              onClick={handleAcceptChanges}
+              title={t('chat.acceptChanges', {}, 'Clear this list')}
+              aria-label={t('chat.acceptChanges', {}, 'Clear this list')}
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

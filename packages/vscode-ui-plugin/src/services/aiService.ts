@@ -528,6 +528,27 @@ export class AIService {
   }
 
   /**
+   * 🎯 向 AI 客户端历史记录中添加系统消息，使其能够感知 UI 层的状态变化（如撤销）
+   */
+  async addSystemMessageToHistory(content: string): Promise<void> {
+    if (!this.geminiClient) {
+      this.logger.warn('Cannot add system message to history: GeminiClient not initialized');
+      return;
+    }
+
+    try {
+      // 🎯 模拟为用户消息，以便 AI 在下一轮对话中能够读取到
+      this.geminiClient.addHistory({
+        role: 'user',
+        parts: [{ text: `[SYSTEM NOTIFICATION] ${content}` }],
+      });
+      this.logger.info(`✅ System notification added to AI history: ${content}`);
+    } catch (error) {
+      this.logger.error('❌ Failed to add system message to history', error instanceof Error ? error : undefined);
+    }
+  }
+
+  /**
    * 🎯 检查AIService是否已初始化
    */
   get isServiceInitialized(): boolean {

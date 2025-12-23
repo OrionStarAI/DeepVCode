@@ -7,6 +7,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as crypto from 'crypto';
 import { WebViewService } from './services/webviewService';
 import { ContextService } from './services/contextService';
 import { MultiSessionCommunicationService } from './services/multiSessionCommunicationService';
@@ -1314,7 +1315,7 @@ function setupBasicMessageHandlers() {
   communicationService.onOpenDiffInEditor(async (data) => {
     try {
       logger.info(`Received open diff in editor request for file: ${data.fileName}`);
-      await openDiffInEditor(data.fileDiff, data.fileName, data.originalContent, data.newContent);
+      await openDiffInEditor(data.fileDiff, data.fileName, data.originalContent, data.newContent, data.filePath);
       logger.info(`✅ Diff opened in editor successfully`);
     } catch (error) {
       logger.error('Failed to open diff in editor', error instanceof Error ? error : undefined);
@@ -1343,6 +1344,78 @@ function setupBasicMessageHandlers() {
       logger.info(`✅ File changes accepted up to message: ${data.lastAcceptedMessageId}`);
     } catch (error) {
       logger.error('Failed to accept file changes', error instanceof Error ? error : undefined);
+    }
+  });
+
+  // 🎯 处理撤销单个文件变更请求
+  communicationService.addMessageHandler('undo_file_change', async (payload: any) => {
+    try {
+      const { fileName, filePath, originalContent, isNewFile, isDeletedFile, sessionId } = payload;
+      let targetPath = filePath || fileName;
+
+      // 🎯 关键修复：确保路径是绝对路径，相对于工作区解析
+      if (!path.isAbsolute(targetPath)) {
+        const workspaceFolders = vscode.workspace.workspaceFolders;
+        if (workspaceFolders && workspaceFolders.length > 0) {
+          targetPath = path.resolve(workspaceFolders[0].uri.fsPath, targetPath);
+        }
+      }
+
+      const uri = vscode.Uri.file(targetPath);
+      logger.info(`🎯 [Undo] Received undo request for: ${targetPath} (isNew: ${isNewFile}, isDeleted: ${isDeletedFile})`);
+
+      const edit = new vscode.WorkspaceEdit();
+
+      if (isNewFile) {
+        // 如果是新建文件，撤销就是删除
+        edit.deleteFile(uri, { ignoreIfNotExists: true });
+        logger.info(`🗑️ [Undo] Deleting newly created file: ${targetPath}`);
+      } else if (isDeletedFile) {
+        // 如果是已删除文件，撤销就是恢复内容
+        edit.createFile(uri, { overwrite: true });
+        edit.insert(uri, new vscode.Position(0, 0), originalContent);
+        logger.info(`📝 [Undo] Restoring deleted file: ${targetPath}`);
+      } else {
+        // 如果是修改文件，撤销就是恢复原始内容
+        const document = await vscode.workspace.openTextDocument(uri);
+        const fullRange = new vscode.Range(
+          new vscode.Position(0, 0),
+          document.lineAt(document.lineCount - 1).range.end
+        );
+        edit.replace(uri, fullRange, originalContent);
+        logger.info(`♻️ [Undo] Restoring modified file content: ${targetPath}`);
+      }
+
+      const success = await vscode.workspace.applyEdit(edit);
+
+      if (success) {
+        // 🎯 关键修复：撤销后自动保存文件，确保磁盘内容同步
+        if (!isNewFile) {
+          try {
+            const document = await vscode.workspace.openTextDocument(uri);
+            await document.save();
+            logger.info(`💾 [Undo] File saved to disk: ${targetPath}`);
+          } catch (saveError) {
+            logger.warn(`⚠️ [Undo] Failed to auto-save file: ${targetPath}`, saveError);
+          }
+        }
+
+        vscode.window.showInformationMessage(`已成功撤销对文件 "${fileName}" 的修改`);
+        logger.info(`✅ [Undo] File revert successful: ${targetPath}`);
+
+        // 🎯 关键修复：撤销成功后，尝试关闭可能已经打开的对应文件的 diff 窗口
+        try {
+          await closeDiffEditorForFile(targetPath, fileName);
+        } catch (closeError) {
+          logger.debug(`[Undo] Non-critical error closing editor:`, closeError);
+        }
+      } else {
+        throw new Error('Failed to apply workspace edit');
+      }
+
+    } catch (error) {
+      logger.error('❌ [Undo] Failed to undo file change', error instanceof Error ? error : undefined);
+      vscode.window.showErrorMessage(`撤销失败: ${error instanceof Error ? error.message : String(error)}`);
     }
   });
 
@@ -3782,22 +3855,37 @@ async function openDiffInEditor(
   fileDiff: string,
   fileName: string,
   originalContent: string,
-  newContent: string
+  newContent: string,
+  filePath?: string
 ): Promise<void> {
   try {
     // 创建临时目录
     const tempDir = path.join(require('os').tmpdir(), 'deepv-diffs');
     try {
-      await vscode.workspace.fs.createDirectory(vscode.Uri.file(tempDir));
+      if (!fs.existsSync(tempDir)) {
+        await vscode.workspace.fs.createDirectory(vscode.Uri.file(tempDir));
+      }
     } catch (error) {
       // 目录可能已经存在，忽略错误
     }
 
-    // 生成唯一的文件名
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    // 🎯 确保路径是绝对路径
+    let targetPath = filePath || fileName;
+    if (!path.isAbsolute(targetPath)) {
+      const workspaceFolders = vscode.workspace.workspaceFolders;
+      if (workspaceFolders && workspaceFolders.length > 0) {
+        targetPath = path.resolve(workspaceFolders[0].uri.fsPath, targetPath);
+      }
+    }
+
+    // 🎯 生成稳定的文件名标识，避免重复打开同一个文件的多个标签页
+    const fileId = targetPath;
+    const fileHash = crypto.createHash('md5').update(fileId).digest('hex').substring(0, 8);
     const baseFileName = fileName.replace(/[<>:"/\\|?*]/g, '_'); // 清理文件名中的特殊字符
-    const originalFileName = `${baseFileName}-original-${timestamp}`;
-    const newFileName = `${baseFileName}-modified-${timestamp}`;
+
+    // 不再使用时间戳，使用稳定的 hash 标识
+    const originalFileName = `${baseFileName}-${fileHash}-original`;
+    const newFileName = `${baseFileName}-${fileHash}-modified`;
 
     // 获取文件扩展名以保持语法高亮
     const fileExtension = path.extname(fileName);
@@ -3808,11 +3896,12 @@ async function openDiffInEditor(
     const originalUri = vscode.Uri.file(originalFilePath);
     const newUri = vscode.Uri.file(newFilePath);
 
-    // 写入文件内容
+    // 写入文件内容 (如果文件已存在，会直接覆盖，从而实现“刷新”效果)
     await vscode.workspace.fs.writeFile(originalUri, Buffer.from(originalContent || '', 'utf8'));
     await vscode.workspace.fs.writeFile(newUri, Buffer.from(newContent || '', 'utf8'));
 
     // 使用VSCode的diff编辑器打开两个文件对比
+    // VSCode 会识别 URI，如果该 URI 的 diff 已经打开，会直接切换到该标签页并应用新内容
     await vscode.commands.executeCommand(
       'vscode.diff',
       originalUri,
@@ -3824,19 +3913,8 @@ async function openDiffInEditor(
       }
     );
 
-    logger.info(`Diff comparison opened: ${originalFilePath} vs ${newFilePath}`);
-    vscode.window.showInformationMessage(`已在编辑器中打开完整文件对比: ${fileName}`);
-
-    // 可选：设置自动清理临时文件（5分钟后）
-    setTimeout(async () => {
-      try {
-        await vscode.workspace.fs.delete(originalUri);
-        await vscode.workspace.fs.delete(newUri);
-        logger.debug(`Cleaned up temporary diff files for ${fileName}`);
-      } catch (error) {
-        logger.debug(`Failed to clean up temporary diff files for ${fileName}`, error instanceof Error ? error : undefined);
-      }
-    }, 5 * 60 * 1000); // 5分钟
+    logger.info(`Diff comparison opened/refreshed: ${originalFilePath} vs ${newFilePath}`);
+    vscode.window.showInformationMessage(`已在编辑器中打开/刷新文件对比: ${fileName}`);
 
   } catch (error) {
     logger.error('Failed to open diff comparison', error instanceof Error ? error : undefined);
@@ -3861,15 +3939,27 @@ async function openDeletedFileContent(
     // 创建临时目录
     const tempDir = path.join(require('os').tmpdir(), 'deepv-diffs');
     try {
-      await vscode.workspace.fs.createDirectory(vscode.Uri.file(tempDir));
+      if (!fs.existsSync(tempDir)) {
+        await vscode.workspace.fs.createDirectory(vscode.Uri.file(tempDir));
+      }
     } catch (error) {
       // 目录可能已经存在，忽略错误
     }
 
-    // 生成唯一的文件名
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    // 🎯 确保路径是绝对路径
+    let targetPath = filePath || fileName;
+    if (!path.isAbsolute(targetPath)) {
+      const workspaceFolders = vscode.workspace.workspaceFolders;
+      if (workspaceFolders && workspaceFolders.length > 0) {
+        targetPath = path.resolve(workspaceFolders[0].uri.fsPath, targetPath);
+      }
+    }
+
+    // 🎯 生成稳定的文件名标识
+    const fileId = targetPath;
+    const fileHash = crypto.createHash('md5').update(fileId).digest('hex').substring(0, 8);
     const baseFileName = fileName.replace(/[<>:"/\\|?*]/g, '_'); // 清理文件名中的特殊字符
-    const deletedFileName = `${baseFileName}-deleted-${timestamp}`;
+    const deletedFileName = `${baseFileName}-${fileHash}-deleted`;
 
     // 获取文件扩展名以保持语法高亮
     const fileExtension = path.extname(fileName);
@@ -3895,21 +3985,55 @@ async function openDeletedFileContent(
       '关闭'
     );
 
-    logger.info(`Deleted file content opened: ${deletedFilePath} (original: ${displayPath})`);
-
-    // 可选：设置自动清理临时文件（10分钟后）
-    setTimeout(async () => {
-      try {
-        await vscode.workspace.fs.delete(deletedUri);
-        logger.debug(`Cleaned up temporary deleted file for ${fileName}`);
-      } catch (error) {
-        logger.debug(`Failed to clean up temporary deleted file for ${fileName}`, error instanceof Error ? error : undefined);
-      }
-    }, 10 * 60 * 1000); // 10分钟
+    logger.info(`Deleted file content opened/refreshed: ${deletedFilePath} (original: ${displayPath})`);
 
   } catch (error) {
     logger.error('Failed to open deleted file content', error instanceof Error ? error : undefined);
     throw error;
+  }
+}
+
+/**
+ * 🎯 尝试关闭指定文件的 Diff 编辑器或已删除文件视图
+ */
+async function closeDiffEditorForFile(targetPath: string, fileName: string): Promise<void> {
+  try {
+    const fileHash = crypto.createHash('md5').update(targetPath).digest('hex').substring(0, 8);
+    const baseFileName = fileName.replace(/[<>:"/\\|?*]/g, '_');
+
+    // 构造可能存在的临时文件名关键字
+    const originalMarker = `${baseFileName}-${fileHash}-original`;
+    const modifiedMarker = `${baseFileName}-${fileHash}-modified`;
+    const deletedMarker = `${baseFileName}-${fileHash}-deleted`;
+
+    // 遍历所有打开的标签页组
+    for (const group of vscode.window.tabGroups.all) {
+      for (const tab of group.tabs) {
+        const input = tab.input as any;
+
+        // 1. 检查 Diff 编辑器 (vscode.TabInputTextDiff)
+        if (input && input.original && input.modified) {
+          const originalUri = input.original.toString();
+          const modifiedUri = input.modified.toString();
+
+          if (originalUri.includes(originalMarker) || modifiedUri.includes(modifiedMarker)) {
+            logger.info(`🎯 [CloseEditor] Found matching diff tab for ${fileName}, closing...`);
+            await vscode.window.tabGroups.close(tab);
+          }
+        }
+
+        // 2. 检查普通编辑器 (vscode.TabInputText) - 针对已删除文件视图
+        else if (input && input.uri) {
+          const uri = input.uri.toString();
+          if (uri.includes(deletedMarker)) {
+            logger.info(`🎯 [CloseEditor] Found matching deleted file tab for ${fileName}, closing...`);
+            await vscode.window.tabGroups.close(tab);
+          }
+        }
+      }
+    }
+  } catch (error) {
+    logger.debug(`[CloseEditor] Failed to close tab for ${fileName}`, error);
   }
 }
 

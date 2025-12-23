@@ -2,7 +2,7 @@
  * Chat Interface Component
  */
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { Loader2, ArrowDown, AlertTriangle } from 'lucide-react';
 import { ChatMessage, ToolCall, MessageContent, MessageQueueItem } from '../types';
 import { ModifiedFile } from '../types/fileChanges';
@@ -10,11 +10,13 @@ import { extractModifiedFiles } from '../utils/fileChangeExtractor';
 import { MessageBubble } from './MessageBubble';
 import { MessageQueueList } from './MessageQueueList';
 import { ToolCallList } from './ToolCallList';
+import { StickyTodoPanel } from './StickyTodoPanel';
 import { MessageInput } from './MessageInput';
 import FilesChangedBar from './FilesChangedBar';
 import { useTranslation } from '../hooks/useTranslation';
 import './ChatInterface.css';
 import { getGlobalMessageService } from '../services/globalMessageService';
+import { createTextMessageContent } from '../utils/messageContentUtils';
 
 interface ChatInterfaceProps {
   messages: ChatMessage[];
@@ -95,6 +97,13 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [modifiedFiles, setModifiedFiles] = useState<Map<string, ModifiedFile>>(new Map());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
+
+  // 🎯 Todo 面板可见性和折叠状态管理
+  const [isTodoCollapsed, setIsTodoCollapsed] = useState(false);
+  const [isTodoVisible, setIsTodoVisible] = useState(false);
+  const prevProcessingRef = useRef(false);
+  const turnStartTodoSignatureRef = useRef<string>(""); // 🎯 记录回合开始时的 Todo 状态签名
+
   // 🎯 新增：专门用于监听滚动的 Ref，绑定到 .messages-scroll-area
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   // 🎯 新增：记录最后一次点击"回到底部"的时间，用于实现"磁吸"效果
@@ -237,6 +246,55 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setModifiedFiles(filesMap);
   }, [messages, propLastAcceptedMessageId]);
 
+  // 🎯 提取最新的任务列表 (Todos)
+  const latestTodos = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      const msg = messages[i];
+      if (msg.associatedToolCalls) {
+        // 从后往前找最后一个成功的 todo_display
+        for (let j = msg.associatedToolCalls.length - 1; j >= 0; j--) {
+          const toolCall = msg.associatedToolCalls[j];
+          const result = toolCall.result as any;
+          const dataType = result?.data?.type || result?.type;
+          if (dataType === 'todo_display' && toolCall.status === 'success') {
+            return result.data || result;
+          }
+        }
+      }
+    }
+    return null;
+  }, [messages]);
+
+  // 🎯 处理 AI 状态变化对 Todo 面板的影响
+  useEffect(() => {
+    const isCurrentlyActive = isLoading || isProcessing;
+
+    // AI 结束时自动折叠 (从 active 变为 idle)
+    if (prevProcessingRef.current && !isCurrentlyActive && isTodoVisible) {
+      console.log('🎯 [Todo] AI finished, auto-collapsing todo panel');
+      setIsTodoCollapsed(true);
+    }
+
+    prevProcessingRef.current = isCurrentlyActive;
+  }, [isLoading, isProcessing, isTodoVisible]);
+
+  // 🎯 监听最新 Todo 的产生
+  useEffect(() => {
+    if (latestTodos && (isLoading || isProcessing)) {
+      // 🎯 检查是否是本回合产生的新更新 (AI 本轮显式调用了 todo_write)
+      const currentSignature = JSON.stringify(latestTodos.items);
+      const isNewUpdate = currentSignature !== turnStartTodoSignatureRef.current;
+
+      if (isNewUpdate) {
+        // 🎯 核心逻辑：上一轮未完成的 Todo 不再带入本轮显示
+        // 只有当 AI 在本轮对话中产生了新的更新时，才重新显示并展开面板
+        console.log('🎯 [Todo] Showing panel. Reason: New update produced by AI in this turn');
+        setIsTodoVisible(true);
+        setIsTodoCollapsed(false);
+      }
+    }
+  }, [latestTodos, isLoading, isProcessing]);
+
   // 🎯 编辑模式下的键盘快捷键支持
   useEffect(() => {
     if (!editingMessageId) return;
@@ -323,6 +381,12 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const handleSendMessage = (content: MessageContent) => {
     // 🎯 强制开启自动滚动
     shouldAutoScrollRef.current = true;
+
+    // 🎯 隐藏上一轮的 Todo 面板
+    setIsTodoVisible(false);
+
+    // 🎯 记录回合开始时的 Todo 签名，用于判断下一轮是否显示
+    turnStartTodoSignatureRef.current = latestTodos ? JSON.stringify(latestTodos.items) : "";
 
     // 🎯 如果正在处理中，加入队列
     if ((isLoading || isProcessing) && onAddMessageToQueue) {
@@ -649,7 +713,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
           type: 'openDeletedFileContent',
           payload: {
             fileName: file.fileName,
-            filePath: file.filePath,
+            filePath: file.absolutePath || file.filePath, // 🎯 优先使用绝对路径
             deletedContent: file.deletedContent || file.firstOriginalContent
           }
         });
@@ -660,6 +724,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
           payload: {
             fileDiff: file.latestFileDiff,
             fileName: file.fileName,
+            filePath: file.absolutePath || file.filePath, // 🎯 优先使用绝对路径
             originalContent: file.firstOriginalContent,
             newContent: file.latestNewContent
           }
@@ -686,6 +751,45 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         });
       }
     }
+  };
+
+  /**
+   * 🎯 处理撤销单个文件的变更
+   * @param file - 目标文件
+   */
+  const handleUndoFile = (file: ModifiedFile) => {
+    if (!sessionId) return;
+
+    console.log('🎯 [Undo] Requesting undo for file:', file.fileName);
+
+    getGlobalMessageService().undoFileChange(sessionId, {
+      fileName: file.fileName,
+      filePath: file.absolutePath || file.filePath, // 🎯 优先使用绝对路径
+      originalContent: file.firstOriginalContent,
+      isNewFile: file.isNewFile,
+      isDeletedFile: file.isDeletedFile
+    });
+
+    // 🎯 将撤销记录加入对话历史，让 AI 知晓
+    const undoMsg: ChatMessage = {
+      id: `undo-msg-${Date.now()}`,
+      type: 'system',
+      content: createTextMessageContent(t('chat.undoneFileHistory', { fileName: file.fileName })),
+      timestamp: Date.now(),
+      // 🎯 添加元数据，以便 fileChangeExtractor 能够识别并从列表中移除
+      notificationType: 'undo_file' as any,
+      notificationTitle: file.absolutePath || file.filePath || file.fileName
+    };
+
+    if (onUpdateMessages) {
+      onUpdateMessages([...messages, undoMsg]);
+    }
+
+    // 同步保存到后端
+    getGlobalMessageService().saveUIMessage(sessionId, undoMsg);
+
+    // 🎯 提示用户
+    // vscode.window.showInformationMessage 会在后端处理
   };
 
   return (
@@ -820,8 +924,18 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       <FilesChangedBar
         modifiedFiles={modifiedFiles}
         onFileClick={handleFileClick}
+        onUndoFile={handleUndoFile}
         onAcceptChanges={handleAcceptChanges}
       />
+
+      {/* 🎯 悬浮任务列表 (Sticky Todos) */}
+      {latestTodos && isTodoVisible && (
+        <StickyTodoPanel
+          data={latestTodos}
+          isCollapsed={isTodoCollapsed}
+          onToggleCollapse={(collapsed) => setIsTodoCollapsed(collapsed)}
+        />
+      )}
 
       {/* 🎯 编辑确认对话框 */}
       {showConfirmDialog && (

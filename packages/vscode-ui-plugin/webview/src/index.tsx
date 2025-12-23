@@ -115,6 +115,22 @@ if (!container) {
 // 应用主题类到根元素
 applyThemeClass(document.body);
 
+// 🎯 关键：禁用全局右键菜单（除了输入框和编辑器），避免显示无意义的系统菜单
+window.addEventListener('contextmenu', (e) => {
+  const target = e.target as HTMLElement;
+  const isInput = target.tagName === 'INPUT' ||
+                  target.tagName === 'TEXTAREA' ||
+                  target.isContentEditable ||
+                  target.closest('input') ||
+                  target.closest('textarea') ||
+                  target.closest('[contenteditable="true"]');
+
+  if (!isInput) {
+    // 允许自定义右键菜单逻辑（如 SessionSwitcher）继续运行，但阻止系统默认菜单
+    e.preventDefault();
+  }
+}, false);
+
 // 监听主题变化
 watchThemeChange((theme) => {
   console.log('🎨 Theme changed to:', theme);

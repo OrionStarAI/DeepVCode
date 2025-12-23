@@ -10,7 +10,7 @@ import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import rehypeHighlight from 'rehype-highlight';
 import rehypeRaw from 'rehype-raw';
-import { Copy, Check, ThumbsUp, ThumbsDown, RefreshCw, ChevronDown, ChevronUp, Undo2, AlertTriangle, Pencil, Undo, Info } from 'lucide-react';
+import { Copy, Check, RefreshCw, ChevronDown, ChevronUp, Undo2, AlertTriangle, Pencil, Undo, Info } from 'lucide-react';
 
 import { ChatMessage } from '../types';
 import { useTranslation } from '../hooks/useTranslation';
@@ -276,9 +276,14 @@ const TokenUsagePopup: React.FC<{
         </div>
         <div style={{ display: 'flex', flexDirection: 'column' }}>
           <span style={{ opacity: 0.7, fontSize: '11px' }}>{t('tokenUsage.credits')}</span>
-          <span style={{ fontWeight: 'bold', fontSize: '14px', color: 'var(--vscode-textLink-foreground)' }}>
-            {tokenUsage.creditsUsage?.toFixed(3) || '0.000'}
-          </span>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '4px' }}>
+            <span style={{ fontWeight: 'bold', fontSize: '14px', color: 'var(--vscode-textLink-foreground)' }}>
+              {tokenUsage.creditsUsage?.toFixed(3) || '0.000'}
+            </span>
+            <span style={{ fontSize: '10px', opacity: 0.6, color: 'var(--vscode-textLink-foreground)' }}>
+              {t('tokenUsage.creditsSuffix')}
+            </span>
+          </div>
         </div>
 
         {/* Divider */}
@@ -324,8 +329,6 @@ interface MessageBubbleProps {
 export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolConfirm, onStartEdit, onRegenerate, onRollback, canRevert = false, sessionId, messages, onUpdateMessages}) => {
   const { t } = useTranslation();
   const [copySuccess, setCopySuccess] = React.useState(false);
-  // 🎯 Like/Dislike 状态管理
-  const [feedbackState, setFeedbackState] = React.useState<'none' | 'like' | 'dislike'>('none');
   // 🎯 代码块复制状态管理（使用Map来追踪每个代码块的复制状态）
   const [codeCopyStates, setCodeCopyStates] = React.useState<Map<number, boolean>>(new Map());
   // 🎯 回退确认对话框状态
@@ -410,16 +413,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
     }
   };
 
-  // 🎯 处理 Like 点击
-  const handleLike = () => {
-    setFeedbackState(current => current === 'like' ? 'none' : 'like');
-  };
-
-  // 🎯 处理 Dislike 点击
-  const handleDislike = () => {
-    setFeedbackState(current => current === 'dislike' ? 'none' : 'dislike');
-  };
-
   // 🎯 处理回退到此消息 - 显示确认对话框
   const handleRevertToMessage = () => {
     setShowRevertConfirm(true);
@@ -488,6 +481,19 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
         ) : message.type === 'tool' ? (
           // 🎯 工具消息直接显示，不使用Markdown渲染
           <div className="tool-content">{messageContentToString(message.content)}</div>
+        ) : message.type === 'system' ? (
+          // 🎯 系统消息显示为带分隔线的 Info 样式
+          <div className="system-message-inner">
+            <div className="system-divider">
+              <span className="system-divider-text">{t('common.info', {}, 'Info')}</span>
+            </div>
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm, remarkMath]}
+              rehypePlugins={[rehypeRaw, rehypeKatex, rehypeHighlight]}
+            >
+              {messageContentToString(message.content)}
+            </ReactMarkdown>
+          </div>
         ) : (
           <>
             {/* 🎯 检查是否是特殊内容（subagent_update等） */}
@@ -599,8 +605,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
 
       {/* AI消息操作按钮 - 在所有完成的AI回复显示 */}
       {(() => {
+        const hasTools = message.associatedToolCalls && message.associatedToolCalls.length > 0;
         const shouldShow = message.type === 'assistant' &&
           !message.isStreaming &&
+          !hasTools && // 🎯 如果有工具调用，不显示操作按钮（复制、点赞等），因为这通常是中间过程，空间宝贵
           !(message.isProcessingTools && !message.toolsCompleted);
 
         return shouldShow && (
@@ -620,42 +628,6 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
             tabIndex={0}
           >
             {copySuccess ? <Check size={16} stroke="currentColor" /> : <Copy size={16} stroke="currentColor" />}
-          </button>
-
-          {/* 🎯 Like 按钮 */}
-          <button
-            className={`message-action-btn feedback-btn ${feedbackState === 'like' ? 'feedback-active feedback-like' : ''}`}
-            onClick={handleLike}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                handleLike();
-              }
-            }}
-            title="喜欢这个回答"
-            aria-label={feedbackState === 'like' ? "已标记为喜欢" : "标记为喜欢"}
-            aria-pressed={feedbackState === 'like'}
-            tabIndex={0}
-          >
-            <ThumbsUp size={16} stroke="currentColor" />
-          </button>
-
-          {/* 🎯 Dislike 按钮 */}
-          <button
-            className={`message-action-btn feedback-btn ${feedbackState === 'dislike' ? 'feedback-active feedback-dislike' : ''}`}
-            onClick={handleDislike}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                handleDislike();
-              }
-            }}
-            title="不喜欢这个回答"
-            aria-label={feedbackState === 'dislike' ? "已标记为不喜欢" : "标记为不喜欢"}
-            aria-pressed={feedbackState === 'dislike'}
-            tabIndex={0}
-          >
-            <ThumbsDown size={16} stroke="currentColor" />
           </button>
 
           {/* 🎯 重新生成按钮 */}
