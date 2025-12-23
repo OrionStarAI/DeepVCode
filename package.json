@@ -1,6 +1,6 @@
 {
   "name": "deepv-code",
-  "version": "1.0.245",
+  "version": "1.0.246",
   "engines": {
     "node": ">=20.0.0"
   },
@@ -142,6 +142,6 @@
   "overrides": {
     "ajv": "^8.17.1",
     "ink": "npm:@jrichman/ink@6.4.6",
-    "wrap-ansi": "9.0.2"
+    "wrap-ansi": "^7.0.0"
   }
 }

@@ -38,4 +38,3 @@ DeepV Code (Monorepo)
 **核心特点：** 单仓库架构、分层设计、丰富工具系统、MCP集成、双VSCode扩展策略
 - 用户偏好：尽量不生成 .md 文件，除非用于 AI 自己的任务记忆，且用完后必须删除
 - DeepV Code 项目是一个 monorepo，包含 4 个主要包：cli、core、vscode-ui-plugin、vscode-ide-companion，使用 Node.js 20+、TypeScript、React(Ink)、esbuild 等技术栈。
-- 用户正在测试我的工具调用能力，当前日期是 2025 年 12 月 23 日。

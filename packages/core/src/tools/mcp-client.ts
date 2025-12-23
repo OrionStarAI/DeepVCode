@@ -118,7 +118,23 @@ class LenientJsonSchemaValidator implements jsonSchemaValidator {
 
   getValidator<T>(schema: JsonSchemaType): JsonSchemaValidator<T> {
     try {
-      return this.ajvValidator.getValidator<T>(schema);
+      const validator = this.ajvValidator.getValidator<T>(schema);
+      return (input: unknown) => {
+        const result = validator(input);
+        if (!result.valid) {
+          // Log but proceed to be inclusive with various MCP server implementations
+          console.warn(
+            `MCP validation warning: ${result.errorMessage}. Proceeding anyway. ` +
+              `Schema: ${JSON.stringify(schema).slice(0, 100)}...`,
+          );
+          return {
+            valid: true as const,
+            data: input as T,
+            errorMessage: undefined,
+          };
+        }
+        return result;
+      };
     } catch (error) {
       console.warn(
         `Failed to compile MCP tool output schema (${
