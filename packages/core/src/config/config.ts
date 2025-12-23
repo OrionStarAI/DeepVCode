@@ -14,7 +14,7 @@ import {
 import { PromptRegistry } from '../prompts/prompt-registry.js';
 import { ToolRegistry } from '../tools/tool-registry.js';
 import type { HookDefinition, HookEventName } from '../hooks/types.js';
-import { isMCPDiscoveryTriggered, markMCPDiscoveryTriggered } from '../tools/mcp-client.js';
+import { isMCPDiscoveryTriggered, markMCPDiscoveryTriggered, unloadMcpServer } from '../tools/mcp-client.js';
 import { LSTool } from '../tools/ls.js';
 import { ReadFileTool } from '../tools/read-file.js';
 import { GrepTool } from '../tools/grep.js';
@@ -42,6 +42,7 @@ import { PptOutlineTool } from '../tools/ppt/pptOutlineTool.js';
 import { PptGenerateTool } from '../tools/ppt/pptGenerateTool.js';
 import { ProjectSettingsManager } from './projectSettings.js';
 import { GeminiClient } from '../core/client.js';
+import { ResourceRegistry } from '../resources/resource-registry.js';
 import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
 import { GitService } from '../services/gitService.js';
 import { getProjectTempDir } from '../utils/paths.js';
@@ -221,6 +222,7 @@ export interface ConfigParameters {
 export class Config {
   private toolRegistry!: ToolRegistry;
   private promptRegistry!: PromptRegistry;
+  private resourceRegistry!: ResourceRegistry;
   private sessionId: string;
   private contentGeneratorConfig!: ContentGeneratorConfig;
   private readonly embeddingModel: string;
@@ -372,6 +374,43 @@ export class Config {
     }
   }
 
+  /**
+   * 🎯 动态加载扩展中的 MCP 服务器
+   */
+  async loadExtensionMcpServers(extension: GeminiCLIExtension): Promise<void> {
+    if (!extension.isActive) return;
+
+    const mcpServers = (extension as any).mcpServers || {};
+    for (const [name, config] of Object.entries(mcpServers)) {
+      await this.toolRegistry.discoverToolsForServer(name);
+    }
+
+    // 更新 AI 引擎的工具列表
+    if (this.geminiClient?.isInitialized()) {
+      await this.geminiClient.setTools();
+    }
+  }
+
+  /**
+   * 🎯 动态卸载扩展中的 MCP 服务器
+   */
+  async unloadExtensionMcpServers(extension: GeminiCLIExtension): Promise<void> {
+    const mcpServers = (extension as any).mcpServers || {};
+    for (const name of Object.keys(mcpServers)) {
+      await unloadMcpServer(
+        name,
+        this.toolRegistry,
+        this.promptRegistry,
+        this.resourceRegistry
+      );
+    }
+
+    // 更新 AI 引擎的工具列表
+    if (this.geminiClient?.isInitialized()) {
+      await this.geminiClient.setTools();
+    }
+  }
+
   async initialize(): Promise<void> {
     // Set silent mode for core logging if configured
     if (this.silentMode) {
@@ -385,6 +424,7 @@ export class Config {
       await this.getGitService();
     }
     this.promptRegistry = new PromptRegistry();
+    this.resourceRegistry = new ResourceRegistry();
 
     // 初始化钩子系统（在工具注册表之前）
     this.hookSystem = new HookSystem(this);
@@ -531,6 +571,10 @@ export class Config {
     return this.promptRegistry;
   }
 
+  getResourceRegistry(): ResourceRegistry {
+    return this.resourceRegistry;
+  }
+
   getDebugMode(): boolean {
     return this.debugMode;
   }
@@ -600,6 +644,25 @@ export class Config {
 
   updateMcpServers(servers: Record<string, MCPServerConfig> | undefined): void {
     this.mcpServers = servers;
+  }
+
+  /**
+   * 🎯 动态添加 MCP 服务器配置
+   */
+  addMcpServer(name: string, config: MCPServerConfig): void {
+    if (!this.mcpServers) {
+      this.mcpServers = {};
+    }
+    this.mcpServers[name] = config;
+  }
+
+  /**
+   * 🎯 动态移除 MCP 服务器配置
+   */
+  removeMcpServer(name: string): void {
+    if (this.mcpServers) {
+      delete this.mcpServers[name];
+    }
   }
 
   getApprovalMode(): ApprovalMode {

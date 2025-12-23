@@ -48,7 +48,8 @@ import {
   getAllMCPServerToolCounts,
   getAllMCPServerToolNames,
   MCPServerStatus,
-  MCPDiscoveryState
+  MCPDiscoveryState,
+  unloadMcpServer
 } from 'deepv-code-core';
 
 import { ContextBuilder } from './contextBuilder';
@@ -154,16 +155,28 @@ export class AIService {
       }
 
       // 🎯 加载 MCP 服务器配置和自定义代理URL（完全容错，失败不影响主流程）
-      let mcpServers = {};
+      let mcpServers: Record<string, any> = {};
       let customProxyServerUrl: string | undefined;
+      const { McpEnabledStateService } = await import('./mcpEnabledStateService.js');
+      const mcpEnabledService = McpEnabledStateService.getInstance();
+
       try {
         const { MCPSettingsService } = await import('./mcpSettingsService.js');
         const fileSettings = MCPSettingsService.loadSettings(targetDir);
-        mcpServers = MCPSettingsService.loadMCPServers(targetDir);
+        const allMcpServers = MCPSettingsService.loadMCPServers(targetDir);
         customProxyServerUrl = fileSettings.customProxyServerUrl;
 
+        // 🎯 过滤掉禁用的服务器，防止启动时加载
+        for (const [name, config] of Object.entries(allMcpServers)) {
+          if (mcpEnabledService.isEnabled(name)) {
+            mcpServers[name] = config;
+          } else {
+            this.logger.info(`🔌 [MCP] Server '${name}' is disabled, skipping load on startup`);
+          }
+        }
+
         if (Object.keys(mcpServers).length > 0) {
-          this.logger.info(`Loaded ${Object.keys(mcpServers).length} MCP server(s) from settings`);
+          this.logger.info(`Loaded ${Object.keys(mcpServers).length} active MCP server(s) from settings`);
         }
         if (customProxyServerUrl) {
           this.logger.info(`Using custom proxy server from file settings: ${customProxyServerUrl}`);
@@ -2195,6 +2208,13 @@ export class AIService {
   }
 
   /**
+   * 🎯 获取当前 Config 实例
+   */
+  getConfig(): Config | undefined {
+    return this.config;
+  }
+
+  /**
    * 🔌 获取 MCP 发现状态
    */
   getMCPDiscoveryState(): MCPDiscoveryState {
@@ -2204,6 +2224,8 @@ export class AIService {
   /**
    * 🔌 刷新 AI 工具列表，根据 MCP 启用状态过滤工具
    * 当用户启用/禁用某个 MCP Server 时调用此方法
+   *
+   * 🎯 升级逻辑：不再仅仅是过滤，而是真正的物理加载/卸载
    */
   async refreshToolsWithMcpFilter(): Promise<void> {
     try {
@@ -2216,11 +2238,46 @@ export class AIService {
       const { McpEnabledStateService } = await import('./mcpEnabledStateService.js');
       const mcpEnabledService = McpEnabledStateService.getInstance();
 
-      // 获取 toolRegistry 和所有工具声明
+      // 🎯 获取配置中的所有服务器
+      const { MCPSettingsService } = await import('./mcpSettingsService.js');
+      const allMcpServers = MCPSettingsService.loadMCPServers(this.config.getProjectRoot());
+
       const toolRegistry = await this.config.getToolRegistry();
+
+      // 🎯 遍历所有服务器，执行真实的物理加卸载
+      for (const serverName of Object.keys(allMcpServers)) {
+        const isEnabled = mcpEnabledService.isEnabled(serverName);
+        const currentStatus = getMCPServerStatus(serverName);
+
+        if (isEnabled && currentStatus === MCPServerStatus.DISCONNECTED) {
+          // 💡 状态：已启用但未连接 -> 执行动态加载
+          this.logger.info(`🔌 [MCP] Dynamically loading enabled server: ${serverName}`);
+
+          // 🎯 关键修复：将配置注入 Config 对象，否则加载会因为找不到配置而失败
+          const serverConfig = allMcpServers[serverName];
+          if (serverConfig) {
+            this.config.addMcpServer(serverName, serverConfig);
+            await toolRegistry.discoverToolsForServer(serverName);
+          }
+        } else if (!isEnabled && currentStatus !== MCPServerStatus.DISCONNECTED) {
+          // 💡 状态：已禁用但当前有连接 -> 执行物理卸载
+          this.logger.info(`🔌 [MCP] Dynamically unloading disabled server: ${serverName}`);
+          await unloadMcpServer(
+            serverName,
+            toolRegistry,
+            this.config.getPromptRegistry(),
+            this.config.getResourceRegistry()
+          );
+
+          // 🎯 同步：从 Config 对象中移除配置
+          this.config.removeMcpServer(serverName);
+        }
+      }
+
+      // 获取更新后的所有工具声明
       const allTools = toolRegistry.getAllTools();
 
-      // 过滤工具：保留非 MCP 工具 + 启用的 MCP 工具
+      // 再次确认过滤（多重保障）
       const filteredTools = allTools.filter(tool => {
         const serverName = (tool as any).serverName;
         if (!serverName) {
@@ -2229,16 +2286,17 @@ export class AIService {
         return mcpEnabledService.isEnabled(serverName);
       });
 
-      // 构建过滤后的工具声明并设置到 geminiChat
+      // 构建工具声明并设置到 geminiChat
       const filteredDeclarations = filteredTools.map(tool => tool.schema);
       const tools = [{ functionDeclarations: filteredDeclarations }];
       this.geminiClient.getChat().setTools(tools);
 
-      const totalCount = allTools.length;
-      const filteredCount = filteredTools.length;
-      const disabledCount = totalCount - filteredCount;
+      this.logger.info(`Tools refreshed: ${filteredTools.length}/${allTools.length} tools available`);
 
-      this.logger.info(`Tools refreshed with MCP filter: ${filteredCount}/${totalCount} tools enabled (${disabledCount} disabled)`);
+      // 🎯 关键：更新 AI 引擎内部的工具状态，确保下一轮对话生效
+      if (this.geminiClient.isInitialized()) {
+        await this.geminiClient.setTools();
+      }
     } catch (error) {
       this.logger.error('Failed to refresh tools with MCP filter', error instanceof Error ? error : undefined);
     }

@@ -79,7 +79,7 @@ function parseRefineArguments(args: string): { text?: string; options: RefineOpt
   const options: RefineOptions = {
     tone: 'neutral',
     lang: 'auto',
-    level: 'light',
+    level: 'medium', // 默认提升为 medium，确保有基本的意图延展
     keepFormat: true,
     keepCode: true,
     noEmoji: false,
@@ -221,42 +221,30 @@ async function refineText(
   // 构建提示词
   const prompt = buildRefinePrompt(text, options);
 
-  // 润色功能固定使用 Claude Haiku 4.5 模型（快速且经济）
-  // 从服务器获取实际的 Haiku 模型名称
-  let refineModel: string;
-  try {
-    const { modelInfos } = await getAvailableModels(context.services.settings, config);
-    // 查找 Haiku 4.5 模型（displayName 包含 "Haiku" 和 "4.5"）
-    const haikuModel = modelInfos.find(m =>
-      m.displayName.includes('Haiku') && m.displayName.includes('4.5')
-    );
-    if (haikuModel) {
-      refineModel = haikuModel.name;
-    } else {
-      // 如果找不到 Haiku 4.5，使用用户当前配置的模型
-      refineModel = config.getModel();
-    }
-  } catch (_error) {
-    // 如果获取模型列表失败，使用用户当前配置的模型
-    refineModel = config.getModel();
-  }
+  // 默认使用当前会话的模型，确保与聊天上下文一致且智能程度足够
+  // 不再强行指定 Haiku 4.5，因为对于复杂的 Prompt 优化，更强的模型效果更好
+  const refineModel = config.getModel();
 
   try {
+    // 获取当前会话历史，使润色具有上下文感知能力
+    const chat = geminiClient.getChat();
+    const history = await chat.getHistory();
+
     // 使用 generateContent 方法调用模型
     const contentGenerator = geminiClient.getContentGenerator();
 
-    // 润色功能专用模型：Claude Haiku 4.5 (New Fast)
     const response = await contentGenerator.generateContent(
       {
-        model: refineModel, // 使用 Haiku 模型进行润色
+        model: refineModel,
         contents: [
+          ...history, // 注入历史记录
           {
             role: 'user',
             parts: [{ text: prompt }],
           },
         ],
         config: {
-          temperature: 0.7,
+          temperature: 1.0,
           maxOutputTokens: 4096,
         },
       },
@@ -304,15 +292,18 @@ async function refineText(
 /**
  * 清理润色输出中的无关内容
  *
- * AI 模型可能会输出以下无关内容（即使 prompt 已明确禁止）：
- * - 元评论（"我理解了"、"根据要求"）
- * - 格式化标记（"---"、"**结果:**"）
- * - 诊断信息（"检测到"、"优化参数"）
+ * 优先尝试提取 <dvcode-refine-prompt> 标签内的内容
  */
 function cleanRefineOutput(text: string): string {
-  let cleaned = text;
+  let cleaned = text.trim();
 
-  // 1. 移除开头的常见无关模式
+  // 1. 尝试提取 <dvcode-refine-prompt>...</dvcode-refine-prompt> 标签内的内容
+  const tagMatch = cleaned.match(/<dvcode-refine-prompt>([\s\S]*?)<\/dvcode-refine-prompt>/);
+  if (tagMatch && tagMatch[1]) {
+    return tagMatch[1].trim();
+  }
+
+  // 2. 如果没有标签，则使用原有的 regex 清理逻辑作为降级方案
   const unwantedPrefixes = [
     // 中文模式
     /^[\s\n]*(?:我理解了|明白了|好的|收到|了解)[^。！？\n]*[。！？\n]+/,
@@ -330,37 +321,10 @@ function cleanRefineOutput(text: string): string {
     cleaned = cleaned.replace(pattern, '');
   }
 
-  // 2. 移除开头的分隔线和空行
-  cleaned = cleaned.replace(/^[\s\n]*(?:---|===|\*\*\*|___)+[\s\n]*/g, '');
+  // 3. 移除常见的 Markdown 装饰
+  cleaned = cleaned.replace(/^```(?:\w+)?\n([\s\S]*?)\n```$/i, '$1');
 
-  // 3. 移除开头的 Emoji 标题行（如 "✅ 优化结果"）
-  cleaned = cleaned.replace(/^[\s\n]*[✅❌⚠️📊📝💡🔍✨]+\s*[^\n]*\n+/g, '');
-
-  // 4. 移除结尾的分隔线
-  cleaned = cleaned.replace(/[\s\n]*(?:---|===|\*\*\*|___)+[\s\n]*$/g, '');
-
-  // 5. 检测是否包含明显的"结果包装"结构
-  // 例如：
-  // ---
-  // **我理解了你的意思。**
-  //
-  // 这是一条功能验证指令...
-  // ---
-  //
-  // **如果你有实际的文本需要润色，请直接提供，我会：**
-  // ...
-
-  // 如果检测到这种结构，尝试提取中间的实际内容
-  const wrappedMatch = cleaned.match(/^[\s\S]*?(?:---|===)\s*([\s\S]+?)\s*(?:---|===)[\s\S]*$/);
-  if (wrappedMatch) {
-    // 检查提取的内容是否比原文更短且有实质内容
-    const extracted = wrappedMatch[1].trim();
-    if (extracted.length > 10 && extracted.length < cleaned.length * 0.8) {
-      cleaned = extracted;
-    }
-  }
-
-  // 6. 移除多余的空行（保留最多2个连续换行）
+  // 4. 移除多余的空行（保留最多2个连续换行）
   cleaned = cleaned.replace(/\n{3,}/g, '\n\n');
 
   return cleaned.trim();
@@ -381,7 +345,37 @@ function detectLanguage(text: string): string {
 /**
  * 构建润色提示词（研发友好版）
  */
+/**
+ * 构建符合 VS Code 标准的增强提示词（对齐 VS Code 效果）
+ */
+function buildVsCodeStyleRefinePrompt(text: string, options: RefineOptions): string {
+  let langInstruction = 'The enhanced instruction should be in the same language as the original instruction.';
+  if (options.lang !== 'auto') {
+    langInstruction = `The enhanced instruction must be in ${options.lang} language.`;
+  }
+
+  return `⚠️ NO TOOLS ALLOWED ⚠️
+
+Here is an instruction that I'd like to give you, but it needs to be improved. Rewrite and enhance this instruction to make it clearer, more specific, less ambiguous, and correct any mistakes. ${langInstruction} Do not use any tools: reply immediately with your answer, even if you're not sure. Consider the context of our conversation history when enhancing the prompt. If there is code in triple backticks (\`\`\`) consider whether it is a code sample and should remain unchanged.Reply with the following format:
+### BEGIN RESPONSE ###
+Here is an enhanced version of the original instruction that is more specific and clear:
+<dvcode-refine-prompt>enhanced prompt goes here</dvcode-refine-prompt>
+### END RESPONSE ###
+
+Here is my original instruction:
+
+ ${text}`;
+}
+
+/**
+ * 构建润色提示词
+ */
 function buildRefinePrompt(text: string, options: RefineOptions): string {
+  // 🎯 核心变更：默认使用 VS Code 风格的增强提示词，除非用户显式指定了规则
+  if (options.rules.length === 0 && options.level !== 'light') {
+    return buildVsCodeStyleRefinePrompt(text, options);
+  }
+
   const promptOptions: RefinePromptOptions = {
     tone: options.tone,
     level: options.level,

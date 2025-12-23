@@ -90,6 +90,7 @@ export * from './hooks/types.js';
 // Export base tool definitions
 export * from './tools/tools.js';
 export * from './tools/tool-registry.js';
+export * from './resources/resource-registry.js';
 
 // Export prompt logic
 export * from './prompts/mcp-prompts.js';

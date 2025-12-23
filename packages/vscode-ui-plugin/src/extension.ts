@@ -29,7 +29,7 @@ import { ClipboardCacheService } from './services/clipboardCacheService';
 import { SlashCommandService } from './services/slashCommandService';
 import { TerminalOutputService } from './services/terminalOutputService';
 import { McpEnabledStateService } from './services/mcpEnabledStateService';
-import { getAllMCPServerToolCounts, getAllMCPServerToolNames } from 'deepv-code-core';
+import { getAllMCPServerToolCounts, getAllMCPServerToolNames, MCPServerStatus } from 'deepv-code-core';
 import { SessionType, SessionStatus } from './constants/sessionConstants';
 import { SessionInfo } from './types/sessionTypes';
 
@@ -1362,6 +1362,12 @@ function setupBasicMessageHandlers() {
         return;
       }
 
+      // 🎯 核心修复：从配置文件中获取所有已定义的 MCP 服务器，而不仅仅是活跃的
+      const { MCPSettingsService } = await import('./services/mcpSettingsService.js');
+      const workspaceRoot = aiService.getConfig()?.getProjectRoot();
+      const allConfiguredServers = workspaceRoot ? MCPSettingsService.loadMCPServers(workspaceRoot) : {};
+      const allServerNames = Object.keys(allConfiguredServers);
+
       const statuses = aiService.getMCPServerStatuses();
       const discoveryState = aiService.getMCPDiscoveryState();
 
@@ -1370,19 +1376,19 @@ function setupBasicMessageHandlers() {
       const globalToolNames = getAllMCPServerToolNames();
       const mcpEnabledService = McpEnabledStateService.getInstance();
 
-      logger.info(`[MCP] Global tool counts: ${JSON.stringify(Array.from(globalToolCounts.entries()))}`);
-      logger.info(`[MCP] Global tool names keys: ${JSON.stringify(Array.from(globalToolNames.keys()))}`);
+      // 🎯 构造包含所有配置服务器的列表
+      const servers = allServerNames.map(name => {
+        const status = statuses?.get(name) || MCPServerStatus.DISCONNECTED;
+        return {
+          name,
+          status,
+          toolCount: globalToolCounts.get(name) ?? 0,
+          toolNames: globalToolNames.get(name) ?? [],
+          enabled: mcpEnabledService.isEnabled(name)
+        };
+      });
 
-      // 转换状态数据为前端格式（包含完整信息）
-      const servers = Array.from(statuses?.entries() || []).map(([name, status]) => ({
-        name,
-        status,
-        toolCount: globalToolCounts.get(name) ?? 0,
-        toolNames: globalToolNames.get(name) ?? [],
-        enabled: mcpEnabledService.isEnabled(name)
-      }));
-
-      logger.info(`[MCP] Sending MCP status: ${servers.map(s => `${s.name}(tools:${s.toolCount}, enabled:${s.enabled})`).join(', ')}`);
+      logger.info(`[MCP] Sending complete MCP list (${servers.length} servers): ${servers.map(s => `${s.name}(${s.status}, enabled:${s.enabled})`).join(', ')}`);
 
       await communicationService.sendMessage({
         type: 'mcp_status_update',
