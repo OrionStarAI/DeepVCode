@@ -387,7 +387,7 @@ export class GeminiClient {
         nodeProcessInfo = await Promise.race([
           formatNodeProcessInfo(nodeProcesses),
           new Promise<string>((_, reject) =>
-            setTimeout(() => reject(new Error('Format timeout')), 2000)
+            setTimeout(() => reject(new Error('Format timeout')), 5000)
           )
         ]).catch((error) => {
           console.warn('[Process Info Format] 格式化超时，使用基础信息:', error);

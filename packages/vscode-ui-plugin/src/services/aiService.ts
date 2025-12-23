@@ -2208,13 +2208,6 @@ export class AIService {
   }
 
   /**
-   * 🎯 获取当前 Config 实例
-   */
-  getConfig(): Config | undefined {
-    return this.config;
-  }
-
-  /**
    * 🔌 获取 MCP 发现状态
    */
   getMCPDiscoveryState(): MCPDiscoveryState {

@@ -279,6 +279,8 @@ export const translations = {
     'tool.stats.no.calls': 'No tool calls have been made in this session yet.',
 
     // Model usage table headers
+    'table.header.model': 'Model',
+    'stats.other.tools': 'Other Tools',
     'table.header.reqs': 'Reqs',
     'table.header.input': 'Input',
     'table.header.output': 'Output',
@@ -1378,6 +1380,8 @@ export const translations = {
     'tool.stats.no.calls': '本次会话中尚未进行工具调用。',
 
     // Model usage table headers
+    'table.header.model': '模型',
+    'stats.other.tools': '其他工具',
     'table.header.reqs': '请求',
     'table.header.input': '输入',
     'table.header.output': '输出',

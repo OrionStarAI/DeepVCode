@@ -29,6 +29,25 @@ export const SUPPORTED_TEXT_EXTENSIONS = [
   'sql',
   // Markdown
   'md', 'markdown',
+  // Configs and Metadata
+  'env', 'gitignore', 'gitconfig', 'gitattributes', 'dockerignore', 'editorconfig',
+  'cfg', 'ini', 'conf', 'properties', 'plist', 'ads', 'adb',
+  // Text
+  'txt', 'log'
+];
+
+// 明确不支持的二进制文件扩展名（用于UI警告）
+export const DISALLOWED_BINARY_EXTENSIONS = [
+  // Archives
+  'zip', 'tar', 'gz', '7z', 'rar',
+  // Executables
+  'exe', 'dll', 'so', 'bin', 'class', 'jar',
+  // Fonts
+  'ttf', 'otf', 'woff', 'woff2', 'eot',
+  // Media
+  'mp3', 'mp4', 'mov', 'wav', 'flac',
+  // System/Other
+  'pyc', 'pyo', 'pyd', 'wasm', 'obj', 'o', 'a', 'lib'
 ];
 
 export const SUPPORTED_IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'];

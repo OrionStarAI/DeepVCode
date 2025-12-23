@@ -204,6 +204,7 @@ export interface MessageToExtension {
        'open_file' |                  // 🎯 新增：打开文件并跳转到指定行/方法
        'goto_symbol' |                // 🎯 新增：跳转到符号（方法名）
        'goto_line' |                  // 🎯 新增：跳转到当前文件的指定行
+       'show_notification' |          // 🎯 新增：显示通知
        'ready';
   payload: Record<string, unknown>;
 }

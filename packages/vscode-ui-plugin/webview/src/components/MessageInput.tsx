@@ -37,6 +37,7 @@ import { FileUploadResult, FileType } from './MessageInput/utils/fileTypes';
 import { PlanModeToggle } from './PlanModeToggle';
 import { useRefineCommand } from '../hooks/useRefineCommand';
 import { atSymbolHandler } from '../services/atSymbolHandler';
+import { DISALLOWED_BINARY_EXTENSIONS } from './MessageInput/utils/fileTypes';
 
 import './MessageInput/MessageInput.css';
 
@@ -283,6 +284,22 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
   // 🎯 插入文件引用节点到编辑器
   const insertFileReferenceNode = (fullPath: string) => {
     const fileName = fullPath.split(/[/\\]/).pop() || fullPath;
+    const extension = fileName.split('.').pop()?.toLowerCase() || '';
+
+    // 🎯 检查是否为不支持的二进制文件
+    if (DISALLOWED_BINARY_EXTENSIONS.includes(extension)) {
+      console.warn(`🚫 [MessageInput] 拦截到不支持的二进制文件: ${fileName}`);
+      if (window.vscode) {
+        window.vscode.postMessage({
+          type: 'show_notification',
+          payload: {
+            message: `暂不支持读取二进制文件 "${fileName}"，建议仅添加文本或代码文件。`,
+            type: 'warning'
+          }
+        });
+      }
+      return;
+    }
 
     if (editorRef.current) {
       editorRef.current.update(() => {

@@ -139,6 +139,8 @@ export interface MultiSessionMessageToExtension {
        'rules_delete' |
        // 🎯 MCP 状态请求
        'get_mcp_status' |
+       // 🎯 显示通知
+       'show_notification' |
        // 🎯 打开 MCP 设置
        'open_mcp_settings';
   payload: Record<string, unknown> & {

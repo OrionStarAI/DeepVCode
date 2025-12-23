@@ -1531,6 +1531,26 @@ function setupLoginHandlers() {
     }
   });
 
+  // 🎯 处理通知显示请求
+  communicationService.addMessageHandler('show_notification', async (payload: { message: string, type: 'info' | 'warning' | 'error' }) => {
+    try {
+      switch (payload.type) {
+        case 'warning':
+          vscode.window.showWarningMessage(payload.message);
+          break;
+        case 'error':
+          vscode.window.showErrorMessage(payload.message);
+          break;
+        case 'info':
+        default:
+          vscode.window.showInformationMessage(payload.message);
+          break;
+      }
+    } catch (error) {
+      logger.error('Failed to show notification', error instanceof Error ? error : undefined);
+    }
+  });
+
   // 🎯 处理打开外部URL请求（用于升级提示）
   communicationService.onOpenExternalUrl(async (payload) => {
     try {
