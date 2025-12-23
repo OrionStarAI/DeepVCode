@@ -458,6 +458,7 @@
   margin: 0;
   padding: 0;
   color: var(--vscode-foreground);
+  width: 100%;
   max-width: 100%;
   word-break: break-word;
   /* 🎯 修复：移除 pre-wrap，让 ReactMarkdown 的 HTML 结构控制换行
@@ -470,30 +471,95 @@
   padding-left: 0;
 }
 
+.system-message {
+  margin: 24px 0;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
 .system-message .message-content {
-  /* VS Code 风格的提示卡片：克制、专业、可读性优先 */
-  background-color: var(
-    --vscode-notifications-background,
-    var(--vscode-editorWidget-background, var(--vscode-inputValidation-infoBackground))
-  );
-  border: 1px solid var(
-    --vscode-notifications-border,
-    var(--vscode-editorWidget-border, var(--vscode-inputValidation-infoBorder))
-  );
-  border-left: 3px solid var(--vscode-inputValidation-infoBorder);
+  background: transparent !important;
+  border: none !important;
+  border-left: none !important;
+  box-shadow: none !important;
+  max-width: 90% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  text-align: center;
+  color: var(--vscode-descriptionForeground) !important;
+  font-size: 12px;
+  line-height: 1.6;
+  font-weight: 400;
+  position: relative;
+}
 
-  color: var(--vscode-notifications-foreground, var(--vscode-foreground));
-  font-size: 13px;
-  line-height: 1.45;
-  text-align: left;
+/* 🎯 模仿草图的 Info 分割线样式 */
+.system-message::before {
+  content: "INFO"; /* 默认标签 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  width: 100%;
+  color: var(--vscode-descriptionForeground);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  margin-bottom: 12px;
+  opacity: 0.6;
+}
 
-  /* 更像 VS Code 的信息提示：不要铺满，也不要贴边 */
-  max-width: 88%;
-  margin: 8px auto;
-  padding: 10px 12px;
-  border-radius: 6px;
+.system-message::before {
+  /* 使用线性渐变制作带文字的分割线 */
+  display: flex;
+}
 
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.16);
+.system-message::before {
+  content: "INFO";
+}
+
+/* 左右横线 */
+.system-message::before {
+  display: flex;
+  flex-direction: row;
+}
+
+.system-message::before {
+  content: "";
+  display: none; /* 屏蔽旧的 before */
+}
+
+/* 重新实现分割线结构 */
+.system-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin-bottom: 10px;
+  gap: 12px;
+}
+
+.system-divider::before,
+.system-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--vscode-panel-border);
+  max-width: 100px; /* 限制线条长度，不至于太满 */
+}
+
+.system-divider-text {
+  color: var(--vscode-descriptionForeground);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  opacity: 0.7;
+  white-space: nowrap;
 }
 
 .tool-message .message-content {

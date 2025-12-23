@@ -3,8 +3,8 @@
  * 管理 MCP Server 的启用/禁用状态
  *
  * 设计理念：
- * - 不影响 MCP Server 的实际启动和连接
- * - 只控制是否将该 MCP 的 tools 注册给 AI
+ * - 实时触发 MCP Server 的物理启动和断开（通过 AIService 协调）
+ * - 控制是否将该 MCP 的 tools 注册给 AI
  * - 默认所有 MCP 都是启用的，只有禁用时才写入存储
  * - 使用 VSCode 的 globalState 持久化存储
  *

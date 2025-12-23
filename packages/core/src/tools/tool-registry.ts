@@ -9,8 +9,9 @@ import { Tool, ToolResult, BaseTool, Icon } from './tools.js';
 import { Config } from '../config/config.js';
 import { spawn } from 'node:child_process';
 import { StringDecoder } from 'node:string_decoder';
-import { discoverMcpTools, syncMcpToolsToRegistry, hasDiscoveredMcpTools, getMCPDiscoveryState, MCPDiscoveryState, waitForMCPDiscoveryComplete, isMCPDiscoveryTriggered } from './mcp-client.js';
+import { discoverMcpTools, syncMcpToolsToRegistry, syncMcpResourcesToRegistry, hasDiscoveredMcpTools, getMCPDiscoveryState, MCPDiscoveryState, waitForMCPDiscoveryComplete, isMCPDiscoveryTriggered } from './mcp-client.js';
 import { DiscoveredMCPTool } from './mcp-tool.js';
+import { ResourceRegistry } from '../resources/resource-registry.js';
 import { parse } from 'shell-quote';
 import { shouldUseTolerantMode } from '../config/modelCapabilities.js';
 import { createHash } from 'node:crypto';
@@ -235,6 +236,7 @@ export class ToolRegistry {
       this.config.getMcpServerCommand(),
       this,
       this.config.getPromptRegistry(),
+      this.config.getResourceRegistry(),
       this.config.getDebugMode(),
     );
   }
@@ -280,6 +282,7 @@ export class ToolRegistry {
     const discoveryState = getMCPDiscoveryState();
     if (discoveryState === MCPDiscoveryState.COMPLETED && hasDiscoveredMcpTools()) {
       const syncedCount = syncMcpToolsToRegistry(this);
+      syncMcpResourcesToRegistry(this.config.getResourceRegistry());
       if (syncedCount > 0) {
         console.log(`[ToolRegistry] Synced ${syncedCount} MCP tools from global cache`);
         return;
@@ -293,6 +296,7 @@ export class ToolRegistry {
       const completed = await waitForMCPDiscoveryComplete(30000);
       if (completed && hasDiscoveredMcpTools()) {
         const syncedCount = syncMcpToolsToRegistry(this);
+        syncMcpResourcesToRegistry(this.config.getResourceRegistry());
         console.log(`[ToolRegistry] MCP discovery completed, synced ${syncedCount} tools from global cache`);
         return;
       }
@@ -307,6 +311,7 @@ export class ToolRegistry {
       this.config.getMcpServerCommand(),
       this,
       this.config.getPromptRegistry(),
+      this.config.getResourceRegistry(),
       this.config.getDebugMode(),
     );
   }
@@ -331,6 +336,7 @@ export class ToolRegistry {
         undefined,
         this,
         this.config.getPromptRegistry(),
+        this.config.getResourceRegistry(),
         this.config.getDebugMode(),
       );
     }
@@ -531,6 +537,17 @@ export class ToolRegistry {
       }
     }
     return serverTools.sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  /**
+   * Removes all MCP tools registered from a specific server.
+   */
+  removeMcpToolsByServer(serverName: string): void {
+    for (const [name, tool] of this.tools.entries()) {
+      if (tool instanceof DiscoveredMCPTool && tool.serverName === serverName) {
+        this.tools.delete(name);
+      }
+    }
   }
 
   /**

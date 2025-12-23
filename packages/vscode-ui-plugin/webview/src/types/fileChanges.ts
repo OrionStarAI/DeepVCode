@@ -4,7 +4,8 @@
 
 export interface ModifiedFile {
   fileName: string;
-  filePath?: string;
+  filePath?: string; // 显示路径 (相对路径)
+  absolutePath?: string; // 🎯 绝对路径
   isNewFile: boolean;
   isDeletedFile: boolean;
   modificationCount: number;
@@ -25,5 +26,6 @@ export interface FilesChangedState {
 export interface FilesChangedBarProps {
   modifiedFiles: Map<string, ModifiedFile>;
   onFileClick: (file: ModifiedFile) => void;
+  onUndoFile?: (file: ModifiedFile) => void;
   onAcceptChanges?: () => void;
 }

@@ -2,6 +2,10 @@
 
 .tool-call-list {
   margin-top: 0px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 /* 工具调用统计 */
@@ -84,6 +88,10 @@
   overflow: hidden;
   transition: all 0.15s ease;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+  width: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
 }
 
 .tool-call-item:hover {
@@ -113,6 +121,8 @@
   min-height: 32px;
   border-bottom: 1px solid transparent;
   transition: all 0.15s ease;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .tool-main-line:hover {

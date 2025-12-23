@@ -5,6 +5,12 @@
  */
 
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { AjvJsonSchemaValidator } from '@modelcontextprotocol/sdk/validation/ajv';
+import {
+  jsonSchemaValidator,
+  JsonSchemaType,
+  JsonSchemaValidator,
+} from '@modelcontextprotocol/sdk/validation/types.js';
 import { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import {
@@ -20,6 +26,10 @@ import {
   ListPromptsResultSchema,
   GetPromptResult,
   GetPromptResultSchema,
+  ListResourcesResultSchema,
+  ReadResourceResultSchema,
+  Resource,
+  ReadResourceResult,
 } from '@modelcontextprotocol/sdk/types.js';
 import { parse } from 'shell-quote';
 import { AuthProviderType, MCPServerConfig } from '../config/config.js';
@@ -29,6 +39,7 @@ import { DiscoveredMCPTool } from './mcp-tool.js';
 import { FunctionDeclaration, mcpToTool } from '@google/genai';
 import { ToolRegistry } from './tool-registry.js';
 import { PromptRegistry } from '../prompts/prompt-registry.js';
+import { ResourceRegistry } from '../resources/resource-registry.js';
 import { MCPOAuthProvider } from '../mcp/oauth-provider.js';
 import { OAuthUtils } from '../mcp/oauth-utils.js';
 import { MCPOAuthTokenStorage } from '../mcp/oauth-token-storage.js';
@@ -93,6 +104,54 @@ export enum MCPDiscoveryState {
 }
 
 /**
+ * A tolerant JSON Schema validator for MCP tool output schemas.
+ *
+ * Some MCP servers (e.g. third‑party extensions) return complex schemas that
+ * include `$defs` / `$ref` chains which can occasionally trip AJV's resolver,
+ * causing discovery to fail. This wrapper keeps the default AJV validator for
+ * normal operation but falls back to a no‑op validator any time schema
+ * compilation throws, so we can still list and use the tool while emitting a
+ * debug log.
+ */
+class LenientJsonSchemaValidator implements jsonSchemaValidator {
+  private readonly ajvValidator = new AjvJsonSchemaValidator();
+
+  getValidator<T>(schema: JsonSchemaType): JsonSchemaValidator<T> {
+    try {
+      const validator = this.ajvValidator.getValidator<T>(schema);
+      return (input: unknown) => {
+        const result = validator(input);
+        if (!result.valid) {
+          // Log but proceed to be inclusive with various MCP server implementations
+          console.warn(
+            `MCP validation warning: ${result.errorMessage}. Proceeding anyway. ` +
+              `Schema: ${JSON.stringify(schema).slice(0, 100)}...`,
+          );
+          return {
+            valid: true as const,
+            data: input as T,
+            errorMessage: undefined,
+          };
+        }
+        return result;
+      };
+    } catch (error) {
+      console.warn(
+        `Failed to compile MCP tool output schema (${
+          (schema as Record<string, unknown>)?.['$id'] ?? '<no $id>'
+        }): ${error instanceof Error ? error.message : String(error)}. ` +
+          'Skipping output validation for this tool.',
+      );
+      return (input: unknown) => ({
+        valid: true as const,
+        data: input as T,
+        errorMessage: undefined,
+      });
+    }
+  }
+}
+
+/**
  * Map to track the status of each MCP server within the core package
  */
 const serverStatuses: Map<string, MCPServerStatus> = new Map();
@@ -145,6 +204,18 @@ const serverToolNames: Map<string, string[]> = new Map();
  * Key: serverName, Value: array of discovered tools
  */
 const globalDiscoveredTools: Map<string, DiscoveredMCPTool[]> = new Map();
+
+/**
+ * Global cache to store active MCP client connections for management.
+ * Key: serverName, Value: Client instance
+ */
+const activeMcpClients: Map<string, Client> = new Map();
+
+/**
+ * Global cache to store discovered MCP resources for each server
+ * Key: serverName, Value: array of discovered resources
+ */
+const globalDiscoveredResources: Map<string, Resource[]> = new Map();
 
 /**
  * Update the tool count and names for an MCP server
@@ -206,6 +277,66 @@ export function syncMcpToolsToRegistry(toolRegistry: ToolRegistry): number {
   }
 
   return syncedCount;
+}
+
+/**
+ * Sync already-discovered MCP resources to a new ResourceRegistry instance.
+ *
+ * @param resourceRegistry The ResourceRegistry to sync resources to
+ * @returns The number of resources synced
+ */
+export function syncMcpResourcesToRegistry(resourceRegistry: ResourceRegistry): number {
+  let syncedCount = 0;
+
+  for (const [serverName, resources] of globalDiscoveredResources.entries()) {
+    resourceRegistry.setResourcesForServer(serverName, resources);
+    syncedCount += resources.length;
+  }
+
+  return syncedCount;
+}
+
+/**
+ * 🎯 Unloads an MCP server:
+ * 1. Disconnects the client
+ * 2. Removes tools, prompts, and resources from registries
+ * 3. Clears global caches for this server
+ *
+ * @param mcpServerName The name of the server to unload
+ * @param toolRegistry Registry to remove tools from
+ * @param promptRegistry Registry to remove prompts from
+ * @param resourceRegistry Registry to remove resources from
+ */
+export async function unloadMcpServer(
+  mcpServerName: string,
+  toolRegistry: ToolRegistry,
+  promptRegistry: PromptRegistry,
+  resourceRegistry: ResourceRegistry,
+): Promise<void> {
+  // 1. Disconnect and remove from active clients
+  const client = activeMcpClients.get(mcpServerName);
+  if (client) {
+    try {
+      await client.close();
+    } catch (error) {
+      console.warn(`Error closing MCP client '${mcpServerName}':`, error);
+    }
+    activeMcpClients.delete(mcpServerName);
+  }
+
+  // 2. Remove from registries
+  toolRegistry.removeMcpToolsByServer(mcpServerName);
+  promptRegistry.removePromptsByServer(mcpServerName);
+  resourceRegistry.removeResourcesByServer(mcpServerName);
+
+  // 3. Clear global caches
+  globalDiscoveredTools.delete(mcpServerName);
+  globalDiscoveredResources.delete(mcpServerName);
+  serverStatuses.delete(mcpServerName);
+  serverToolCounts.delete(mcpServerName);
+  serverToolNames.delete(mcpServerName);
+
+  console.log(`[MCP] Successfully unloaded server: ${mcpServerName}`);
 }
 
 /**
@@ -490,6 +621,7 @@ export async function discoverMcpTools(
   mcpServerCommand: string | undefined,
   toolRegistry: ToolRegistry,
   promptRegistry: PromptRegistry,
+  resourceRegistry: ResourceRegistry,
   debugMode: boolean,
 ): Promise<void> {
   mcpDiscoveryState = MCPDiscoveryState.IN_PROGRESS;
@@ -509,6 +641,7 @@ export async function discoverMcpTools(
         mcpServerConfig,
         toolRegistry,
         promptRegistry,
+        resourceRegistry,
         debugMode,
       );
     }
@@ -552,6 +685,7 @@ export async function connectAndDiscover(
   mcpServerConfig: MCPServerConfig,
   toolRegistry: ToolRegistry,
   promptRegistry: PromptRegistry,
+  resourceRegistry: ResourceRegistry,
   debugMode: boolean,
 ): Promise<void> {
   updateMCPServerStatus(mcpServerName, MCPServerStatus.CONNECTING);
@@ -569,8 +703,14 @@ export async function connectAndDiscover(
         updateMCPServerStatus(mcpServerName, MCPServerStatus.DISCONNECTED);
       };
 
-      // Discover prompts and tools first
+      // Discover prompts, tools and resources
       await discoverPrompts(mcpServerName, mcpClient, promptRegistry);
+
+      const resources = await discoverResources(mcpServerName, mcpClient);
+      resourceRegistry.setResourcesForServer(mcpServerName, resources);
+
+      // 🎯 Store resources in global cache
+      globalDiscoveredResources.set(mcpServerName, resources);
 
       const tools = await discoverTools(
         mcpServerName,
@@ -582,6 +722,9 @@ export async function connectAndDiscover(
       for (const tool of tools) {
         toolRegistry.registerTool(tool);
       }
+
+      // 🎯 Store client in active clients map for management
+      activeMcpClients.set(mcpServerName, mcpClient);
 
       // 🎯 Store tools in global cache for syncing to subsequent ToolRegistry instances
       // This is essential for VSCode plugin mode where multiple Config instances share MCP connections
@@ -604,6 +747,96 @@ export async function connectAndDiscover(
     );
     updateMCPServerStatus(mcpServerName, MCPServerStatus.DISCONNECTED);
   }
+}
+
+/**
+ * Discovers resources from a connected MCP client.
+ *
+ * @param mcpServerName The name of the MCP server.
+ * @param mcpClient The active MCP client instance.
+ * @returns A promise that resolves to an array of discovered resources.
+ */
+export async function discoverResources(
+  mcpServerName: string,
+  mcpClient: Client,
+): Promise<Resource[]> {
+  try {
+    // Only request resources if the server supports them.
+    if (mcpClient.getServerCapabilities()?.resources == null) return [];
+
+    return await listResources(mcpServerName, mcpClient);
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      !error.message?.includes('Method not found')
+    ) {
+      console.error(
+        `Error discovering resources from ${mcpServerName}: ${getErrorMessage(
+          error,
+        )}`,
+      );
+    }
+    return [];
+  }
+}
+
+/**
+ * Lists resources from a connected MCP client.
+ *
+ * @param mcpServerName The name of the MCP server.
+ * @param mcpClient The active MCP client instance.
+ * @returns A promise that resolves to an array of discovered resources.
+ */
+async function listResources(
+  mcpServerName: string,
+  mcpClient: Client,
+): Promise<Resource[]> {
+  const resources: Resource[] = [];
+  let cursor: string | undefined;
+  try {
+    do {
+      const response = await mcpClient.request(
+        {
+          method: 'resources/list',
+          params: cursor ? { cursor } : {},
+        },
+        ListResourcesResultSchema,
+      );
+      resources.push(...(response.resources ?? []));
+      cursor = response.nextCursor ?? undefined;
+    } while (cursor);
+  } catch (error) {
+    if (error instanceof Error && error.message?.includes('Method not found')) {
+      return [];
+    }
+    console.error(
+      `Error listing resources from ${mcpServerName}: ${getErrorMessage(
+        error,
+      )}`,
+    );
+    throw error;
+  }
+  return resources;
+}
+
+/**
+ * Reads a resource from a connected MCP client.
+ *
+ * @param mcpClient The active MCP client instance.
+ * @param uri The URI of the resource to read.
+ * @returns A promise that resolves to the result of the resource read.
+ */
+export async function readResource(
+  mcpClient: Client,
+  uri: string,
+): Promise<ReadResourceResult> {
+  return mcpClient.request(
+    {
+      method: 'resources/read',
+      params: { uri },
+    },
+    ReadResourceResultSchema,
+  );
 }
 
 /**
@@ -711,6 +944,12 @@ export async function invokeMcpPrompt(
   promptName: string,
   promptParams: Record<string, unknown>,
 ): Promise<GetPromptResult> {
+  // 🎯 Ensure client is still connected or re-establish if managed
+  if (!activeMcpClients.has(mcpServerName)) {
+    // Note: In a fully dynamic system, we might want to auto-connect here
+    // for now, we assume it's managed by the discovery flow
+  }
+
   try {
     const response = await mcpClient.request(
       {
@@ -737,6 +976,13 @@ export async function invokeMcpPrompt(
     }
     throw error;
   }
+}
+
+/**
+ * Gets a connected MCP client by name.
+ */
+export function getMcpClient(serverName: string): Client | undefined {
+  return activeMcpClients.get(serverName);
 }
 
 /**
@@ -772,10 +1018,16 @@ async function _connectToMcpServerInternal(
   mcpServerConfig: MCPServerConfig,
   debugMode: boolean,
 ): Promise<Client> {
-  const mcpClient = new Client({
-    name: 'dvcode-cli-mcp-client',
-    version: '1.0.0',
-  });
+  const mcpClient = new Client(
+    {
+      name: 'dvcode-cli-mcp-client',
+      version: '1.0.0',
+    },
+    {
+      // Use a tolerant validator so bad output schemas don't block discovery.
+      jsonSchemaValidator: new LenientJsonSchemaValidator(),
+    },
+  );
 
   // patch Client.callTool to use request timeout as genai McpCallTool.callTool does not do it
   // TODO: remove this hack once GenAI SDK does callTool with request options

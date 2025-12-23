@@ -7,6 +7,7 @@
  */
 
 import React from 'react';
+import { useTranslation } from '../../hooks/useTranslation';
 import { BooleanSettingItem, SelectSettingItem } from './SettingItem';
 import './SettingItem.css';
 import './SettingsPanel.css';
@@ -35,12 +36,13 @@ export const ExecutionSettingsPanel: React.FC<ExecutionSettingsPanelProps> = ({
   onPreferredModelChange,
   availableModels
 }) => {
+  const { t } = useTranslation();
 
   // 构造模型选项，确保 Auto 在第一位且不重复
   const otherModels = availableModels.filter(m => m.name !== 'auto');
 
   const modelOptions = [
-    { label: 'Auto', value: 'auto', description: 'Automatically select the best model' },
+    { label: t('settings.general.autoModel'), value: 'auto', description: t('settings.general.autoModelDesc') },
     ...otherModels.map(model => ({
       label: model.displayName || model.name,
       value: model.name,
@@ -54,8 +56,8 @@ export const ExecutionSettingsPanel: React.FC<ExecutionSettingsPanelProps> = ({
       <div className="execution-settings-panel__yolo-section">
         <BooleanSettingItem
           id="yolo-mode"
-          label="YOLO Mode"
-          description="Skip confirmations for file edits and shell commands. Dangerous operations still require approval."
+          label={t('settings.general.yoloLabel')}
+          description={t('settings.general.yoloDesc')}
           value={yoloMode}
           onChange={(value) => {
             console.log('[YOLO] Toggle changed, immediately updating:', value);
@@ -68,8 +70,8 @@ export const ExecutionSettingsPanel: React.FC<ExecutionSettingsPanelProps> = ({
       <div className="execution-settings-panel__model-section" style={{ marginTop: '20px' }}>
         <SelectSettingItem
           id="preferred-model"
-          label="Default Model"
-          description="The default AI model to use for new sessions."
+          label={t('settings.general.modelLabel')}
+          description={t('settings.general.modelDesc')}
           value={preferredModel}
           onChange={(value) => onPreferredModelChange(value)}
           options={modelOptions}

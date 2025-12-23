@@ -80,8 +80,15 @@ export interface Translations {
     cannotStop: string;
     sending: string;
     editPlaceholder: string;
+    undoneFileHistory: string;
+    fileChangesTitle: string;
+    undoFileTooltip: string;
     acceptChanges: string;
     viewModifiedFiles: string;
+    customProxyServer: string;
+    binaryFileWarning: string;
+    binaryFileWarningTitle: string;
+    dragResizeTooltip: string;
     queue: {
       title: string;
       hint: string;
@@ -327,6 +334,7 @@ export interface Translations {
     title: string;
     totalTokens: string;
     credits: string;
+    creditsSuffix: string;
     input: string;
     output: string;
     cacheRead: string;
@@ -412,6 +420,63 @@ export interface Translations {
     'chat.compression.title': string;
     'chat.compression.description': string;
     'chat.compression.info': string;
+  };
+
+  mcp: {
+    title: string;
+    loading: string;
+    discovering: string;
+    noServers: string;
+    noServersDesc: string;
+    openSettings: string;
+    status: {
+      connected: string;
+      connecting: string;
+      disconnected: string;
+      unknown: string;
+    };
+    discovery: {
+      notStarted: string;
+      discovering: string;
+      completed: string;
+    };
+    tools: string;
+    disabled: string;
+    enableServer: string;
+    disableServer: string;
+    editConfig: string;
+    settings: string;
+  };
+
+  settings: {
+    title: string;
+    close: string;
+    tabs: {
+      general: string;
+      mcp: string;
+      memory: string;
+      more: string;
+    };
+    general: {
+      yoloLabel: string;
+      yoloDesc: string;
+      modelLabel: string;
+      modelDesc: string;
+      autoModel: string;
+      autoModelDesc: string;
+    };
+    memory: {
+      title: string;
+      description: string;
+      none: string;
+      refresh: string;
+      refreshing: string;
+    };
+    more: {
+      title: string;
+      description: string;
+      open: string;
+    };
   };
 }
 

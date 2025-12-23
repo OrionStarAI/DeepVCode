@@ -19,6 +19,9 @@ import {
 } from '../utils/displayUtils.js';
 import { computeSessionStats } from '../utils/computeStats.js';
 import { SubAgentStatsContainer } from './SubAgentStats.js';
+import { Config } from 'deepv-code-core';
+import { getModelDisplayName } from '../commands/modelCommand.js';
+import { getShortModelName } from '../utils/footerUtils.js';
 
 import { t } from '../utils/i18n.js';
 import { useSmallWindowOptimization, WindowSizeLevel } from '../hooks/useSmallWindowOptimization.js';
@@ -73,19 +76,25 @@ const ModelUsageTable: React.FC<{
   totalCachedTokens: number;
   cacheEfficiency: number;
   otherCredits?: number;
-}> = ({ models, totalCachedTokens, cacheEfficiency, otherCredits }) => {
+  config?: Config;
+  sizeLevel: WindowSizeLevel;
+}> = ({ models, totalCachedTokens, cacheEfficiency, otherCredits, config, sizeLevel }) => {
+  const modelWidth = 20;
   const requestsWidth = 8;
   const inputTokensWidth = 12;
   const outputTokensWidth = 12;
   const cacheWidth = 12;
   const creditsWidth = 10;
 
-
+  const isSimplified = sizeLevel !== WindowSizeLevel.NORMAL;
 
   return (
     <Box flexDirection="column" marginTop={1}>
       {/* Header */}
       <Box>
+        <Box width={modelWidth}>
+          <Text bold>{t('table.header.model')}</Text>
+        </Box>
         <Box width={requestsWidth} justifyContent="flex-end">
           <Text bold>{t('table.header.reqs')}</Text>
         </Box>
@@ -109,15 +118,26 @@ const ModelUsageTable: React.FC<{
         borderTop={false}
         borderLeft={false}
         borderRight={false}
-        width={requestsWidth + inputTokensWidth + outputTokensWidth + cacheWidth + creditsWidth}
+        width={modelWidth + requestsWidth + inputTokensWidth + outputTokensWidth + cacheWidth + creditsWidth}
       ></Box>
 
       {/* Rows */}
       {Object.entries(models).map(([name, modelMetrics]) => {
         const cacheRead = modelMetrics.tokens.cacheRead || 0;
 
+        // 获取模型显示名称
+        const fullDisplayName = getModelDisplayName(name, config);
+        // 智能缩短模型名称
+        const shortName = getShortModelName(fullDisplayName, isSimplified);
+
+        // Truncate model name if too long
+        const displayName = shortName.length > modelWidth - 2 ? shortName.substring(0, modelWidth - 5) + '...' : shortName;
+
         return (
           <Box key={name}>
+            <Box width={modelWidth}>
+              <Text color={Colors.Gray}>{displayName}</Text>
+            </Box>
             <Box width={requestsWidth} justifyContent="flex-end">
               <Text>{modelMetrics.api.totalRequests}</Text>
             </Box>
@@ -156,6 +176,9 @@ const ModelUsageTable: React.FC<{
       {/* Other Credits Row */}
       {otherCredits && otherCredits > 0 ? (
         <Box key="other-credits">
+          <Box width={modelWidth}>
+            <Text color={Colors.Gray}>{t('stats.other.tools')}</Text>
+          </Box>
           <Box width={requestsWidth} justifyContent="flex-end">
             <Text color={Colors.Gray}>-</Text>
           </Box>
@@ -173,9 +196,6 @@ const ModelUsageTable: React.FC<{
               {otherCredits.toLocaleString()}
             </Text>
           </Box>
-          <Box paddingLeft={1}>
-            <Text color={Colors.Gray}>(Other Tools)</Text>
-          </Box>
         </Box>
       ) : null}
 
@@ -187,12 +207,14 @@ interface StatsDisplayProps {
   duration: string;
   title?: string;
   totalCredits?: number;
+  config?: Config;
 }
 
 export const StatsDisplay: React.FC<StatsDisplayProps> = ({
   duration,
   title,
   totalCredits,
+  config,
 }) => {
   const smallWindowConfig = useSmallWindowOptimization();
 
@@ -376,6 +398,8 @@ export const StatsDisplay: React.FC<StatsDisplayProps> = ({
           totalCachedTokens={computed.totalCachedTokens}
           cacheEfficiency={computed.cacheEfficiency}
           otherCredits={otherCredits}
+          config={config}
+          sizeLevel={smallWindowConfig.sizeLevel}
         />
       )}
 

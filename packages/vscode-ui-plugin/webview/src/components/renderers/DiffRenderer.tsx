@@ -359,6 +359,7 @@ export const DiffRenderer: React.FC<DiffRendererProps> = ({ data, simplified = f
         payload: {
           fileDiff,
           fileName,
+          filePath: data.fileName, // 🎯 注意：这里如果 data 没传完整路径，就用 fileName
           originalContent: data.originalContent || '',
           newContent: data.newContent || ''
         }

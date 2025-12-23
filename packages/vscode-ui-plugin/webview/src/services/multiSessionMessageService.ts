@@ -139,6 +139,8 @@ export interface MultiSessionMessageToExtension {
        'rules_delete' |
        // 🎯 MCP 状态请求
        'get_mcp_status' |
+       // 🎯 显示通知
+       'show_notification' |
        // 🎯 打开 MCP 设置
        'open_mcp_settings';
   payload: Record<string, unknown> & {
@@ -447,6 +449,19 @@ export class MultiSessionMessageService {
         messageId,
         originalMessages, // 🎯 传递完整的原始消息历史用于文件回滚分析
         timestamp: Date.now()
+      }
+    });
+  }
+
+  /**
+   * 🎯 撤销单个文件的变更
+   */
+  undoFileChange(sessionId: string, fileData: { fileName: string; filePath?: string; originalContent: string; isNewFile: boolean; isDeletedFile: boolean }) {
+    this.sendMessage({
+      type: 'undo_file_change' as any,
+      payload: {
+        sessionId,
+        ...fileData
       }
     });
   }

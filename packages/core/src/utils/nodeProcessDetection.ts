@@ -10,6 +10,10 @@
  */
 
 import { isVSCodeEnvironment, getEnvironmentDetectionDetails } from './environment/index.js';
+import { exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 
 interface NodeProcessInfo {
   pid: number;
@@ -26,19 +30,28 @@ interface PidTreeProcess {
 
 type PidTree = (pid: number, options?: { advanced?: boolean; root?: boolean }) => Promise<number[] | PidTreeProcess[]>;
 
+// 缓存已导入的包，避免重复导入开销
+let cachedPackages: { pidtree: PidTree } | null | undefined = undefined;
+
 /**
  * 动态导入进程检测包，按需加载以避免启动时的性能损耗
  * 现在主要使用pidtree，pidusage作为可选增强
  */
 async function importProcessDetectionPackages(): Promise<{ pidtree: PidTree } | null> {
+  if (cachedPackages !== undefined) {
+    return cachedPackages;
+  }
+
   try {
     // 动态导入pidtree，这是我们的主要工具
     const pidtree = await import('pidtree').then(m => (m.default || m) as PidTree);
 
-    return { pidtree };
+    cachedPackages = { pidtree };
+    return cachedPackages;
   } catch (error) {
     // 如果包不可用，回退到系统命令
     console.info('[Process Detection] pidtree unavailable');
+    cachedPackages = null;
     return null;
   }
 }
@@ -57,6 +70,47 @@ export async function getNodeProcessTreeAsync(skipInVSCode: boolean = true): Pro
       'skipping process tree detection to avoid CLI self-termination risks'
     );
     return [await getBasicCurrentProcessInfo()];
+  }
+
+  // 🚀 Windows 专属优化路径：直接使用批量获取
+  if (process.platform === 'win32') {
+    try {
+      const cache = await getWindowsProcessInfoMap();
+      const nodeProcesses: NodeProcessInfo[] = [];
+
+      // 找出当前进程的所有后代
+      const descendants = new Set<number>();
+      descendants.add(process.pid);
+
+      // 简单的一遍扫描来寻找后代（适用于层级不深的情况）
+      // 为保证准确性，我们循环几次以处理多层嵌套
+      for (let i = 0; i < 5; i++) {
+        let added = false;
+        for (const [pid, info] of cache.entries()) {
+          if (!descendants.has(pid) && descendants.has(info.ppid)) {
+            descendants.add(pid);
+            added = true;
+          }
+        }
+        if (!added) break;
+      }
+
+      for (const pid of descendants) {
+        const info = cache.get(pid);
+        if (info && isNodeJSProcessByDetails(info)) {
+          nodeProcesses.push({
+            pid,
+            ppid: info.ppid,
+            name: info.name,
+            commandLine: info.commandLine
+          });
+        }
+      }
+
+      if (nodeProcesses.length > 0) return nodeProcesses;
+    } catch (error) {
+      console.warn('[Process Detection] Windows optimized path failed, falling back:', error);
+    }
   }
 
   const nodeProcesses: NodeProcessInfo[] = [];
@@ -137,44 +191,146 @@ export async function getNodeProcessTreeAsync(skipInVSCode: boolean = true): Pro
   return uniqueProcesses;
 }
 
+// Windows 进程信息缓存，用于批量获取以提升性能
+let windowsProcessInfoCache: Map<number, {name: string, ppid: number, commandLine: string}> | null = null;
+let lastCacheUpdate = 0;
+let pendingCachePromise: Promise<Map<number, {name: string, ppid: number, commandLine: string}>> | null = null;
+
+/**
+ * 批量获取 Windows 进程信息
+ * 使用 wmic 一次性获取所有必要字段，避免多次调用 execSync
+ */
+async function getWindowsProcessInfoMap(): Promise<Map<number, {name: string, ppid: number, commandLine: string}>> {
+  const now = Date.now();
+  // 缓存 5 秒有效
+  if (windowsProcessInfoCache && (now - lastCacheUpdate < 5000)) {
+    return windowsProcessInfoCache;
+  }
+
+  // 如果已经在获取中，返回同一个 Promise，避免并发启动多个 wmic
+  if (pendingCachePromise) {
+    return pendingCachePromise;
+  }
+
+  pendingCachePromise = (async () => {
+    const map = new Map<number, {name: string, ppid: number, commandLine: string}>();
+    try {
+      // wmic process get 字段顺序通常为字母序: CommandLine, Name, ParentProcessId, ProcessId
+      // 使用 CSV 格式获取，第一列通常是 Node (计算机名)
+      const { stdout: result } = await execAsync('wmic process get processid,parentprocessid,name,commandline /format:csv', {
+        timeout: 4500,
+      });
+
+      // 清理可能存在的 BOM 或特殊字符
+      const cleanResult = result.replace(/^\uFEFF/, '').replace(/\r/g, '');
+      const lines = cleanResult.split('\n');
+      let header: string[] = [];
+
+      for (let i = 0; i < lines.length; i++) {
+        const line = lines[i].trim();
+        if (!line) continue;
+
+        const fields = line.split(',');
+        // wmic CSV 第一行是表头，或者包含关键字段名
+        if (header.length === 0 && (line.toLowerCase().includes('processid') || line.toLowerCase().includes('node'))) {
+          header = fields.map(f => f.trim().toLowerCase());
+          continue;
+        }
+
+        if (header.length === 0) continue;
+
+        const row: any = {};
+        header.forEach((name, idx) => {
+          if (fields[idx] !== undefined) {
+            row[name] = fields[idx].trim();
+          }
+        });
+
+        const pid = parseInt(row.processid);
+        const ppid = parseInt(row.parentprocessid);
+        if (!isNaN(pid)) {
+          map.set(pid, {
+            name: row.name || 'unknown',
+            ppid: isNaN(ppid) ? 0 : ppid,
+            commandLine: row.commandline || row.name || 'N/A'
+          });
+        }
+      }
+      windowsProcessInfoCache = map;
+      lastCacheUpdate = Date.now();
+    } catch (error) {
+      // 如果 wmic 失败，回退到 tasklist (注意 tasklist 没 ppid)
+      try {
+        const { stdout: result } = await execAsync('tasklist /v /fo csv', {
+          timeout: 5000,
+        });
+
+        const lines = result.split('\n');
+        for (let i = 1; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (!line) continue;
+          const fields = line.split('","').map(f => f.replace(/"/g, ''));
+          if (fields.length >= 2) {
+            const pid = parseInt(fields[1]);
+            if (!isNaN(pid)) {
+              map.set(pid, {
+                name: fields[0] || 'unknown',
+                ppid: 0,
+                commandLine: fields[8] || fields[0] || 'N/A'
+              });
+            }
+          }
+        }
+        windowsProcessInfoCache = map;
+        lastCacheUpdate = Date.now();
+      } catch (fallbackError) {
+        // 保持 map 为空，后续逻辑会处理
+      }
+    } finally {
+      pendingCachePromise = null;
+    }
+    return map;
+  })();
+
+  return pendingCachePromise;
+}
+
 /**
  * 使用跨平台系统命令获取进程详细信息
- * Windows: tasklist, Linux/macOS: ps
+ * Windows: tasklist/wmic, Linux/macOS: ps
  */
 async function getProcessDetails(pid: number): Promise<{name: string, commandLine: string}> {
   try {
     if (process.platform === 'win32') {
-      // Windows: 使用tasklist获取进程名和命令行
-      const { execSync } = await import('child_process');
-      const result = execSync(`tasklist /fi "PID eq ${pid}" /fo csv /v`, {
-        encoding: 'utf8',
+      const cache = await getWindowsProcessInfoMap();
+      const info = cache.get(pid);
+      if (info) {
+        return { name: info.name, commandLine: info.commandLine };
+      }
+
+      // 如果缓存中没有，可能是刚启动的进程，单独查询一次
+      const { stdout: result } = await execAsync(`tasklist /fi "PID eq ${pid}" /fo csv /v`, {
         timeout: 3000,
-        stdio: ['pipe', 'pipe', 'pipe']
-      }) as string;
+      });
 
       const lines = result.split('\n').filter(line => line.trim());
       if (lines.length >= 2) {
-        // CSV格式：imageName,PID,sessionName,sessionNumber,memUsage,status,userName,cpuTime,windowTitle
         const dataLine = lines[1];
         const fields = dataLine.split('","').map(field => field.replace(/"/g, ''));
-
         return {
           name: fields[0] || 'unknown',
-          commandLine: fields[8] || fields[0] || 'N/A' // windowTitle可能包含命令信息
+          commandLine: fields[8] || fields[0] || 'N/A'
         };
       }
     } else {
       // Linux/macOS: 使用ps获取进程名和命令行
-      const { execSync } = await import('child_process');
       // 在macOS上使用command=而不是cmd=
       const psCommand = process.platform === 'darwin'
         ? `ps -p ${pid} -o comm=,command=`
         : `ps -p ${pid} -o comm=,cmd=`;
-      const result = execSync(psCommand, {
-        encoding: 'utf8',
+      const { stdout: result } = await execAsync(psCommand, {
         timeout: 3000,
-        stdio: ['pipe', 'pipe', 'pipe']
-      }) as string;
+      });
 
       const line = result.trim();
       if (line) {
@@ -201,54 +357,35 @@ async function getNodeProcessesBySystemCommand(): Promise<NodeProcessInfo[]> {
   const processes: NodeProcessInfo[] = [];
 
   try {
-    const { execSync } = await import('child_process');
-
     if (process.platform === 'win32') {
       // Windows: 查找所有node.exe进程
-      const result = execSync('tasklist /fi "imagename eq node.exe" /fo csv /v', {
-        encoding: 'utf8',
-        timeout: 5000,
-        stdio: ['pipe', 'pipe', 'pipe']
-      }) as string;
+      const cache = await getWindowsProcessInfoMap();
 
-      const lines = result.split('\n').filter(line => line.trim() && !line.startsWith('"Image Name"'));
-
-      for (const line of lines) {
-        try {
-          const fields = line.split('","').map(field => field.replace(/"/g, ''));
-          const pid = parseInt(fields[1]);
-
-          if (pid > 0) {
-            // 获取父进程ID（需要额外查询）
-            let ppid = 0;
-            try {
-              const ppidResult = execSync(`wmic process where "ProcessId=${pid}" get ParentProcessId /format:value`, {
-                encoding: 'utf8',
-                timeout: 2000,
-                stdio: ['pipe', 'pipe', 'pipe']
-              }) as string;
-              const ppidMatch = ppidResult.match(/ParentProcessId=(\d+)/);
-              ppid = ppidMatch ? parseInt(ppidMatch[1]) : 0;
-            } catch {}
-
-            processes.push({
-              pid,
-              ppid,
-              name: fields[0] || 'node.exe',
-              commandLine: fields[8] || fields[0] || 'N/A'
-            });
-          }
-        } catch (parseError) {
-          //console.warn('[System Command] Failed to parse line:', line, parseError);
+      for (const [pid, info] of cache.entries()) {
+        if (isNodeJSProcessByDetails(info)) {
+          processes.push({
+            pid,
+            ppid: info.ppid,
+            name: info.name,
+            commandLine: info.commandLine
+          });
         }
+      }
+
+      // 如果没有任何结果，至少返回当前进程
+      if (processes.length === 0) {
+        processes.push({
+          pid: process.pid,
+          ppid: process.ppid || 0,
+          name: 'node.exe',
+          commandLine: process.argv.join(' ')
+        });
       }
     } else {
       // Linux/macOS: 查找所有node进程
-      const result = execSync('ps -eo pid,ppid,comm,cmd | grep -i node | grep -v grep', {
-        encoding: 'utf8',
+      const { stdout: result } = await execAsync('ps -eo pid,ppid,comm,cmd | grep -i node | grep -v grep', {
         timeout: 5000,
-        stdio: ['pipe', 'pipe', 'pipe']
-      }) as string;
+      });
 
       const lines = result.split('\n').filter(line => line.trim());
 
@@ -454,9 +591,32 @@ export function formatNodeProcessInfoSync(processes: NodeProcessInfo[]): string 
  * 使用新的跨平台方法，优雅回退
  */
 export async function getCurrentProcessAncestors(): Promise<number[]> {
-  const ancestors: number[] = [];
+  const ancestors: number[] = [process.pid];
 
   try {
+    // Windows 优化：直接使用缓存的进程图
+    if (process.platform === 'win32') {
+      const cache = await getWindowsProcessInfoMap();
+      let currentPid = process.pid;
+      for (let i = 0; i < 15; i++) {
+        const info = cache.get(currentPid);
+        if (!info || !info.ppid || info.ppid <= 0 || info.ppid === currentPid || info.ppid === 1) {
+          // 尝试获取 immediate ppid 作为最后手段
+          if (i === 0 && process.ppid && process.ppid > 0) {
+            ancestors.push(process.ppid);
+          }
+          break;
+        }
+        if (!ancestors.includes(info.ppid)) {
+          ancestors.push(info.ppid);
+          currentPid = info.ppid;
+        } else {
+          break; // 防止死循环
+        }
+      }
+      return ancestors;
+    }
+
     const packages = await importProcessDetectionPackages();
 
     if (packages) {
@@ -476,35 +636,41 @@ export async function getCurrentProcessAncestors(): Promise<number[]> {
 
         // 向上追溯父进程链
         for (let i = 0; i < 15 && currentPid > 0; i++) {
-          ancestors.push(currentPid);
           const parentPid = processMap.get(currentPid);
 
           if (!parentPid || parentPid === currentPid || parentPid === 1) {
+            // 如果 pidtree 没找着，尝试用系统 ppid
+            if (i === 0 && process.ppid && process.ppid > 0) {
+              ancestors.push(process.ppid);
+            }
             break;
           }
 
-          currentPid = parentPid;
+          if (!ancestors.includes(parentPid)) {
+            ancestors.push(parentPid);
+            currentPid = parentPid;
+          } else {
+            break;
+          }
         }
 
       } catch (pidtreeError) {
-        console.warn('[Process Ancestors] pidtree failed, using basic fallback:', pidtreeError);
-        // 只返回当前进程和已知的父进程
-        ancestors.push(process.pid);
+        //console.warn('[Process Ancestors] pidtree failed, using basic fallback:', pidtreeError);
         if (process.ppid && process.ppid > 0) {
           ancestors.push(process.ppid);
         }
       }
     } else {
       // 基础回退：只使用Node.js内置信息
-      ancestors.push(process.pid);
       if (process.ppid && process.ppid > 0) {
         ancestors.push(process.ppid);
       }
     }
   } catch (error) {
-    console.warn('[Process Ancestors] All methods failed:', error);
-    // 最基础的回退
-    ancestors.push(process.pid);
+    //console.warn('[Process Ancestors] All methods failed:', error);
+    if (ancestors.length === 1 && process.ppid && process.ppid > 0) {
+      ancestors.push(process.ppid);
+    }
   }
 
   return ancestors;

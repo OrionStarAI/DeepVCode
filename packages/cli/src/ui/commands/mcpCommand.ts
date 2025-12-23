@@ -22,6 +22,7 @@ import {
   MCPServerStatus,
   mcpServerRequiresOAuth,
   getErrorMessage,
+  unloadMcpServer,
 } from 'deepv-code-core';
 import { t, tp } from '../utils/i18n.js';
 import open from 'open';
@@ -556,11 +557,170 @@ const refreshCommand: SlashCommand = {
   },
 };
 
+const unloadCommand: SlashCommand = {
+  name: 'unload',
+  description: t('command.mcp.unload.description'),
+  kind: CommandKind.BUILT_IN,
+  action: async (
+    context: CommandContext,
+    args: string,
+  ): Promise<SlashCommandActionReturn> => {
+    const serverName = args.trim();
+    const { config } = context.services;
+
+    if (!config) {
+      return {
+        type: 'message',
+        messageType: 'error',
+        content: t('error.config.not.loaded'),
+      };
+    }
+
+    if (!serverName) {
+      return {
+        type: 'message',
+        messageType: 'error',
+        content: t('command.mcp.unload.usage'),
+      };
+    }
+
+    const mcpServers = config.getMcpServers() || {};
+    if (!mcpServers[serverName]) {
+      return {
+        type: 'message',
+        messageType: 'error',
+        content: tp('command.mcp.unload.server.not.found', { serverName }),
+      };
+    }
+
+    try {
+      const toolRegistry = await config.getToolRegistry();
+      await unloadMcpServer(
+        serverName,
+        toolRegistry,
+        config.getPromptRegistry(),
+        config.getResourceRegistry(),
+      );
+
+      // Update the client with the new tools (so AI forgets the unloaded ones)
+      const geminiClient = config.getGeminiClient();
+      if (geminiClient) {
+        await geminiClient.setTools();
+      }
+
+      return {
+        type: 'message',
+        messageType: 'info',
+        content: tp('command.mcp.unload.success', { serverName }),
+      };
+    } catch (error) {
+      return {
+        type: 'message',
+        messageType: 'error',
+        content: tp('command.mcp.unload.failed', {
+          serverName,
+          error: getErrorMessage(error),
+        }),
+      };
+    }
+  },
+  completion: async (context: CommandContext, partialArg: string) => {
+    const { config } = context.services;
+    if (!config) return [];
+
+    const mcpServers = config.getMcpServers() || {};
+    return Object.keys(mcpServers).filter((name) =>
+      name.startsWith(partialArg),
+    );
+  },
+};
+
+const loadCommand: SlashCommand = {
+  name: 'load',
+  description: t('command.mcp.load.description'),
+  kind: CommandKind.BUILT_IN,
+  action: async (
+    context: CommandContext,
+    args: string,
+  ): Promise<SlashCommandActionReturn> => {
+    const serverName = args.trim();
+    const { config } = context.services;
+
+    if (!config) {
+      return {
+        type: 'message',
+        messageType: 'error',
+        content: t('error.config.not.loaded'),
+      };
+    }
+
+    if (!serverName) {
+      return {
+        type: 'message',
+        messageType: 'error',
+        content: t('command.mcp.load.usage'),
+      };
+    }
+
+    const mcpServers = config.getMcpServers() || {};
+    if (!mcpServers[serverName]) {
+      return {
+        type: 'message',
+        messageType: 'error',
+        content: tp('mcp.auth.server.not.found', { serverName }),
+      };
+    }
+
+    try {
+      context.ui.addItem(
+        {
+          type: 'info',
+          text: tp('mcp.starting', { count: 1 }),
+        },
+        Date.now(),
+      );
+
+      const toolRegistry = await config.getToolRegistry();
+      await toolRegistry.discoverToolsForServer(serverName);
+
+      // Update the client with the new tools
+      const geminiClient = config.getGeminiClient();
+      if (geminiClient) {
+        await geminiClient.setTools();
+      }
+
+      return {
+        type: 'message',
+        messageType: 'info',
+        content: tp('command.mcp.load.success', { serverName }),
+      };
+    } catch (error) {
+      return {
+        type: 'message',
+        messageType: 'error',
+        content: tp('command.mcp.load.failed', {
+          serverName,
+          error: getErrorMessage(error),
+        }),
+      };
+    }
+  },
+  completion: async (context: CommandContext, partialArg: string) => {
+    const { config } = context.services;
+    if (!config) return [];
+
+    const mcpServers = config.getMcpServers() || {};
+    return Object.keys(mcpServers).filter((name) =>
+      name.startsWith(partialArg),
+    );
+  },
+};
+
 export const mcpCommand: SlashCommand = {
   name: 'mcp',
   description: t('command.mcp.description'),
   kind: CommandKind.BUILT_IN,
-  subCommands: [listCommand, addCommand, authCommand, refreshCommand, helpCommand],
+  subCommands: [listCommand, addCommand, authCommand, refreshCommand, unloadCommand, loadCommand, helpCommand],
   // Default action when no subcommand is provided
   action: async (context: CommandContext, args: string) =>
     // If no subcommand, run the list command

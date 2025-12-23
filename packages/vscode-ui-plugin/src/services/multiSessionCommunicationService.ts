@@ -691,7 +691,7 @@ export class MultiSessionCommunicationService {
   }
 
   // 🎯 在编辑器中打开diff监听器
-  onOpenDiffInEditor(handler: (data: { fileDiff: string; fileName: string; originalContent: string; newContent: string }) => void): vscode.Disposable {
+  onOpenDiffInEditor(handler: (data: { fileDiff: string; fileName: string; originalContent: string; newContent: string; filePath?: string }) => void): vscode.Disposable {
     return this.addMessageHandler('openDiffInEditor', handler);
   }
 

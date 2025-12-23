@@ -360,30 +360,20 @@ export async function detectFileType(
   // Note: .doc, .docx, .xls, .xlsx are handled separately as office files
   if (
     [
-      '.zip',
-      '.tar',
-      '.gz',
-      '.exe',
-      '.dll',
-      '.so',
-      '.class',
-      '.jar',
-      '.war',
-      '.7z',
-      '.ppt',
-      '.pptx',
-      '.odt',
-      '.ods',
-      '.odp',
-      '.bin',
-      '.dat',
-      '.obj',
-      '.o',
-      '.a',
-      '.lib',
-      '.wasm',
-      '.pyc',
-      '.pyo',
+      // Archives
+      '.zip', '.tar', '.gz', '.7z', '.rar', '.bz2', '.xz',
+      // Executables/Binaries
+      '.exe', '.dll', '.so', '.class', '.jar', '.war', '.bin', '.dat', '.obj', '.o', '.a', '.lib', '.wasm',
+      // Python bytecode
+      '.pyc', '.pyo', '.pyd',
+      // Fonts
+      '.ttf', '.otf', '.woff', '.woff2', '.eot',
+      // Images (already handled by MIME, but adding common ones for safety)
+      '.ico', '.cur', '.psd', '.ai',
+      // Media (already handled by MIME, but adding common ones for safety)
+      '.mp3', '.mp4', '.m4a', '.wav', '.flac', '.ogg', '.avi', '.mov', '.wmv', '.mkv',
+      // Office (some handled separately, adding others)
+      '.ppt', '.pptx', '.odt', '.ods', '.odp',
     ].includes(ext)
   ) {
     return 'binary';

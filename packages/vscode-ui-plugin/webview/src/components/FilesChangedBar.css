@@ -11,66 +11,71 @@
 .files-changed-bar {
   display: flex;
   align-items: center;
-  padding: 6px 12px;
-  background: linear-gradient(
-    to right,
-    var(--vscode-tab-activeBackground, #181818),
-    var(--vscode-tab-activeBackground, #181818)
-  );
-  border-top: 1px solid var(--vscode-tab-border, #2d2d30);
-  border-bottom: 2px solid var(--vscode-tab-border, #2d2d30);
+  justify-content: space-between;
+  padding: 4px 12px;
+  background-color: var(--vscode-editor-background, #181818);
+  border-top: 1px solid var(--vscode-panel-border, #2d2d30);
+  border-bottom: 1px solid var(--vscode-panel-border, #2d2d30);
   cursor: pointer;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--vscode-tab-activeForeground, #cccccc);
-  gap: 8px;
+  font-size: 11px;
+  color: var(--vscode-foreground, #cccccc);
   transition: all 0.2s ease;
   user-select: none;
-  min-height: 32px;
+  min-height: 28px;
   position: relative;
   outline: none;
 }
 
 .files-changed-bar:hover {
-  background: linear-gradient(
-    to right,
-    var(--vscode-tab-hoverBackground, #2a2d2e),
-    var(--vscode-tab-hoverBackground, #2a2d2e)
-  );
-  border-bottom-color: var(--vscode-focusBorder, #0098ff);
-  box-shadow: inset 0 -2px 0 var(--vscode-focusBorder, #0098ff);
+  background-color: var(--vscode-list-hoverBackground, #2a2d2e);
 }
 
-.files-changed-bar:active,
 .files-changed-bar.expanded {
-  background: var(--vscode-list-activeSelectionBackground, #094771);
-  border-bottom-color: var(--vscode-focusBorder, #0098ff);
+  background-color: var(--vscode-list-activeSelectionBackground, #094771);
 }
 
-.files-changed-bar:focus-visible {
-  outline: 1px solid var(--vscode-focusBorder, #0098ff);
-  outline-offset: -1px;
+.bar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
 }
 
-.files-icon {
-  flex-shrink: 0;
-  color: var(--vscode-tab-activeForeground, #cccccc);
+.bar-title {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--vscode-descriptionForeground);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  opacity: 0.85;
 }
 
 .files-count {
-  flex: 1;
+  font-size: 11px;
+  color: var(--vscode-foreground);
+  font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  font-weight: 500;
+  opacity: 0.9;
+}
+
+.bar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-left: 8px;
 }
 
 .expand-indicator {
-  flex-shrink: 0;
-  color: var(--vscode-tab-activeForeground, #cccccc);
+  color: var(--vscode-descriptionForeground);
+  opacity: 0.7;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: transform 0.2s ease;
 }
 
 /* Accept 按钮 - 低调的次要按钮样式 */
@@ -79,24 +84,20 @@
   align-items: center;
   justify-content: center;
   background: transparent;
-  color: var(--vscode-button-secondaryForeground, #ffffff);
+  color: var(--vscode-descriptionForeground);
   border: none;
   border-radius: 3px;
-  padding: 4px 6px;
+  padding: 2px;
   cursor: pointer;
   transition: all 0.2s ease;
   flex-shrink: 0;
-  line-height: 1;
+  opacity: 0.6;
 }
 
 .accept-changes-btn:hover {
-  background: var(--vscode-button-secondaryHoverBackground, rgba(255, 255, 255, 0.1));
-  color: var(--vscode-tab-activeForeground, #cccccc);
-}
-
-.accept-changes-btn:active {
-  background: var(--vscode-button-secondaryBackground, rgba(255, 255, 255, 0.15));
-  transform: scale(0.95);
+  background: var(--vscode-toolbar-hoverBackground);
+  color: var(--vscode-foreground);
+  opacity: 1;
 }
 
 /* 展开箭头动画 */
@@ -259,6 +260,39 @@
   padding: 2px 6px;
   line-height: 1;
   letter-spacing: 0.5px;
+}
+
+/* 撤销按钮样式 */
+.file-undo-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* 🎯 默认带有背景，提示点击区域 */
+  background: var(--vscode-toolbar-hoverBackground, rgba(121, 121, 121, 0.15));
+  color: var(--vscode-descriptionForeground, #999999);
+  border: none;
+  border-radius: 3px;
+  padding: 4px;
+  margin-left: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  opacity: 0; /* 默认随列表项 hover 显示 */
+  transform: translateX(4px);
+}
+
+.file-item:hover .file-undo-btn {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.file-undo-btn:hover {
+  /* 🎯 Hover 时只改变图标颜色，保持/微调背景以突出交互 */
+  color: var(--vscode-charts-orange, #d18616);
+  background: var(--vscode-toolbar-activeBackground, rgba(121, 121, 121, 0.25));
+}
+
+.file-undo-btn:active {
+  transform: scale(0.9);
 }
 
 /* 滚动条样式 */

@@ -829,6 +829,23 @@ export class SessionManager extends EventEmitter {
       sessionState.info.messageCount = sessionState.messages.length;
       sessionState.info.lastActivity = Date.now();
 
+      // 🎯 如果是系统消息，同步推送到 AI 历史记录
+      if (message.type === 'system') {
+        const aiService = this.aiServices.get(sessionId);
+        if (aiService && aiService.isServiceInitialized) {
+          // 提取文本内容
+          const contentStr = typeof message.content === 'string' ?
+            message.content :
+            (message.content as any[]).map((p: any) => p.value || '').join('');
+
+          if (contentStr) {
+            aiService.addSystemMessageToHistory(contentStr).catch(err => {
+              this.logger.warn(`Failed to sync system message to AI history for ${sessionId}`, err);
+            });
+          }
+        }
+      }
+
       // 🎯 持久化保存session状态（包含消息历史）
       await this.persistenceService.saveSession(sessionState);
 

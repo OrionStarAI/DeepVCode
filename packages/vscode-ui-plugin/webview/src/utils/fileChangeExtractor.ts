@@ -31,6 +31,16 @@ export function extractModifiedFiles(
   // 从指定位置开始处理消息
   for (let i = startIndex; i < messages.length; i++) {
     const message = messages[i];
+
+    // 🎯 处理撤销逻辑：如果遇到撤销系统消息，从 Map 中移除该文件
+    if (message.type === 'system' && (message as any).notificationType === 'undo_file') {
+      const undonePath = (message as any).notificationTitle;
+      if (undonePath) {
+        filesMap.delete(undonePath);
+        continue;
+      }
+    }
+
     // 遍历关联的toolCalls
     message.associatedToolCalls?.forEach(toolCall => {
       if (toolCall.result?.data?.fileDiff) {
@@ -142,6 +152,7 @@ function updateDeletedFileFromFileDiff(filesMap: Map<string, ModifiedFile>, file
     filesMap.set(mapKey, {
       fileName,
       filePath: displayPath,
+      absolutePath: filePath, // 🎯 保存绝对路径
       isNewFile: false,
       isDeletedFile: true,
       modificationCount: 1,
@@ -193,6 +204,7 @@ function updateFileInMap(filesMap: Map<string, ModifiedFile>, diffData: any, wor
     filesMap.set(mapKey, {
       fileName,
       filePath: displayPath,
+      absolutePath: rawFilePath, // 🎯 保存绝对路径
       isNewFile,
       isDeletedFile: false,
       modificationCount: 1,

@@ -53,4 +53,15 @@ export class PromptRegistry {
     }
     return serverPrompts.sort((a, b) => a.name.localeCompare(b.name));
   }
+
+  /**
+   * Removes all prompts registered from a specific MCP server.
+   */
+  removePromptsByServer(serverName: string): void {
+    for (const [name, prompt] of this.prompts.entries()) {
+      if (prompt.serverName === serverName) {
+        this.prompts.delete(name);
+      }
+    }
+  }
 }

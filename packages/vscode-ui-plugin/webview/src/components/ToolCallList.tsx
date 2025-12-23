@@ -179,37 +179,6 @@ const ToolCallItem: React.FC<{
     return dataType === 'todo_display' && toolCall.status === TOOL_CALL_STATUS.SUCCESS;
   };
 
-  // 🎯 检测是否为diff结果
-  const isDiffResult = () => {
-    const result = toolCall.result;
-    return result && result.data && result.data.fileDiff;
-  };
-
-  // 🎯 处理diff项目点击
-  const handleDiffClick = (event: React.MouseEvent) => {
-    if (!isDiffResult()) return;
-
-    // 阻止事件冒泡到展开/收起按钮
-    if ((event.target as HTMLElement).closest('.tool-controls')) {
-      return;
-    }
-
-    const result = toolCall.result;
-    const diffData = result?.data || result;
-
-    if (diffData && typeof window !== 'undefined' && window.vscode) {
-      window.vscode.postMessage({
-        type: 'openDiffInEditor',
-        payload: {
-          fileDiff: diffData.fileDiff,
-          fileName: diffData.fileName || t('tools.unknownFile', {}, 'Unknown file'),
-          originalContent: diffData.originalContent || '',
-          newContent: diffData.newContent || ''
-        }
-      });
-    }
-  };
-
   // 🎯 自动滚动到实时输出底部
   useEffect(() => {
     if (liveOutputRef.current && toolCall.liveOutput) {
@@ -456,10 +425,9 @@ const ToolCallItem: React.FC<{
 
   const hasMultipleParams = Object.keys(toolCall.parameters).length > 2;
 
-  // 🎯 如果是已完成的todo结果，直接渲染TodoDisplayRenderer，不显示tool-main-line
+  // 🎯 如果是已完成的todo结果，在流式历史中隐藏它（因为现在有了全局悬挂的Todo面板）
   if (isTodoResultCompleted()) {
-    const todoData = toolCall.result?.data || toolCall.result;
-    return <TodoDisplayRenderer data={todoData} />;
+    return null;
   }
 
   // 🎯 获取当前模式的显示文本
@@ -474,10 +442,7 @@ const ToolCallItem: React.FC<{
 
   return (
     <div
-      className={`tool-call-item ${isDiffResult() ? 'diff-clickable' : ''}`}
-      onClick={isDiffResult() ? handleDiffClick : undefined}
-      style={isDiffResult() ? { cursor: 'pointer' } : undefined}
-      title={isDiffResult() ? t('tools.clickToViewDiff', {}, 'Click to view complete diff in editor') : undefined}
+      className="tool-call-item"
     >
       {/* 主要工具信息行 - 单行显示 */}
       <div

@@ -279,6 +279,8 @@ export const translations = {
     'tool.stats.no.calls': 'No tool calls have been made in this session yet.',
 
     // Model usage table headers
+    'table.header.model': 'Model',
+    'stats.other.tools': 'Other Tools',
     'table.header.reqs': 'Reqs',
     'table.header.input': 'Input',
     'table.header.output': 'Output',
@@ -814,6 +816,11 @@ export const translations = {
     'command.mcp.auth.description': 'Authenticate with OAuth-enabled MCP servers',
     'command.mcp.list.description': 'List configured MCP servers and tools',
     'command.mcp.refresh.description': 'Refresh MCP servers and tools list',
+    'command.mcp.load.description': 'Load or reconnect a specific MCP server',
+    'command.mcp.load.usage': 'Usage: /mcp load <server-name>',
+    'command.mcp.load.success': '✅ MCP server \'{serverName}\' loaded successfully.',
+    'command.mcp.load.failed': '❌ Failed to load MCP server \'{serverName}\': {error}',
+    'command.mcp.unload.description': 'Unload an MCP server from the current session',
     'command.session.list.description': 'List all available session records',
     'command.session.select.description': 'Select and load specified session. Usage: /session select <number or session-id>',
     'command.session.create.description': 'Create new session record',
@@ -960,6 +967,10 @@ export const translations = {
     'mcp.auth.refresh.success': 'Successfully authenticated and refreshed tools for \'{serverName}\'.',
 
     'mcp.refresh.starting': 'Refreshing MCP servers and tools...',
+    'command.mcp.unload.server.not.found': '❌ MCP server \'{serverName}\' not found.',
+    'command.mcp.unload.success': '✅ MCP server \'{serverName}\' unloaded successfully.',
+    'command.mcp.unload.failed': '❌ Failed to unload MCP server \'{serverName}\': {error}',
+    'command.mcp.unload.usage': 'Usage: /mcp unload <server-name>',
 
     'mcp.help.system.title': '🔧 MCP (Model Context Protocol) Help System',
     'mcp.help.system.description': 'MCP allows you to connect external tools and services, extending DeepV Code functionality.',
@@ -1369,6 +1380,8 @@ export const translations = {
     'tool.stats.no.calls': '本次会话中尚未进行工具调用。',
 
     // Model usage table headers
+    'table.header.model': '模型',
+    'stats.other.tools': '其他工具',
     'table.header.reqs': '请求',
     'table.header.input': '输入',
     'table.header.output': '输出',
@@ -1903,6 +1916,11 @@ export const translations = {
     'command.mcp.auth.description': '与启用OAuth的MCP服务器进行身份验证',
     'command.mcp.list.description': '列出已配置的MCP服务器和工具',
     'command.mcp.refresh.description': '刷新MCP服务器和工具列表',
+    'command.mcp.load.description': '加载或重新连接特定的MCP服务器',
+    'command.mcp.load.usage': '用法: /mcp load <server-name>',
+    'command.mcp.load.success': '✅ 已成功加载 MCP 服务器 \'{serverName}\'。',
+    'command.mcp.load.failed': '❌ 加载 MCP 服务器 \'{serverName}\' 失败: {error}',
+    'command.mcp.unload.description': '从当前会话中卸载MCP服务器',
     'command.session.list.description': '列出所有可用的会话记录',
     'command.session.select.description': '选择并加载指定的会话。用法: /session select <编号或session-id>',
     'command.session.create.description': '创建新的会话记录',
@@ -2050,6 +2068,10 @@ export const translations = {
     'mcp.auth.refresh.success': '成功验证并刷新了 \'{serverName}\' 的工具。',
 
     'mcp.refresh.starting': '刷新 MCP 服务器和工具...',
+    'command.mcp.unload.server.not.found': '❌ 未找到名为 \'{serverName}\' 的 MCP 服务器。',
+    'command.mcp.unload.success': '✅ 已成功卸载 MCP 服务器 \'{serverName}\'。',
+    'command.mcp.unload.failed': '❌ 卸载 MCP 服务器 \'{serverName}\' 失败: {error}',
+    'command.mcp.unload.usage': '用法: /mcp unload <server-name>',
 
     'mcp.help.system.title': '🔧 MCP (Model Context Protocol) 帮助系统',
     'mcp.help.system.description': 'MCP允许您连接外部工具和服务，扩展DeepV Code的功能。',

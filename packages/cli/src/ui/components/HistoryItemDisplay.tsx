@@ -73,7 +73,7 @@ export const HistoryItemDisplay: React.FC<HistoryItemDisplayProps> = ({
         gcpProject={item.gcpProject}
       />
     )}
-    {item.type === 'stats' && <StatsDisplay duration={item.duration} />}
+    {item.type === 'stats' && <StatsDisplay duration={item.duration} config={config} />}
     {item.type === 'model_stats' && <ModelStatsDisplay />}
     {item.type === 'tool_stats' && <ToolStatsDisplay />}
     {item.type === 'token_breakdown' && (
@@ -98,7 +98,7 @@ export const HistoryItemDisplay: React.FC<HistoryItemDisplayProps> = ({
         maxTokens={item.maxTokens}
       />
     )}
-    {item.type === 'quit' && <SessionSummaryDisplay duration={item.duration} credits={item.credits} />}
+    {item.type === 'quit' && <SessionSummaryDisplay duration={item.duration} credits={item.credits} config={config} />}
     {item.type === 'tool_group' && (
       <ToolGroupMessage
         toolCalls={item.tools}
