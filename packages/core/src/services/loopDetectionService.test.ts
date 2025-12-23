@@ -284,26 +284,24 @@ describe('LoopDetectionService - Preview Model Strict Checking', () => {
     service = new LoopDetectionService(mockConfig);
     service.reset('test-prompt');
 
-    // Call read_file with different args 5 times (threshold for intensive tools)
-    const events = [
-      createToolCallRequestEvent('read_file', { file_path: '/path/file1.txt' }),
-      createToolCallRequestEvent('read_file', { file_path: '/path/file2.txt' }),
-      createToolCallRequestEvent('read_file', { file_path: '/path/file3.txt' }),
-      createToolCallRequestEvent('read_file', { file_path: '/path/file4.txt' }),
-    ];
+    // Call read_file with different args 12 times
+    const events = [];
+    for (let i = 0; i < 12; i++) {
+      events.push(createToolCallRequestEvent('read_file', { file_path: `/path/file${i}.txt` }));
+    }
 
-    // First 3 calls should not trigger
-    for (let i = 0; i < 3; i++) {
+    // First 11 calls should not trigger
+    for (let i = 0; i < 11; i++) {
       expect(service.addAndCheck(events[i])).toBe(false);
     }
     expect(loggers.logLoopDetected).not.toHaveBeenCalled();
 
-    // 4th call to read_file (intensive tool threshold = 4) should trigger
-    expect(service.addAndCheck(events[3])).toBe(true);
+    // 12th call to read_file should trigger
+    expect(service.addAndCheck(events[11])).toBe(true);
     expect(loggers.logLoopDetected).toHaveBeenCalledTimes(1);
   });
 
-  it('should use threshold of 5 for non-intensive tools in preview models', () => {
+  it('should use threshold of 12 for non-intensive tools in preview models', () => {
     mockConfig = {
       getTelemetryEnabled: () => true,
       getModel: () => 'gemini-3-pro-preview',
@@ -311,23 +309,20 @@ describe('LoopDetectionService - Preview Model Strict Checking', () => {
     service = new LoopDetectionService(mockConfig);
     service.reset('test-prompt');
 
-    // Call shell with different args 5 times
-    const events = [
-      createToolCallRequestEvent('shell', { command: 'ls /dir1' }),
-      createToolCallRequestEvent('shell', { command: 'ls /dir2' }),
-      createToolCallRequestEvent('shell', { command: 'ls /dir3' }),
-      createToolCallRequestEvent('shell', { command: 'ls /dir4' }),
-      createToolCallRequestEvent('shell', { command: 'ls /dir5' }),
-    ];
+    // Call shell with different args 12 times
+    const events = [];
+    for (let i = 0; i < 12; i++) {
+      events.push(createToolCallRequestEvent('shell', { command: `ls /dir${i}` }));
+    }
 
-    // First 4 calls should not trigger
-    for (let i = 0; i < 4; i++) {
+    // First 11 calls should not trigger
+    for (let i = 0; i < 11; i++) {
       expect(service.addAndCheck(events[i])).toBe(false);
     }
     expect(loggers.logLoopDetected).not.toHaveBeenCalled();
 
-    // 5th call (non-intensive tool threshold = 5) should trigger
-    expect(service.addAndCheck(events[4])).toBe(true);
+    // 12th call should trigger
+    expect(service.addAndCheck(events[11])).toBe(true);
     expect(loggers.logLoopDetected).toHaveBeenCalledTimes(1);
   });
 
@@ -358,21 +353,19 @@ describe('LoopDetectionService - Preview Model Strict Checking', () => {
     service = new LoopDetectionService(mockConfig);
     service.reset('test-prompt');
 
-    // glob is in PREVIEW_INTENSIVE_TOOLS, so threshold = 4
-    const events = [
-      createToolCallRequestEvent('glob', { pattern: '**/*.ts' }),
-      createToolCallRequestEvent('glob', { pattern: '**/*.js' }),
-      createToolCallRequestEvent('glob', { pattern: '**/*.json' }),
-      createToolCallRequestEvent('glob', { pattern: '**/*.md' }),
-    ];
+    // threshold = 12
+    const events = [];
+    for (let i = 0; i < 12; i++) {
+      events.push(createToolCallRequestEvent('glob', { pattern: `**/*.${i}` }));
+    }
 
-    // First 3 should pass
-    for (let i = 0; i < 3; i++) {
+    // First 11 should pass
+    for (let i = 0; i < 11; i++) {
       expect(service.addAndCheck(events[i])).toBe(false);
     }
 
-    // 4th call should trigger
-    expect(service.addAndCheck(events[3])).toBe(true);
+    // 12th call should trigger
+    expect(service.addAndCheck(events[11])).toBe(true);
     expect(loggers.logLoopDetected).toHaveBeenCalledTimes(1);
   });
 
@@ -384,21 +377,19 @@ describe('LoopDetectionService - Preview Model Strict Checking', () => {
     service = new LoopDetectionService(mockConfig);
     service.reset('test-prompt');
 
-    // search_file_content is in PREVIEW_INTENSIVE_TOOLS, so threshold = 4
-    const events = [
-      createToolCallRequestEvent('search_file_content', { pattern: 'TODO' }),
-      createToolCallRequestEvent('search_file_content', { pattern: 'FIXME' }),
-      createToolCallRequestEvent('search_file_content', { pattern: 'BUG' }),
-      createToolCallRequestEvent('search_file_content', { pattern: 'HACK' }),
-    ];
+    // threshold = 12
+    const events = [];
+    for (let i = 0; i < 12; i++) {
+      events.push(createToolCallRequestEvent('search_file_content', { pattern: `pattern${i}` }));
+    }
 
-    // First 3 should pass
-    for (let i = 0; i < 3; i++) {
+    // First 11 should pass
+    for (let i = 0; i < 11; i++) {
       expect(service.addAndCheck(events[i])).toBe(false);
     }
 
-    // 4th call should trigger
-    expect(service.addAndCheck(events[3])).toBe(true);
+    // 12th call should trigger
+    expect(service.addAndCheck(events[11])).toBe(true);
     expect(loggers.logLoopDetected).toHaveBeenCalledTimes(1);
   });
 });
