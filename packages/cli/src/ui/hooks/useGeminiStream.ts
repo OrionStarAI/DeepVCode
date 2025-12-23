@@ -1455,13 +1455,15 @@ User question: ${queryStr}`;
           abortSignal,
         );
 
-        if (processingStatus === StreamProcessingStatus.UserCancelled) {
-          return;
-        }
-
+        // 🎯 修复：即使是用户取消，也要保存已经收到的部分内容（如已触发的 functionCall）到历史记录
+        // 这样可以确保后续产生的工具执行结果有对应的调用记录可匹配。
         if (pendingHistoryItemRef.current) {
           addItem(pendingHistoryItemRef.current, userMessageTimestamp);
           setPendingHistoryItem(null);
+        }
+
+        if (processingStatus === StreamProcessingStatus.UserCancelled) {
+          return;
         }
         if (loopDetectedRef.current) {
           loopDetectedRef.current = false;
