@@ -7,6 +7,7 @@
  */
 
 import React from 'react';
+import { useTranslation } from '../../hooks/useTranslation';
 import { SettingGroup } from './SettingItem';
 import './SettingItem.css';
 import './SettingsPanel.css';
@@ -49,6 +50,7 @@ export const MCPSettingsPanel: React.FC<MCPSettingsPanelProps> = ({
   onOpenSettings,
   onToggleEnabled
 }) => {
+  const { t } = useTranslation();
   const isLoading = mcpServers.length === 0 && !statusLoaded;
   const isEmpty = mcpServers.length === 0 && statusLoaded;
 
@@ -93,13 +95,13 @@ export const MCPSettingsPanel: React.FC<MCPSettingsPanelProps> = ({
   const getStatusText = (status: MCPServerInfo['status']) => {
     switch (status) {
       case 'connected':
-        return 'Connected';
+        return t('mcp.status.connected');
       case 'connecting':
-        return 'Connecting...';
+        return t('mcp.status.connecting');
       case 'disconnected':
-        return 'Disconnected';
+        return t('mcp.status.disconnected');
       default:
-        return 'Unknown';
+        return t('mcp.status.unknown');
     }
   };
 
@@ -107,13 +109,13 @@ export const MCPSettingsPanel: React.FC<MCPSettingsPanelProps> = ({
   const getDiscoveryStateText = () => {
     switch (discoveryState) {
       case 'not_started':
-        return 'Not Started';
+        return t('mcp.discovery.notStarted');
       case 'in_progress':
-        return 'Discovering...';
+        return t('mcp.discovery.discovering');
       case 'completed':
-        return 'Completed';
+        return t('mcp.discovery.completed');
       default:
-        return 'Unknown';
+        return t('mcp.status.unknown');
     }
   };
 
@@ -129,9 +131,9 @@ export const MCPSettingsPanel: React.FC<MCPSettingsPanelProps> = ({
                 <circle cx="12" cy="12" r="10" strokeDasharray="32" strokeDashoffset="12"/>
               </svg>
             </div>
-            <p className="mcp-empty-state__title">Loading MCP Servers...</p>
+            <p className="mcp-empty-state__title">{t('mcp.loading')}</p>
             <p className="mcp-empty-state__description">
-              Discovering available MCP servers and tools.
+              {t('mcp.discovering')}
             </p>
           </div>
         ) : mcpServers.length === 0 ? (
@@ -143,15 +145,15 @@ export const MCPSettingsPanel: React.FC<MCPSettingsPanelProps> = ({
                 <path d="M12 8v4M12 16h.01"/>
               </svg>
             </div>
-            <p className="mcp-empty-state__title">No MCP Servers Configured</p>
+            <p className="mcp-empty-state__title">{t('mcp.noServers')}</p>
             <p className="mcp-empty-state__description">
-              Configure MCP servers in settings.json to extend AI capabilities.
+              {t('mcp.noServersDesc')}
             </p>
             <button
               className="mcp-empty-state__button"
               onClick={onOpenSettings}
             >
-              Open Settings
+              {t('mcp.openSettings')}
             </button>
           </div>
         ) : (
@@ -173,7 +175,7 @@ export const MCPSettingsPanel: React.FC<MCPSettingsPanelProps> = ({
                       )}
                       <span className="mcp-server-item__name">{server.name}</span>
                       {!isEnabled && (
-                        <span className="mcp-server-item__disabled-badge">Disabled</span>
+                        <span className="mcp-server-item__disabled-badge">{t('mcp.disabled')}</span>
                       )}
                     </div>
                     <div className="mcp-server-item__actions">
@@ -184,7 +186,7 @@ export const MCPSettingsPanel: React.FC<MCPSettingsPanelProps> = ({
                         </span>
                       )}
                       {/* Toggle 开关 */}
-                      <label className="mcp-toggle" title={isEnabled ? 'Disable this MCP server' : 'Enable this MCP server'}>
+                      <label className="mcp-toggle" title={isEnabled ? t('mcp.disableServer') : t('mcp.enableServer')}>
                         <input
                           type="checkbox"
                           checked={isEnabled}
@@ -200,7 +202,7 @@ export const MCPSettingsPanel: React.FC<MCPSettingsPanelProps> = ({
                   {isEnabled && (
                     <div className="mcp-server-item__details">
                       <div className="mcp-server-item__detail">
-                        <span className="mcp-server-item__detail-label">Tools:</span>
+                        <span className="mcp-server-item__detail-label">{t('mcp.tools')}</span>
                         <span className="mcp-server-item__detail-value">
                           {server.toolCount}
                         </span>
@@ -237,13 +239,13 @@ export const MCPSettingsPanel: React.FC<MCPSettingsPanelProps> = ({
           <button
             className="mcp-quick-action-btn"
             onClick={onOpenSettings}
-            title="Edit MCP server configuration"
+            title={t('mcp.editConfig')}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
               <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
             </svg>
-            Settings
+            {t('mcp.settings')}
           </button>
         </div>
       )}

@@ -197,15 +197,15 @@ export const YoloModeSettingsDialog: React.FC<YoloModeSettingsDialogProps> = ({
         onKeyDown={handleKeyDown}
         tabIndex={-1}
       >
-        {/* 对话框头部 */}
+        {/* 对画框头部 */}
         <div className="project-settings-dialog__header">
           <h2 className="project-settings-dialog__title">
-            Settings
+            {t('settings.title')}
           </h2>
           <button
             className="project-settings-dialog__close-btn"
             onClick={handleCancel}
-            title="Close Settings"
+            title={t('settings.close')}
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
               <path d="M8 8.707l3.646 3.647.708-.707L8.707 8l3.647-3.646-.707-.708L8 7.293 4.354 3.646l-.707.708L7.293 8l-3.646 3.646.707.708L8 8.707z"/>
@@ -221,25 +221,25 @@ export const YoloModeSettingsDialog: React.FC<YoloModeSettingsDialogProps> = ({
               className={`project-settings-dialog__tab ${activeTab === 'general' ? 'project-settings-dialog__tab--active' : ''}`}
               onClick={() => setActiveTab('general')}
             >
-              General
+              {t('settings.tabs.general')}
             </button>
             <button
               className={`project-settings-dialog__tab ${activeTab === 'mcp' ? 'project-settings-dialog__tab--active' : ''}`}
               onClick={() => setActiveTab('mcp')}
             >
-              MCP
+              {t('settings.tabs.mcp')}
             </button>
             <button
               className={`project-settings-dialog__tab ${activeTab === 'memory' ? 'project-settings-dialog__tab--active' : ''}`}
               onClick={() => setActiveTab('memory')}
             >
-              Memory
+              {t('settings.tabs.memory')}
             </button>
             <button
               className={`project-settings-dialog__tab ${activeTab === 'more' ? 'project-settings-dialog__tab--active' : ''}`}
               onClick={() => setActiveTab('more')}
             >
-              More
+              {t('settings.tabs.more')}
             </button>
           </div>
 
@@ -279,12 +279,12 @@ export const YoloModeSettingsDialog: React.FC<YoloModeSettingsDialogProps> = ({
               <div className="memory-panel">
                 <div className="memory-panel__header">
                   <h3 className="memory-panel__title">
-                    Memory Files
+                    {t('settings.memory.title')}
                   </h3>
                   <p className="memory-panel__description">
                     {memoryFileCount > 0
-                      ? `${memoryFileCount} memory file${memoryFileCount > 1 ? 's' : ''} loaded`
-                      : 'No memory files found. Create a DEEPV.md or GEMINI.md file in your project.'}
+                      ? t('settings.memory.description', { count: memoryFileCount })
+                      : t('settings.memory.none')}
                   </p>
                 </div>
                 {memoryFilePaths.length > 0 && (
@@ -319,7 +319,7 @@ export const YoloModeSettingsDialog: React.FC<YoloModeSettingsDialogProps> = ({
                     <svg className="memory-panel__refresh-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M13 2L11 3.99545L11.0592 4.05474M11 18.0001L13 19.9108L12.9703 19.9417M11.0592 4.05474L13 6M11.0592 4.05474C11.3677 4.01859 11.6817 4 12 4C16.4183 4 20 7.58172 20 12C20 14.5264 18.8289 16.7793 17 18.2454M7 5.75463C5.17107 7.22075 4 9.47362 4 12C4 16.4183 7.58172 20 12 20C12.3284 20 12.6523 19.9802 12.9703 19.9417M11 22.0001L12.9703 19.9417"/>
                     </svg>
-                    {isRefreshingMemory ? 'Refreshing...' : 'Refresh Memory'}
+                    {isRefreshingMemory ? t('settings.memory.refreshing') : t('settings.memory.refresh')}
                   </button>
                 )}
               </div>
@@ -327,16 +327,16 @@ export const YoloModeSettingsDialog: React.FC<YoloModeSettingsDialogProps> = ({
             {activeTab === 'more' && (
               <div className="more-panel">
                 <div className="more-panel__section">
-                  <h3 className="more-panel__title">Extension Settings</h3>
+                  <h3 className="more-panel__title">{t('settings.more.title')}</h3>
                   <p className="more-panel__description">
-                    Open the VS Code extension settings to configure additional options.
+                    {t('settings.more.description')}
                   </p>
                   <button
                     className="more-panel__button"
                     onClick={() => {
                       getGlobalMessageService().openExtensionSettings();
                     }}
-                    title="Open VS Code extension settings"
+                    title={t('settings.more.open')}
                   >
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                       <path d="M22 6.5H16" stroke="currentColor" strokeWidth="1.5" strokeMiterlimit="10" strokeLinecap="round" strokeLinejoin="round"/>
@@ -350,7 +350,7 @@ export const YoloModeSettingsDialog: React.FC<YoloModeSettingsDialogProps> = ({
                         <path d="M14 21C15.933 21 17.5 19.433 17.5 17.5C17.5 15.567 15.933 14 14 14C12.067 14 10.5 15.567 10.5 17.5C10.5 19.433 12.067 21 14 21Z" stroke="currentColor" strokeWidth="1.5" strokeMiterlimit="10" strokeLinecap="round" strokeLinejoin="round"/>
                       </g>
                     </svg>
-                    Open Extension Settings
+                    {t('settings.more.open')}
                   </button>
                 </div>
               </div>

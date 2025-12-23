@@ -38,6 +38,7 @@ import { PlanModeToggle } from './PlanModeToggle';
 import { useRefineCommand } from '../hooks/useRefineCommand';
 import { atSymbolHandler } from '../services/atSymbolHandler';
 import { DISALLOWED_BINARY_EXTENSIONS } from './MessageInput/utils/fileTypes';
+import { BinaryFileWarningNotification } from './BinaryFileWarningNotification';
 
 import './MessageInput/MessageInput.css';
 
@@ -159,6 +160,12 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
 
   // 🎯 自定义代理服务器URL状态
   const [customProxyServerUrl, setCustomProxyServerUrl] = useState<string | undefined>(undefined);
+
+  // 🎯 二进制文件警告通知状态
+  const [binaryFileWarning, setBinaryFileWarning] = useState<{
+    visible: boolean;
+    fileName: string;
+  }>({ visible: false, fileName: '' });
 
   // 🎯 从extension获取customProxyServerUrl配置
   useEffect(() => {
@@ -289,11 +296,14 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
     // 🎯 检查是否为不支持的二进制文件
     if (DISALLOWED_BINARY_EXTENSIONS.includes(extension)) {
       console.warn(`🚫 [MessageInput] 拦截到不支持的二进制文件: ${fileName}`);
+      // 显示本地 UI 通知
+      setBinaryFileWarning({ visible: true, fileName });
+      // 同时发送 VSCode 通知（为了与 extension 交互）
       if (window.vscode) {
         window.vscode.postMessage({
           type: 'show_notification',
           payload: {
-            message: `暂不支持读取二进制文件 "${fileName}"，建议仅添加文本或代码文件。`,
+            message: t('chat.binaryFileWarning', { fileName }),
             type: 'warning'
           }
         });
@@ -976,7 +986,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
       <div
         className="resize-handle"
         onMouseDown={handleResizeStart}
-        title="拖拽调整编辑器高度"
+        title={t('chat.dragResizeTooltip')}
       />
       <div className="input-wrapper">
         <LexicalComposer initialConfig={initialConfig}>
@@ -991,7 +1001,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
                 }
                 placeholder={
                   <div className="lexical-placeholder">
-                    {placeholder || (isEditMode ? t('chat.editPlaceholder', undefined, '编辑你的消息...') : t('chat.inputPlaceholder'))}
+                    {placeholder || (isEditMode ? t('chat.editPlaceholder') : t('chat.inputPlaceholder'))}
                   </div>
                 }
                 ErrorBoundary={({ children }: { children: React.ReactNode }) => (
@@ -1022,7 +1032,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
                     <path d="M7 3.33782C8.47087 2.48697 10.1786 2 12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 10.1786 2.48697 8.47087 3.33782 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                   </svg>
                   {/* info text */}
-                  <span className="custom-proxy-info-text">自定义服务器: {customProxyServerUrl}</span>
+                  <span className="custom-proxy-info-text">{t('chat.customProxyServer')} {customProxyServerUrl}</span>
                 </div>
               )}
               {/* 右侧：Refine按钮 */}
@@ -1106,7 +1116,13 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
         </div>
       </div>
 
-
+      {/* 🎯 二进制文件警告通知 */}
+      <BinaryFileWarningNotification
+        fileName={binaryFileWarning.fileName}
+        visible={binaryFileWarning.visible}
+        onDismiss={() => setBinaryFileWarning({ visible: false, fileName: '' })}
+        autoCloseDuration={4000}
+      />
     </div>
   );
 });

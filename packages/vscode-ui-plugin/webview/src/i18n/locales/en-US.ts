@@ -84,6 +84,10 @@ export const enUS: Translations = {
     editPlaceholder: 'Edit your message...',
     acceptChanges: 'Dismiss this list',
     viewModifiedFiles: 'Click to expand and view all modified files',
+    customProxyServer: 'Custom Server:',
+    binaryFileWarning: 'Binary file "{{fileName}}" is not supported. Please add text or code files only.',
+    binaryFileWarningTitle: 'Unsupported Binary File',
+    dragResizeTooltip: 'Drag to adjust editor height',
     queue: {
       title: 'Pending Queue',
       hint: 'Auto-sends after AI reply',
@@ -417,5 +421,62 @@ export const enUS: Translations = {
     'chat.compression.title': '✨ Context Optimized',
     'chat.compression.description': 'The conversation history has been automatically compressed to manage context efficiently.',
     'chat.compression.info': 'This allows the conversation to continue with more room for new context and responses.',
+  },
+
+  mcp: {
+    title: 'MCP Servers',
+    loading: 'Loading MCP Servers...',
+    discovering: 'Discovering available MCP servers and tools.',
+    noServers: 'No MCP Servers Configured',
+    noServersDesc: 'Configure MCP servers in settings.json to extend AI capabilities.',
+    openSettings: 'Open Settings',
+    status: {
+      connected: 'Connected',
+      connecting: 'Connecting...',
+      disconnected: 'Disconnected',
+      unknown: 'Unknown',
+    },
+    discovery: {
+      notStarted: 'Not Started',
+      discovering: 'Discovering...',
+      completed: 'Completed',
+    },
+    tools: 'Tools:',
+    disabled: 'Disabled',
+    enableServer: 'Enable this MCP server',
+    disableServer: 'Disable this MCP server',
+    editConfig: 'Edit MCP server configuration',
+    settings: 'Settings',
+  },
+
+  settings: {
+    title: 'Settings',
+    close: 'Close Settings',
+    tabs: {
+      general: 'General',
+      mcp: 'MCP',
+      memory: 'Memory',
+      more: 'More',
+    },
+    general: {
+      yoloLabel: 'YOLO Mode',
+      yoloDesc: 'Skip confirmations for file edits and shell commands. Dangerous operations still require approval.',
+      modelLabel: 'Default Model',
+      modelDesc: 'The default AI model to use for new sessions.',
+      autoModel: 'Auto',
+      autoModelDesc: 'Automatically select the best model',
+    },
+    memory: {
+      title: 'Memory Files',
+      description: '{{count}} memory file(s) loaded',
+      none: 'No memory files found. Create a DEEPV.md or GEMINI.md file in your project.',
+      refresh: 'Refresh Memory',
+      refreshing: 'Refreshing...',
+    },
+    more: {
+      title: 'Extension Settings',
+      description: 'Open the VS Code extension settings to configure additional options.',
+      open: 'Open Extension Settings',
+    },
   },
 };

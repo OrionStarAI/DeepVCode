@@ -26,12 +26,7 @@
     "automation"
   ],
   "activationEvents": [
-    "onStartupFinished",
-    "onCommand:deepv.openAIAssistant",
-    "onCommand:deepv.explainCode",
-    "onCommand:deepv.optimizeCode",
-    "onCommand:deepv.generateTests",
-    "onView:deepv.aiAssistant"
+    "onStartupFinished"
   ],
   "main": "./dist/extension.bundle.js",
   "contributes": {
