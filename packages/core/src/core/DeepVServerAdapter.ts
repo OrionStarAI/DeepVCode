@@ -917,6 +917,17 @@ export class DeepVServerAdapter implements ContentGenerator {
       usageMetadata: chunk.usageMetadata
     } as GenerateContentResponse;
 
+    // 🚀 预处理：补全缺失的 ID
+    if (response.candidates?.[0]?.content?.parts) {
+      for (const part of response.candidates[0].content.parts) {
+        if (part.functionCall && !part.functionCall.id) {
+          const generatedId = `call_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+          console.log(`[DeepV Server] 补全缺失的工具 ID (Chunk): ${part.functionCall.name} -> ${generatedId}`);
+          part.functionCall.id = generatedId;
+        }
+      }
+    }
+
     if (!response.functionCalls) {
       Object.defineProperty(response, 'functionCalls', {
         get: function() {
@@ -966,8 +977,50 @@ export class DeepVServerAdapter implements ContentGenerator {
         accumulatedParts.push(...newParts);
       }
     } else if (newParts.length > 0 && newParts[0].functionCall) {
-      // 如果有工具调用，直接添加
-      accumulatedParts.push(...newParts);
+      // 🎯 修复：合并流式工具调用内容
+      const lastAccPart = accumulatedParts[accumulatedParts.length - 1];
+      const newPart = newParts[0];
+
+      if (lastAccPart && lastAccPart.functionCall) {
+        // 如果最后一个部分也是工具调用，则进行合并
+        const accFc = lastAccPart.functionCall;
+        const newFc = newPart.functionCall;
+
+        if (newFc) {
+          // 合并基础字段
+          if (newFc.name) accFc.name = newFc.name;
+          // 如果新分片有 ID，覆盖旧的（通常 ID 在第一个分片）
+          if (newFc.id) accFc.id = newFc.id;
+
+          // 合并参数 (args)
+          if (newFc.args) {
+            if (typeof newFc.args === 'string' && typeof accFc.args === 'string') {
+              // 如果是增量字符串（常见于流式 JSON 片段），进行累加
+              accFc.args += newFc.args;
+            } else if (typeof newFc.args === 'object' && newFc.args !== null) {
+              // 如果已经是解析好的对象，进行浅合并
+              accFc.args = {
+                ...(typeof accFc.args === 'object' ? accFc.args : {}),
+                ...newFc.args
+              };
+            } else {
+              // 其他情况直接覆盖
+              accFc.args = newFc.args;
+            }
+          }
+        }
+      } else {
+        // 否则直接添加新部分
+        const partToPush = { ...newPart };
+        // 🚀 关键增强：如果模型返回的工具调用缺失 ID，在客户端侧补全它
+        // 这确保了内部状态追踪和后续发回模型的 response ID 保持一致
+        if (partToPush.functionCall && !partToPush.functionCall.id) {
+          const generatedId = `call_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+          console.log(`[DeepV Server] 补全缺失的工具 ID: ${partToPush.functionCall.name} -> ${generatedId}`);
+          partToPush.functionCall.id = generatedId;
+        }
+        accumulatedParts.push(partToPush);
+      }
     }
 
     // 更新使用统计（使用最新的）
