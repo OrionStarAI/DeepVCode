@@ -91,7 +91,7 @@ export const memoryCommand: SlashCommand = {
 
             // 自动刷新记忆以重载更新后的文件
             try {
-              const { memoryContent, fileCount } =
+              const { memoryContent, fileCount, filePaths } =
                 await loadServerHierarchicalMemory(
                   config.getWorkingDir(),
                   config.getDebugMode(),
@@ -102,6 +102,7 @@ export const memoryCommand: SlashCommand = {
                 );
               config.setUserMemory(memoryContent);
               config.setGeminiMdFileCount(fileCount);
+              config.setGeminiMdFilePaths(filePaths);
 
               // 计算并更新 memory token
               try {
@@ -125,10 +126,14 @@ export const memoryCommand: SlashCommand = {
               }
 
               // 显示刷新成功信息
+              let refreshMessage = `${t('memory.add.refreshSuccess')} ${t('memory.refreshed').replace('{fileCount}', fileCount.toString()).replace('{charCount}', memoryContent.length.toString())}`;
+              if (fileCount > 0 && filePaths.length > 0) {
+                refreshMessage += `\nMemory files:\n${filePaths.map(f => `  - ${f}`).join('\n')}`;
+              }
               context.ui.addItem(
                 {
                   type: MessageType.INFO,
-                  text: `${t('memory.add.refreshSuccess')} ${t('memory.refreshed').replace('{fileCount}', fileCount.toString()).replace('{charCount}', memoryContent.length.toString())}`,
+                  text: refreshMessage,
                 },
                 Date.now(),
               );
@@ -180,7 +185,7 @@ export const memoryCommand: SlashCommand = {
         try {
           const config = await context.services.config;
           if (config) {
-            const { memoryContent, fileCount } =
+            const { memoryContent, fileCount, filePaths } =
               await loadServerHierarchicalMemory(
                 config.getWorkingDir(),
                 config.getDebugMode(),
@@ -191,6 +196,7 @@ export const memoryCommand: SlashCommand = {
               );
             config.setUserMemory(memoryContent);
             config.setGeminiMdFileCount(fileCount);
+            config.setGeminiMdFilePaths(filePaths);
 
             // 计算并更新 memory token
             try {
@@ -213,10 +219,15 @@ export const memoryCommand: SlashCommand = {
               console.warn('更新模型系统指令失败:', updateError);
             }
 
-            const successMessage =
+            let successMessage =
               memoryContent.length > 0
                 ? `${t('memory.refresh.success')} ${t('memory.refreshed').replace('{fileCount}', fileCount.toString()).replace('{charCount}', memoryContent.length.toString())}`
                 : t('memory.refresh.noContent');
+
+            // Add file paths to the success message
+            if (fileCount > 0 && filePaths.length > 0) {
+              successMessage += `\nMemory files:\n${filePaths.map(f => `  - ${f}`).join('\n')}`;
+            }
 
             context.ui.addItem(
               {

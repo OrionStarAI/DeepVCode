@@ -375,6 +375,8 @@ export interface Translations {
     openInBrowser: string;
     tryAgain: string;
     remaining: string;
+    imageTooLarge: string;
+    clickToView: string;
     error: {
       emptyPrompt: string;
       invalidImageType: string;

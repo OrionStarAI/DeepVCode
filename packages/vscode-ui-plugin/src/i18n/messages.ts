@@ -6,6 +6,30 @@
  */
 
 // =============================================================================
+// 行内补全相关消息
+// =============================================================================
+
+export const INLINE_COMPLETION_MESSAGES = {
+  // 🎯 状态栏显示
+  STATUS_BAR_TEXT: 'DeepV Suggestions',
+  STATUS_BAR_TEXT_ZH: 'DeepV代码补全',
+  STATUS_BAR_ENABLED_TOOLTIP: 'DeepV Suggestions: Enabled (Click to disable)',
+  STATUS_BAR_ENABLED_TOOLTIP_ZH: 'DeepV 代码补全：已启用（点击关闭）',
+  STATUS_BAR_DISABLED_TOOLTIP: 'DeepV Suggestions: Disabled (Click to enable)',
+  STATUS_BAR_DISABLED_TOOLTIP_ZH: 'DeepV 代码补全：已禁用（点击启用）',
+
+  // 🎯 命令标题
+  TOGGLE_COMMAND_TITLE: 'Toggle DeepV Suggestions',
+  TOGGLE_COMMAND_TITLE_ZH: '切换代码补全',
+
+  // 🎯 提示信息
+  COMPLETION_ENABLED: 'DeepV Suggestions enabled',
+  COMPLETION_ENABLED_ZH: 'DeepV代码补全已启用',
+  COMPLETION_DISABLED: 'DeepV Suggestions disabled',
+  COMPLETION_DISABLED_ZH: 'DeepV代码补全已禁用',
+} as const;
+
+// =============================================================================
 // 回退功能相关消息
 // =============================================================================
 
@@ -240,6 +264,7 @@ export function getErrorMessage(error: unknown, fallback: string = COMMON_MESSAG
 // =============================================================================
 
 export const I18N_MESSAGES = {
+  INLINE_COMPLETION: INLINE_COMPLETION_MESSAGES,
   ROLLBACK: ROLLBACK_MESSAGES,
   EDIT: EDIT_MESSAGES,
   FILE_OPERATION: FILE_OPERATION_MESSAGES,

@@ -348,7 +348,7 @@ export async function loadHierarchicalGeminiMemory(
   settings: Settings,
   extensionContextFilePaths: string[] = [],
   fileFilteringOptions?: FileFilteringOptions,
-): Promise<{ memoryContent: string; fileCount: number }> {
+): Promise<{ memoryContent: string; fileCount: number; filePaths: string[] }> {
   if (debugMode) {
     logger.debug(
       `CLI: Delegating hierarchical memory load to server for CWD: ${currentWorkingDirectory}`,
@@ -427,7 +427,7 @@ export async function loadCliConfig(
   };
 
   // Call the (now wrapper) loadHierarchicalGeminiMemory which calls the server's version
-  const { memoryContent, fileCount } = await loadHierarchicalGeminiMemory(
+  const { memoryContent, fileCount, filePaths } = await loadHierarchicalGeminiMemory(
     process.cwd(),
     debugMode,
     fileService,
@@ -435,6 +435,16 @@ export async function loadCliConfig(
     extensionContextFilePaths,
     fileFiltering,
   );
+
+  // Log memory file paths during initialization (for user transparency)
+  if (filePaths.length > 0) {
+    if (debugMode) {
+      logger.debug(`Loaded ${fileCount} memory file(s):`);
+      filePaths.forEach((filePath) => {
+        logger.debug(`  - ${filePath}`);
+      });
+    }
+  }
 
   let mcpServers = mergeMcpServers(settings, activeExtensions);
   const excludeTools = mergeExcludeTools(settings, activeExtensions);
@@ -497,7 +507,7 @@ export async function loadCliConfig(
     memoryTokenCount = 0;
   }
 
-  return new Config({
+  const config = new Config({
     sessionId,
     embeddingModel: DEFAULT_GEMINI_EMBEDDING_MODEL,
     sandbox: sandboxConfig,
@@ -549,6 +559,7 @@ export async function loadCliConfig(
       process.env.https_proxy ||
       process.env.HTTP_PROXY ||
       process.env.http_proxy,
+    customProxyServerUrl: settings.customProxyServerUrl,
     cwd: process.cwd(),
     fileDiscoveryService: fileService,
     bugCommand: settings.bugCommand,
@@ -568,6 +579,11 @@ export async function loadCliConfig(
     silentMode: isNonInteractiveMode,
     hooks: settings.hooks,
   });
+
+  // Set memory file paths for display in UI
+  config.setGeminiMdFilePaths(filePaths);
+
+  return config;
 }
 
 function mergeMcpServers(settings: Settings, extensions: Extension[]) {

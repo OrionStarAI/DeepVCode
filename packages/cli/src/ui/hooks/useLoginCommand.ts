@@ -20,6 +20,7 @@ export const useLoginCommand = (
   setLoginError: (error: string | null) => void,
   config: Config,
   setCurrentModel?: (model: string) => void,
+  customProxyUrl?: string,
 ) => {
   const [isLoginDialogOpen, setIsLoginDialogOpen] = useState(false);
 
@@ -39,8 +40,8 @@ export const useLoginCommand = (
       try {
         setIsAuthenticating(true);
 
-        // 如果是 Cheeth OA 认证，先从设置中恢复飞书 token
-        if (authType === AuthType.USE_CHEETH_OA) {
+        // 如果是代理认证，检查本地用户信息
+        if (authType === AuthType.USE_PROXY_AUTH) {
           try {
             const { ProxyAuthManager } = await import('deepv-code-core');
             const proxyAuthManager = ProxyAuthManager.getInstance();
@@ -51,7 +52,7 @@ export const useLoginCommand = (
               console.log(`🔄 Logged in user: ${userInfo.name} (${userInfo.email || userInfo.openId || 'N/A'})`);
             }
           } catch (error) {
-            console.warn('⚠️ 恢复飞书token失败:', error);
+            console.warn('⚠️ 恢复用户信息失败:', error);
           }
         }
 
@@ -66,18 +67,18 @@ export const useLoginCommand = (
     };
 
     void loginFlow();
-  }, [isLoginDialogOpen, settings, config, setLoginError, openLoginDialog]);
+  }, [isLoginDialogOpen, settings, config, setLoginError, openLoginDialog, customProxyUrl]);
 
   const handleLoginSelect = useCallback(
     async (authType: AuthType | undefined, scope: SettingScope) => {
       if (authType) {
         settings.setValue(scope, 'selectedAuthType', authType);
 
-        if (authType === AuthType.USE_CHEETH_OA) {
-          console.log('🤖 使用Cheeth OA认证，服务端将自动选择最佳模型');
+        if (authType === AuthType.USE_PROXY_AUTH) {
+          console.log('🤖 使用代理认证，服务端将自动选择最佳模型');
         }
 
-        // Browser launch suppression only applied to Google OAuth, not Cheeth OA
+        // Browser launch suppression only applied to Google OAuth, not proxy auth
         if (false) {
           runExitCleanup();
           console.log(

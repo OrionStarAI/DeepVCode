@@ -61,6 +61,9 @@ export * from './utils/pathUtils.js';
 
 export * from './utils/enhancedLogger.js';
 
+// Export environment detection utilities
+export * from './utils/environment/index.js';
+
 // Export auth
 export * from './auth/authenticatedHttpClient.js';
 export * from './auth/authNavigator.js';

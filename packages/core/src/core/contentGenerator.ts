@@ -40,7 +40,7 @@ export interface ContentGenerator {
 }
 
 export enum AuthType {
-  USE_CHEETH_OA = 'cheeth-oa',
+  USE_PROXY_AUTH = 'proxy-auth',
 }
 
 export type ContentGeneratorConfig = {
@@ -65,8 +65,8 @@ export function createContentGeneratorConfig(
     proxy: config?.getProxy(),
   };
 
-  // Cheeth OA authentication - no additional validation needed
-  if (authType === AuthType.USE_CHEETH_OA) {
+  // Proxy server authentication - no additional validation needed
+  if (authType === AuthType.USE_PROXY_AUTH) {
     return contentGeneratorConfig;
   }
 
@@ -91,16 +91,25 @@ export async function createContentGenerator(
 
   if (isDeepVServer) {
 
-    // 确保有可用的代理服务器
-    if (!hasAvailableProxyServer()) {
-      throw new Error(
-        'DeepV Code server is required for all models but is not available. ' +
-        'Please start the DeepV Code server or use Cheeth OA authentication.'
-      );
-    }
+    // Use custom proxy server URL if configured, otherwise use default
+    const customProxyUrl = gcConfig.getCustomProxyServerUrl();
+    let proxyServerUrl: string;
 
-    const proxyServerUrl = getActiveProxyServerUrl();
-    console.log(`[DeepX] Connecting to DeepV Code server: ${proxyServerUrl}`);
+    if (customProxyUrl) {
+      proxyServerUrl = customProxyUrl;
+      console.log(`[DeepX] Using custom proxy server: ${proxyServerUrl}`);
+    } else {
+      // 确保有可用的代理服务器
+      if (!hasAvailableProxyServer()) {
+        throw new Error(
+          'DeepV Code server is required for all models but is not available. ' +
+          'Please start the DeepV Code server or use proxy authentication.'
+        );
+      }
+
+      proxyServerUrl = getActiveProxyServerUrl();
+      console.log(`[DeepX] Connecting to DeepV Code server: ${proxyServerUrl}`);
+    }
 
     // 🔧 Linus式修复：统一使用DeepVServerAdapter，内部会根据模型类型自动路由
     // NOTE: googleCloudLocation and googleCloudProject are legacy parameters, no longer used after switching to proxy-based architecture
@@ -110,7 +119,7 @@ export async function createContentGenerator(
     return new DeepVServerAdapter(googleCloudLocation, googleCloudProject, proxyServerUrl, gcConfig);
   }
 
-  // For other auth types (should only be USE_CHEETH_OA now), fall through to error
+  // For other auth types (should only be USE_PROXY_AUTH now), fall through to error
 
   throw new Error(
     `Error creating contentGenerator: Unsupported authType: ${config.authType}`,

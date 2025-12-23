@@ -16,6 +16,7 @@ import { getShortModelName } from '../utils/footerUtils.js';
 interface WelcomeScreenProps {
   config: Config;
   version: string;
+  customProxyUrl?: string;
 }
 
 interface RecentSessionDisplay {
@@ -72,6 +73,7 @@ function formatRelativeTime(date: Date): string {
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   config,
   version,
+  customProxyUrl,
 }) => {
   // 直接同步获取用户名，不使用 state
   const userName = useMemo(() => {
@@ -173,6 +175,14 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
         <Box>
           <Text dimColor>{fullPath}</Text>
         </Box>
+
+        {/* Custom server info */}
+        {customProxyUrl && (
+          <Box flexDirection="column" marginBottom={1}>
+            <Text color={Colors.AccentOrange}>🔗 Custom server: {customProxyUrl}</Text>
+            <Text color={Colors.AccentOrange}>   Please verify trustworthiness and monitor your API usage.</Text>
+          </Box>
+        )}
 
         {/* Recent activity */}
         {recentSessions.length > 0 && (

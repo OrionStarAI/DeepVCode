@@ -80,7 +80,7 @@ class GeminiAgent implements Agent {
     this.settings.setValue(
       SettingScope.User,
       'selectedAuthType',
-      AuthType.USE_CHEETH_OA, // Only supported auth type
+      AuthType.USE_PROXY_AUTH, // Only supported auth type
     );
   }
 

@@ -24,7 +24,7 @@ import { ContextBuilder } from './services/contextBuilder';
 import { Logger } from './utils/logger';
 import { startupOptimizer } from './utils/startupOptimizer';
 import { EnvironmentOptimizer } from './utils/environmentOptimizer';
-import { ROLLBACK_MESSAGES } from './i18n/messages';
+import { ROLLBACK_MESSAGES, INLINE_COMPLETION_MESSAGES } from './i18n/messages';
 import { ClipboardCacheService } from './services/clipboardCacheService';
 import { SlashCommandService } from './services/slashCommandService';
 import { TerminalOutputService } from './services/terminalOutputService';
@@ -209,6 +209,12 @@ export async function activate(context: vscode.ExtensionContext) {
     // 🎯 监听文本选择变化 + 剪贴板监听（用于缓存复制的代码信息）
     setupClipboardMonitoring(context);
 
+    // 📝 监听记忆文件变化
+    setupMemoryFileWatcher(context);
+
+    // 🎯 设置打开扩展设置的功能
+    setupOpenExtensionSettings(communicationService);
+
     // 🎯 立即初始化WebView服务，这样用户点击时就能看到loading界面
     try {
       await webviewService.initialize();
@@ -220,6 +226,20 @@ export async function activate(context: vscode.ExtensionContext) {
     startupOptimizer.endPhase();
 
     startupOptimizer.startPhase('Background Services Startup');
+
+    // 🎯 启动时发送customProxyServerUrl给webview
+    setImmediate(async () => {
+      try {
+        const vscodeConfig = vscode.workspace.getConfiguration('deepv');
+        const customProxyUrl = (vscodeConfig.get<string>('customProxyServerUrl', '') || '').trim();
+        logger.info(`🌐 Sending customProxyServerUrl to webview: "${customProxyUrl}"`);
+        await communicationService.sendGenericMessage('config_update', {
+          customProxyServerUrl: customProxyUrl
+        });
+      } catch (error) {
+        logger.debug('Failed to send customProxyServerUrl on startup', error instanceof Error ? error : undefined);
+      }
+    });
 
     // 🎯 异步启动核心服务 - 不阻塞扩展激活
     // 设计理念:
@@ -292,6 +312,24 @@ export async function deactivate(): Promise<void> {
 }
 
 function setupServiceCommunication() {
+
+  // 🎯 监听customProxyServerUrl设置变化
+  vscode.workspace.onDidChangeConfiguration((event) => {
+    if (event.affectsConfiguration('deepv.customProxyServerUrl')) {
+      setImmediate(async () => {
+        try {
+          const vscodeConfig = vscode.workspace.getConfiguration('deepv');
+          const customProxyUrl = (vscodeConfig.get<string>('customProxyServerUrl', '') || '').trim();
+          logger.info(`🔄 customProxyServerUrl changed: "${customProxyUrl}"`);
+          await communicationService.sendGenericMessage('config_update', {
+            customProxyServerUrl: customProxyUrl
+          });
+        } catch (error) {
+          logger.debug('Failed to sync customProxyServerUrl on config change', error instanceof Error ? error : undefined);
+        }
+      });
+    }
+  });
 
   // 🎯 设置 /refine 命令处理器（文本优化功能，需在登录前立即注册）
   setupRefineCommandHandler();
@@ -916,10 +954,34 @@ function setupBasicMessageHandlers() {
     }
   });
 
+  // 🎯 处理webview请求配置
+  communicationService.addMessageHandler('request_config', async (data: any) => {
+    try {
+      const vscodeConfig = vscode.workspace.getConfiguration('deepv');
+      const customProxyUrl = (vscodeConfig.get<string>('customProxyServerUrl', '') || '').trim();
+      logger.debug(`📤 Responding to request_config: "${customProxyUrl}"`);
+      await communicationService.sendGenericMessage('config_update', {
+        customProxyServerUrl: customProxyUrl
+      });
+    } catch (error) {
+      logger.debug('Failed to handle request_config', error instanceof Error ? error : undefined);
+    }
+  });
+
   // 🎯 处理服务启动请求
   communicationService.onStartServices(async (data) => {
     try {
       logger.info('Received start services request');
+
+      // 🎯 读取customProxyServerUrl并发送给webview
+      const vscodeConfig = vscode.workspace.getConfiguration('deepv');
+      const customProxyUrl = vscodeConfig.get<string>('customProxyServerUrl', '');
+      if (customProxyUrl && customProxyUrl.trim()) {
+        logger.info(`Sending customProxyServerUrl to webview: ${customProxyUrl}`);
+        await communicationService.sendGenericMessage('config_update', {
+          customProxyServerUrl: customProxyUrl.trim()
+        });
+      }
 
       // 调用startServices函数
       await startServices();
@@ -1537,6 +1599,34 @@ function setupLoginHandlers() {
       await vscode.commands.executeCommand('deepv.openMCPSettings');
     } catch (error) {
       logger.error('Failed to open MCP settings', error instanceof Error ? error : undefined);
+    }
+  });
+
+  // 📝 处理打开文件请求
+  communicationService.addMessageHandler('open_file', async (payload: { filePath: string; line?: number }) => {
+    try {
+      logger.info('Opening file:', payload.filePath);
+      const fileUri = vscode.Uri.file(payload.filePath);
+      const options: vscode.TextDocumentShowOptions | undefined = payload.line
+        ? { selection: new vscode.Range(payload.line - 1, 0, payload.line - 1, 0) }
+        : undefined;
+      await vscode.window.showTextDocument(fileUri, options);
+    } catch (error) {
+      logger.error('Failed to open file', error instanceof Error ? error : undefined);
+      vscode.window.showErrorMessage(`Failed to open file: ${payload.filePath}`);
+    }
+  });
+
+  // 📝 处理手动刷新内存请求
+  communicationService.addMessageHandler('refresh_memory', async () => {
+    try {
+      logger.info('📝 Manual memory refresh requested');
+      await sessionManager.refreshUserMemory();
+      logger.info('📝 Memory refreshed successfully');
+      vscode.window.showInformationMessage('Memory files refreshed successfully');
+    } catch (error) {
+      logger.error('Failed to refresh memory', error instanceof Error ? error : undefined);
+      vscode.window.showErrorMessage(`Failed to refresh memory: ${error instanceof Error ? error.message : String(error)}`);
     }
   });
 
@@ -3258,8 +3348,16 @@ function registerCommands(context: vscode.ExtensionContext) {
       // 更新状态栏显示（tooltip会显示新状态，无需额外提示）
       updateInlineCompletionStatusBar();
 
-      // 🎯 使用状态栏消息代替弹窗提示，更轻量级，5秒后自动消失
-      const statusMessage = newState ? 'DeepV 代码补全已启用' : 'DeepV 代码补全已禁用';
+      // 🎯 使用状态栏消息代替弹窗提示，更轻量级，3秒后自动消失
+      const statusMessage = newState
+        ? getI18nText(
+            INLINE_COMPLETION_MESSAGES.COMPLETION_ENABLED,
+            INLINE_COMPLETION_MESSAGES.COMPLETION_ENABLED_ZH
+          )
+        : getI18nText(
+            INLINE_COMPLETION_MESSAGES.COMPLETION_DISABLED,
+            INLINE_COMPLETION_MESSAGES.COMPLETION_DISABLED_ZH
+          );
       vscode.window.setStatusBarMessage(statusMessage, 3000);
     }),
 
@@ -3443,6 +3541,21 @@ function registerCommands(context: vscode.ExtensionContext) {
 }
 
 /**
+ * 获取当前语言（中文或英文）
+ */
+function getCurrentLanguage(): 'zh' | 'en' {
+  const locale = vscode.env.language;
+  return locale.startsWith('zh') ? 'zh' : 'en';
+}
+
+/**
+ * 获取国际化文本
+ */
+function getI18nText(enText: string, zhText: string): string {
+  return getCurrentLanguage() === 'zh' ? zhText : enText;
+}
+
+/**
  * 更新状态栏显示
  */
 function updateInlineCompletionStatusBar() {
@@ -3452,19 +3565,31 @@ function updateInlineCompletionStatusBar() {
 
   const config = vscode.workspace.getConfiguration('deepv');
   const isEnabled = config.get<boolean>('enableInlineCompletion', false);
+  const statusText = getI18nText(
+    INLINE_COMPLETION_MESSAGES.STATUS_BAR_TEXT,
+    INLINE_COMPLETION_MESSAGES.STATUS_BAR_TEXT_ZH
+  );
 
   if (isEnabled) {
-    // 开启状态：使用DeepV品牌标识 - "D" + check图标代表DeepV
-    inlineCompletionStatusBar.text = 'D$(check)';
-    inlineCompletionStatusBar.tooltip = 'DeepV 代码补全：已启用（点击关闭）';
+    // 开启状态：使用lightbulb图标表示AI能力已激活
+    inlineCompletionStatusBar.text = `$(lightbulb) ${statusText}`;
+    inlineCompletionStatusBar.tooltip = getI18nText(
+      INLINE_COMPLETION_MESSAGES.STATUS_BAR_ENABLED_TOOLTIP,
+      INLINE_COMPLETION_MESSAGES.STATUS_BAR_ENABLED_TOOLTIP_ZH
+    );
+    // 使用主题色保持统一外观
     inlineCompletionStatusBar.backgroundColor = undefined;
-    inlineCompletionStatusBar.color = undefined;
+    inlineCompletionStatusBar.color = new vscode.ThemeColor('statusBarItem.foreground');
   } else {
-    // 关闭状态：使用D + X表示禁用
-    inlineCompletionStatusBar.text = 'D$(x)';
-    inlineCompletionStatusBar.tooltip = 'DeepV 代码补全：已禁用（点击启用）';
+    // 关闭状态：使用circle-slash图标表示已禁用
+    inlineCompletionStatusBar.text = `$(circle-slash) ${statusText}`;
+    inlineCompletionStatusBar.tooltip = getI18nText(
+      INLINE_COMPLETION_MESSAGES.STATUS_BAR_DISABLED_TOOLTIP,
+      INLINE_COMPLETION_MESSAGES.STATUS_BAR_DISABLED_TOOLTIP_ZH
+    );
+    // 使用主题色保持统一外观
     inlineCompletionStatusBar.backgroundColor = undefined;
-    inlineCompletionStatusBar.color = new vscode.ThemeColor('statusBarItem.warningForeground');
+    inlineCompletionStatusBar.color = new vscode.ThemeColor('statusBarItem.foreground');
   }
 }
 
@@ -3900,4 +4025,66 @@ function setupClipboardMonitoring(context: vscode.ExtensionContext) {
   });
 
   logger.info('📋 Clipboard monitoring enabled');
+}
+
+/**
+ * 📝 设置记忆文件监听 - 自动检测记忆文件变化并刷新
+ */
+function setupMemoryFileWatcher(context: vscode.ExtensionContext) {
+  if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
+    logger.info('📝 No workspace open, skipping memory file watcher setup');
+    return;
+  }
+
+  const workspaceRoot = vscode.workspace.workspaceFolders[0].uri.fsPath;
+
+  // 监听记忆文件变化（DEEPV.md, GEMINI.md, AGENTS.md, CLAUDE.md 等）
+  const memoryFilePatterns = ['**/{DEEPV,GEMINI,AGENTS,CLAUDE}.md'];
+  const fileWatcher = vscode.workspace.createFileSystemWatcher(
+    new vscode.RelativePattern(workspaceRoot, '{DEEPV,GEMINI,AGENTS,CLAUDE}.md')
+  );
+
+  let refreshTimeout: NodeJS.Timeout | null = null;
+
+  const refreshMemory = async () => {
+    if (refreshTimeout) {
+      clearTimeout(refreshTimeout);
+    }
+
+    // 防抖：延迟 500ms 后刷新，避免频繁刷新（如持续编辑文件）
+    refreshTimeout = setTimeout(async () => {
+      try {
+        logger.info('📝 Memory file changed, refreshing memory for active sessions');
+        await sessionManager.refreshUserMemory();
+        logger.info('📝 Memory refreshed successfully');
+      } catch (error) {
+        logger.error('Failed to refresh memory after file change', error instanceof Error ? error : undefined);
+      }
+      refreshTimeout = null;
+    }, 500);
+  };
+
+  // 监听文件创建、修改、删除
+  fileWatcher.onDidChange(refreshMemory);
+  fileWatcher.onDidCreate(refreshMemory);
+  fileWatcher.onDidDelete(refreshMemory);
+
+  // 注册清理函数
+  context.subscriptions.push(fileWatcher);
+
+  logger.info('📝 Memory file watcher initialized');
+}
+
+// 🎯 打开扩展设置
+function setupOpenExtensionSettings(communicationService: MultiSessionCommunicationService) {
+  communicationService.onOpenExtensionSettings(async () => {
+    try {
+      logger.info('Opening VS Code extension settings for DeepV Code');
+      // 使用 workbench.action.openSettings 命令打开设置面板，并通过 @ext: 过滤器显示扩展配置
+      await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:DeepX.deepv-code-vscode-ui-plugin');
+    } catch (error) {
+      logger.error('Failed to open extension settings', error instanceof Error ? error : undefined);
+      vscode.window.showErrorMessage('Failed to open extension settings');
+    }
+  });
 }

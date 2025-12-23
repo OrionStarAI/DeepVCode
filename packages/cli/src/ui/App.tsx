@@ -166,6 +166,7 @@ interface AppProps {
   startupWarnings?: string[];
   version: string;
   promptExtensions?: any[]; // PromptExtension[] - imported from prompt-extensions
+  customProxyUrl?: string;
 }
 
 export const AppWrapper = (props: AppProps) => {
@@ -185,7 +186,7 @@ export const AppWrapper = (props: AppProps) => {
   );
 };
 
-const App = ({ config, settings, startupWarnings = [], version, promptExtensions = [] }: AppProps) => {
+const App = ({ config, settings, startupWarnings = [], version, promptExtensions = [], customProxyUrl }: AppProps) => {
   const isFocused = useFocus();
   useBracketedPaste();
 
@@ -357,6 +358,20 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   // Session restoration
   useSessionRestore({ config, loadHistory });
 
+  // Display memory files info on initialization
+  useEffect(() => {
+    const memoryFilePaths = config.getGeminiMdFilePaths();
+    if (memoryFilePaths.length > 0) {
+      const fileList = memoryFilePaths.map(f => `  - ${f}`).join('\n');
+      addItem(
+        {
+          type: MessageType.INFO,
+          text: `Using: ${memoryFilePaths.length} memory file${memoryFilePaths.length > 1 ? 's' : ''}\n${fileList}`,
+        },
+        Date.now(),
+      );
+    }
+  }, []); // Run only once on mount
 
   useEffect(() => {
     const consolePatcher = new ConsolePatcher({
@@ -584,7 +599,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     isAuthenticating,
     isPreparingEnvironment,
     cancelAuthentication,
-  } = useAuthCommand(settings, setAuthError, config, setCurrentModel);
+  } = useAuthCommand(settings, setAuthError, config, setCurrentModel, customProxyUrl);
 
   const {
     isLoginDialogOpen,
@@ -592,7 +607,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     handleLoginSelect,
     isAuthenticating: isLoginAuthenticating,
     cancelAuthentication: cancelLoginAuthentication,
-  } = useLoginCommand(settings, setLoginError, config, setCurrentModel);
+  } = useLoginCommand(settings, setLoginError, config, setCurrentModel, customProxyUrl);
 
   // BUG修复: 避免在初始化时显示认证错误，只在用户主动选择后验证
   // 修复策略: 移除自动验证逻辑，让用户在选择时才进行验证
@@ -658,7 +673,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
       Date.now(),
     );
     try {
-      const { memoryContent, fileCount } = await loadHierarchicalGeminiMemory(
+      const { memoryContent, fileCount, filePaths } = await loadHierarchicalGeminiMemory(
         process.cwd(),
         config.getDebugMode(),
         config.getFileService(),
@@ -671,10 +686,15 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
       config.setGeminiMdFileCount(fileCount);
       setGeminiMdFileCount(fileCount);
 
+      let successMessage = `Memory refreshed successfully. ${memoryContent.length > 0 ? `Loaded ${memoryContent.length} characters from ${fileCount} file(s).` : 'No memory content found.'}`;
+      if (fileCount > 0 && filePaths.length > 0) {
+        successMessage += `\nMemory files:\n${filePaths.map(f => `  - ${f}`).join('\n')}`;
+      }
+
       addItem(
         {
           type: MessageType.INFO,
-          text: `Memory refreshed successfully. ${memoryContent.length > 0 ? `Loaded ${memoryContent.length} characters from ${fileCount} file(s).` : 'No memory content found.'}`,
+          text: successMessage,
         },
         Date.now(),
       );
@@ -682,6 +702,9 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
         console.log(
           `[DEBUG] Refreshed memory content in config: ${memoryContent.substring(0, 200)}...`,
         );
+        filePaths.forEach((filePath) => {
+          console.log(`[DEBUG] Memory file: ${filePath}`);
+        });
       }
     } catch (error) {
       const errorMessage = getErrorMessage(error);
@@ -717,7 +740,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
 
       if (
         config.getContentGeneratorConfig().authType ===
-        AuthType.USE_CHEETH_OA
+        AuthType.USE_PROXY_AUTH
       ) {
         // Use actual user tier if available; otherwise, default to FREE tier behavior (safe default)
         const isPaidTier =
@@ -829,9 +852,14 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   }, [settings, openEditorDialog]);
 
   const onAuthError = useCallback(() => {
+    // 如果配置了自定义代理URL，跳过认证错误处理
+    if (customProxyUrl) {
+      console.log('[AuthError] Custom proxy URL configured, ignoring authentication error');
+      return;
+    }
     setAuthError('reauth required');
     openAuthDialog();
-  }, [openAuthDialog, setAuthError]);
+  }, [openAuthDialog, setAuthError, customProxyUrl]);
 
   // Core hooks and processors
   const {
@@ -894,6 +922,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     setModelSwitchedFromQuotaError,
     setEstimatedInputTokens, // 传递预估token设置函数
     settings, // 传递设置对象以支持异步模型配置更新
+    customProxyUrl,
   );
 
   const sendPromptImmediately = useCallback(
@@ -1465,6 +1494,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
           <WelcomeScreen
             config={config}
             version={version}
+            customProxyUrl={customProxyUrl}
           />
         )}
       </Box>

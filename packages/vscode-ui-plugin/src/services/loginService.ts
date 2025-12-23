@@ -54,13 +54,25 @@ export class LoginService {
 
   /**
    * 检查登录状态
-   * 新流程：1. 检查本地token -> 2. 调用/web-api/auth/me验证 -> 3. 返回结果
+   * 新流程：1. 检查customProxyServerUrl -> 2. 检查本地token -> 3. 调用/web-api/auth/me验证 -> 4. 返回结果
+   *
+   * 🎯 如果配置了customProxyServerUrl，跳过认证检查，信任自定义服务器处理认证
    */
   async checkLoginStatus(): Promise<LoginStatus> {
     try {
       this.logger.info('🔍 开始检查登录状态...');
 
-      // 第一步：检查本地是否有JWT token
+      // 🎯 第一步：检查是否配置了自定义代理服务器URL
+      const customProxyUrl = await this.getCustomProxyServerUrl();
+      if (customProxyUrl) {
+        this.logger.info(`🌐 检测到自定义代理服务器URL已配置，跳过认证检查，信任服务器自己处理认证`);
+        return {
+          isLoggedIn: true,
+          userInfo: undefined // 自定义服务器处理，我们不管用户信息
+        };
+      }
+
+      // 第二步：检查本地是否有JWT token
       const userInfo = await this.proxyAuthManager.getUserInfo?.() || null;
       const hasJWTData = this.proxyAuthManager.jwtTokenData !== null && this.proxyAuthManager.jwtTokenData !== undefined;
       const jwtToken = await this.proxyAuthManager.getAccessToken();
@@ -68,7 +80,7 @@ export class LoginService {
       if (userInfo && hasJWTData && jwtToken) {
         this.logger.info(`📋 本地找到JWT token，用户: ${userInfo.name} (${userInfo.email})`);
 
-        // 第二步：使用/web-api/auth/me接口验证token是否有效
+        // 第三步：使用/web-api/auth/me接口验证token是否有效
         const isValid = await this.validateTokenWithServer(jwtToken);
         if (isValid) {
           this.logger.info('✅ JWT token验证成功，用户已登录');
@@ -85,30 +97,7 @@ export class LoginService {
         this.logger.info('📋 本地未找到有效的JWT token');
       }
 
-      // 第三步：检查VSCode配置中的Feishu token（备用方案）
-      const config = vscode.workspace.getConfiguration('deepv');
-      const feishuToken = config.get<string>('feishuToken', '');
 
-      if (feishuToken && feishuToken.trim()) {
-        this.logger.info('📋 检查VSCode配置中的Feishu token');
-        try {
-          this.proxyAuthManager.configure({
-            proxyServerUrl: this.proxyAuthManager.getProxyServerUrl(),
-            feishuToken: feishuToken.trim()
-          });
-
-          // 设置环境变量
-          process.env.FEISHU_ACCESS_TOKEN = feishuToken.trim();
-
-          this.logger.info('✅ 使用Feishu token登录');
-          return {
-            isLoggedIn: true,
-            userInfo: { source: 'feishu_token' }
-          };
-        } catch (error) {
-          this.logger.warn('❌ Feishu token可能已过期', error instanceof Error ? error : undefined);
-        }
-      }
 
       this.logger.info('❌ 未找到有效的认证信息，需要登录');
       return {
@@ -167,13 +156,6 @@ export class LoginService {
    */
   async logout(): Promise<void> {
     try {
-      // 清除VSCode配置
-      const config = vscode.workspace.getConfiguration('deepv');
-      await config.update('feishuToken', undefined, vscode.ConfigurationTarget.Global);
-
-      // 清除环境变量
-      delete process.env.FEISHU_ACCESS_TOKEN;
-
       // 重置ProxyAuthManager
       this.proxyAuthManager.configure({
         proxyServerUrl: this.proxyAuthManager.getProxyServerUrl()
@@ -264,16 +246,41 @@ export class LoginService {
       this.proxyAuthManager.setJwtTokenData(null);
       this.proxyAuthManager.setUserInfo(null);
 
-      // 清除VSCode配置中的token（如果存在）
-      const config = vscode.workspace.getConfiguration('deepv');
-      await config.update('feishuToken', undefined, vscode.ConfigurationTarget.Global);
-
-      // 清除环境变量
-      delete process.env.FEISHU_ACCESS_TOKEN;
-
       this.logger.info('🧹 已清除无效的认证信息');
     } catch (error) {
       this.logger.warn('⚠️ 清除认证信息时出错', error instanceof Error ? error : undefined);
+    }
+  }
+
+  /**
+   * 获取配置的自定义代理服务器URL
+   * 优先级：VSCode扩展设置 > 文件配置 > undefined
+   */
+  private async getCustomProxyServerUrl(): Promise<string | undefined> {
+    try {
+      // 从 VSCode 扩展设置中读取
+      const vscodeConfig = vscode.workspace.getConfiguration('deepv');
+      const vscodeCustomProxyUrl = vscodeConfig.get<string>('customProxyServerUrl', '');
+      if (vscodeCustomProxyUrl && vscodeCustomProxyUrl.trim()) {
+        return vscodeCustomProxyUrl.trim();
+      }
+
+      // 从文件配置中读取
+      try {
+        const { MCPSettingsService } = await import('./mcpSettingsService.js');
+        const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        const fileSettings = MCPSettingsService.loadSettings(workspaceRoot);
+        if (fileSettings.customProxyServerUrl) {
+          return fileSettings.customProxyServerUrl;
+        }
+      } catch (fileLoadError) {
+        this.logger.debug('Could not load customProxyServerUrl from file settings');
+      }
+
+      return undefined;
+    } catch (error) {
+      this.logger.debug('Error getting custom proxy server URL:', error instanceof Error ? error.message : String(error));
+      return undefined;
     }
   }
 

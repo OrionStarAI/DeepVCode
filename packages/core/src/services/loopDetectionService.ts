@@ -34,12 +34,13 @@ const PREVIEW_MONITORED_TOOLS = new Set([
   'replace',
   'write_file',
   'delete_file',
+  'shell',
 ]);
 
 /**
  * Threshold for detecting same-tool-name loops in preview models.
  * When a preview model calls any tool in PREVIEW_MONITORED_TOOLS this many times
- * (with different or same args), it's considered a loop.
+ * consecutively (ignoring args), it's considered a loop.
  */
 const PREVIEW_TOOL_LOOP_THRESHOLD = 12;
 
@@ -120,8 +121,9 @@ export class LoopDetectionService {
   private lastToolCallKey: string | null = null;
   private toolCallRepetitionCount: number = 0;
 
-  // Preview model: track tool name frequency (ignoring args)
-  private toolNameCallCounts: Map<string, number> = new Map();
+  // Preview model: track consecutive tool name calls (ignoring args)
+  private lastToolName: string | null = null;
+  private consecutiveToolNameCount: number = 0;
 
   // Content streaming tracking
   private streamContentHistory = '';
@@ -231,7 +233,7 @@ export class LoopDetectionService {
    * which can exhaust context and API quotas without making meaningful progress.
    *
    * Strategy:
-   * - Track same tool name calls (ignoring args)
+   * - Track consecutive same tool name calls (ignoring args)
    * - Intensive I/O tools (read_file, etc.): threshold = 4
    * - Other tools: threshold = 5
    */
@@ -240,15 +242,21 @@ export class LoopDetectionService {
 
     // Only check tools that are known to cause loops in preview models
     if (!PREVIEW_MONITORED_TOOLS.has(toolName)) {
+      this.lastToolName = null;
+      this.consecutiveToolNameCount = 0;
       return false;
     }
 
-    const currentCount = (this.toolNameCallCounts.get(toolName) || 0) + 1;
-    this.toolNameCallCounts.set(toolName, currentCount);
+    if (this.lastToolName === toolName) {
+      this.consecutiveToolNameCount++;
+    } else {
+      this.lastToolName = toolName;
+      this.consecutiveToolNameCount = 1;
+    }
 
-    if (currentCount >= PREVIEW_TOOL_LOOP_THRESHOLD) {
+    if (this.consecutiveToolNameCount >= PREVIEW_TOOL_LOOP_THRESHOLD) {
       console.warn(
-        `[LoopDetection] Preview model loop detected: tool '${toolName}' called ${currentCount} times (threshold: ${PREVIEW_TOOL_LOOP_THRESHOLD})`
+        `[LoopDetection] Preview model loop detected: tool '${toolName}' called consecutively ${this.consecutiveToolNameCount} times (threshold: ${PREVIEW_TOOL_LOOP_THRESHOLD})`
       );
       this.detectedLoopType = LoopType.CONSECUTIVE_IDENTICAL_TOOL_CALLS;
       logLoopDetected(
@@ -587,7 +595,8 @@ Please analyze the conversation history to determine the possibility that the co
   private resetToolCallCount(): void {
     this.lastToolCallKey = null;
     this.toolCallRepetitionCount = 0;
-    this.toolNameCallCounts.clear();
+    this.lastToolName = null;
+    this.consecutiveToolNameCount = 0;
   }
 
   private resetContentTracking(resetHistory = true): void {

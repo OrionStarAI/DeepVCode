@@ -64,18 +64,18 @@ async function restoreVSCodeTerminalState(): Promise<void> {
 
 export const validateAuthMethod = (authMethod: string): string | null => {
   loadEnvironment();
-  
-  // BUG修复: 只支持Cheeth OA认证方式，通过飞书进行认证
-  // 修复策略: 简化认证验证逻辑，只允许Cheeth OA认证
+
+  // BUG修复: 只支持代理服务器认证方式
+  // 修复策略: 简化认证验证逻辑，只允许代理认证
   // 影响范围: packages/cli/src/config/auth.ts:validateAuthMethod函数
   // 修复日期: 2025-01-09
-  if (authMethod === AuthType.USE_CHEETH_OA) {
-    // Cheeth OA 模式通过飞书进行认证
-    console.log('[Login Check] Cheeth OA mode - using Feishu authentication');
+  if (authMethod === AuthType.USE_PROXY_AUTH) {
+    // 代理服务器模式 - 后端根据多种 OAuth2 源自动处理认证
+    console.log('[Login Check] Proxy server authentication mode');
     return null;
   }
 
-  return 'Invalid auth method selected. Only Cheeth OA authentication (via Feishu) is supported.';
+  return 'Invalid auth method selected. Only proxy server authentication is supported.';
 };
 
 /**
@@ -103,7 +103,7 @@ async function getUserInfoFromFeishu(accessToken: string): Promise<any> {
     }
 
     const data = await response.json();
-    
+
     if (data.code !== 0) {
       throw new Error(`飞书API错误: ${data.code} - ${data.msg || data.message}`);
     }
@@ -128,14 +128,14 @@ async function getUserInfoFromFeishu(accessToken: string): Promise<any> {
 }
 
 export async function handleFeishuAuth(
-  nextStepUrl: string = 'http://localhost:9000', 
+  nextStepUrl: string = 'http://localhost:9000',
   settings?: LoadedSettings
 ): Promise<boolean> {
   try {
     console.log('🚀 handleFeishuAuth: 开始飞书认证流程...');
 
     // 从服务端获取配置
-    
+
     try {
       const feishuConfig = await getFeishuConfigFromServer();
       const FEISHU_APP_ID = feishuConfig.appId;
@@ -164,7 +164,7 @@ export async function handleFeishuAuth(
         if (result.accessToken) {
           try {
             console.log('📱 正在交换JWT令牌...');
-            
+
             // 调用服务端的飞书JWT交换接口（统一使用标准端点）
             const proxyServerUrl = process.env.DEEPX_SERVER_URL || 'https://api-code.deepvlab.ai';
             const jwtResponse = await fetch(`${proxyServerUrl}/auth/jwt/feishu-login`, {
@@ -183,23 +183,23 @@ export async function handleFeishuAuth(
                 }
               })
             });
-            
+
             if (!jwtResponse.ok) {
               const errorText = await jwtResponse.text();
               console.error('❌ JWT交换失败:', jwtResponse.status, errorText);
               throw new Error(`JWT交换失败: ${jwtResponse.status}`);
             }
-            
+
             const jwtData = await jwtResponse.json();
             console.log('✅ JWT交换成功:', {
               user: jwtData.user?.name,
               email: jwtData.user?.email,
               expiresIn: jwtData.expiresIn
             });
-            
+
             // 保存JWT令牌和用户信息
             const proxyAuthManager = ProxyAuthManager.getInstance();
-            
+
             // 保存JWT token（包含refresh token）
             if (jwtData.accessToken) {
               proxyAuthManager.setJwtTokenData({
@@ -209,7 +209,7 @@ export async function handleFeishuAuth(
               });
               console.log('✅ JWT访问令牌和刷新令牌已保存');
             }
-            
+
             // 保存用户信息
             if (jwtData.user) {
               const userInfo = {
@@ -222,21 +222,21 @@ export async function handleFeishuAuth(
               };
               proxyAuthManager.setUserInfo(userInfo);
               console.log(`✅ 用户信息已保存: ${userInfo.name} (${userInfo.email || userInfo.openId || 'N/A'})`);
-              
+
               console.log('✅ JWT认证配置完成');
             }
-            
+
             // 如果有刷新令牌，也保存（扩展功能）
             if (jwtData.refreshToken) {
               // TODO: 实现刷新令牌的保存逻辑
               console.log('ℹ️ 收到刷新令牌，暂未实现保存逻辑');
             }
-            
+
           } catch (error) {
             console.error('❌ JWT交换过程失败:', error);
             // 降级处理：如果JWT交换失败，仍然尝试使用飞书token获取用户信息
             console.log('⚠️ 降级到直接使用飞书token...');
-            
+
             try {
               const userInfo = await getUserInfoFromFeishu(result.accessToken);
               if (userInfo) {
@@ -290,7 +290,7 @@ function openBrowser(url: string): void {
 /**
  * 处理DeepVlab统一认证流程
  * 功能实现: 使用DeepVlab统一认证系统进行认证
- * 
+ *
  * @param nextStepUrl 认证成功后的下一步URL
  * @param settings 设置对象
  * @param clearExistingAuth 是否清除现有认证（用于主动重新认证）
@@ -298,7 +298,7 @@ function openBrowser(url: string): void {
  * @returns 包含认证结果和URL的对象
  */
 export async function handleDeepvlabAuth(
-  nextStepUrl: string = 'http://localhost:9000', 
+  nextStepUrl: string = 'http://localhost:9000',
   settings?: LoadedSettings,
   clearExistingAuth: boolean = false,
   onUrlReady?: (url: string) => void
@@ -317,34 +317,34 @@ export async function handleDeepvlabAuth(
     // 使用authServer进行统一认证
     const authServer = new AuthServer();
     console.log('🌐 handleDeepvlabAuth: Starting authentication server...');
-    
+
     // 启动认证服务器
     await authServer.start();
     console.log(t('auth.deepvlab.server.started'));
-    
+
     // 打开浏览器到认证选择页面（使用实际端口）
     const selectPort = authServer.getActualSelectPort();
     const authUrl = `http://localhost:${selectPort}`;
     openBrowser(authUrl);
-    
+
     // 立即通知URL已准备好
     if (onUrlReady) {
       onUrlReady(authUrl);
     }
-    
+
     // 等待用户完成认证 - 轮询检查认证状态
     console.log('⏰ 等待认证完成...');
     const maxWaitTime = 300000; // 5分钟超时
     const checkInterval = 2000; // 每2秒检查一次
     const startTime = Date.now();
-    
+
     while (Date.now() - startTime < maxWaitTime) {
       try {
         // 检查认证状态
         const proxyAuthManager = ProxyAuthManager.getInstance();
         const userInfo = proxyAuthManager.getUserInfo();
         const jwtToken = await proxyAuthManager.getAccessToken();
-        
+
         if (userInfo && jwtToken) {
           // 验证JWT token是否有效
           if (isValidJwtToken(jwtToken)) {
@@ -360,11 +360,11 @@ export async function handleDeepvlabAuth(
       } catch (error) {
         // 忽略检查过程中的错误，继续等待
       }
-      
+
       // 等待一段时间后再次检查
       await new Promise(resolve => setTimeout(resolve, checkInterval));
     }
-    
+
     // 超时，关闭服务器
     console.log('⏰ 认证等待超时');
     authServer.stop();
@@ -373,7 +373,7 @@ export async function handleDeepvlabAuth(
     await restoreVSCodeTerminalState();
 
     return { success: false, authUrl };
-    
+
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : 'Unknown error';
     console.error(tp('auth.deepvlab.server.error', { error: errorMsg }));
@@ -395,10 +395,10 @@ function isValidJwtToken(token: string): boolean {
     if (parts.length !== 3) {
       return false;
     }
-    
+
     // 解析payload
     const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
-    
+
     // 检查过期时间
     if (payload.exp) {
       const now = Math.floor(Date.now() / 1000);
@@ -406,7 +406,7 @@ function isValidJwtToken(token: string): boolean {
         return false;
       }
     }
-    
+
     return true;
   } catch (error) {
     return false;

@@ -194,6 +194,7 @@ export interface ConfigParameters {
   };
   checkpointing?: boolean;
   proxy?: string;
+  customProxyServerUrl?: string; // Custom proxy server URL (from settings)
   cwd: string;
   fileDiscoveryService?: FileDiscoveryService;
   bugCommand?: BugCommandSettings;
@@ -237,6 +238,7 @@ export class Config {
   private userMemory: string;
   private memoryTokenCount: number = 0; // 新增
   private geminiMdFileCount: number;
+  private geminiMdFilePaths: string[] = [];
   private approvalMode: ApprovalMode;
   private readonly showMemoryUsage: boolean;
   private readonly accessibility: AccessibilitySettings;
@@ -253,6 +255,7 @@ export class Config {
   private gitService: GitService | undefined = undefined;
   private readonly checkpointing: boolean;
   private readonly proxy: string | undefined;
+  private readonly customProxyServerUrl: string | undefined;
   private readonly cwd: string;
   private readonly bugCommand: BugCommandSettings | undefined;
   //private readonly model: string;
@@ -331,6 +334,7 @@ export class Config {
     };
     this.checkpointing = params.checkpointing ?? false;
     this.proxy = params.proxy;
+    this.customProxyServerUrl = params.customProxyServerUrl;
     this.fileDiscoveryService = params.fileDiscoveryService ?? null;
     this.bugCommand = params.bugCommand;
     //this.model = params.model;
@@ -586,6 +590,14 @@ export class Config {
     this.geminiMdFileCount = count;
   }
 
+  getGeminiMdFilePaths(): string[] {
+    return this.geminiMdFilePaths;
+  }
+
+  setGeminiMdFilePaths(paths: string[]): void {
+    this.geminiMdFilePaths = paths;
+  }
+
   updateMcpServers(servers: Record<string, MCPServerConfig> | undefined): void {
     this.mcpServers = servers;
   }
@@ -704,6 +716,10 @@ export class Config {
 
   getProxy(): string | undefined {
     return this.proxy;
+  }
+
+  getCustomProxyServerUrl(): string | undefined {
+    return this.customProxyServerUrl;
   }
 
   getWorkingDir(): string {

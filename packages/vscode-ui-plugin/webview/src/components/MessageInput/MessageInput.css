@@ -1126,6 +1126,67 @@
   overflow: visible; /* 🎯 确保内容不被裁剪 */
 }
 
+/* 🎯 编辑器浮动操作栏 - 放 Refine 按钮和自定义服务器提示 */
+.editor-floating-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 4px 12px;
+  position: relative;
+  min-height: 28px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* 🎯 自定义服务器提示badge - 在editor-floating-actions里 */
+.custom-proxy-info-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  background-color: transparent;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground, #cccccc);
+  user-select: text;
+  line-height: 1.2;
+  flex: 0 1 auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.custom-proxy-info-icon {
+  flex-shrink: 0;
+  color: var(--vscode-descriptionForeground, #cccccc);
+  opacity: 0.8;
+  width: 14px;
+  height: 14px;
+  min-width: 14px;
+  min-height: 14px;
+}
+
+.custom-proxy-info-text {
+  color: var(--vscode-descriptionForeground, #cccccc);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 旧的custom-proxy-info-bar保留备用 */
+.custom-proxy-info-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  background-color: transparent;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground, #cccccc);
+  user-select: text;
+  line-height: 1.4;
+  margin-top: 2px;
+}
+
 /* 🎯 MessageInput 中的模型选择器特殊样式 - 渐进式压缩 */
 .message-input-model-selector {
   min-width: 80px;

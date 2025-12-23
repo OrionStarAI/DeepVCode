@@ -87,6 +87,10 @@ export const MultiSessionApp: React.FC = () => {
   const [mcpDiscoveryState, setMcpDiscoveryState] = useState<any>(null);
   const [mcpStatusLoaded, setMcpStatusLoaded] = useState(false);
 
+  // 🎯 记忆文件路径管理
+  const [memoryFilePaths, setMemoryFilePaths] = useState<string[]>([]);
+  const [memoryFileCount, setMemoryFileCount] = useState(0);
+
   // 🎯 模型选择状态管理
   // 🛡️ 改为 'auto' 让服务端决定成本最优的模型
   const [selectedModelId, setSelectedModelId] = useState('auto');
@@ -1048,6 +1052,13 @@ export const MultiSessionApp: React.FC = () => {
         ...server,
         enabled: payload.states[server.name] ?? server.enabled ?? true
       })));
+    });
+
+    // 📝 监听记忆文件路径更新
+    messageService.onMemoryFilesUpdate((payload: { filePaths: string[]; fileCount: number }) => {
+      console.log('📝 [Memory] Received memory files update:', payload);
+      setMemoryFilePaths(payload.filePaths);
+      setMemoryFileCount(payload.fileCount);
     });
 
     return () => {
@@ -2022,6 +2033,8 @@ User question: ${contentStr}`;
         mcpDiscoveryState={mcpDiscoveryState}
         mcpStatusLoaded={mcpStatusLoaded}
         onToggleMcpEnabled={handleToggleMcpEnabled}
+        memoryFilePaths={memoryFilePaths}
+        memoryFileCount={memoryFileCount}
       />
 
       {/* 自定义规则管理对话框 */}

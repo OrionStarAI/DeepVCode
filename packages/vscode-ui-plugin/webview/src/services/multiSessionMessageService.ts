@@ -234,9 +234,6 @@ export class MultiSessionMessageService {
           console.error(`❌ Handler error for ${message.type}:`, error);
         }
       });
-    } else {
-      console.warn(`❌ No handler for message type: ${message.type}`);
-      console.log(`📋 Available handlers:`, Array.from(this.listeners.keys()));
     }
   }
 
@@ -724,6 +721,13 @@ export class MultiSessionMessageService {
     this.addMessageHandler('flow_aborted', handler);
   }
 
+  /**
+   * 🎯 监听记忆文件路径更新
+   */
+  onMemoryFilesUpdate(handler: (data: { filePaths: string[]; fileCount: number }) => void) {
+    this.addMessageHandler('memory_files_update', handler);
+  }
+
   // =============================================================================
   // 私有辅助方法
   // =============================================================================
@@ -950,6 +954,40 @@ export class MultiSessionMessageService {
    */
   onMcpEnabledStates(callback: (data: { states: Record<string, boolean> }) => void): () => void {
     return this.addMessageHandler('mcp_enabled_states', callback);
+  }
+
+  // =============================================================================
+  // 🎯 文件操作相关
+  // =============================================================================
+
+  /**
+   * 📝 打开文件
+   */
+  openFile(filePath: string, line?: number): void {
+    this.sendMessage({
+      type: 'open_file' as any,
+      payload: { filePath, line }
+    });
+  }
+
+  /**
+   * 📝 刷新内存文件
+   */
+  refreshMemory(): void {
+    this.sendMessage({
+      type: 'refresh_memory' as any,
+      payload: {}
+    });
+  }
+
+  /**
+   * 🎯 打开 VS Code 扩展设置
+   */
+  openExtensionSettings(): void {
+    this.sendMessage({
+      type: 'open_extension_settings' as any,
+      payload: {}
+    });
   }
 
   // =============================================================================

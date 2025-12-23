@@ -118,6 +118,7 @@ export class MCPSettingsService {
     mcpServers: Record<string, MCPServerConfig>;
     allowMCPServers?: string[];
     excludeMCPServers?: string[];
+    customProxyServerUrl?: string;
   } {
     // 按优先级加载配置（系统 < 用户 < 工作区）
     const systemSettings = this.loadJsonFile(this.getSystemSettingsPath());
@@ -137,6 +138,7 @@ export class MCPSettingsService {
       mcpServers: mergedSettings.mcpServers || {},
       allowMCPServers: mergedSettings.allowMCPServers,
       excludeMCPServers: mergedSettings.excludeMCPServers,
+      customProxyServerUrl: mergedSettings.customProxyServerUrl,
     };
   }
 

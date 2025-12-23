@@ -49,7 +49,7 @@ export class CompletionScheduler {
   // 配置参数（可根据需要调整）
   // 🆕 优化：降低防抖时间，让请求更快发出；降低最小间隔，允许更频繁请求
   // Codestral FIM 模型响应快，可以更激进一些
-  private readonly DEBOUNCE_MS = 150;       // 防抖时间（ms）- 从 300 降到 150
+  private DEBOUNCE_MS = 150;       // 防抖时间（ms）- 从配置读取，默认 150
   private readonly THROTTLE_CHARS = 3;      // 节流字符数 - 从 6 降到 3
   private readonly MIN_INTERVAL_MS = 100;   // 最小间隔（ms）- 从 200 降到 100
 
@@ -61,6 +61,29 @@ export class CompletionScheduler {
     this.cache = cache;
     this.completionService = completionService;
     this.logger = logger;
+
+    // 📝 从 VS Code 配置读取延迟时间
+    this.updateDelayFromConfig();
+
+    // 监听配置变化
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration('deepv.inlineCompletionDelay')) {
+        this.updateDelayFromConfig();
+      }
+    });
+  }
+
+  /**
+   * 从配置更新延迟时间
+   */
+  private updateDelayFromConfig() {
+    const config = vscode.workspace.getConfiguration('deepv');
+    const configuredDelay = config.get<number>('inlineCompletionDelay');
+
+    if (configuredDelay !== undefined && configuredDelay > 0) {
+      this.DEBOUNCE_MS = configuredDelay;
+      this.logger.debug(`[CompletionScheduler] Updated DEBOUNCE_MS from config: ${this.DEBOUNCE_MS}ms`);
+    }
   }
 
   /**

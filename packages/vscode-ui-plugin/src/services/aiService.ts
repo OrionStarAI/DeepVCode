@@ -153,18 +153,32 @@ export class AIService {
         }
       }
 
-      // 🎯 加载 MCP 服务器配置（完全容错，失败不影响主流程）
+      // 🎯 加载 MCP 服务器配置和自定义代理URL（完全容错，失败不影响主流程）
       let mcpServers = {};
+      let customProxyServerUrl: string | undefined;
       try {
         const { MCPSettingsService } = await import('./mcpSettingsService.js');
+        const fileSettings = MCPSettingsService.loadSettings(targetDir);
         mcpServers = MCPSettingsService.loadMCPServers(targetDir);
+        customProxyServerUrl = fileSettings.customProxyServerUrl;
 
         if (Object.keys(mcpServers).length > 0) {
           this.logger.info(`Loaded ${Object.keys(mcpServers).length} MCP server(s) from settings`);
         }
+        if (customProxyServerUrl) {
+          this.logger.info(`Using custom proxy server from file settings: ${customProxyServerUrl}`);
+        }
       } catch (mcpLoadError) {
-        this.logger.warn('⚠️ Failed to load MCP settings, continuing without MCP', mcpLoadError instanceof Error ? mcpLoadError : undefined);
+        this.logger.warn('⚠️ Failed to load MCP/proxy settings, continuing without them', mcpLoadError instanceof Error ? mcpLoadError : undefined);
         mcpServers = {};
+      }
+
+      // 🎯 从 VSCode 扩展设置中读取 customProxyServerUrl（优先级高于文件配置）
+      const vscodeExtConfig = vscode.workspace.getConfiguration('deepv');
+      const vscodeCustomProxyUrl = vscodeExtConfig.get<string>('customProxyServerUrl', '');
+      if (vscodeCustomProxyUrl && vscodeCustomProxyUrl.trim()) {
+        customProxyServerUrl = vscodeCustomProxyUrl.trim();
+        this.logger.info(`Using custom proxy server from VSCode extension settings: ${customProxyServerUrl}`);
       }
 
       this.config = new Config({
@@ -181,6 +195,7 @@ export class AIService {
         userMemory: userMemory,              // 🎯 传入用户内存内容
         geminiMdFileCount: geminiMdFileCount, // 🎯 传入文件计数
         mcpServers: mcpServers,              // 🎯 传入 MCP 服务器配置
+        customProxyServerUrl: customProxyServerUrl, // 🎯 传入自定义代理服务器URL
         fileFiltering: {
           respectGitIgnore: true,
           respectGeminiIgnore: true,
@@ -192,19 +207,12 @@ export class AIService {
 
       await this.config.initialize();
 
-      // 🎯 从VSCode settings同步云端模型配置到config
-      try {
-        const vsCodeConfig = vscode.workspace.getConfiguration('deepv');
-        const cloudModels = vsCodeConfig.get<any[]>('cloudModels', []);
-        if (Array.isArray(cloudModels) && cloudModels.length > 0) {
-          this.config.setCloudModels(cloudModels);
-          this.logger.info(`📊 Synced ${cloudModels.length} cloud models to config`);
-        }
-      } catch (cloudModelsError) {
-        this.logger.warn('⚠️ Failed to sync cloud models to config', cloudModelsError instanceof Error ? cloudModelsError : undefined);
-      }
+      // 等待必需的授权初始化（会话启动前必要）
+      await this.config.refreshAuth(AuthType.USE_PROXY_AUTH);
 
-      await this.config.refreshAuth(AuthType.USE_CHEETH_OA);
+      // 🎯 异步同步云端模型配置（不阻塞会话初始化）
+      // 云模型列表的更新可以在后台进行，不影响会话的启动和使用
+      this.syncCloudModelsInBackground();
       this.geminiClient = this.config.getGeminiClient();
       await this.initializeCoreToolScheduler();
 
@@ -377,6 +385,32 @@ export class AIService {
 
       } catch (error) {
         this.logger.warn('⚠️ [MCP] Background MCP sync failed, continuing without MCP', error instanceof Error ? error : undefined);
+      }
+    });
+  }
+
+  /**
+   * 🎯 后台异步同步云端模型配置
+   * 不阻塞会话初始化 - 模型列表会在后台更新
+   * 使用 setImmediate 确保优先级在当前调用栈之后
+   */
+  private syncCloudModelsInBackground(): void {
+    setImmediate(async () => {
+      try {
+        this.logger.debug('[Cloud Models] Starting background sync...');
+
+        const vsCodeConfig = vscode.workspace.getConfiguration('deepv');
+        const cloudModels = vsCodeConfig.get<any[]>('cloudModels', []);
+
+        if (Array.isArray(cloudModels) && cloudModels.length > 0) {
+          this.config?.setCloudModels(cloudModels);
+          this.logger.info(`✅ Cloud models synced in background: ${cloudModels.length} models available`);
+        } else {
+          this.logger.debug('[Cloud Models] No cloud models found in VSCode settings');
+        }
+      } catch (error) {
+        this.logger.warn('[Cloud Models] Background sync failed', error instanceof Error ? error : undefined);
+        // 失败不影响会话初始化，仅记录警告
       }
     });
   }

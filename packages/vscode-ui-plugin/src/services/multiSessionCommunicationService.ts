@@ -150,6 +150,14 @@ export class MultiSessionCommunicationService {
     });
   }
 
+  // 🎯 记忆文件路径更新
+  async sendMemoryFilesUpdate(filePaths: string[], fileCount: number) {
+    await this.sendMessage({
+      type: 'memory_files_update',
+      payload: { filePaths, fileCount }
+    });
+  }
+
   // 🎯 UI历史恢复消息发送
   async sendRestoreUIHistory(sessionId: string, messages: any[], rollbackableMessageIds: string[] = []): Promise<void> {
     await this.sendMessage({
@@ -635,6 +643,11 @@ export class MultiSessionCommunicationService {
 
   onGotoLine(handler: (data: { line: number }) => void): vscode.Disposable {
     return this.addMessageHandler('goto_line', handler);
+  }
+
+  // 🎯 打开扩展设置
+  onOpenExtensionSettings(handler: () => void): vscode.Disposable {
+    return this.addMessageHandler('open_extension_settings', handler);
   }
 
   // 🎯 发送项目设置响应

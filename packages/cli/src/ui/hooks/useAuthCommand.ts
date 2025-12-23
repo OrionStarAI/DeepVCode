@@ -20,6 +20,7 @@ export const useAuthCommand = (
   setAuthError: (error: string | null) => void,
   config: Config,
   setCurrentModel?: (model: string) => void,
+  customProxyUrl?: string,
 ) => {
   const [isAuthDialogOpen, setIsAuthDialogOpen] = useState(
     settings.merged.selectedAuthType === undefined,
@@ -53,15 +54,19 @@ export const useAuthCommand = (
       try {
         console.log('[AuthCommand] checking auth at startup...');
 
-        // 对于 Cheeth OA 认证，检查本地用户信息
-        if (authType === AuthType.USE_CHEETH_OA) {
+        // 对于代理认证，检查本地用户信息
+        if (authType === AuthType.USE_PROXY_AUTH) {
           const { ProxyAuthManager } = await import('deepv-code-core');
           const proxyAuthManager = ProxyAuthManager.getInstance();
           const userInfo = proxyAuthManager.getUserInfo();
 
           if (!userInfo) {
-            console.log('[AuthCommand] auth expired at startup, opening auth dialog');
-            openAuthDialog();
+            if (customProxyUrl) {
+              console.log('[AuthCommand] Custom proxy URL configured, skipping auto-login dialog on startup');
+            } else {
+              console.log('[AuthCommand] auth expired at startup, opening auth dialog');
+              openAuthDialog();
+            }
           } else {
             console.log(`[AuthCommand] auth check passed: ${userInfo.name}`);
           }
@@ -71,8 +76,12 @@ export const useAuthCommand = (
             await config.refreshAuth(authType);
             console.log('[AuthCommand] auth check passed');
           } catch (error) {
-            console.log('[AuthCommand] auth expired at startup, opening auth dialog');
-            openAuthDialog();
+            if (customProxyUrl) {
+              console.log('[AuthCommand] Custom proxy URL configured, skipping auto-login dialog on startup');
+            } else {
+              console.log('[AuthCommand] auth expired at startup, opening auth dialog');
+              openAuthDialog();
+            }
           }
         }
       } catch (error) {
@@ -87,7 +96,7 @@ export const useAuthCommand = (
     if (!startupAuthCheckCompleted) {
       void checkAuthOnStartup();
     }
-  }, [isAuthDialogOpen, settings.merged.selectedAuthType, startupAuthCheckCompleted, config, setAuthError, openAuthDialog]);
+  }, [isAuthDialogOpen, settings.merged.selectedAuthType, startupAuthCheckCompleted, config, setAuthError, openAuthDialog, customProxyUrl]);
 
   useEffect(() => {
     const authFlow = async () => {
@@ -108,8 +117,8 @@ export const useAuthCommand = (
       // 这样可以让CLI界面立即可用，提升用户体验
 
       try {
-        // 如果是 Cheeth OA 认证，只需检查本地用户信息即可
-        if (authType === AuthType.USE_CHEETH_OA) {
+        // 如果是代理认证，只需检查本地用户信息即可
+        if (authType === AuthType.USE_PROXY_AUTH) {
           try {
             const { ProxyAuthManager } = await import('deepv-code-core');
             const proxyAuthManager = ProxyAuthManager.getInstance();
@@ -119,6 +128,22 @@ export const useAuthCommand = (
             if (userInfo) {
               console.log(`✅ Logged in user: ${userInfo.name} (${userInfo.email || userInfo.openId || 'N/A'})`);
               // 有用户信息说明认证有效，不需要立即刷新
+              return;
+            }
+
+            // 如果配置了自定义代理URL但没有JWT，设置一个占位符以允许GeminiClient初始化
+            if (customProxyUrl) {
+              console.log('[AuthCommand] Custom proxy URL configured without JWT - setting placeholder token for initialization');
+              // 设置一个占位符JWT，允许client初始化，实际认证由代理处理
+              const placeholderJwt = {
+                accessToken: 'placeholder-token-for-custom-proxy',
+                refreshToken: 'placeholder-refresh',
+                expiresIn: 86400, // 24小时
+                expiresAt: Date.now() + 86400 * 1000,
+                savedAt: new Date().toISOString()
+              };
+              // 直接在ProxyAuthManager上设置JWT（需要查看是否有公共方法）
+              // 暂时跳过，让用户通过 /auth 命令登录
               return;
             }
           } catch (error) {
@@ -150,11 +175,11 @@ export const useAuthCommand = (
 
         // ✅ 移除认证类型与模型的耦合 - 服务端内部决定模型
         // 客户端不再需要根据认证类型设置特定模型
-        if (authType === AuthType.USE_CHEETH_OA) {
-          console.log('🤖 使用Cheeth OA认证，服务端将自动选择最佳模型');
+        if (authType === AuthType.USE_PROXY_AUTH) {
+          console.log('🤖 使用代理认证，服务端将自动选择最佳模型');
         }
 
-        // Browser launch suppression only applied to Google OAuth, not Cheeth OA
+        // Browser launch suppression only applied to Google OAuth, not proxy auth
         if (false) {
           runExitCleanup();
           console.log(

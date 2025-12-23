@@ -68,7 +68,7 @@ export class GeminiClient {
   private contentGenerator?: ContentGenerator;
   private embeddingModel: string;
   private generateContentConfig: GenerateContentConfig = {
-    temperature: 0,
+    temperature: 1.0,
     topP: 1,
   };
   private sessionTurnCount = 0;
@@ -355,32 +355,45 @@ export class GeminiClient {
       // 检测VSCode环境，决定是否跳过进程检测
       const isVSCodeEnvironment = this.config.getVsCodePluginMode();
 
-      // 检测Node.js进程树信息 - 使用新的异步检测方法（带超时保护）
-      // 在VSCode插件环境中，跳过复杂的进程检测以避免CLI自杀风险
-      const nodeProcesses = await Promise.race([
-        getNodeProcessTreeAsync(isVSCodeEnvironment), // 传递VSCode环境参数
-        new Promise<any[]>((_, reject) =>
-          setTimeout(() => reject(new Error('Process detection timeout')), 5000)
-        )
-      ]).catch((error) => {
-        console.warn('[Process Detection] 异步检测超时或失败，使用同步回退:', error);
-        return [{
-          pid: process.pid,
-          ppid: process.ppid || 0,
-          name: 'node',
-          commandLine: process.argv.join(' ')
-        }];
-      });
+      // 🎯  优化：在 VSCode 环境中完全跳过进程检测（不必要的操作）
+      // 支持 vscode-ui-plugin 的环境变量优化
+      const shouldSkipProcessDetection =
+        isVSCodeEnvironment ||
+        process.env.DEEPV_SKIP_PROCESS_DETECTION === 'true';
 
-      nodeProcessInfo = await Promise.race([
-        formatNodeProcessInfo(nodeProcesses),
-        new Promise<string>((_, reject) =>
-          setTimeout(() => reject(new Error('Format timeout')), 2000)
-        )
-      ]).catch((error) => {
-        console.warn('[Process Info Format] 格式化超时，使用基础信息:', error);
-        return `Current process PID: ${process.pid} (Node.js CLI - do not kill)`;
-      });
+      if (shouldSkipProcessDetection) {
+        const skipReason = isVSCodeEnvironment
+          ? 'VSCode environment detected'
+          : 'DEEPV_SKIP_PROCESS_DETECTION environment variable set';
+        console.info(`[Process Detection] ${skipReason} - skipping unnecessary process detection`);
+        nodeProcessInfo = `Running in VSCode extension (PID: ${process.pid})`;
+      } else {
+        // CLI 环境：进行完整的进程检测 - 使用新的异步检测方法（带超时保护）
+        const nodeProcesses = await Promise.race([
+          getNodeProcessTreeAsync(false), // CLI 环境不跳过
+          new Promise<any[]>((_, reject) =>
+            setTimeout(() => reject(new Error('Process detection timeout')), 5000)
+          )
+        ]).catch((error) => {
+          console.warn('[Process Detection] 异步检测超时或失败，使用同步回退:', error);
+          return [{
+            pid: process.pid,
+            ppid: process.ppid || 0,
+            name: 'node',
+            commandLine: process.argv.join(' ')
+          }];
+        });
+
+        nodeProcessInfo = await Promise.race([
+          formatNodeProcessInfo(nodeProcesses),
+          new Promise<string>((_, reject) =>
+            setTimeout(() => reject(new Error('Format timeout')), 2000)
+          )
+        ]).catch((error) => {
+          console.warn('[Process Info Format] 格式化超时，使用基础信息:', error);
+          return `Current process PID: ${process.pid} (Node.js CLI - do not kill)`;
+        });
+      }
     } catch (error) {
       console.warn('[Environment Detection] 环境信息获取失败:', error);
       environmentInfo = `My operating system: ${process.platform}`;

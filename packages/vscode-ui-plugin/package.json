@@ -2,7 +2,7 @@
   "name": "deepv-code-vscode-ui-plugin",
   "displayName": "DeepV Code for VSCode",
   "description": "AI-powered programming assistant with visual interface for VS Code",
-  "version": "1.0.206",
+  "version": "1.0.209",
   "publisher": "DeepX",
   "icon": "assets/icon.png",
   "repository": {
@@ -73,17 +73,17 @@
       },
       {
         "command": "deepv.testInlineCompletion",
-        "title": "Test Inline Completion",
+        "title": "Test DeepV Suggestions",
         "category": "DeepV Code"
       },
       {
         "command": "deepv.toggleInlineCompletion",
-        "title": "Toggle Inline Completion",
+        "title": "Toggle DeepV Suggestions",
         "category": "DeepV Code"
       },
       {
         "command": "deepv.toggleInlineCompletionFromStatusBar",
-        "title": "Toggle Inline Completion from Status Bar",
+        "title": "Toggle DeepV Suggestions",
         "category": "DeepV Code"
       },
       {
@@ -180,27 +180,6 @@
     "configuration": {
       "title": "DeepV Code",
       "properties": {
-        "deepv.enableAutoAnalysis": {
-          "type": "boolean",
-          "default": true,
-          "description": "Enable automatic code analysis"
-        },
-        "deepv.confirmDangerousOperations": {
-          "type": "boolean",
-          "default": true,
-          "description": "Show confirmation dialog for dangerous operations"
-        },
-        "deepv.maxHistoryItems": {
-          "type": "number",
-          "default": 100,
-          "description": "Maximum number of history items to keep"
-        },
-        "deepv.feishuToken": {
-          "type": "string",
-          "default": "",
-          "description": "Feishu access token for authentication",
-          "markdownDescription": "Feishu access token for authentication. You can get it from the Feishu Developer Console."
-        },
         "deepv.logLevel": {
           "type": "string",
           "enum": [
@@ -228,20 +207,26 @@
         "deepv.enableInlineCompletion": {
           "type": "boolean",
           "default": false,
-          "description": "Enable AI-powered inline code completions",
-          "markdownDescription": "Enable or disable inline code completion suggestions powered by AI. When enabled, you'll see completion suggestions as you type."
+          "description": "Enable DeepV Inline Suggestions",
+          "markdownDescription": "Enable or disable DeepV Inline Suggestions powered by AI. When enabled, you'll see inline code suggestions as you type."
         },
         "deepv.inlineCompletionDelay": {
           "type": "number",
           "default": 300,
-          "description": "Delay in milliseconds before triggering inline completion",
-          "markdownDescription": "Delay (in milliseconds) before AI suggestions appear. Lower values mean faster suggestions but may use more resources. Recommended range: 100-1000ms."
+          "description": "Delay before showing inline suggestions (milliseconds)",
+          "markdownDescription": "Delay (in milliseconds) before inline suggestions appear. Lower values mean faster suggestions but may use more resources. Recommended range: 100-1000ms."
         },
         "deepv.inlineCompletionUseSuffix": {
           "type": "boolean",
           "default": true,
-          "description": "Use suffix context for code completion (FIM mode)",
-          "markdownDescription": "When enabled, uses Fill-in-Middle (FIM) mode with suffix context. When disabled, uses pure completion mode which may work better for comments and line endings."
+          "description": "Use suffix context for suggestions (FIM mode)",
+          "markdownDescription": "When enabled, uses Fill-in-Middle (FIM) mode with suffix context. When disabled, uses pure suggestion mode which may work better for comments and line endings."
+        },
+        "deepv.customProxyServerUrl": {
+          "type": "string",
+          "default": "",
+          "description": "Custom proxy server URL",
+          "markdownDescription": "Custom proxy server URL for enterprise deployments. Leave empty to use the default DeepV Code server. Example: `http://localhost:3001`. To deploy your own server, see [DeepVCode-Server-mini](https://github.com/OrionStarAI/DeepVCode-Server-mini)"
         }
       }
     }

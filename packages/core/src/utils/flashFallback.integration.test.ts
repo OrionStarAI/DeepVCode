@@ -78,14 +78,14 @@ describe('Flash Fallback Integration', () => {
         return status === 429;
       },
       onPersistent429: mockFallbackHandler,
-      authType: AuthType.USE_CHEETH_OA,
+      authType: AuthType.USE_PROXY_AUTH,
     });
 
     // Verify fallback was triggered
     expect(fallbackCalled).toBe(true);
     expect(fallbackModel).toBe(DEFAULT_GEMINI_FLASH_MODEL);
     expect(mockFallbackHandler).toHaveBeenCalledWith(
-      AuthType.USE_CHEETH_OA,
+      AuthType.USE_PROXY_AUTH,
       expect.any(Error),
     );
     expect(result).toBe('success after fallback');
@@ -116,7 +116,7 @@ describe('Flash Fallback Integration', () => {
           return status === 429;
         },
         onPersistent429: mockFallbackHandler,
-        authType: AuthType.USE_CHEETH_OA, // API key auth type
+        authType: AuthType.USE_PROXY_AUTH, // API key auth type
       });
     } catch (error) {
       // Expected to throw after max attempts
