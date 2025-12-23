@@ -921,6 +921,11 @@ Use Glob and ReadFile tools to explore specific files during our conversation.
       this.config.setModel(newModel);
       this.getChat().setSpecifiedModel(newModel);
 
+      // 🔧 重要：重新设置工具声明，确保工具格式与新模型兼容
+      // 不同模型（Gemini vs Claude）可能需要不同的工具声明格式
+      // 服务端会根据模型类型智能转换工具格式
+      await this.setTools();
+
       // 重置压缩标记，因为上下文可能已经改变
       this.resetCompressionFlag();
 

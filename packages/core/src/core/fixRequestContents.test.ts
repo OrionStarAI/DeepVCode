@@ -402,7 +402,7 @@ describe('GeminiChat.fixRequestContents', () => {
       expect(result).toEqual(input);
     });
 
-    it('一个有 ID 一个没有 ID 应该被认为不匹配', () => {
+    it('一个有 ID 一个没有 ID 应该被认为是匹配的（模糊匹配，兼容性支持）', () => {
       const input: Content[] = [
         {
           role: MESSAGE_ROLES.MODEL,
@@ -416,23 +416,9 @@ describe('GeminiChat.fixRequestContents', () => {
 
       const result = callFixRequestContents(input);
 
-      expect(result).toHaveLength(3);
-      // 检查插入的补全 response 在位置 [1]
-      expect(result[1]).toEqual({
-        role: MESSAGE_ROLES.USER,
-        parts: [{
-          functionResponse: {
-            name: 'search',
-            id: 'abc123',
-            response: { result: 'user cancel' }
-          }
-        }]
-      });
-      // 检查原用户消息被推到位置 [2]
-      expect(result[2]).toEqual({
-        role: MESSAGE_ROLES.USER,
-        parts: [{ functionResponse: { name: 'search', response: { result: '晴天' } } }]
-      });
+      // 现在应该匹配成功，不再补全多余的 cancel
+      expect(result).toHaveLength(2);
+      expect(result).toEqual(input);
     });
   });
 
@@ -499,7 +485,7 @@ describe('GeminiChat.fixRequestContents', () => {
       callFixRequestContents(input);
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[fixRequestContents] 检测到第2条消息中有 1 个多余的 function response:'),
+        expect.stringContaining('[fixRequestContents] 检测到第2条消息中有 1 个孤立的 function response:'),
         expect.arrayContaining([
           expect.objectContaining({ name: 'search', id: 'wrong_id' })
         ])
@@ -523,7 +509,7 @@ describe('GeminiChat.fixRequestContents', () => {
       callFixRequestContents(input);
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[fixRequestContents] 检测到第2条消息中有 1 个多余的 function response:'),
+        expect.stringContaining('[fixRequestContents] 检测到第2条消息中有 1 个孤立的 function response:'),
         expect.arrayContaining([
           expect.objectContaining({ name: 'calculate', id: 'abc123' })
         ])
@@ -550,7 +536,7 @@ describe('GeminiChat.fixRequestContents', () => {
       callFixRequestContents(input);
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[fixRequestContents] 检测到第2条消息中有 2 个多余的 function response:'),
+        expect.stringContaining('[fixRequestContents] 检测到第2条消息中有 2 个孤立的 function response:'),
         expect.arrayContaining([
           expect.objectContaining({ name: 'search', id: 'invalid_id1' }),
           expect.objectContaining({ name: 'calculate', id: 'invalid_id2' })
@@ -593,11 +579,88 @@ describe('GeminiChat.fixRequestContents', () => {
       callFixRequestContents(input);
 
       expect(consoleSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[fixRequestContents] 检测到第2条消息中有 1 个多余的 function response:'),
+        expect.stringContaining('[fixRequestContents] 检测到第2条消息中有 1 个孤立的 function response:'),
         expect.arrayContaining([
           expect.objectContaining({ name: 'search', id: 'orphan_id' })
         ])
       );
+    });
+  });
+
+  describe('Function Response 仲裁逻辑 (Priority)', () => {
+    it('当同时存在 "user cancel" 和真实结果时，应该保留真实结果', () => {
+      const input: Content[] = [
+        {
+          role: MESSAGE_ROLES.MODEL,
+          parts: [{ functionCall: { name: 'search', id: 'id1', args: {} } }]
+        },
+        {
+          role: MESSAGE_ROLES.USER,
+          parts: [{ functionResponse: { name: 'search', id: 'id1', response: { result: 'user cancel' } } }]
+        },
+        {
+          role: MESSAGE_ROLES.USER,
+          parts: [{ functionResponse: { name: 'search', id: 'id1', response: { result: '这是延迟到达的真实结果' } } }]
+        }
+      ];
+
+      const result = callFixRequestContents(input);
+
+      // 验证结果中只保留了真实结果，且去掉了 "user cancel"
+      const allResponses = result.flatMap(c => c.parts || []).filter(p => p.functionResponse);
+      expect(allResponses).toHaveLength(1);
+      expect((allResponses[0].functionResponse!.response as any).result).toBe('这是延迟到达的真实结果');
+    });
+
+    it('即便 "user cancel" 在真实结果后面，也应该保留真实结果（虽然通常不会发生）', () => {
+      const input: Content[] = [
+        {
+          role: MESSAGE_ROLES.MODEL,
+          parts: [{ functionCall: { name: 'search', id: 'id1', args: {} } }]
+        },
+        {
+          role: MESSAGE_ROLES.USER,
+          parts: [{ functionResponse: { name: 'search', id: 'id1', response: { result: '真实结果在前' } } }]
+        },
+        {
+          role: MESSAGE_ROLES.USER,
+          parts: [{ functionResponse: { name: 'search', id: 'id1', response: { result: 'user cancel' } } }]
+        }
+      ];
+
+      const result = callFixRequestContents(input);
+
+      const allResponses = result.flatMap(c => c.parts || []).filter(p => p.functionResponse);
+      expect(allResponses).toHaveLength(1);
+      expect((allResponses[0].functionResponse!.response as any).result).toBe('真实结果在前');
+    });
+
+    it('Claude 场景：当 Call 没有 ID，但 Response 有 ID 时，应该正确仲裁并保留真实结果', () => {
+      const input: Content[] = [
+        {
+          role: MESSAGE_ROLES.MODEL,
+          parts: [{ functionCall: { name: 'glob', args: { pattern: '**/*' } } }] // 无 ID (Claude 风格)
+        },
+        {
+          role: MESSAGE_ROLES.USER,
+          parts: [{ functionResponse: { name: 'glob', response: { result: 'user cancel' } } }] // 补全的无 ID cancel
+        },
+        {
+          role: MESSAGE_ROLES.USER,
+          parts: [{ functionResponse: { name: 'glob', id: 'glob-123', response: { output: 'files...' } } }] // 真实的带 ID 结果
+        }
+      ];
+
+      const result = callFixRequestContents(input);
+
+      // 验证：
+      // 1. 并没有因为 Call 缺少 ID 就补全多余的 cancel（因为第三个 Part 的真实结果已经匹配了它）
+      // 2. 即使第二个 Part 插入了，仲裁逻辑也应该把它移除，保留带 ID 的 Part 3
+      // 3. 🎯 关键：Part 3 的 ID 应该被回滚/对齐为 undefined，以匹配 Call 的 ID
+      const allResponses = result.flatMap(c => c.parts || []).filter(p => p.functionResponse);
+      expect(allResponses).toHaveLength(1);
+      expect(allResponses[0].functionResponse!.id).toBeUndefined(); // ID 应该被对齐为 undefined
+      expect((allResponses[0].functionResponse!.response as any).output).toBe('files...');
     });
   });
 

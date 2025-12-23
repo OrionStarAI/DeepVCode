@@ -422,6 +422,14 @@ export class GeminiChat {
   private fixRequestContents(requestContents: Content[]): Content[] {
     const fixedContents: Content[] = [];
 
+    // 🔍 辅助函数：判断 functionCall 和 functionResponse 是否匹配
+    // 支持模糊匹配：如果其中一方缺少 ID，只要名称相同即视为匹配（兼容 Claude 等模型）
+    const isToolMatch = (call: any, resp: any) => {
+      if (!call || !resp || call.name !== resp.name) return false;
+      if (call.id && resp.id) return call.id === resp.id;
+      return true; // 其中一方缺少 ID，仅通过名称匹配
+    };
+
     // 🔍 预先收集所有 function call 用于多余 response 检测
     const allFunctionCalls: Array<{
       call: any;
@@ -442,45 +450,95 @@ export class GeminiChat {
       }
     }
 
-    // 🎯 第一步：去除重复的 functionResponse（关键修复）
-    // 当用户取消时，可能会有多个 response 对应同一个 functionCall
-    // 例如：["user cancel", 实际执行结果]，我们只保留第一个
-    const deduplicatedContents: Content[] = [];
-    const seenResponseIds: Set<string> = new Set();
+    // 🎯 第一步：收集并仲裁所有 functionResponse（关键修复）
+    // 当存在多个响应对应同一个 functionCall 时（如：自动补全的 cancel vs 延迟到达的真实结果），
+    // 我们根据优先级进行仲裁：真实结果 > 取消占位符。
+    // 注意：Map 的 key 逻辑已优化，如果存在带 ID 的响应，它将覆盖同名但不带 ID 的响应。
+    const bestResponses: Map<string, { part: Part; priority: number; originalIndex: number }> = new Map();
 
-    for (const content of requestContents) {
+    // 优先级判定函数
+    const getPriority = (part: Part): number => {
+      const result = (part.functionResponse?.response as any)?.result;
+      return result === 'user cancel' ? 10 : 100;
+    };
+
+    // 1.1 预扫描所有消息，找出每个 callId 的最佳响应
+    for (let i = 0; i < requestContents.length; i++) {
+      const content = requestContents[i];
       if (content.role === MESSAGE_ROLES.USER && content.parts) {
-        const deduplicatedParts: Part[] = [];
+        for (const part of content.parts) {
+          if (part.functionResponse) {
+            const resp = part.functionResponse;
+            const priority = getPriority(part);
+
+            // 智能 Key：如果带 ID，优先使用 ID；否则使用 name
+            // 这样带 ID 的真实结果可以覆盖不带 ID 的占位符（Claude 场景）
+            const key = resp.id || `name:${resp.name}`;
+
+            const existing = bestResponses.get(key);
+            if (!existing || priority > existing.priority) {
+              bestResponses.set(key, { part, priority, originalIndex: i });
+            }
+
+            // 特殊逻辑：如果是带 ID 的响应，还要尝试覆盖掉只有 name 的记录
+            if (resp.id) {
+              const nameKey = `name:${resp.name}`;
+              const nameExisting = bestResponses.get(nameKey);
+              if (nameExisting && priority >= nameExisting.priority) {
+                bestResponses.delete(nameKey); // 让位给带精准 ID 的响应
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // 1.2 重构内容，只保留最佳响应，并强制 ID 对齐
+    const deduplicatedContents: Content[] = [];
+    const usedResponseKeys: Set<string> = new Set();
+
+    for (let i = 0; i < requestContents.length; i++) {
+      const content = requestContents[i];
+      if (content.role === MESSAGE_ROLES.USER && content.parts) {
+        const filteredParts: Part[] = [];
 
         for (const part of content.parts) {
           if (part.functionResponse) {
-            const response = part.functionResponse;
-            const responseKey = `${response.name}:${response.id || 'unnamed'}`;
+            const resp = part.functionResponse;
+            const key = resp.id || `name:${resp.name}`;
+            const best = bestResponses.get(key);
 
-            if (seenResponseIds.has(responseKey)) {
-              // 这是一个重复的 response，跳过它
+            // 只有当当前 Part 就是该 callId 的“最佳响应”时，才保留它
+            if (best && best.part === part && !usedResponseKeys.has(key)) {
+              // 🎯 关键修复：强制 ID 对齐
+              // 查找该响应对应的原始 functionCall，确保 ID 完全一致（兼容 Claude 严格协议）
+              const matchingCall = allFunctionCalls.find(fc => isToolMatch(fc.call, resp));
+              if (matchingCall) {
+                if (matchingCall.call.id !== resp.id) {
+                  console.log(
+                    `[fixRequestContents] 🔧 ID 对齐：将响应 ${resp.name} 的 ID 从 "${resp.id || 'unnamed'}" ` +
+                    `同步为调用方的 ID "${matchingCall.call.id || 'unnamed'}"`
+                  );
+                  resp.id = matchingCall.call.id;
+                }
+              }
+
+              filteredParts.push(part);
+              usedResponseKeys.add(key);
+            } else {
+              // 如果不带 ID 的响应被带 ID 的响应取代了，也会进入这里
               console.warn(
-                `[fixRequestContents] ⚠️ 检测到重复的 functionResponse，将其移除：` +
-                `${response.name} (id: ${response.id || 'unnamed'})。` +
-                `这通常发生在用户取消后，后台仍返回了执行结果的情况下。`
+                `[fixRequestContents] 🗑️ 移除次优或重复的 functionResponse：${resp.name} (id: ${resp.id || 'unnamed'})。` +
+                `保留优先级更高或更精准的响应。`
               );
-              continue;
             }
-
-            seenResponseIds.add(responseKey);
-            deduplicatedParts.push(part);
           } else {
-            deduplicatedParts.push(part);
+            filteredParts.push(part);
           }
         }
 
-        if (deduplicatedParts.length > 0) {
-          deduplicatedContents.push({
-            ...content,
-            parts: deduplicatedParts
-          });
-        } else {
-          console.warn(`[fixRequestContents] Removing empty user message after deduplication`);
+        if (filteredParts.length > 0) {
+          deduplicatedContents.push({ ...content, parts: filteredParts });
         }
       } else {
         deduplicatedContents.push(content);
@@ -498,9 +556,8 @@ export class GeminiChat {
           const orphanedResponses = functionResponses.filter(respPart => {
             const functionResponse = respPart.functionResponse!;
             return !allFunctionCalls.some(({ call }) => {
-              // 严格匹配：name 和 id 都必须完全一致
-              return call.name === functionResponse.name &&
-                call.id === functionResponse.id;
+              // 使用模糊匹配逻辑
+              return isToolMatch(call, functionResponse);
             });
           });
 
@@ -532,14 +589,12 @@ export class GeminiChat {
           const nextFunctionResponses = next?.role === MESSAGE_ROLES.USER && next.parts ?
             next.parts.filter(part => part.functionResponse) : [];
 
-          // 找出未匹配的 function call（严格 ID 匹配）
+          // 找出未匹配的 function call（使用模糊匹配）
           const unmatchedCalls = functionCalls.filter(callPart => {
             const functionCall = callPart.functionCall!;
             return !nextFunctionResponses.some(respPart => {
               const functionResponse = respPart.functionResponse!;
-              // 严格匹配：name 必须相同，id 必须完全一致
-              return functionResponse.name === functionCall.name &&
-                functionCall.id === functionResponse.id;
+              return isToolMatch(functionCall, functionResponse);
             });
           });
 
@@ -868,6 +923,14 @@ export class GeminiChat {
       this._logApiError(durationMs, error, prompt_id, this.agentContext);
       // 清除实时token显示，因为请求失败
       realTimeTokenEventManager.clearRealTimeToken();
+
+      // 🎯 关键修复：即使发生错误（如用户取消），也要记录已经收到的内容
+      // 如果模型已经输出了内容（尤其是 functionCall），记录它能保持历史记录的完整性，
+      // 避免后续工具执行结果变成“孤立响应”。
+      if (outputContent.length > 0) {
+        this.recordHistory(inputContent, outputContent);
+      }
+
       throw error;
     }
 
@@ -886,8 +949,9 @@ export class GeminiChat {
         JSON.stringify(chunks),
         this.agentContext,
       );
+      // 🎯 正常结束时记录历史
+      this.recordHistory(inputContent, outputContent);
     }
-    this.recordHistory(inputContent, outputContent);
   }
 
   private recordHistory(
