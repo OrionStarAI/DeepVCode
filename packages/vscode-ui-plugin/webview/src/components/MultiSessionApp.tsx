@@ -708,7 +708,8 @@ export const MultiSessionApp: React.FC = () => {
         timestamp: Date.now(),
         isStreaming: true, // 标记为正在流式接收
         isProcessingTools: false,  // 🎯 初始不处理工具
-        toolsCompleted: true       // 🎯 初始无工具
+        toolsCompleted: true,       // 🎯 初始无工具
+        modelName: selectedModelId // 🎯 记录当前使用的模型
       };
 
       addMessage(sessionId, streamingMessage);
@@ -743,7 +744,8 @@ export const MultiSessionApp: React.FC = () => {
         updateMessage(sessionId, messageId, {
           content: createTextMessageContent(streamingMsg.content),
           isStreaming: false,
-          tokenUsage: tokenUsage // 🎯 更新Token使用情况
+          tokenUsage: tokenUsage, // 🎯 更新Token使用情况
+          modelName: tokenUsage?.model || selectedModelId // 🎯 优先使用真实模型名称，回退到选择器状态
         });
 
         // 清理流式消息状态

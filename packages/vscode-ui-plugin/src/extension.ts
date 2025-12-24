@@ -2273,7 +2273,7 @@ function setupMultiSessionHandlers() {
             timestamp: msg.timestamp,
             // 🎯 修复字段映射：前端期望的是associatedToolCalls，不是toolCalls
             associatedToolCalls: msg.toolCalls,
-            // 🎯 恢复工具相关的元数据字段（使用类型断言）
+            // 🎯 恢复工具相关的元数据字段
             isProcessingTools: metadata?.isProcessingTools,
             toolsCompleted: metadata?.toolsCompleted,
             isStreaming: metadata?.isStreaming,
@@ -2281,7 +2281,10 @@ function setupMultiSessionHandlers() {
             toolId: metadata?.toolId,
             toolStatus: metadata?.toolStatus,
             toolParameters: metadata?.toolParameters,
-            toolMessageType: metadata?.toolMessageType
+            toolMessageType: metadata?.toolMessageType,
+            // 🎯 恢复 Token 使用情况和模型名称
+            tokenUsage: metadata?.tokenUsage,
+            modelName: metadata?.modelName
           };
         });
 
@@ -2517,10 +2520,12 @@ function setupMultiSessionHandlers() {
           toolStatus: payload.message.toolStatus,
           toolParameters: payload.message.toolParameters,
           toolMessageType: payload.message.toolMessageType,
-          // 🎯 扩展字段（使用类型断言）
+          // 🎯 扩展字段
           isStreaming: payload.message.isStreaming,
           isProcessingTools: payload.message.isProcessingTools,
-          toolsCompleted: payload.message.toolsCompleted
+          toolsCompleted: payload.message.toolsCompleted,
+          tokenUsage: (payload.message as any).tokenUsage,
+          modelName: (payload.message as any).modelName
         } as any
       };
 
@@ -2553,10 +2558,13 @@ function setupMultiSessionHandlers() {
           toolStatus: msg.toolStatus,
           toolParameters: msg.toolParameters,
           toolMessageType: msg.toolMessageType,
-          // 🎯 扩展字段（使用类型断言）
+          // 🎯 扩展字段
           isStreaming: msg.isStreaming,
           isProcessingTools: msg.isProcessingTools,
-          toolsCompleted: msg.toolsCompleted
+          toolsCompleted: msg.toolsCompleted,
+          // 🎯 保存 Token 使用情况和模型名称
+          tokenUsage: msg.tokenUsage,
+          modelName: msg.modelName
         } as any
       }));
 

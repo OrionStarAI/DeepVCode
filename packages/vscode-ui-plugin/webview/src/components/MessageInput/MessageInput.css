@@ -61,7 +61,7 @@
   color: var(--vscode-input-foreground);
   border: 1px solid var(--vscode-input-border);
   border-radius: 6px;
-  padding: 10px 12px;
+  padding: 10px 12px 36px 12px; /* 🎯 增加底部 padding (36px) 以留出按钮位置 */
   font-family: var(--vscode-font-family);
   font-size: 14px;
   line-height: 1.5;
@@ -1120,40 +1120,48 @@
   display: flex;
   justify-content: flex-start;
   align-items: center;
-  gap: 12px;
-  flex: 0 1 auto; /* 🎯 修复：只占据必要空间，不强制占据剩余空间 */
-  min-width: 0; /* 🎯 允许内部元素压缩 */
-  overflow: visible; /* 🎯 确保内容不被裁剪 */
+  gap: 8px; /* 🎯 减小间距 */
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: visible;
+  flex-wrap: nowrap; /* 🎯 强制不换行，防止按钮掉下去 */
 }
 
-/* 🎯 编辑器浮动操作栏 - 放 Refine 按钮和自定义服务器提示 */
+/* 🎯 编辑器浮动操作栏 - 挪到输入框内部右下角固定位置 */
 .editor-floating-actions {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end; /* 🎯 靠右对齐 */
   gap: 8px;
-  padding: 4px 12px;
-  position: relative;
+  padding: 0;
+  position: absolute;
+  bottom: 8px; /* 🎯 距离底部 8px */
+  right: 12px; /* 🎯 距离右侧 12px */
+  width: auto;
   min-height: 28px;
-  width: 100%;
   box-sizing: border-box;
+  z-index: 20; /* 🎯 确保在占位符上方 */
+  pointer-events: none; /* 🎯 容器不拦截事件，防止遮挡输入框点击 */
 }
 
-/* 🎯 自定义服务器提示badge - 在editor-floating-actions里 */
+/* 🎯 确保子元素（如按钮）可以点击 */
+.editor-floating-actions > * {
+  pointer-events: auto;
+}
+
+/* 🎯 自定义服务器提示已不再需要占据整行，改为小巧的展示 */
 .custom-proxy-info-badge {
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 0;
-  background-color: transparent;
-  font-size: 11px;
+  padding: 2px 6px;
+  background-color: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-widget-border);
+  border-radius: 4px;
+  font-size: 10px;
   color: var(--vscode-descriptionForeground, #cccccc);
-  user-select: text;
-  line-height: 1.2;
-  flex: 0 1 auto;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  opacity: 0.8;
+  max-width: 150px;
 }
 
 .custom-proxy-info-icon {
@@ -1189,9 +1197,9 @@
 
 /* 🎯 MessageInput 中的模型选择器特殊样式 - 渐进式压缩 */
 .message-input-model-selector {
-  min-width: 80px;
-  max-width: 320px;
-  flex: 1 1 auto;
+  min-width: 60px; /* 🎯 允许更小的最小宽度 */
+  max-width: 240px; /* 🎯 减小最大宽度，给其他元素留空间 */
+  flex: 0 1 auto; /* 🎯 不再自动增长，只占据必要空间 */
 }
 
 .message-input-model-selector .model-selector-trigger {

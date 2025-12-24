@@ -14,7 +14,7 @@ import { $isRangeSelection } from 'lexical';
 import { $createTextNode, $createParagraphNode, $createLineBreakNode } from 'lexical';
 import { Send, Square, Check } from 'lucide-react';
 import { useTranslation } from '../hooks/useTranslation';
-import { MessageContent } from '../types/index';
+import { MessageContent, ChatMessage } from '../types/index';
 import { ModelSelector } from './ModelSelector';
 
 
@@ -82,6 +82,8 @@ interface MessageInputProps {
   onTogglePlanMode?: (enabled: boolean) => void;  // Plan模式切换回调
   // 🎯 新增：模型切换状态
   isModelSwitching?: boolean;
+  // 🎯 新增：消息列表（用于统计）
+  messages?: ChatMessage[];
 }
 
 // Lexical 错误边界组件
@@ -131,7 +133,8 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
 
     // 🎯 Plan模式
     isPlanMode = false,
-    onTogglePlanMode
+    onTogglePlanMode,
+    messages = []
   } = props;
   const { t } = useTranslation();
 
@@ -1059,6 +1062,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
                 isSwitchingFromParent={isModelSwitching} // 🎯 传入模型切换状态
                 className="message-input-model-selector"
                 sessionId={sessionId}
+                messages={messages}
               />
             )}
 
