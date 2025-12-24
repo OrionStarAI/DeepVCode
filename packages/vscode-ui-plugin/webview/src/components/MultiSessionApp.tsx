@@ -740,13 +740,21 @@ export const MultiSessionApp: React.FC = () => {
 
       const streamingMsg = streamingMessages.current.get(messageId);
       if (streamingMsg && streamingMsg.sessionId === sessionId) {
-        // 标记消息为完成状态，并更新Token使用情况
-        updateMessage(sessionId, messageId, {
+        // 🎯 构造更新对象
+        const updates: any = {
           content: createTextMessageContent(streamingMsg.content),
           isStreaming: false,
-          tokenUsage: tokenUsage, // 🎯 更新Token使用情况
-          modelName: tokenUsage?.model || selectedModelId // 🎯 优先使用真实模型名称，回退到选择器状态
-        });
+          tokenUsage: tokenUsage // 🎯 更新Token使用情况
+        };
+
+        // 🎯 P0 修复：优先使用后端返回的真实模型名称
+        // 如果后端没有返回模型名称（如某些错误情况），则保留初始设置的模型，不使用可能已过时的 selectedModelId 状态
+        if (tokenUsage?.model) {
+          updates.modelName = tokenUsage.model;
+        }
+
+        // 标记消息为完成状态
+        updateMessage(sessionId, messageId, updates);
 
         // 清理流式消息状态
         streamingMessages.current.delete(messageId);

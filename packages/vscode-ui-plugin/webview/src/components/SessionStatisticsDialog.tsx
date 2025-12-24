@@ -49,18 +49,33 @@ export const SessionStatisticsDialog: React.FC<SessionStatisticsDialogProps> = (
 
     messages.forEach(msg => {
       // 只统计助手消息且带有 token 使用情况的
-      if (msg.type === 'assistant' && msg.tokenUsage) {
+      if (msg.type === 'assistant' && msg.tokenUsage && typeof msg.tokenUsage === 'object') {
         const usage = msg.tokenUsage;
-        const credits = usage.creditsUsage || 0;
-        const tokens = usage.totalTokens || 0;
+
+        // 🎯 P2 修复：使用 ?? 确保即使值为 0 也能正确处理，并增强防御性
+        const credits = usage.creditsUsage ?? 0;
+        const tokens = usage.totalTokens ?? 0;
+        const inputTokens = usage.inputTokens ?? 0;
+        const outputTokens = usage.outputTokens ?? 0;
 
         totalCredits += credits;
         totalTokens += tokens;
-        totalInputTokens += usage.inputTokens || 0;
-        totalOutputTokens += usage.outputTokens || 0;
+        totalInputTokens += inputTokens;
+        totalOutputTokens += outputTokens;
 
-        const modelId = msg.modelName || 'auto';
-        const displayName = modelNameMap[modelId] || modelId;
+        // 🎯 P1 修复：增强模型查找逻辑和回退机制
+        // 标准化 ID 以提高匹配率
+        const modelId = (msg.modelName || 'auto').toLowerCase();
+
+        // 多层级查找显示名称
+        let displayName = modelNameMap[modelId] ||
+                         modelNameMap[msg.modelName || ''] ||
+                         msg.modelName;
+
+        // 最终回退
+        if (!displayName) {
+          displayName = modelId === 'auto' ? 'Auto' : (msg.modelName || modelId);
+        }
 
         const existing = modelMap.get(modelId);
         if (existing) {
