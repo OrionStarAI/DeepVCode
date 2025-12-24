@@ -4,12 +4,14 @@
  * 从服务端API获取模型数据，支持缓存和配置持久化
  */
 
-import React, { useState, useRef, useEffect } from 'react';
-import { ChevronDown, Check, Loader2 } from 'lucide-react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { ChevronDown, Check, Loader2, BarChart2 } from 'lucide-react';
 import { useTranslation } from '../hooks/useTranslation';
 import { webviewModelService } from '../services/webViewModelService';
 import { getGlobalMessageService } from '../services/globalMessageService';
 import { getProviderIcon } from './ModelProviderIcons';
+import { SessionStatisticsDialog } from './SessionStatisticsDialog';
+import { ChatMessage } from '../types';
 import './ModelSelector.css';
 import './ModelProviderIcons.css';
 
@@ -71,6 +73,7 @@ interface ModelSelectorProps {
   className?: string;
   sessionId?: string; // 🎯 新增：当前会话ID
   isSwitchingFromParent?: boolean; // 🎯 新增：从父组件传入的切换状态
+  messages?: ChatMessage[]; // 🎯 新增：用于统计
 }
 
 export const ModelSelector: React.FC<ModelSelectorProps> = ({
@@ -79,10 +82,12 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   disabled = false,
   className = '',
   sessionId,
-  isSwitchingFromParent = false
+  isSwitchingFromParent = false,
+  messages = []
 }) => {
   const { t } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
+  const [isStatsOpen, setIsStatsOpen] = useState(false); // 🎯 统计对话框状态
   const [modelOptions, setModelOptions] = useState<ModelOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -489,163 +494,198 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
     return groups;
   }, {} as Record<string, ModelOption[]>);
 
+  // 🎯 构建模型 ID 到显示名称的映射
+  const modelNameMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    modelOptions.forEach(opt => {
+      map[opt.id] = opt.displayName;
+    });
+    return map;
+  }, [modelOptions]);
+
   return (
     <div
       ref={containerRef}
-      className={`model-selector ${className} ${disabled || isSwitching ? 'disabled' : ''} ${isOpen ? 'open' : ''}`}
+      className={`model-selector-wrapper ${className}`}
     >
-      {/* 触发按钮 */}
-      <button
-        className="model-selector-trigger"
-        onClick={() => !disabled && !loading && !isSwitching && setIsOpen(!isOpen)}
-        disabled={disabled || loading || isSwitching}
-        aria-haspopup="listbox"
-        aria-expanded={isOpen}
+      <div
+        className={`model-selector ${disabled || isSwitching ? 'disabled' : ''} ${isOpen ? 'open' : ''}`}
       >
-        <div className="selected-model">
-          {loading ? (
-            <>
-              <div className="model-icon">⏳</div>
-              <div className="model-info">
-                <span className="model-name">{t('model.selector.loading', undefined, 'Loading...')}</span>
-              </div>
-            </>
-          ) : isSwitching ? (
-            <>
-              <div className="model-icon">
-                <Loader2 size={16} className="spinning" />
-              </div>
-              <div className="model-info">
-                <span className="model-name">{t('model.selector.switching', undefined, 'Switching...')}</span>
-              </div>
-            </>
-          ) : error ? (
-            <>
-              <div className="model-icon">⚠️</div>
-              <div className="model-info">
-                <span className="model-name">{t('model.selector.error', undefined, 'Error')}</span>
-              </div>
-            </>
-          ) : selectedModel ? (
-            <>
-              <div className="model-icon">
-                {getCategoryInfo(selectedModel.category).icon}
-              </div>
-              <div className="model-info">
-                <div
-                  className="model-name-wrapper"
-                  onMouseEnter={() => handleMouseEnter(`selected-${selectedModel.id}`)}
-                  onMouseLeave={() => handleMouseLeave(`selected-${selectedModel.id}`)}
-                >
-                  <span
-                    className="model-name"
-                    ref={el => modelNameRefs.current[`selected-${selectedModel.id}`] = el}
+        {/* 触发按钮 */}
+        <button
+          className="model-selector-trigger"
+          onClick={() => !disabled && !loading && !isSwitching && setIsOpen(!isOpen)}
+          disabled={disabled || loading || isSwitching}
+          aria-haspopup="listbox"
+          aria-expanded={isOpen}
+        >
+          <div className="selected-model">
+            {loading ? (
+              <>
+                <div className="model-icon">⏳</div>
+                <div className="model-info">
+                  <span className="model-name">{t('model.selector.loading', undefined, 'Loading...')}</span>
+                </div>
+              </>
+            ) : isSwitching ? (
+              <>
+                <div className="model-icon">
+                  <Loader2 size={16} className="spinning" />
+                </div>
+                <div className="model-info">
+                  <span className="model-name">{t('model.selector.switching', undefined, 'Switching...')}</span>
+                </div>
+              </>
+            ) : error ? (
+              <>
+                <div className="model-icon">⚠️</div>
+                <div className="model-info">
+                  <span className="model-name">{t('model.selector.error', undefined, 'Error')}</span>
+                </div>
+              </>
+            ) : selectedModel ? (
+              <>
+                <div className="model-icon">
+                  {getCategoryInfo(selectedModel.category).icon}
+                </div>
+                <div className="model-info">
+                  <div
+                    className="model-name-wrapper"
+                    onMouseEnter={() => handleMouseEnter(`selected-${selectedModel.id}`)}
+                    onMouseLeave={() => handleMouseLeave(`selected-${selectedModel.id}`)}
                   >
-                    {selectedModel.displayName}
-                  </span>
-                  {showTooltip[`selected-${selectedModel.id}`] && tooltipPosition[`selected-${selectedModel.id}`] && (
-                    <div
-                      className="model-name-tooltip"
-                      style={{
-                        top: `${tooltipPosition[`selected-${selectedModel.id}`].top}px`,
-                        left: `${tooltipPosition[`selected-${selectedModel.id}`].left}px`,
-                        transform: 'translateX(-50%)'
-                      }}
+                    <span
+                      className="model-name"
+                      ref={el => modelNameRefs.current[`selected-${selectedModel.id}`] = el}
                     >
                       {selectedModel.displayName}
-                    </div>
-                  )}
-                </div>
-                {selectedModel.category !== 'auto' && selectedModel.creditsPerRequest !== undefined && (
-                  <span className="model-credits">
-                    {selectedModel.creditsPerRequest}x
-                  </span>
-                )}
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="model-icon">{getProviderIcon('default', 16)}</div>
-              <div className="model-info">
-                <span className="model-name">{t('model.selector.noModel', undefined, 'No Model')}</span>
-              </div>
-            </>
-          )}
-        </div>
-        <ChevronDown
-          size={16}
-          className={`chevron ${isOpen ? 'rotated' : ''}`}
-        />
-      </button>
-
-      {/* 下拉菜单 */}
-      {isOpen && (
-        <div ref={dropdownRef} className="model-dropdown">
-          <div className="dropdown-header">
-            <span className="dropdown-title">{t('model.selector.selectModel')}</span>
-          </div>
-
-          <div className="model-list">
-            {Object.entries(groupedModels).map(([category, models]) => (
-              <div key={category} className="model-group">
-                {models.map((model) => (
-                  <div
-                    key={model.id}
-                    className={`model-option ${selectedModel?.id === model.id ? 'selected' : ''} ${!model.isAvailable ? 'disabled' : ''}`}
-                    onClick={() => handleModelSelect(model)}
-                    role="option"
-                    aria-selected={selectedModel?.id === model.id}
-                  >
-                    <div className="model-option-content">
-                      <div className="model-icon">
-                        {getCategoryInfo(model.category).icon}
-                      </div>
-                      <div className="model-details">
-                        <div className="model-main">
-                          <div
-                            className="model-name-wrapper"
-                            onMouseEnter={() => handleMouseEnter(`option-${model.id}`)}
-                            onMouseLeave={() => handleMouseLeave(`option-${model.id}`)}
-                          >
-                            <span
-                              className="model-name"
-                              ref={el => modelNameRefs.current[`option-${model.id}`] = el}
-                            >
-                              {model.displayName}
-                            </span>
-                            {showTooltip[`option-${model.id}`] && tooltipPosition[`option-${model.id}`] && (
-                              <div
-                                className="model-name-tooltip"
-                                style={{
-                                  top: `${tooltipPosition[`option-${model.id}`].top}px`,
-                                  left: `${tooltipPosition[`option-${model.id}`].left}px`,
-                                  transform: 'translateX(-50%)'
-                                }}
-                              >
-                                {model.displayName}
-                              </div>
-                            )}
-                          </div>
-                          {model.category !== 'auto' && model.creditsPerRequest !== undefined && (
-                            <span className="model-credits">
-                              {model.creditsPerRequest}x
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                    {selectedModel?.id === model.id && (
-                      <div className="check-icon">
-                        <Check size={16} />
+                    </span>
+                    {showTooltip[`selected-${selectedModel.id}`] && tooltipPosition[`selected-${selectedModel.id}`] && (
+                      <div
+                        className="model-name-tooltip"
+                        style={{
+                          top: `${tooltipPosition[`selected-${selectedModel.id}`].top}px`,
+                          left: `${tooltipPosition[`selected-${selectedModel.id}`].left}px`,
+                          transform: 'translateX(-50%)'
+                        }}
+                      >
+                        {selectedModel.displayName}
                       </div>
                     )}
                   </div>
-                ))}
-              </div>
-            ))}
+                  {selectedModel.category !== 'auto' && selectedModel.creditsPerRequest !== undefined && (
+                    <span className="model-credits">
+                      {selectedModel.creditsPerRequest}x
+                    </span>
+                  )}
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="model-icon">{getProviderIcon('default', 16)}</div>
+                <div className="model-info">
+                  <span className="model-name">{t('model.selector.noModel', undefined, 'No Model')}</span>
+                </div>
+              </>
+            )}
           </div>
-        </div>
+          <ChevronDown
+            size={16}
+            className={`chevron ${isOpen ? 'rotated' : ''}`}
+          />
+        </button>
+
+        {/* 下拉菜单 */}
+        {isOpen && (
+          <div ref={dropdownRef} className="model-dropdown">
+            <div className="dropdown-header">
+              <span className="dropdown-title">{t('model.selector.selectModel')}</span>
+            </div>
+
+            <div className="model-list">
+              {Object.entries(groupedModels).map(([category, models]) => (
+                <div key={category} className="model-group">
+                  {models.map((model) => (
+                    <div
+                      key={model.id}
+                      className={`model-option ${selectedModel?.id === model.id ? 'selected' : ''} ${!model.isAvailable ? 'disabled' : ''}`}
+                      onClick={() => handleModelSelect(model)}
+                      role="option"
+                      aria-selected={selectedModel?.id === model.id}
+                    >
+                      <div className="model-option-content">
+                        <div className="model-icon">
+                          {getCategoryInfo(model.category).icon}
+                        </div>
+                        <div className="model-details">
+                          <div className="model-main">
+                            <div
+                              className="model-name-wrapper"
+                              onMouseEnter={() => handleMouseEnter(`option-${model.id}`)}
+                              onMouseLeave={() => handleMouseLeave(`option-${model.id}`)}
+                            >
+                              <span
+                                className="model-name"
+                                ref={el => modelNameRefs.current[`option-${model.id}`] = el}
+                              >
+                                {model.displayName}
+                              </span>
+                              {showTooltip[`option-${model.id}`] && tooltipPosition[`option-${model.id}`] && (
+                                <div
+                                  className="model-name-tooltip"
+                                  style={{
+                                    top: `${tooltipPosition[`option-${model.id}`].top}px`,
+                                    left: `${tooltipPosition[`option-${model.id}`].left}px`,
+                                    transform: 'translateX(-50%)'
+                                  }}
+                                >
+                                  {model.displayName}
+                                </div>
+                              )}
+                            </div>
+                            {model.category !== 'auto' && model.creditsPerRequest !== undefined && (
+                              <span className="model-credits">
+                                {model.creditsPerRequest}x
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      {selectedModel?.id === model.id && (
+                        <div className="check-icon">
+                          <Check size={16} />
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 🎯 新增：统计按钮 */}
+      {!loading && !error && (
+        <button
+          className="model-stats-trigger"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsStatsOpen(true);
+          }}
+          title={t('stats.title')}
+        >
+          <BarChart2 size={16} />
+        </button>
       )}
+
+      {/* 🎯 新增：统计对话框 */}
+      <SessionStatisticsDialog
+        isOpen={isStatsOpen}
+        onClose={() => setIsStatsOpen(false)}
+        messages={messages}
+        modelNameMap={modelNameMap}
+      />
     </div>
   );
 };

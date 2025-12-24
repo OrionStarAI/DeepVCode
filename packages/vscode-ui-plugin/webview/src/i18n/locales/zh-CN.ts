@@ -483,4 +483,16 @@ export const zhCN: Translations = {
       open: '打开扩展设置',
     },
   },
+
+  stats: {
+    title: '会话统计',
+    totalConsumption: '总消费',
+    totalTokens: '总 Token',
+    modelStats: '模型统计',
+    modelName: '模型名称',
+    callCount: '调用次数',
+    avgTokens: '平均 Token',
+    consumption: '消费积分',
+    noData: '暂无统计数据',
+  },
 };

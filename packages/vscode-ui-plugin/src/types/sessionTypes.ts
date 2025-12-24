@@ -176,6 +176,18 @@ export interface MessageMetadata {
     /** 缓存命中率 */
     cacheHitRate?: number;
   };
+
+  /** 🎯 记录生成该消息的模型名称 */
+  modelName?: string;
+
+  /** 🎯 是否正在处理工具 */
+  isProcessingTools?: boolean;
+
+  /** 🎯 工具是否全部完成 */
+  toolsCompleted?: boolean;
+
+  /** 🎯 是否正在流式传输 */
+  isStreaming?: boolean;
 }
 
 // =============================================================================

@@ -853,6 +853,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                           placeholder="编辑你的消息..."
                           isPlanMode={isPlanMode}
                           onTogglePlanMode={onTogglePlanMode}
+                          messages={messages}
                         />
                       </div>
                     ) : (
@@ -1040,6 +1041,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         tokenUsage={tokenUsage}
         isPlanMode={isPlanMode}
         onTogglePlanMode={onTogglePlanMode}
+        messages={messages}
       />
     </div>
   );

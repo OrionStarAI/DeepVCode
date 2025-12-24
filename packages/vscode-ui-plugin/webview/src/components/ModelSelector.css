@@ -2,14 +2,18 @@
  * Model Selector Styles - 模型选择器样式
  */
 
+.model-selector-wrapper {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
 .model-selector {
   position: relative;
   display: inline-block;
-  min-width: 240px;
-  max-width: 320px;
+  width: 160px; /* 🎯 进一步减小宽度 */
   z-index: 100;
-  flex: 1 1 auto;
-  min-width: 0;
 }
 
 .model-selector.disabled {
@@ -399,6 +403,28 @@
   border: 6px solid transparent;
   border-top-color: var(--vscode-editorHoverWidget-background);
   filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.2));
+}
+
+.model-stats-trigger {
+  background: var(--vscode-button-secondaryBackground, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--vscode-dropdown-border);
+  color: var(--vscode-foreground);
+  opacity: 0.8;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+  height: 32px; /* 🎯 与模型选择器高度一致 */
+}
+
+.model-stats-trigger:hover {
+  opacity: 1;
+  background-color: var(--vscode-toolbar-hoverBackground);
+  border-color: var(--vscode-focusBorder);
 }
 
 @keyframes tooltipFadeIn {
