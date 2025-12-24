@@ -1702,20 +1702,6 @@ function setupLoginHandlers() {
   });
 
   // 📝 处理打开文件请求
-  communicationService.addMessageHandler('open_file', async (payload: { filePath: string; line?: number }) => {
-    try {
-      logger.info('Opening file:', payload.filePath);
-      const fileUri = vscode.Uri.file(payload.filePath);
-      const options: vscode.TextDocumentShowOptions | undefined = payload.line
-        ? { selection: new vscode.Range(payload.line - 1, 0, payload.line - 1, 0) }
-        : undefined;
-      await vscode.window.showTextDocument(fileUri, options);
-    } catch (error) {
-      logger.error('Failed to open file', error instanceof Error ? error : undefined);
-      vscode.window.showErrorMessage(`Failed to open file: ${payload.filePath}`);
-    }
-  });
-
   // 📝 处理手动刷新内存请求
   communicationService.addMessageHandler('refresh_memory', async () => {
     try {

@@ -7,16 +7,16 @@ import React from 'react';
 import { getFileIcon } from '../components/FileIcons';
 
 // 文件扩展名列表
-const FILE_EXTENSIONS = 'php|tsx?|jsx?|pyw?|java|kt|go|rs|c(?:pp)?|h(?:pp)?|vue|rb|swift|cs|scala|json|ya?ml|toml|md|html?';
+const FILE_EXTENSIONS = 'php|tsx?|jsx?|pyw?|java|kt|go|rs|c(?:pp)?|h(?:pp)?|vue|rb|swift|cs|scala|json|ya?ml|toml|md|html?|css|scss|sh|bat|cmd|txt|log|sql|env|xml|config|properties|yml|yaml';
 
 // 路径匹配部分（支持绝对路径和相对路径，必须有至少一级目录）
 // Unix 绝对路径: /path/to/file
 // Windows 绝对路径: C:\path\to\file 或 C:/path/to/file
-// 相对路径: path/to/file 或 path\to\file
-const PATH_PART = '(?:(?:\/|[a-zA-Z]:[\\\/])[^\\s:]+|(?:[a-zA-Z][a-zA-Z0-9_\\-]*[\\/])+[^\\s:\/\\\\]+)';
+// 相对路径: ./path/to/file, ../path/to/file, path/to/file
+const PATH_PART = '(?:(?:\/|[a-zA-Z]:[\\\/]|(?:\\.\\.?[\/]))[^\\s:]+|(?:[a-zA-Z0-9_.\-]*[\\/])+[^\\s:\/\\\\]+)';
 
-// 单个文件名匹配（带常见编程扩展名）
-const SINGLE_FILE_NAME = `[a-zA-Z_][a-zA-Z0-9_\\-]*\\.(?:${FILE_EXTENSIONS})`;
+// 单个文件名匹配（带常见编程扩展名，支持 .gitignore 等点开头文件）
+const SINGLE_FILE_NAME = `(?:[a-zA-Z_][a-zA-Z0-9_\\-]*|\\.[a-zA-Z0-9_\\-]+)\\.(?:${FILE_EXTENSIONS})|\\.gitignore|\\.env|\\.prettierrc|\\.eslintrc(?:\\.js|\\.json)?`;
 
 // 文件路径模式（按优先级排序，带行号的优先匹配）
 const FILE_PATH_PATTERNS = [
