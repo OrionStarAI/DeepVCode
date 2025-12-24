@@ -59,6 +59,35 @@ const isIndexInsideCodeBlock = (
 };
 
 /**
+ * Checks if a given character index within a string is inside a <think> block.
+ * @param content The full string content.
+ * @param indexToTest The character index to test.
+ * @returns True if the index is inside a <think> block's content, false otherwise.
+ */
+const isIndexInsideThinkBlock = (
+  content: string,
+  indexToTest: number,
+): boolean => {
+  let searchPos = 0;
+  let inBlock = false;
+  const contentLower = content.toLowerCase();
+  while (searchPos < content.length) {
+    if (!inBlock) {
+      const nextStart = contentLower.indexOf('<think>', searchPos);
+      if (nextStart === -1 || nextStart >= indexToTest) break;
+      inBlock = true;
+      searchPos = nextStart + 7;
+    } else {
+      const nextEnd = contentLower.indexOf('</think>', searchPos);
+      if (nextEnd === -1 || nextEnd >= indexToTest) break;
+      inBlock = false;
+      searchPos = nextEnd + 8;
+    }
+  }
+  return inBlock;
+};
+
+/**
  * Finds the starting index of the code block that encloses the given index.
  * Returns -1 if the index is not inside a code block.
  * @param content The markdown content.
@@ -90,17 +119,57 @@ const findEnclosingCodeBlockStart = (
   return -1;
 };
 
+/**
+ * Finds the starting index of the <think> block that encloses the given index.
+ * Returns -1 if the index is not inside a <think> block.
+ * @param content The markdown content.
+ * @param index The index to check.
+ * @returns Start index of the enclosing <think> block or -1.
+ */
+const findEnclosingThinkBlockStart = (
+  content: string,
+  index: number,
+): number => {
+  if (!isIndexInsideThinkBlock(content, index)) {
+    return -1;
+  }
+  let currentSearchPos = 0;
+  const contentLower = content.toLowerCase();
+  while (currentSearchPos < index) {
+    const blockStartIndex = contentLower.indexOf('<think>', currentSearchPos);
+    if (blockStartIndex === -1 || blockStartIndex >= index) break;
+    const blockEndIndex = contentLower.indexOf('</think>', blockStartIndex + 7);
+    if (blockStartIndex < index) {
+      if (blockEndIndex === -1 || index < blockEndIndex + 8) {
+        return blockStartIndex;
+      }
+    }
+    if (blockEndIndex === -1) break;
+    currentSearchPos = blockEndIndex + 8;
+  }
+  return -1;
+};
+
 export const findLastSafeSplitPoint = (content: string) => {
-  const enclosingBlockStart = findEnclosingCodeBlockStart(
+  const enclosingCodeBlockStart = findEnclosingCodeBlockStart(
     content,
     content.length,
   );
-  if (enclosingBlockStart !== -1) {
+  if (enclosingCodeBlockStart !== -1) {
     // The end of the content is contained in a code block. Split right before.
-    return enclosingBlockStart;
+    return enclosingCodeBlockStart;
   }
 
-  // Search for the last double newline (\n\n) not in a code block.
+  const enclosingThinkBlockStart = findEnclosingThinkBlockStart(
+    content,
+    content.length,
+  );
+  if (enclosingThinkBlockStart !== -1) {
+    // The end of the content is contained in a <think> block. Split right before.
+    return enclosingThinkBlockStart;
+  }
+
+  // Search for the last double newline (\n\n) not in a code block or think block.
   let searchStartIndex = content.length;
   while (searchStartIndex >= 0) {
     const dnlIndex = content.lastIndexOf('\n\n', searchStartIndex);
@@ -110,11 +179,14 @@ export const findLastSafeSplitPoint = (content: string) => {
     }
 
     const potentialSplitPoint = dnlIndex + 2;
-    if (!isIndexInsideCodeBlock(content, potentialSplitPoint)) {
+    if (
+      !isIndexInsideCodeBlock(content, potentialSplitPoint) &&
+      !isIndexInsideThinkBlock(content, potentialSplitPoint)
+    ) {
       return potentialSplitPoint;
     }
 
-    // If potentialSplitPoint was inside a code block,
+    // If potentialSplitPoint was inside a block,
     // the next search should start *before* the \n\n we just found to ensure progress.
     searchStartIndex = dnlIndex - 1;
   }

@@ -46,5 +46,23 @@ describe('markdownUtilities', () => {
       const content = 'Single line of text';
       expect(findLastSafeSplitPoint(content)).toBe(content.length);
     });
+
+    it('should split right before a <think> block if the content ends inside it', () => {
+      const content = 'Intro text\n\n<think>Reasoning process starts here...';
+      const thinkStart = content.indexOf('<think>');
+      expect(findLastSafeSplitPoint(content)).toBe(thinkStart);
+    });
+
+    it('should split right before a <think> block even if there is a double newline after it starts', () => {
+      const content = 'Intro\n\n<think>Step 1\n\nStep 2...';
+      const thinkStart = content.indexOf('<think>');
+      expect(findLastSafeSplitPoint(content)).toBe(thinkStart);
+    });
+
+    it('should handle same-line <think> tags correctly for split points', () => {
+      const content = 'Intro <think>Reasoning...';
+      const thinkStart = content.indexOf('<think>');
+      expect(findLastSafeSplitPoint(content)).toBe(thinkStart);
+    });
   });
 });

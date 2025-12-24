@@ -12,7 +12,7 @@
 .model-selector {
   position: relative;
   display: inline-block;
-  width: 160px; /* 🎯 进一步减小宽度 */
+  width: 200px; /* 🎯 增加宽度，避免模型名称被截断 */
   z-index: 100;
 }
 
@@ -406,25 +406,23 @@
 }
 
 .model-stats-trigger {
-  background: var(--vscode-button-secondaryBackground, rgba(255, 255, 255, 0.05));
-  border: 1px solid var(--vscode-dropdown-border);
+  background: transparent;
+  border: none;
   color: var(--vscode-foreground);
-  opacity: 0.8;
+  opacity: 0.6;
   cursor: pointer;
-  padding: 4px 6px;
+  padding: 4px;
   border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s;
+  transition: opacity 0.2s;
   flex-shrink: 0;
-  height: 32px; /* 🎯 与模型选择器高度一致 */
+  height: 32px;
 }
 
 .model-stats-trigger:hover {
   opacity: 1;
-  background-color: var(--vscode-toolbar-hoverBackground);
-  border-color: var(--vscode-focusBorder);
 }
 
 @keyframes tooltipFadeIn {

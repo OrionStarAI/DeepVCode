@@ -6,7 +6,9 @@
 
 import React from 'react';
 import { Text, Box } from 'ink';
+import stringWidth from 'string-width';
 import { Colors } from '../colors.js';
+import { t } from '../utils/i18n.js';
 import { colorizeCode } from './CodeColorizer.js';
 import { TableRenderer } from './TableRenderer.js';
 import { RenderInline } from './InlineMarkdownRenderer.js';
@@ -41,6 +43,8 @@ const MarkdownDisplayInternal: React.FC<MarkdownDisplayProps> = ({
   const hrRegex = /^ *([-*_] *){3,} *$/;
   const tableRowRegex = /^\s*\|(.+)\|\s*$/;
   const tableSeparatorRegex = /^\s*\|?\s*(:?-+:?)\s*(\|\s*(:?-+:?)\s*)+\|?\s*$/;
+  const thinkStartRegex = /<think>/i;
+  const thinkEndRegex = /<\/think>/i;
 
   const contentBlocks: React.ReactNode[] = [];
   let inCodeBlock = false;
@@ -48,6 +52,8 @@ const MarkdownDisplayInternal: React.FC<MarkdownDisplayProps> = ({
   let codeBlockContent: string[] = [];
   let codeBlockLang: string | null = null;
   let codeBlockFence = '';
+  let inThinkBlock = false;
+  let thinkBlockContent: string[] = [];
   let inTable = false;
   let tableRows: string[][] = [];
   let tableHeaders: string[] = [];
@@ -106,7 +112,45 @@ const MarkdownDisplayInternal: React.FC<MarkdownDisplayProps> = ({
       return;
     }
 
+    if (inThinkBlock) {
+      const endMatch = line.match(thinkEndRegex);
+      if (endMatch) {
+        const endTagIndex = line.toLowerCase().indexOf('</think>');
+        const beforeTag = line.substring(0, endTagIndex);
+        const afterTag = line.substring(endTagIndex + 8);
+
+        if (beforeTag) thinkBlockContent.push(beforeTag);
+
+        addContentBlock(
+          <RenderThinkBlock
+            key={key}
+            content={thinkBlockContent}
+            isPending={isPending}
+            availableTerminalHeight={availableTerminalHeight}
+            terminalWidth={terminalWidth}
+          />,
+        );
+
+        inThinkBlock = false;
+        thinkBlockContent = [];
+
+        if (afterTag.trim()) {
+          addContentBlock(
+            <Box key={`${key}-after`}>
+              <Text wrap="wrap">
+                <RenderInline text={afterTag} />
+              </Text>
+            </Box>,
+          );
+        }
+      } else {
+        thinkBlockContent.push(line);
+      }
+      return;
+    }
+
     const codeFenceMatch = line.match(codeFenceRegex);
+    const thinkStartMatch = line.match(thinkStartRegex);
     const headerMatch = line.match(headerRegex);
     const ulMatch = line.match(ulItemRegex);
     const olMatch = line.match(olItemRegex);
@@ -118,6 +162,50 @@ const MarkdownDisplayInternal: React.FC<MarkdownDisplayProps> = ({
       inCodeBlock = true;
       codeBlockFence = codeFenceMatch[1];
       codeBlockLang = codeFenceMatch[2] || null;
+    } else if (thinkStartMatch) {
+      const startTagIndex = line.toLowerCase().indexOf('<think>');
+      const beforeTag = line.substring(0, startTagIndex);
+      const afterTag = line.substring(startTagIndex + 7);
+
+      if (beforeTag.trim()) {
+        addContentBlock(
+          <Box key={`${key}-before`}>
+            <Text wrap="wrap">
+              <RenderInline text={beforeTag} />
+            </Text>
+          </Box>,
+        );
+      }
+
+      inThinkBlock = true;
+      const endTagIndex = afterTag.toLowerCase().indexOf('</think>');
+      if (endTagIndex !== -1) {
+        const thinkContent = afterTag.substring(0, endTagIndex);
+        const remaining = afterTag.substring(endTagIndex + 8);
+
+        addContentBlock(
+          <RenderThinkBlock
+            key={key}
+            content={[thinkContent]}
+            isPending={isPending}
+            availableTerminalHeight={availableTerminalHeight}
+            terminalWidth={terminalWidth}
+          />,
+        );
+        inThinkBlock = false;
+
+        if (remaining.trim()) {
+          addContentBlock(
+            <Box key={`${key}-after`}>
+              <Text wrap="wrap">
+                <RenderInline text={remaining} />
+              </Text>
+            </Box>,
+          );
+        }
+      } else {
+        if (afterTag) thinkBlockContent.push(afterTag);
+      }
     } else if (tableRowMatch && !inTable) {
       // Potential table start - check if next line is separator
       if (
@@ -283,6 +371,18 @@ const MarkdownDisplayInternal: React.FC<MarkdownDisplayProps> = ({
     );
   }
 
+  if (inThinkBlock) {
+    addContentBlock(
+      <RenderThinkBlock
+        key="think-eof"
+        content={thinkBlockContent}
+        isPending={isPending}
+        availableTerminalHeight={availableTerminalHeight}
+        terminalWidth={terminalWidth}
+      />,
+    );
+  }
+
   // Handle table at end of content
   if (inTable && tableHeaders.length > 0 && tableRows.length > 0) {
     addContentBlock(
@@ -299,6 +399,65 @@ const MarkdownDisplayInternal: React.FC<MarkdownDisplayProps> = ({
 };
 
 // Helper functions (adapted from static methods of MarkdownRenderer)
+
+interface RenderThinkBlockProps {
+  content: string[];
+  isPending: boolean;
+  availableTerminalHeight?: number;
+  terminalWidth: number;
+}
+
+const RenderThinkBlockInternal: React.FC<RenderThinkBlockProps> = ({
+  content,
+  isPending,
+  availableTerminalHeight,
+  terminalWidth,
+}) => {
+  const lineChar = '─';
+  const label = t('model.reasoning');
+  const labelWidth = stringWidth(label) + 1; // label + space
+  const remainingWidth = Math.max(0, terminalWidth - labelWidth - 2);
+
+  // If pending, only show the last few lines to keep UI responsive
+  let displayLines = content;
+  const MAX_LINES_WHEN_PENDING = availableTerminalHeight
+    ? Math.max(2, Math.floor(availableTerminalHeight * 0.3))
+    : 10;
+
+  if (isPending && content.length > MAX_LINES_WHEN_PENDING) {
+    displayLines = content.slice(-MAX_LINES_WHEN_PENDING);
+  }
+
+  return (
+    <Box flexDirection="column" marginY={1}>
+      <Box flexDirection="row" alignItems="center" width={terminalWidth}>
+        <Text color={Colors.AccentBlue} bold>
+          {label}{' '}
+        </Text>
+        <Text color={Colors.Gray}>
+          {lineChar.repeat(remainingWidth)}
+        </Text>
+      </Box>
+      <Box paddingX={1} flexDirection="column" width={terminalWidth}>
+        <Text color={Colors.Comment} italic wrap="wrap">
+          {displayLines.join('\n')}
+        </Text>
+        {isPending && (
+          <Text color={Colors.Comment}>
+            ...
+          </Text>
+        )}
+      </Box>
+      <Box flexDirection="row" alignItems="center" width={terminalWidth}>
+        <Text color={Colors.Gray}>
+          {lineChar.repeat(terminalWidth - 1)}
+        </Text>
+      </Box>
+    </Box>
+  );
+};
+
+const RenderThinkBlock = React.memo(RenderThinkBlockInternal);
 
 interface RenderCodeBlockProps {
   content: string[];

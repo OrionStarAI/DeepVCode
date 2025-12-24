@@ -38,8 +38,10 @@ export const ExecutionSettingsPanel: React.FC<ExecutionSettingsPanelProps> = ({
 }) => {
   const { t } = useTranslation();
 
-  // 构造模型选项，确保 Auto 在第一位且不重复
-  const otherModels = availableModels.filter(m => m.name !== 'auto');
+  // 构造模型选项，确保 Auto 在第一位且不重复，其余按字母排序
+  const otherModels = availableModels
+    .filter(m => m.name !== 'auto')
+    .sort((a, b) => (a.displayName || a.name).localeCompare(b.displayName || b.name));
 
   const modelOptions = [
     { label: t('settings.general.autoModel'), value: 'auto', description: t('settings.general.autoModelDesc') },

@@ -31,7 +31,7 @@ interface ModelOption {
   id: string;
   name: string;
   displayName: string;
-  category: 'claude' | 'gemini' | 'kimi' | 'gpt' | 'qwen' | 'grok' | 'auto';
+  category: 'claude' | 'gemini' | 'kimi' | 'gpt' | 'qwen' | 'grok' | 'auto' | 'minimax';
   creditsPerRequest: number | undefined;
   maxToken: number;
   description?: string;
@@ -49,6 +49,7 @@ const inferCategory = (modelName: string): ModelOption['category'] => {
   if (modelName.includes('gpt')) return 'gpt';
   if (modelName.includes('qwen')) return 'qwen';
   if (modelName.includes('grok')) return 'grok';
+  if (modelName.includes('minimax')) return 'minimax';
   return 'gemini'; // 默认
 };
 
@@ -303,6 +304,12 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
           color: 'var(--vscode-terminal-ansiRed)',
           name: 'Grok'
         };
+      case 'minimax':
+        return {
+          icon: getProviderIcon('minimax', 16),
+          color: 'var(--vscode-terminal-ansiMagenta)',
+          name: 'Minimax'
+        };
       default:
         return {
           icon: getProviderIcon('default', 16),
@@ -486,13 +493,22 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   }, [isOpen]);
 
   // 根据类别分组模型
-  const groupedModels = modelOptions.reduce((groups, model) => {
-    if (!groups[model.category]) {
-      groups[model.category] = [];
-    }
-    groups[model.category].push(model);
+  const groupedModels = useMemo(() => {
+    const groups = modelOptions.reduce((groups, model) => {
+      if (!groups[model.category]) {
+        groups[model.category] = [];
+      }
+      groups[model.category].push(model);
+      return groups;
+    }, {} as Record<string, ModelOption[]>);
+
+    // 每组内按显示名称字母排序
+    Object.keys(groups).forEach(category => {
+      groups[category].sort((a, b) => a.displayName.localeCompare(b.displayName));
+    });
+
     return groups;
-  }, {} as Record<string, ModelOption[]>);
+  }, [modelOptions]);
 
   // 🎯 构建模型 ID 到显示名称的映射
   const modelNameMap = useMemo(() => {
@@ -603,7 +619,9 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
             </div>
 
             <div className="model-list">
-              {Object.entries(groupedModels).map(([category, models]) => (
+              {Object.entries(groupedModels)
+                .sort(([categoryA], [categoryB]) => categoryA.localeCompare(categoryB))
+                .map(([category, models]) => (
                 <div key={category} className="model-group">
                   {models.map((model) => (
                     <div
@@ -675,7 +693,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
           }}
           title={t('stats.title')}
         >
-          <BarChart2 size={16} />
+          <BarChart2 size={14} />
         </button>
       )}
 
