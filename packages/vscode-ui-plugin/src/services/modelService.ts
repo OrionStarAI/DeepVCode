@@ -39,6 +39,44 @@ const AUTO_MODE_CONFIG: ModelInfo = {
   highVolumeCredits: undefined
 };
 
+// 检测第一个字符是否是 emoji
+const isEmoji = (char: string): boolean => {
+  const codePoint = char.codePointAt(0);
+  if (codePoint === undefined) return false;
+  // Unicode 范围：各种 emoji 区块
+  return (
+    (codePoint >= 0x1F600 && codePoint <= 0x1F64F) || // Emoticons
+    (codePoint >= 0x1F300 && codePoint <= 0x1F5FF) || // Misc Symbols and Pictographs
+    (codePoint >= 0x1F680 && codePoint <= 0x1F6FF) || // Transport and Map
+    (codePoint >= 0x1F1E6 && codePoint <= 0x1F1FF) || // Regional Indicator Symbols
+    (codePoint >= 0x2600 && codePoint <= 0x26FF) ||   // Misc Symbols
+    (codePoint >= 0x2700 && codePoint <= 0x27BF) ||   // Dingbats
+    (codePoint >= 0xFE00 && codePoint <= 0xFE0F) ||   // Variation Selectors
+    (codePoint >= 0x1F900 && codePoint <= 0x1F9FF) || // Supplemental Symbols and Pictographs
+    (codePoint >= 0x1FA00 && codePoint <= 0x1FA6F) || // Chess Symbols
+    (codePoint >= 0x1FA70 && codePoint <= 0x1FAFF) || // Symbols and Pictographs Extended-A
+    (codePoint >= 0x1F004 && codePoint <= 0x1F004) || // Mahjong Tile
+    (codePoint >= 0x1F0CF && codePoint <= 0x1F0CF)    // Playing Card
+  );
+};
+
+// 🎯 按规则排序：emoji 模型在前 A-Z，非 emoji 模型在后 A-Z
+const sortModelsByDisplayName = (models: ModelInfo[]): ModelInfo[] => {
+  return [...models].sort((a, b) => {
+    const aFirstChar = a.displayName.charAt(0);
+    const bFirstChar = b.displayName.charAt(0);
+    const aIsEmoji = isEmoji(aFirstChar);
+    const bIsEmoji = isEmoji(bFirstChar);
+
+    // 如果一个是 emoji 一个不是，emoji 排前面
+    if (aIsEmoji && !bIsEmoji) return -1;
+    if (!aIsEmoji && bIsEmoji) return 1;
+
+    // 同类模型 A-Z 排序
+    return a.displayName.localeCompare(b.displayName);
+  });
+};
+
 export class ModelService {
   private logger: Logger;
   private proxyAuthManager: any;
@@ -151,7 +189,7 @@ export class ModelService {
       });
 
       return {
-        models: [AUTO_MODE_CONFIG, ...localModels],
+        models: [AUTO_MODE_CONFIG, ...sortModelsByDisplayName(localModels)],
         source: 'local'
       };
     }
@@ -163,7 +201,7 @@ export class ModelService {
         this.saveCloudModelsToSettings(models);
       }
       return {
-        models: [AUTO_MODE_CONFIG, ...models],
+        models: [AUTO_MODE_CONFIG, ...sortModelsByDisplayName(models)],
         source: 'server'
       };
     } catch (error) {

@@ -313,6 +313,47 @@ const TokenUsagePopup: React.FC<{
   );
 };
 
+// 🎯 Thinking Block Component
+const ThinkingBlock: React.FC<{
+  content: string;
+  t: (key: string, params?: any, fallback?: string) => string;
+  markdownComponents: any;
+  defaultCollapsed?: boolean;
+}> = ({ content, t, markdownComponents, defaultCollapsed = false }) => {
+  const [isCollapsed, setIsCollapsed] = React.useState(defaultCollapsed);
+
+  // 当 defaultCollapsed 变化时（例如从流式输出变成完成状态），同步状态
+  React.useEffect(() => {
+    setIsCollapsed(defaultCollapsed);
+  }, [defaultCollapsed]);
+
+  return (
+    <div className={`thinking-wrapper ${isCollapsed ? 'collapsed' : 'expanded'}`}>
+      <div
+        className="thinking-header"
+        onClick={() => setIsCollapsed(!isCollapsed)}
+        style={{ cursor: 'pointer', userSelect: 'none' }}
+      >
+        <span className="thinking-title">
+          {isCollapsed ? <ChevronDown size={12} style={{ marginRight: 4 }} /> : <ChevronUp size={12} style={{ marginRight: 4 }} />}
+          {t('reasoning.title', {}, 'Thinking')}
+        </span>
+      </div>
+      {!isCollapsed && (
+        <div className="thinking-content">
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm, remarkMath]}
+            rehypePlugins={[rehypeRaw, rehypeKatex, rehypeHighlight]}
+            components={markdownComponents}
+          >
+            {content}
+          </ReactMarkdown>
+        </div>
+      )}
+    </div>
+  );
+};
+
 interface MessageBubbleProps {
   message: ChatMessage;
   onToolConfirm?: (toolCallId: string, confirmed: boolean, userInput?: string) => void;
@@ -502,6 +543,110 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
               if (specialContent?.type === 'subagent_display') {
                 return <SubAgentDisplayRenderer data={specialContent.data} />;
               }
+
+              // 🎯 手动解析 <think> 标签，避免 ReactMarkdown 渲染器嵌套错误
+              const rawContent = messageContentToString(message.content);
+              const thinkRegex = /<think>([\s\S]*?)(?:<\/think>|$)/g;
+              const renderParts: { type: 'text' | 'think'; content: string }[] = [];
+              let lastIndex = 0;
+              let match;
+
+              // 重置正则状态，确保从头开始匹配
+              thinkRegex.lastIndex = 0;
+
+              while ((match = thinkRegex.exec(rawContent)) !== null) {
+                // 添加标签前的文本
+                if (match.index > lastIndex) {
+                  const beforeText = rawContent.substring(lastIndex, match.index);
+                  if (beforeText) {
+                    renderParts.push({ type: 'text', content: beforeText });
+                  }
+                }
+                // 添加思考块内容（保留内部换行）
+                renderParts.push({ type: 'think', content: match[1] });
+                lastIndex = thinkRegex.lastIndex;
+              }
+
+              // 添加剩余文本
+              if (lastIndex < rawContent.length) {
+                const afterText = rawContent.substring(lastIndex);
+                if (afterText) {
+                  renderParts.push({ type: 'text', content: afterText });
+                }
+              }
+
+              // 如果没有匹配到任何 <think> 标签，直接按原样渲染
+              if (renderParts.length === 0) {
+                renderParts.push({ type: 'text', content: rawContent });
+              }
+
+              // 🎯 判断是否应该自动折叠思考过程
+              // 如果思考块不是最后一部分（即已经开始输出正文），或者消息不再处于流式输出状态且已完成
+              const hasNormalResponse = renderParts.some((p, i) => p.type === 'text' && p.content.trim().length > 0 && i > 0);
+              const shouldAutoCollapse = hasNormalResponse || (!message.isStreaming && message.type === 'assistant');
+
+              const markdownComponents = {
+                // 代码块美化 - 使用独立的 CodeBlock 组件
+                pre: CodeBlock,
+
+                // 行内代码 - 添加文件路径和方法名链接支持
+                code({node, className, children, ...props}: any) {
+                  // 如果有 className，说明是代码块中的 code，直接渲染
+                  if (className) {
+                    return <code className={className} {...props}>{children}</code>;
+                  }
+                  // 否则是行内代码，支持文件路径点击
+                  return (
+                    <code className="inline-code" {...props}>
+                      {linkifyTextNode(children)}
+                    </code>
+                  );
+                },
+
+                // 标题美化 - 添加文件路径和方法名链接支持
+                h1: ({children}: any) => <h1 className="markdown-h1">{linkifyTextNode(children)}</h1>,
+                h2: ({children}: any) => <h2 className="markdown-h2">{linkifyTextNode(children)}</h2>,
+                h3: ({children}: any) => <h3 className="markdown-h3">{linkifyTextNode(children)}</h3>,
+
+                // 列表美化 - 添加文件路径和方法名链接支持
+                ul: ({children}: any) => <ul className="markdown-ul">{children}</ul>,
+                ol: ({children}: any) => <ol className="markdown-ol">{children}</ol>,
+                li: ({children, ...props}: any) => {
+                  const checked = props.checked;
+                  // 处理任务列表
+                  if (typeof checked === 'boolean') {
+                    return (
+                      <li className="markdown-task-list-item">
+                        <input type="checkbox" checked={checked} disabled readOnly />
+                        <span>{linkifyTextNode(children)}</span>
+                      </li>
+                    );
+                  }
+                  return <li className="markdown-li">{linkifyTextNode(children)}</li>;
+                },
+
+                // 引用块美化
+                blockquote: ({children}: any) => (
+                  <blockquote className="markdown-blockquote">
+                    {children}
+                  </blockquote>
+                ),
+
+                // 链接美化
+                a: ({href, children}: any) => (
+                  <a href={href} target="_blank" rel="noopener noreferrer" className="markdown-link">
+                    {children}
+                  </a>
+                ),
+
+                // 表格美化
+                table: ({children}: any) => (
+                  <div className="markdown-table-container">
+                    <table className="markdown-table">{children}</table>
+                  </div>
+                ),
+              };
+
               return (
                 <>
                   {/* 🎯 AI思考过程显示 - 只在正在思考时显示，思考完成后隐藏 */}
@@ -511,73 +656,31 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
                       isActive={true}
                     />
                   )}
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm, remarkMath]}
-                    rehypePlugins={[rehypeRaw, rehypeKatex, rehypeHighlight]}
-                    components={{
-                      // 代码块美化 - 使用独立的 CodeBlock 组件
-                      pre: CodeBlock,
 
-                      // 行内代码 - 添加文件路径和方法名链接支持
-                      code({node, className, children, ...props}: any) {
-                        // 如果有 className，说明是代码块中的 code，直接渲染
-                        if (className) {
-                          return <code className={className} {...props}>{children}</code>;
-                        }
-                        // 否则是行内代码，支持文件路径点击
-                        return (
-                          <code className="inline-code" {...props}>
-                            {linkifyTextNode(children)}
-                          </code>
-                        );
-                      },
-
-                      // 标题美化 - 添加文件路径和方法名链接支持
-                      h1: ({children}) => <h1 className="markdown-h1">{linkifyTextNode(children)}</h1>,
-                      h2: ({children}) => <h2 className="markdown-h2">{linkifyTextNode(children)}</h2>,
-                      h3: ({children}) => <h3 className="markdown-h3">{linkifyTextNode(children)}</h3>,
-
-                      // 列表美化 - 添加文件路径和方法名链接支持
-                      ul: ({children}) => <ul className="markdown-ul">{children}</ul>,
-                      ol: ({children}) => <ol className="markdown-ol">{children}</ol>,
-                      li: ({children, ...props}: any) => {
-                        const checked = props.checked;
-                        // 处理任务列表
-                        if (typeof checked === 'boolean') {
-                          return (
-                            <li className="markdown-task-list-item">
-                              <input type="checkbox" checked={checked} disabled readOnly />
-                              <span>{linkifyTextNode(children)}</span>
-                            </li>
-                          );
-                        }
-                        return <li className="markdown-li">{linkifyTextNode(children)}</li>;
-                      },
-
-                      // 引用块美化
-                      blockquote: ({children}) => (
-                        <blockquote className="markdown-blockquote">
-                          {children}
-                        </blockquote>
-                      ),
-
-                      // 链接美化
-                      a: ({href, children}: any) => (
-                        <a href={href} target="_blank" rel="noopener noreferrer" className="markdown-link">
-                          {children}
-                        </a>
-                      ),
-
-                      // 表格美化
-                      table: ({children}) => (
-                        <div className="markdown-table-container">
-                          <table className="markdown-table">{children}</table>
-                        </div>
-                      ),
-                    }}
-                  >
-                    {messageContentToString(message.content)}
-                  </ReactMarkdown>
+                  {renderParts.map((part, index) => {
+                    if (part.type === 'think') {
+                      return (
+                        <ThinkingBlock
+                          key={`think-${index}`}
+                          content={part.content}
+                          t={t}
+                          markdownComponents={markdownComponents}
+                          defaultCollapsed={shouldAutoCollapse}
+                        />
+                      );
+                    } else {
+                      return (
+                        <ReactMarkdown
+                          key={`text-${index}`}
+                          remarkPlugins={[remarkGfm, remarkMath]}
+                          rehypePlugins={[rehypeRaw, rehypeKatex, rehypeHighlight]}
+                          components={markdownComponents as any}
+                        >
+                          {part.content}
+                        </ReactMarkdown>
+                      );
+                    }
+                  })}
                 </>
               );
             })()}

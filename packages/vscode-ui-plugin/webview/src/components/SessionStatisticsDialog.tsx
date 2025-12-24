@@ -123,29 +123,29 @@ export const SessionStatisticsDialog: React.FC<SessionStatisticsDialogProps> = (
         <div className="stats-dialog-body">
           {/* 总览卡片 */}
           <div className="stats-summary-grid">
-            <div className="stats-summary-card highlights">
-              <div className="stats-card-icon">
-                <Zap size={20} />
-              </div>
-              <div className="stats-card-content">
-                <div className="stats-card-label">{t('stats.totalConsumption')}</div>
-                <div className="stats-card-value">
-                  {stats.totalCredits.toFixed(3)}
-                  <span className="stats-unit">credits</span>
+            <div className="stats-summary-card">
+              <div className="stats-card-header">
+                <div className="stats-card-icon">
+                  <Zap size={14} />
                 </div>
+                <div className="stats-card-label">{t('stats.totalConsumption')}</div>
+              </div>
+              <div className="stats-card-value">
+                {stats.totalCredits.toFixed(3)}
+                <span className="stats-unit">credits</span>
               </div>
             </div>
 
             <div className="stats-summary-card">
-              <div className="stats-card-icon">
-                <TrendingUp size={20} />
-              </div>
-              <div className="stats-card-content">
-                <div className="stats-card-label">{t('stats.totalTokens')}</div>
-                <div className="stats-card-value">
-                  {stats.totalTokens.toLocaleString()}
-                  <span className="stats-unit">tokens</span>
+              <div className="stats-card-header">
+                <div className="stats-card-icon">
+                  <TrendingUp size={14} />
                 </div>
+                <div className="stats-card-label">{t('stats.totalTokens')}</div>
+              </div>
+              <div className="stats-card-value">
+                {stats.totalTokens.toLocaleString()}
+                <span className="stats-unit">tokens</span>
               </div>
             </div>
           </div>
@@ -153,11 +153,11 @@ export const SessionStatisticsDialog: React.FC<SessionStatisticsDialogProps> = (
           {/* 详细 Token 拆分 */}
           <div className="stats-token-breakdown">
              <div className="token-item">
-                <span className="token-label">{t('tokenUsage.input')}:</span>
+                <span className="token-label">{t('tokenUsage.input')}</span>
                 <span className="token-value">{stats.totalInputTokens.toLocaleString()}</span>
              </div>
              <div className="token-item">
-                <span className="token-label">{t('tokenUsage.output')}:</span>
+                <span className="token-label">{t('tokenUsage.output')}</span>
                 <span className="token-value">{stats.totalOutputTokens.toLocaleString()}</span>
              </div>
           </div>

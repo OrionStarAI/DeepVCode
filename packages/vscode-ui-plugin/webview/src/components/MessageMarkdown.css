@@ -690,6 +690,57 @@
   margin: 20px 0;
 }
 
+/* AI 思考过程样式 (兼容 <think> 标签) */
+.thinking-wrapper {
+  margin: 12px 0;
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 6px;
+  background-color: var(--vscode-textBlockQuote-background);
+  overflow: hidden;
+  opacity: 0.8;
+}
+
+.thinking-header {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  background-color: var(--vscode-editorGroupHeader-tabsBackground);
+  border-bottom: 1px solid var(--vscode-panel-border);
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  font-weight: 600;
+  transition: background-color 0.2s ease;
+}
+
+.thinking-header:hover {
+  background-color: var(--vscode-list-hoverBackground);
+}
+
+.thinking-wrapper.collapsed .thinking-header {
+  border-bottom: none;
+}
+
+.thinking-header .thinking-title {
+  display: flex;
+  align-items: center;
+}
+
+.thinking-header::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--vscode-panel-border);
+  margin-left: 10px;
+}
+
+.thinking-content {
+  padding: 10px 14px;
+  font-size: 13px;
+  color: var(--vscode-descriptionForeground);
+  font-style: italic;
+  line-height: 1.5;
+}
+
 /* 优化整体间距和排版 */
 .assistant-message .message-content > *:first-child {
   margin-top: 0;

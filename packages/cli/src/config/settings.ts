@@ -189,23 +189,23 @@ export class LoadedSettings {
     // 调试信息已关闭 - 只保留必要的用户信息输出
 
     const merged = {
+      ...system,
       ...user,
       ...workspace,
-      ...system,
       customThemes: {
+        ...(system.customThemes || {}),
         ...(user.customThemes || {}),
         ...(workspace.customThemes || {}),
-        ...(system.customThemes || {}),
       },
       mcpServers: {
+        ...(system.mcpServers || {}),
         ...(user.mcpServers || {}),
         ...(workspace.mcpServers || {}),
-        ...(system.mcpServers || {}),
       },
       hooks: {
+        ...(system.hooks || {}),
         ...(user.hooks || {}),
         ...(workspace.hooks || {}),
-        ...(system.hooks || {}),
       },
     };
 

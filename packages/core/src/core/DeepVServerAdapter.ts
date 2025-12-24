@@ -63,6 +63,9 @@ function supportsSSEStreaming(modelName: string): boolean {
   // DeepSeek series
   if (name.includes('deepseek')) return true;
 
+  // MiniMax series
+  if (name.startsWith('minimax')) return true;
+
   return false;
 }
 

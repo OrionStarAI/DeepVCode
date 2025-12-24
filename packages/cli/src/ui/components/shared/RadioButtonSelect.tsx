@@ -58,7 +58,7 @@ export function RadioButtonSelect<T>({
   initialIndex = 0,
   onSelect,
   onHighlight,
-  isFocused,
+  isFocused = true,
   showScrollArrows = false,
   maxItemsToShow = 10,
   showNumbers = true,
@@ -69,6 +69,12 @@ export function RadioButtonSelect<T>({
   const [scrollOffset, setScrollOffset] = useState(0);
   const [numberInput, setNumberInput] = useState('');
   const numberInputTimer = useRef<NodeJS.Timeout | null>(null);
+  const isFocusedRef = useRef(isFocused);
+
+  // Keep ref in sync with prop
+  useEffect(() => {
+    isFocusedRef.current = isFocused;
+  }, [isFocused]);
 
   useEffect(() => {
     const newScrollOffset = Math.max(
@@ -93,6 +99,11 @@ export function RadioButtonSelect<T>({
 
   useInput(
     (input, key) => {
+      // Debug log for key presses (useful for troubleshooting on Windows)
+      if (process.env.DEBUG_THEME_SELECTION === 'true') {
+        console.log('[RadioButtonSelect] Input:', input, 'key:', JSON.stringify(key), 'isFocused:', isFocusedRef.current);
+      }
+
       const isNumeric = showNumbers && /^[0-9]$/.test(input);
 
       // Any key press that is not a digit should clear the number input buffer.
@@ -116,7 +127,7 @@ export function RadioButtonSelect<T>({
           onHighlight?.(items[newIndex]!.value);
           return;
         }
-      } 
+      }
       // 横向布局：左右箭头或h/l键
       else if (layout === 'horizontal') {
         if (input === 'h' || key.leftArrow) {
@@ -135,6 +146,7 @@ export function RadioButtonSelect<T>({
       }
 
       if (key.return) {
+        console.log('[RadioButtonSelect] Enter pressed, isFocused:', isFocusedRef.current, 'items.length:', items.length, 'activeIndex:', activeIndex);
         onSelect(items[activeIndex]!.value);
         return;
       }
@@ -179,7 +191,7 @@ export function RadioButtonSelect<T>({
         }
       }
     },
-    { isActive: isFocused && items.length > 0 },
+    { isActive: isFocused },
   );
 
   const visibleItems = items.slice(scrollOffset, scrollOffset + maxItemsToShow);
@@ -209,10 +221,10 @@ export function RadioButtonSelect<T>({
           const itemNumber = itemIndex + 1;
 
           return (
-            <Box 
-              key={item.label} 
+            <Box
+              key={item.label}
               flexDirection="row"
-              alignItems="center" 
+              alignItems="center"
               marginRight={index < visibleItems.length - 1 ? horizontalSpacing : 0}
             >
               {/* 紧凑模式：不显示数字时，选中状态用简化标记 */}

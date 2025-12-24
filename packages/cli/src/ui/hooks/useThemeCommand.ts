@@ -111,6 +111,7 @@ export const useThemeCommand = (
 
   const handleThemeSelect = useCallback(
     (themeName: string | undefined, scope: SettingScope) => {
+      console.log('🎨 [handleThemeSelect] Called with themeName:', themeName, 'scope:', scope);
       try {
         // Merge user and workspace custom themes (workspace takes precedence)
         const mergedCustomThemes = {
@@ -120,20 +121,28 @@ export const useThemeCommand = (
         // Only allow selecting themes available in the merged custom themes or built-in themes
         const isBuiltIn = themeManager.findThemeByName(themeName);
         const isCustom = themeName && mergedCustomThemes[themeName];
+        console.log('🎨 [handleThemeSelect] isBuiltIn:', isBuiltIn, 'isCustom:', isCustom);
+
         if (!isBuiltIn && !isCustom) {
+          console.log('🎨 [handleThemeSelect] Theme not found error');
           setThemeError(`Theme "${themeName}" not found in selected scope.`);
           setIsThemeDialogOpen(true);
           return;
         }
+        console.log('🎨 [handleThemeSelect] Calling setValue...');
         loadedSettings.setValue(scope, 'theme', themeName); // Update the merged settings
+        console.log('🎨 [handleThemeSelect] setValue completed, merged.theme:', loadedSettings.merged.theme);
+
         if (loadedSettings.merged.customThemes) {
           themeManager.loadCustomThemes(loadedSettings.merged.customThemes);
         }
         applyTheme(loadedSettings.merged.theme); // Apply the current theme
         setThemeError(null);
+        console.log('🎨 [handleThemeSelect] Theme applied successfully');
       } finally {
         // Delay closing the dialog to prevent the Enter key from being processed by InputPrompt
         setImmediate(() => {
+          console.log('🎨 [handleThemeSelect] Closing dialog...');
           setIsThemeDialogOpen(false); // Close the dialog
         });
       }
