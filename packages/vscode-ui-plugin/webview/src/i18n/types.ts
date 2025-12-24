@@ -478,6 +478,18 @@ export interface Translations {
       open: string;
     };
   };
+
+  stats: {
+    title: string;
+    totalConsumption: string;
+    totalTokens: string;
+    modelStats: string;
+    modelName: string;
+    callCount: string;
+    avgTokens: string;
+    consumption: string;
+    noData: string;
+  };
 }
 
 export type SupportedLocale = 'zh-CN' | 'en-US';

@@ -93,7 +93,11 @@ export interface ChatMessage {
     cacheReadInputTokens?: number;
     creditsUsage?: number;
     cacheHitRate?: number;
+    model?: string; // 🎯 新增：记录真实使用的模型名称
   };
+
+  // 🎯 新增：记录生成该消息的模型名称
+  modelName?: string;
 }
 
 // 🎯 增强的工具调用状态枚举

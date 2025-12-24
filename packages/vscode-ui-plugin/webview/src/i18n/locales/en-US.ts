@@ -483,4 +483,16 @@ export const enUS: Translations = {
       open: 'Open Extension Settings',
     },
   },
+
+  stats: {
+    title: 'Session Statistics',
+    totalConsumption: 'Total Consumption',
+    totalTokens: 'Total Tokens',
+    modelStats: 'Model Statistics',
+    modelName: 'Model Name',
+    callCount: 'Calls',
+    avgTokens: 'Avg Tokens',
+    consumption: 'Credits',
+    noData: 'No statistical data available',
+  },
 };

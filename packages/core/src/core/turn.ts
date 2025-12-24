@@ -158,6 +158,7 @@ export interface TokenUsageInfo {
   cacheCreationInputTokens?: number;
   cacheReadInputTokens?: number;
   creditsUsage?: number;
+  model?: string; // 🎯 新增：记录真实使用的模型名称
 }
 
 export type ServerGeminiChatCompressedEvent = {
@@ -395,6 +396,7 @@ export class Turn {
             cacheCreationInputTokens: (resp.usageMetadata as any).cacheCreationInputTokens,
             cacheReadInputTokens: (resp.usageMetadata as any).cacheReadInputTokens,
             creditsUsage: (resp.usageMetadata as any).creditsUsage,
+            model: this.modelName, // 🎯 记录真实使用的模型名称
           };
 
           yield {

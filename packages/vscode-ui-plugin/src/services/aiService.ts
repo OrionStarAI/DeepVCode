@@ -1711,7 +1711,8 @@ export class AIService {
           cacheCreationInputTokens: tokenUsageInfo.cacheCreationInputTokens,
           cacheReadInputTokens: tokenUsageInfo.cacheReadInputTokens,
           creditsUsage: tokenUsageInfo.creditsUsage,
-          cacheHitRate: cacheHitRate
+          cacheHitRate: cacheHitRate,
+          model: tokenUsageInfo.model // 🎯 传入真实使用的模型名称
         }
       };
 
