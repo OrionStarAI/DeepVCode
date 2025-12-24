@@ -627,6 +627,14 @@ export class AIService {
                 toolName: tool.toolName
               };
               tool.responseParts = coreTool.response.responseParts;
+            } else if (coreTool.status === 'cancelled') {
+              tool.result = {
+                success: false,
+                error: 'User Cancelled',
+                executionTime: tool.executionDuration || 0,
+                toolName: tool.toolName
+              };
+              tool.responseParts = coreTool.response.responseParts;
             }
 
             this.currentToolCalls.set(coreTool.request.callId, tool);
@@ -1384,6 +1392,9 @@ export class AIService {
         this.setProcessingState(true, nextStageId, true);
       }
 
+      // 🎯 在开始新一轮 AI 响应流之前，确保重置工具调度器状态
+      this.coreToolScheduler?.reset();
+
       const abortController = new AbortController();
       this.abortController = abortController;
 
@@ -1425,6 +1436,8 @@ export class AIService {
         throw new Error('AI service is not initialized');
       }
 
+      // 🎯 开启重新生成前，强制重置工具调度器状态
+      this.coreToolScheduler?.reset();
 
       // 🎯 1. 回滚AI客户端历史到指定消息位置
       await this.rollbackHistoryToMessage(messageId);
@@ -1519,6 +1532,9 @@ export class AIService {
       if (!this.isInitialized) {
         throw new Error('AI service is not initialized');
       }
+
+      // 🎯 开启新 Turn 前，强制重置工具引擎状态，防止孤儿确认导致的死锁
+      this.coreToolScheduler?.reset();
 
       // 🎯 保存当前用户消息ID，用于版本控制
       this.currentUserMessageId = message.id;

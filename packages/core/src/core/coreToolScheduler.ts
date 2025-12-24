@@ -281,5 +281,13 @@ export class CoreToolScheduler {
     return this.executionEngine.getToolCalls();
   }
 
+  /**
+   * 🎯 强制重置引擎状态
+   * 转发给执行引擎处理
+   */
+  reset(): void {
+    this.executionEngine.reset();
+  }
+
   // 🎯 重构完成！CoreToolScheduler现在是轻量级的UI适配层
 }

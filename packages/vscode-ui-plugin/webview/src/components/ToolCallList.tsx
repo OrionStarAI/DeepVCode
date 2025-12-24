@@ -412,15 +412,68 @@ const ToolCallItem: React.FC<{
     return moreCount > 0 ? `${result} +${moreCount} ${t('tools.more', {}, 'more')}` : result;
   };
 
-  // 🎯 获取预览内容
-  const getPreviewContent = (): string => {
-    if (toolCall.toolName === 'run_shell_command' || toolCall.toolName === 'bash') {
-      return `$ ${toolCall.parameters.command || ''}`;
+  // 🎯 渲染确认预览内容
+  const renderConfirmationPreview = (): React.ReactNode => {
+    const { toolName, parameters, confirmationDetails } = toolCall;
+
+    // 1. 如果是 Shell 命令类
+    if (toolName === 'run_shell_command' || toolName === 'bash' || toolName === 'terminal') {
+      return (
+        <div className="confirmation-preview-item">
+          <div className="preview-label">{t('tools.previewCommand', {}, 'Command to run:')}</div>
+          <pre className="preview-code command">$ {parameters.command || ''}</pre>
+        </div>
+      );
     }
-    if (toolCall.toolName === 'write_file') {
-      return `Write to: ${toolCall.parameters.file_path}\n\n${(toolCall.parameters.content || '').slice(0, 200)}${(toolCall.parameters.content || '').length > 200 ? '...' : ''}`;
+
+    // 2. 如果是写入文件
+    if (toolName === 'write_file') {
+      const fileName = parameters.file_path || 'file';
+      const content = parameters.content || '';
+      return (
+        <div className="confirmation-preview-item">
+          <div className="preview-label">Writing to: <span className="file-path">{fileName}</span></div>
+          <pre className="preview-code content">
+            {content.length > 300 ? `${content.substring(0, 300)}...` : content}
+          </pre>
+        </div>
+      );
     }
-    return JSON.stringify(toolCall.parameters, null, 2);
+
+    // 3. 如果是编辑/替换文件 - 核心优化点：不显示巨大的 old_string/new_string
+    if (toolName === 'replace' || toolName === 'edit') {
+      const fileName = parameters.file_path || 'file';
+      return (
+        <div className="confirmation-preview-item">
+          <div className="preview-label" style={{ fontSize: '0.85em', opacity: 0.8 }}>
+            Modifying: <span className="file-path" style={{ fontSize: '1.15em', opacity: 1 }}>{fileName}</span>
+          </div>
+        </div>
+      );
+    }
+
+    // 4. 其他工具：显示过滤并截断后的参数
+    const filteredParams: Record<string, any> = {};
+    Object.entries(parameters).forEach(([key, value]) => {
+      // 过滤掉已知的超长无意义预览字段
+      if (['old_string', 'new_string', 'content', 'explanation'].includes(key)) {
+        filteredParams[key] = '(content omitted from preview)';
+        return;
+      }
+
+      if (typeof value === 'string' && value.length > 150) {
+        filteredParams[key] = value.substring(0, 150) + '...';
+      } else {
+        filteredParams[key] = value;
+      }
+    });
+
+    return (
+      <div className="confirmation-preview-item">
+        <div className="preview-label">{t('tools.parameters', {}, 'Parameters:')}</div>
+        <pre className="preview-code json">{JSON.stringify(filteredParams, null, 2)}</pre>
+      </div>
+    );
   };
 
   const hasMultipleParams = Object.keys(toolCall.parameters).length > 2;
@@ -473,9 +526,9 @@ const ToolCallItem: React.FC<{
       {/* 确认提示 - 现代设计 */}
       {hasConfirmation && (
         <div className="tool-confirmation-modern">
-          {/* 预览区域 */}
+          {/* 预览区域 - 智能渲染 */}
           <div className="confirmation-preview">
-            <pre>{getPreviewContent()}</pre>
+            {renderConfirmationPreview()}
           </div>
 
           {/* 底部操作栏 */}
@@ -586,7 +639,13 @@ const ToolCallItem: React.FC<{
                 {toolCall.result ? (
                   renderResult(toolCall.result)
                 ) : (
-                  <div>Working...</div>
+                  toolCall.status === TOOL_CALL_STATUS.CANCELED ? (
+                    <div>{t('tools.status.canceled', {}, 'Cancelled')}</div>
+                  ) : toolCall.status === TOOL_CALL_STATUS.ERROR ? (
+                    <div>{t('tools.status.failed', {}, 'Failed')}</div>
+                  ) : (
+                    <div>{t('tools.working', {}, 'Working...')}</div>
+                  )
                 )}
               </div>
             </div>
@@ -602,7 +661,13 @@ const ToolCallItem: React.FC<{
               {toolCall.result ? (
                 renderResult(toolCall.result)
               ) : (
-                <div>{t('tools.working', {}, 'Working...')}</div>
+                toolCall.status === TOOL_CALL_STATUS.CANCELED ? (
+                  <div>{t('tools.status.canceled', {}, 'Cancelled')}</div>
+                ) : toolCall.status === TOOL_CALL_STATUS.ERROR ? (
+                  <div>{t('tools.status.failed', {}, 'Failed')}</div>
+                ) : (
+                  <div>{t('tools.working', {}, 'Working...')}</div>
+                )
               )}
             </div>
           </div>

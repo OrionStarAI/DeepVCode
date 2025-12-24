@@ -238,6 +238,34 @@ export class ToolExecutionEngine {
   }
 
   /**
+   * 🎯 强制重置引擎状态
+   * 用于在开启新 Turn 或发现状态异常时，清理所有挂起的工具调用。
+   * 这是一个安全的兜底操作，确保引擎不会因为孤儿调用而永久锁定。
+   */
+  public reset(): void {
+    if (this.toolCalls.length === 0) return;
+
+    // 通知适配器
+    const execContext: ToolExecutionContext = {
+      agentId: 'system-reset',
+      agentType: 'main' as const,
+    };
+
+    // 清空状态
+    this.toolCalls = [];
+
+    // 通知所有等待完成的 Promise (避免 await executeTools 永久挂起)
+    const resolvers = [...this.completionResolvers];
+    this.completionResolvers = [];
+    resolvers.forEach((resolve) => {
+      resolve([]);
+    });
+
+    // 通知适配器状态已清空
+    this.adapter.onToolCallsUpdate([...this.toolCalls], execContext);
+  }
+
+  /**
    * 🎯 获取确认优先级
    */
   private getConfirmationPriority(toolCall: EngineToolCall): number {
