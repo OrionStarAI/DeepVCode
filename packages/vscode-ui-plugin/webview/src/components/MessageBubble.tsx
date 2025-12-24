@@ -608,6 +608,13 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
                 h2: ({children}: any) => <h2 className="markdown-h2">{linkifyTextNode(children)}</h2>,
                 h3: ({children}: any) => <h3 className="markdown-h3">{linkifyTextNode(children)}</h3>,
 
+                // 段落美化 - 添加文件路径和方法名链接支持
+                p: ({children}: any) => <p className="markdown-p">{linkifyTextNode(children)}</p>,
+
+                // 文本样式美化
+                strong: ({children}: any) => <strong className="markdown-strong">{linkifyTextNode(children)}</strong>,
+                em: ({children}: any) => <em className="markdown-em">{linkifyTextNode(children)}</em>,
+
                 // 列表美化 - 添加文件路径和方法名链接支持
                 ul: ({children}: any) => <ul className="markdown-ul">{children}</ul>,
                 ol: ({children}: any) => <ol className="markdown-ol">{children}</ol>,
@@ -645,6 +652,9 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
                     <table className="markdown-table">{children}</table>
                   </div>
                 ),
+                tr: ({children}: any) => <tr className="markdown-tr">{children}</tr>,
+                th: ({children}: any) => <th className="markdown-th">{linkifyTextNode(children)}</th>,
+                td: ({children}: any) => <td className="markdown-td">{linkifyTextNode(children)}</td>,
               };
 
               return (
