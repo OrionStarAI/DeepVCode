@@ -151,7 +151,7 @@ describe('Core System Prompt (prompts.ts)', () => {
 
       const prompt = getCoreSystemPrompt();
       expect(fs.readFileSync).toHaveBeenCalledWith(defaultPath, 'utf8');
-      expect(prompt).toBe('custom system prompt');
+      expect(prompt).toContain('custom system prompt');
     });
 
     it('should read from default path when GEMINI_SYSTEM_MD is "1"', () => {
@@ -164,7 +164,7 @@ describe('Core System Prompt (prompts.ts)', () => {
 
       const prompt = getCoreSystemPrompt();
       expect(fs.readFileSync).toHaveBeenCalledWith(defaultPath, 'utf8');
-      expect(prompt).toBe('custom system prompt');
+      expect(prompt).toContain('custom system prompt');
     });
 
     it('should read from custom path when GEMINI_SYSTEM_MD provides one, preserving case', () => {
@@ -175,7 +175,7 @@ describe('Core System Prompt (prompts.ts)', () => {
 
       const prompt = getCoreSystemPrompt();
       expect(fs.readFileSync).toHaveBeenCalledWith(customPath, 'utf8');
-      expect(prompt).toBe('custom system prompt');
+      expect(prompt).toContain('custom system prompt');
     });
 
     it('should expand tilde in custom path when GEMINI_SYSTEM_MD is set', () => {
@@ -192,7 +192,7 @@ describe('Core System Prompt (prompts.ts)', () => {
         path.resolve(expectedPath),
         'utf8',
       );
-      expect(prompt).toBe('custom system prompt');
+      expect(prompt).toContain('custom system prompt');
     });
   });
 

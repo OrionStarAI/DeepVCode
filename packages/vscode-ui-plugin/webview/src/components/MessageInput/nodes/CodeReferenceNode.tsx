@@ -6,6 +6,7 @@
 import React from 'react';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { DecoratorNode, NodeKey, LexicalNode } from 'lexical';
+import { getGlobalMessageService } from '../../../services/globalMessageService';
 
 export interface CodeReference {
   fileName: string;
@@ -43,6 +44,15 @@ function CodeReferenceComponent({
     });
   };
 
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // 🎯 点击标签打开文件并跳转到对应行
+    const messageService = getGlobalMessageService();
+    messageService.openFile(filePath, startLine);
+  };
+
   // 🎯 格式化行号显示
   const getLineDisplay = () => {
     if (startLine && endLine && startLine !== endLine) {
@@ -60,6 +70,7 @@ function CodeReferenceComponent({
       className="inline-code-ref-tag"
       contentEditable={false}
       title={filePath}
+      onClick={handleClick}
     >
       <span className="code-ref-icon">📄</span>
       <span className="code-ref-name">
