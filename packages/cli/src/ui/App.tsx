@@ -449,6 +449,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     displayRefined: string; // 显示用润色结果（可能被截断）
     omittedPlaceholder?: string; // 省略提示的占位符
     omittedLines?: number; // 省略的行数
+    showFullText?: boolean; // 是否显示全文
     options: Record<string, any>;
   } | null>(null);
   const [refineLoading, setRefineLoading] = useState<boolean>(false);
@@ -479,7 +480,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
 
     // 分割文本，将占位符替换为实际的省略提示
     const parts = text.split(placeholder);
-    const omittedNotice = tp('text_truncator.omitted_lines', {
+    const omittedNotice = tp('command.refine.omitted_lines', {
       count: omittedLines || 0,
     });
 
@@ -1332,6 +1333,15 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
           }
         })();
         return;
+      } else if (input.toLowerCase() === 'f') {
+        // F：查看全文
+        if (refineResult.omittedLines) {
+          setRefineResult({
+            ...refineResult,
+            showFullText: true,
+          });
+        }
+        return;
       } else if (isCancelKey) {
         // Esc：取消润色
         setRefineResult(null);
@@ -1998,19 +2008,40 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                     <Text bold color={Colors.AccentGreen}>{t('command.refine.confirm.title')}</Text>
                   </Box>
                   <Box marginBottom={1}>
-                    {renderTextWithHighlightedOmission(refineResult.displayRefined, refineResult.omittedPlaceholder, refineResult.omittedLines)}
+                    {refineResult.showFullText
+                      ? <Text wrap="wrap" italic>{refineResult.refined}</Text>
+                      : renderTextWithHighlightedOmission(refineResult.displayRefined, refineResult.omittedPlaceholder, refineResult.omittedLines)
+                    }
                   </Box>
                   <Box>
                     <Text color={Colors.Gray}>{'─'.repeat(50)}</Text>
                   </Box>
                   <Box marginTop={1}>
-                    <Text>
+                    <Box marginRight={2}>
                       <Text bold color={Colors.AccentGreen}>{t('command.refine.confirm.hint.send')}</Text>
-                      <Text color={Colors.Gray}>   |   </Text>
+                    </Box>
+                    <Box marginRight={2}>
+                      <Text color={Colors.Gray}>|</Text>
+                    </Box>
+                    <Box marginRight={2}>
                       <Text bold color={Colors.AccentYellow}>{t('command.refine.confirm.hint.refine-again')}</Text>
-                      <Text color={Colors.Gray}>   |   </Text>
+                    </Box>
+                    {refineResult.omittedLines && !refineResult.showFullText && (
+                      <>
+                        <Box marginRight={2}>
+                          <Text color={Colors.Gray}>|</Text>
+                        </Box>
+                        <Box marginRight={2}>
+                          <Text bold color={Colors.AccentBlue}>{t('command.refine.confirm.hint.view-full')}</Text>
+                        </Box>
+                      </>
+                    )}
+                    <Box marginRight={2}>
+                      <Text color={Colors.Gray}>|</Text>
+                    </Box>
+                    <Box>
                       <Text bold color={Colors.AccentRed}>{t('command.refine.confirm.hint.cancel')}</Text>
-                    </Text>
+                    </Box>
                   </Box>
                 </Box>
               )}

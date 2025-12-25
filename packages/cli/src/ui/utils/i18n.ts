@@ -356,7 +356,7 @@ export const translations = {
     'shell.output.truncated': '... (showing last {maxLines} lines, {totalLines} lines total)',
 
     // Text Truncator
-    'text_truncator.omitted_lines': '[ ... {count} lines omitted, press ⌘ + C to copy full text ... ]',
+    'text_truncator.omitted_lines': '[ ... {count} lines omitted ... ]',
 
 
     // IDE Connection
@@ -785,7 +785,9 @@ export const translations = {
     'command.refine.confirm.title': '✨ Refinement Complete',
     'command.refine.confirm.hint.send': '⏎  Send to AI',
     'command.refine.confirm.hint.refine-again': 'R  Refine again',
+    'command.refine.confirm.hint.view-full': 'F  View Full Text',
     'command.refine.confirm.hint.cancel': 'Esc  Cancel',
+    'command.refine.omitted_lines': '[ ... {count} lines omitted, press F to view full text ... ]',
     'command.refine.loading.title': 'Refining...',
     'command.refine.loading.message': 'AI is refining your text, please wait...',
 
@@ -1885,7 +1887,9 @@ export const translations = {
     'command.refine.confirm.title': '✨ 优化完成',
     'command.refine.confirm.hint.send': '⏎  发送给 AI',
     'command.refine.confirm.hint.refine-again': 'R  重新优化',
+    'command.refine.confirm.hint.view-full': 'F  查看全文',
     'command.refine.confirm.hint.cancel': 'Esc  取消',
+    'command.refine.omitted_lines': '[ ... 已省略显示 {count} 行，按 F 查看全文 ... ]',
     'command.refine.loading.title': '正在优化中...',
     'command.refine.loading.message': 'AI 正在为您优化文本，请稍候...',
 

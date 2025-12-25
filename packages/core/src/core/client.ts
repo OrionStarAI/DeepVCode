@@ -505,7 +505,7 @@ Use Glob and ReadFile tools to explore specific files during our conversation.
       // 检查是否为VSCode环境
       const isVSCode = this.config.getVsCodePluginMode();
 
-      // 使用新的getCoreSystemPrompt，根据环境调整内容
+      // 使用统一的 getCoreSystemPrompt，根据环境调整内容
       const systemInstruction = getCoreSystemPrompt(userMemory, isVSCode);
 
       const generateContentConfigWithThinking = isThinkingSupported(

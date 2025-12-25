@@ -25,6 +25,7 @@ import { TaskPrompts } from './taskPrompts.js';
 
 /**
  * 获取静态系统提示词（所有用户相同，适合缓存）
+ * 遵循 Google Gemini CLI 的设计理念：简洁、统一，无需大量文本示例
  */
 export function getStaticSystemPrompt(): string {
   return `
@@ -99,6 +100,7 @@ When requested to perform tasks like fixing bugs, adding features, refactoring, 
 - **Political and Social Topics:** Politely decline to engage with political topics, social controversies, or discussions about national leaders from any country. Redirect the conversation toward technical and software engineering topics. Example: "I focus on technical assistance. Let's discuss your coding or development needs instead."
 
 ## Tool Usage
+- **CRITICAL - NATIVE TOOL CALLS ONLY:** NEVER output tool calls as text like \`[tool_call: ...]\` or \`CALL: ...\` in your response. You MUST use the system's function calling API. Text tool calls will NOT be executed.
 - **CRITICAL: TODO Management:** Use '${TodoWriteTool.Name}' VERY frequently to ensure task tracking and completion. If you do not use this tool for complex tasks, you WILL forget important steps. Mark tasks in_progress before starting, completed immediately after finishing. MANDATORY for logs/errors, debug sessions, or any content requiring systematic analysis.
 - **File Paths:** Always use absolute paths when referring to files with tools like '${ReadFileTool.Name}' or '${WriteFileTool.Name}'. Relative paths are not supported. You must provide an absolute path.
 - **File Editing Strategy:** If a file already exists, first read it with '${ReadFileTool.Name}' and then use '${EditTool.Name}' to modify it. Use '${WriteFileTool.Name}' only to create a new file when no suitable file exists or the user explicitly requests a new file. Do not create variant filenames (e.g., *_fix.py, *_v2.ts) unless explicitly requested.
@@ -345,6 +347,7 @@ When requested to perform tasks like fixing bugs, adding features, refactoring, 
 - **Political and Social Topics:** Politely decline to engage with political topics, social controversies, or discussions about national leaders from any country. Redirect the conversation toward technical and software engineering topics. Example: "I focus on technical assistance. Let's discuss your coding or development needs instead."
 
 ## Tool Usage
+- **CRITICAL - NATIVE TOOL CALLS ONLY:** NEVER output tool calls as text like \`[tool_call: ...]\` or \`CALL: ...\` in your response. You MUST use the system's function calling API. Text tool calls will NOT be executed.
 - **CRITICAL: TODO Management:** Use '${TodoWriteTool.Name}' VERY frequently to ensure task tracking and completion. If you do not use this tool for complex tasks, you WILL forget important steps. Mark tasks in_progress before starting, completed immediately after finishing. MANDATORY for logs/errors, debug sessions, or any content requiring systematic analysis.
 - **File Paths:** Always use absolute paths when referring to files with tools like '${ReadFileTool.Name}' or '${WriteFileTool.Name}'. Relative paths are not supported. You must provide an absolute path.
 - **File Editing Strategy:** If a file already exists, first read it with '${ReadFileTool.Name}' and then use '${EditTool.Name}' to modify it. Use '${WriteFileTool.Name}' only to create a new file when no suitable file exists or the user explicitly requests a new file. Do not create variant filenames (e.g., *_fix.py, *_v2.ts) unless explicitly requested.
@@ -586,6 +589,8 @@ export function getCoreSystemPrompt(userMemory?: string, isVSCode?: boolean): st
       }
     }
   }
+
+  // Select base prompt: override > VSCode > static (unified for all models)
   const basePrompt = systemMdEnabled
     ? fs.readFileSync(systemMdPath, 'utf8')
     : isVSCode

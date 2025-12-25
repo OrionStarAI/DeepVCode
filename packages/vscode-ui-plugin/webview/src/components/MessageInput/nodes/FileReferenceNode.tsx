@@ -6,6 +6,7 @@
 import React from 'react';
 import { useLexicalComposerContext } from '@lexical/react/LexicalComposerContext';
 import { DecoratorNode, NodeKey, LexicalNode } from 'lexical';
+import { getGlobalMessageService } from '../../../services/globalMessageService';
 
 export interface FileReference {
   id: string;
@@ -37,11 +38,21 @@ function FileReferenceComponent({
     });
   };
 
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // 🎯 点击标签打开文件
+    const messageService = getGlobalMessageService();
+    messageService.openFile(filePath);
+  };
+
   return (
     <span
       className="inline-file-ref-tag"
       contentEditable={false}
       title={filePath}
+      onClick={handleClick}
     >
       <span className="file-ref-icon">@</span>
       <span className="file-ref-name">{fileName}</span>
