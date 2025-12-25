@@ -10,7 +10,7 @@ import UI from './ui.js';
 
 // ==================== 配置 ====================
 
-const BUILD_SERVICE_URL = 'http://192.168.66.100:1234'; // 修改为实际的构建服务地址
+const BUILD_SERVICE_URL = 'http://10.61.8.100:1234'; // 修改为实际的构建服务地址
 // const BUILD_SERVICE_URL = 'http://localhost:1234'; // 修改为实际的构建服务地址
 const POLL_INTERVAL = 2000; // 轮询间隔（毫秒） - 2秒
 const BUILD_TIMEOUT = 300000; // 构建超时（毫秒） - 5分钟
