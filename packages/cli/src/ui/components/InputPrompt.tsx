@@ -579,7 +579,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
 
       // If the command is a perfect match, pressing enter should execute it.
       if (completion.isPerfectMatch && key.name === 'return') {
-        handleSubmitAndClear(buffer.text);
+        inputHistory.handleSubmit(buffer.text);
         return;
       }
 
@@ -636,12 +636,8 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
                 const basePath = hasTrailingSpace ? parts : parts.slice(0, -1);
                 const finalCommand = `/${[...basePath, suggestion].join(' ')}`;
 
-                // 清空输入框并关闭补全列表
-                buffer.setText('');
-                completion.resetCompletionState();
-
                 // 直接执行命令
-                onSubmit(finalCommand);
+                inputHistory.handleSubmit(finalCommand);
                 return;
               }
             }
@@ -653,7 +649,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
 
             // 如果当前参数与建议值完全相等，说明用户已经输完了，按回车是想执行
             if (lastPart === selectedSuggestion.value) {
-               handleSubmitAndClear(buffer.text);
+               inputHistory.handleSubmit(buffer.text);
                return;
             }
 
@@ -745,7 +741,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
             buffer.backspace();
             buffer.newline();
           } else {
-            handleSubmitAndClear(buffer.text);
+            inputHistory.handleSubmit(buffer.text);
           }
         }
         return;
@@ -931,7 +927,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
         // This is a bare Enter key that wasn't handled above - it should submit
         // But since we're in fallback, there might be no text to submit
         if (buffer.text.trim()) {
-          handleSubmitAndClear(buffer.text);
+          inputHistory.handleSubmit(buffer.text);
         }
         return;
       }
