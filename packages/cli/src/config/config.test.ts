@@ -41,6 +41,7 @@ vi.mock('deepv-code-core', async () => {
         Promise.resolve({
           memoryContent: extensionPaths?.join(',') || '',
           fileCount: extensionPaths?.length || 0,
+          filePaths: extensionPaths || [],
         }),
     ),
     DEFAULT_MEMORY_FILE_FILTERING_OPTIONS: {
@@ -288,12 +289,12 @@ describe('loadCliConfig telemetry', () => {
     expect(config.getTelemetryEnabled()).toBe(false);
   });
 
-  it('should set telemetry to true when --telemetry flag is present', async () => {
+  it('should set telemetry to false (force disabled in core) even when --telemetry flag is present', async () => {
     process.argv = ['node', 'script.js', '--telemetry'];
     const argv = await parseArguments();
     const settings: Settings = {};
     const config = await loadCliConfig(settings, [], 'test-session', argv);
-    expect(config.getTelemetryEnabled()).toBe(true);
+    expect(config.getTelemetryEnabled()).toBe(false);
   });
 
   it('should set telemetry to false when --no-telemetry flag is present', async () => {
@@ -304,12 +305,12 @@ describe('loadCliConfig telemetry', () => {
     expect(config.getTelemetryEnabled()).toBe(false);
   });
 
-  it('should use telemetry value from settings if CLI flag is not present (settings true)', async () => {
+  it('should use telemetry value from settings if CLI flag is not present (always false in core)', async () => {
     process.argv = ['node', 'script.js'];
     const argv = await parseArguments();
     const settings: Settings = { telemetry: { enabled: true } };
     const config = await loadCliConfig(settings, [], 'test-session', argv);
-    expect(config.getTelemetryEnabled()).toBe(true);
+    expect(config.getTelemetryEnabled()).toBe(false);
   });
 
   it('should use telemetry value from settings if CLI flag is not present (settings false)', async () => {
@@ -320,12 +321,12 @@ describe('loadCliConfig telemetry', () => {
     expect(config.getTelemetryEnabled()).toBe(false);
   });
 
-  it('should prioritize --telemetry CLI flag (true) over settings (false)', async () => {
+  it('should prioritize --telemetry CLI flag but still return false (force disabled in core)', async () => {
     process.argv = ['node', 'script.js', '--telemetry'];
     const argv = await parseArguments();
     const settings: Settings = { telemetry: { enabled: false } };
     const config = await loadCliConfig(settings, [], 'test-session', argv);
-    expect(config.getTelemetryEnabled()).toBe(true);
+    expect(config.getTelemetryEnabled()).toBe(false);
   });
 
   it('should prioritize --no-telemetry CLI flag (false) over settings (true)', async () => {
@@ -411,12 +412,12 @@ describe('loadCliConfig telemetry', () => {
     expect(config.getTelemetryLogPromptsEnabled()).toBe(false);
   });
 
-  it('should prioritize --telemetry-log-prompts CLI flag (true) over settings (false)', async () => {
+  it('should prioritize --telemetry-log-prompts CLI flag but still return false (force disabled in core)', async () => {
     process.argv = ['node', 'script.js', '--telemetry-log-prompts'];
     const argv = await parseArguments();
     const settings: Settings = { telemetry: { logPrompts: false } };
     const config = await loadCliConfig(settings, [], 'test-session', argv);
-    expect(config.getTelemetryLogPromptsEnabled()).toBe(true);
+    expect(config.getTelemetryLogPromptsEnabled()).toBe(false);
   });
 
   it('should prioritize --no-telemetry-log-prompts CLI flag (false) over settings (true)', async () => {
@@ -427,12 +428,12 @@ describe('loadCliConfig telemetry', () => {
     expect(config.getTelemetryLogPromptsEnabled()).toBe(false);
   });
 
-  it('should use default log prompts (true) if no value is provided via CLI or settings', async () => {
+  it('should return false for log prompts (force disabled in core) if no value is provided via CLI or settings', async () => {
     process.argv = ['node', 'script.js'];
     const argv = await parseArguments();
     const settings: Settings = { telemetry: { enabled: true } };
     const config = await loadCliConfig(settings, [], 'test-session', argv);
-    expect(config.getTelemetryLogPromptsEnabled()).toBe(true);
+    expect(config.getTelemetryLogPromptsEnabled()).toBe(false);
   });
 });
 

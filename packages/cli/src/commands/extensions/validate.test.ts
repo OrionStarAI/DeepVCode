@@ -11,7 +11,7 @@ import yargs from 'yargs';
 import { createExtension } from '../../test-utils/createExtension.js';
 import path from 'node:path';
 import * as os from 'node:os';
-import { debugLogger } from 'deepv-code-core';
+import { debugLogger } from '../../utils/errors.js';
 
 describe('extensions validate command', () => {
   it('should fail if no path is provided', () => {

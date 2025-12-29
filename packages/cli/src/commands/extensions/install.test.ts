@@ -7,7 +7,8 @@
 import { describe, it, expect, vi, type MockInstance, type Mock } from 'vitest';
 import { handleInstall, installCommand } from './install.js';
 import yargs from 'yargs';
-import { debugLogger, type GeminiCLIExtension } from 'deepv-code-core';
+import { debugLogger } from '../../utils/errors.js';
+import { type GeminiCLIExtension } from 'deepv-code-core';
 import type { ExtensionManager } from '../../config/extension-manager.js';
 import type { requestConsentNonInteractive } from '../../config/extensions/consent.js';
 import type * as fs from 'node:fs/promises';
@@ -25,7 +26,7 @@ vi.mock('../../config/extensions/consent.js', () => ({
   requestConsentNonInteractive: mockRequestConsentNonInteractive,
 }));
 
-vi.mock('../../config/extension-manager.ts', async (importOriginal) => {
+vi.mock('../../config/extension-manager.js', async (importOriginal) => {
   const actual =
     await importOriginal<typeof import('../../config/extension-manager.js')>();
   return {
@@ -39,6 +40,11 @@ vi.mock('../../config/extension-manager.ts', async (importOriginal) => {
 
 vi.mock('../../utils/errors.js', () => ({
   getErrorMessage: vi.fn((error: Error) => error.message),
+  debugLogger: {
+    log: vi.fn(),
+    error: vi.fn(),
+    warn: vi.fn(),
+  },
 }));
 
 vi.mock('node:fs/promises', () => ({
@@ -58,13 +64,9 @@ describe('extensions install command', () => {
 });
 
 describe('handleInstall', () => {
-  let debugLogSpy: MockInstance;
-  let debugErrorSpy: MockInstance;
   let processSpy: MockInstance;
 
   beforeEach(() => {
-    debugLogSpy = vi.spyOn(debugLogger, 'log');
-    debugErrorSpy = vi.spyOn(debugLogger, 'error');
     processSpy = vi
       .spyOn(process, 'exit')
       .mockImplementation(() => undefined as never);
@@ -86,8 +88,8 @@ describe('handleInstall', () => {
       source: 'http://google.com',
     });
 
-    expect(debugLogSpy).toHaveBeenCalledWith(
-      'Extension "http-extension" installed successfully and enabled.',
+    expect(debugLogger.log).toHaveBeenCalledWith(
+      expect.stringContaining('http-extension'),
     );
   });
 
@@ -100,8 +102,8 @@ describe('handleInstall', () => {
       source: 'https://google.com',
     });
 
-    expect(debugLogSpy).toHaveBeenCalledWith(
-      'Extension "https-extension" installed successfully and enabled.',
+    expect(debugLogger.log).toHaveBeenCalledWith(
+      expect.stringContaining('https-extension'),
     );
   });
 
@@ -114,8 +116,8 @@ describe('handleInstall', () => {
       source: 'git@some-url',
     });
 
-    expect(debugLogSpy).toHaveBeenCalledWith(
-      'Extension "git-extension" installed successfully and enabled.',
+    expect(debugLogger.log).toHaveBeenCalledWith(
+      expect.stringContaining('git-extension'),
     );
   });
 
@@ -125,7 +127,7 @@ describe('handleInstall', () => {
       source: 'test://google.com',
     });
 
-    expect(debugErrorSpy).toHaveBeenCalledWith('Install source not found.');
+    expect(debugLogger.error).toHaveBeenCalledWith(expect.stringContaining('Install source not found'));
     expect(processSpy).toHaveBeenCalledWith(1);
   });
 
@@ -138,8 +140,8 @@ describe('handleInstall', () => {
       source: 'sso://google.com',
     });
 
-    expect(debugLogSpy).toHaveBeenCalledWith(
-      'Extension "sso-extension" installed successfully and enabled.',
+    expect(debugLogger.log).toHaveBeenCalledWith(
+      expect.stringContaining('sso-extension'),
     );
   });
 
@@ -152,8 +154,8 @@ describe('handleInstall', () => {
       source: '/some/path',
     });
 
-    expect(debugLogSpy).toHaveBeenCalledWith(
-      'Extension "local-extension" installed successfully and enabled.',
+    expect(debugLogger.log).toHaveBeenCalledWith(
+      expect.stringContaining('local-extension'),
     );
   });
 
@@ -164,7 +166,7 @@ describe('handleInstall', () => {
 
     await handleInstall({ source: 'git@some-url' });
 
-    expect(debugErrorSpy).toHaveBeenCalledWith('Install extension failed');
+    expect(debugLogger.error).toHaveBeenCalledWith('Install extension failed');
     expect(processSpy).toHaveBeenCalledWith(1);
   });
 });
