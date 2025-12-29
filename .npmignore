@@ -1,0 +1,41 @@
+# 源代码和开发文件
+packages/
+scripts/
+docs/
+integration-tests/
+temp/
+coverage/
+.deepvcode/
+
+# 配置文件
+.vscode/
+.gcp/
+.git/
+.gitignore
+.prettierrc.json
+eslint.config.js
+tsconfig.json
+vitest.config.js
+esbuild.config.js
+
+# 开发工具
+*.log
+*.tgz
+*.vsix
+node_modules/
+
+# 环境文件
+.env
+.env.*
+
+# 测试文件
+**/*.test.ts
+**/*.test.tsx
+**/*.spec.ts
+**/*.spec.tsx
+**/test-utils/
+
+# 文档（如果不想包含）
+# docs/
+
+# 只保留 bundle/ 目录、README.md 和 LICENSE

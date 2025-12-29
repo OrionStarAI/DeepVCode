@@ -1,0 +1,227 @@
+/* 图片预览模态样式 */
+
+.image-preview-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  animation: fadeIn 0.2s ease-out;
+  backdrop-filter: blur(2px);
+  padding: 60px 20px 20px 20px;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.image-preview-modal {
+  background-color: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 8px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  display: flex;
+  flex-direction: column;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow: hidden;
+  animation: slideUp 0.3s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.image-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  background-color: var(--vscode-sideBar-background);
+  flex-shrink: 0;
+}
+
+.image-preview-title {
+  color: var(--vscode-foreground);
+  font-size: 14px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  margin-right: 8px;
+}
+
+.image-preview-close-btn {
+  background: none;
+  border: none;
+  color: var(--vscode-foreground);
+  cursor: pointer;
+  padding: 4px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background-color 0.2s ease;
+  flex-shrink: 0;
+}
+
+.image-preview-close-btn:hover {
+  background-color: var(--vscode-toolbar-hoverBackground, rgba(255, 255, 255, 0.1));
+}
+
+.image-preview-close-btn:active {
+  opacity: 0.7;
+}
+
+.image-preview-close-btn .icon {
+  display: block;
+}
+
+.image-preview-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  overflow: hidden;
+  background-color: var(--vscode-editor-background);
+  gap: 12px;
+}
+
+.image-preview-viewer {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  overflow: auto;
+  border-radius: 8px;
+  position: relative;
+  z-index: 1;
+}
+
+.image-preview-img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 8px;
+  animation: zoomIn 0.3s ease-out;
+  transition: transform 0.2s ease;
+  cursor: grab;
+  user-select: none;
+}
+
+.image-preview-img:active {
+  cursor: grabbing;
+}
+
+.image-preview-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px;
+  background-color: var(--vscode-sideBar-background);
+  border-radius: 6px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+  pointer-events: auto;
+}
+
+.image-preview-zoom-btn,
+.image-preview-reset-btn {
+  background: none;
+  border: 1px solid var(--vscode-panel-border);
+  color: var(--vscode-foreground);
+  cursor: pointer;
+  padding: 6px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  pointer-events: auto;
+  z-index: 11;
+}
+
+.image-preview-zoom-btn:hover,
+.image-preview-reset-btn:hover {
+  background-color: var(--vscode-toolbar-hoverBackground, rgba(255, 255, 255, 0.1));
+  border-color: var(--vscode-focusBorder);
+}
+
+.image-preview-zoom-btn:active,
+.image-preview-reset-btn:active {
+  opacity: 0.7;
+}
+
+.image-preview-zoom-btn svg,
+.image-preview-reset-btn svg {
+  pointer-events: none;
+}
+
+.image-preview-scale-display {
+  min-width: 50px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--vscode-foreground);
+  padding: 0 4px;
+}
+
+@keyframes zoomIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 响应式布局 - 小屏幕下调整 */
+@media (max-width: 640px) {
+  .image-preview-modal {
+    max-width: 95vw;
+    max-height: 95vh;
+    border-radius: 6px;
+  }
+
+  .image-preview-header {
+    padding: 10px 12px;
+  }
+
+  .image-preview-title {
+    font-size: 13px;
+  }
+
+  .image-preview-content {
+    padding: 12px;
+  }
+}

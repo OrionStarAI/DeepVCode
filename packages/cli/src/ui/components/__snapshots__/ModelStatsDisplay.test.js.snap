@@ -1,0 +1,5 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`<ModelStatsDisplay /> > should handle large values without wrapping or overlapping 1`] = `""`;
+
+exports[`<ModelStatsDisplay /> > should not display conditional rows if no model has data for them 1`] = `""`;

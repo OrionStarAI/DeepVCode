@@ -1,0 +1,63 @@
+# Exclude development and source files
+.vscode/**
+.vscode-test/**
+src/**
+webview/src/**
+webview/node_modules/**
+webview/package*.json
+webview/webpack.config.js
+webview/tsconfig.json
+tsconfig.json
+.gitignore
+.vscodeignore
+
+# Exclude build tools and scripts
+webpack.config.js
+webpack.core.config.js
+esbuild.config.js
+*.config.js
+scripts/**
+
+# Exclude npm/node related files
+package-lock.json
+node_modules/**
+
+# Exclude test files
+test/**
+*.test.*
+*.spec.*
+
+# Exclude documentation
+IMPLEMENTATION_SUMMARY.md
+README.md.backup
+
+# Exclude temp files and artifacts
+temp_check/**
+final_extract/**
+verify_extract/**
+*.zip
+*.vsix
+
+# Exclude source maps
+**/*.map
+
+# Exclude parent directories - CRITICAL
+../**
+../../**
+
+# Exclude specific build artifacts we don't need
+dist/extension.js
+dist/extension.d.ts
+dist/**/*.map
+
+# Important: Keep HTML templates and icons for authentication
+!dist/bundled/auth/login/templates/*.html
+!dist/bundled/auth/login/templates/*.ico
+!dist/bundled/auth/login/templates/*.md
+
+# Exclude large unnecessary directories
+visx/**
+
+# Exclude any ripgrep related files (if they accidentally get created)
+**/ripgrep/**
+dist/ripgrep/**

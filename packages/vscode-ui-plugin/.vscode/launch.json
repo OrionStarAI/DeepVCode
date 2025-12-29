@@ -1,0 +1,76 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Run Extension (Fast)",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/dist/**/*.js"
+      ]
+    },
+    {
+      "name": "Run Extension (Local-Fast)",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/dist/**/*.js"
+      ],
+      "env": {
+        "DEEPX_SERVER_URL": "http://localhost:6699"
+      }
+    },
+    {
+      "name": "Run Extension (With Build)",
+      "type": "extensionHost", 
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/dist/**/*.js"
+      ],
+      "preLaunchTask": "npm: build",
+      "env": {
+        "NODE_ENV": "development",
+        "DEBUG": "1",
+        "LOG_LEVEL": "debug",
+        "BUILD_MODE": "development"
+      }
+    },
+    {
+      "name": "Run Extension (Watch Mode)",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}",
+        "--disable-extensions"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/dist/**/*.js"
+      ],
+      "preLaunchTask": "npm: watch",
+      "autoAttachChildProcesses": true,
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "smartStep": true,
+      "stopOnEntry": false,
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "env": {
+        "NODE_ENV": "development",
+        "DEBUG": "1",
+        "LOG_LEVEL": "debug",
+        "WATCH_MODE": "true",
+        "FILE_DEBUG": "1"
+      }
+    }
+  ]
+}

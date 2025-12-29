@@ -1,0 +1,107 @@
+/* Lint Status Styles - for DiffRenderer */
+
+.diff-lint-status {
+  margin: 8px 0;
+  padding: 8px 12px;
+  background: var(--vscode-editorWidget-background);
+  border-left: 3px solid var(--vscode-textLink-foreground);
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.diff-lint-status.simple {
+  padding: 6px 12px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lint-status-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+
+.lint-icon {
+  font-size: 14px;
+}
+
+.lint-title {
+  color: var(--vscode-editor-foreground);
+}
+
+.lint-errors {
+  color: var(--vscode-errorForeground);
+  font-weight: 600;
+}
+
+.lint-warnings {
+  color: var(--vscode-editorWarning-foreground);
+  font-weight: 600;
+}
+
+.lint-status-text {
+  color: var(--vscode-editor-foreground);
+  font-size: 12px;
+}
+
+.lint-diagnostics {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lint-diagnostic {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 8px;
+  border-radius: 3px;
+  font-size: 11px;
+  line-height: 1.3;
+}
+
+.lint-diagnostic.lint-error {
+  background: var(--vscode-inputValidation-errorBackground);
+  border: 1px solid var(--vscode-inputValidation-errorBorder);
+}
+
+.lint-diagnostic.lint-warning {
+  background: var(--vscode-inputValidation-warningBackground);
+  border: 1px solid var(--vscode-inputValidation-warningBorder);
+}
+
+.lint-diagnostic.lint-info,
+.lint-diagnostic.lint-hint {
+  background: var(--vscode-inputValidation-infoBackground);
+  border: 1px solid var(--vscode-inputValidation-infoBorder);
+}
+
+.lint-location {
+  color: var(--vscode-descriptionForeground);
+  font-family: var(--vscode-editor-font-family);
+  font-weight: 500;
+  min-width: 60px;
+  flex-shrink: 0;
+}
+
+.lint-message {
+  color: var(--vscode-editor-foreground);
+  flex: 1;
+}
+
+.lint-source {
+  color: var(--vscode-descriptionForeground);
+  font-style: italic;
+  font-size: 10px;
+}
+
+.lint-more {
+  color: var(--vscode-descriptionForeground);
+  font-style: italic;
+  text-align: center;
+  padding: 4px;
+  font-size: 11px;
+}

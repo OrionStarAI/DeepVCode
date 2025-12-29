@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="none" stroke="currentColor">
+  <!-- 外框：圆角方形 -->
+  <rect x="10" y="10" width="236" height="236" rx="44" stroke-width="12" />
+  
+  <!-- 左上角的 “>” -->
+  <polyline points="58,56 82,70 58,84" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- 光标短横（右下方，稍微低） -->
+  <line x1="92" y1="90" x2="118" y2="90" stroke-width="10" stroke-linecap="round"/>
+  
+  <!-- 对勾感的 V：右边更长更高 -->
+  <polyline points="72,140 128,220 200,120" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

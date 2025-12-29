@@ -1,0 +1,101 @@
+/**
+ * @license
+ * Copyright 2025 Google LLC
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import React from 'react';
+import { Box, Text } from 'ink';
+import { Colors } from '../colors.js';
+import { ConsoleMessageItem } from '../types.js';
+import { MaxSizedBox } from './shared/MaxSizedBox.js';
+
+interface DetailedMessagesDisplayProps {
+  messages: ConsoleMessageItem[];
+  maxHeight: number | undefined;
+  width: number;
+  // debugMode is not needed here if App.tsx filters debug messages before passing them.
+  // If DetailedMessagesDisplay should handle filtering, add debugMode prop.
+}
+
+function DetailedMessagesDisplayComponent({
+  messages,
+  maxHeight,
+  width,
+}: DetailedMessagesDisplayProps) {
+  if (messages.length === 0) {
+    return null; // Don't render anything if there are no messages
+  }
+
+  const errorCount = messages.filter((msg) => msg.type === 'error').length;
+  const borderAndPadding = 4;
+
+  return (
+    <Box
+      flexDirection="column"
+      marginTop={1}
+      borderStyle="round"
+      borderColor={Colors.Gray}
+      paddingX={1}
+      width={width}
+    >
+      <Box marginBottom={1} justifyContent="space-between">
+        <Text bold color={Colors.Foreground}>
+          Debug Console <Text color={Colors.Gray}>(ctrl+o to toggle, ctrl+s to expand)</Text>
+        </Text>
+        <Text color={errorCount > 0 ? Colors.AccentRed : Colors.Gray}>
+          Errors: {errorCount}
+        </Text>
+      </Box>
+      <MaxSizedBox maxHeight={maxHeight} maxWidth={width - borderAndPadding}>
+        {messages.map((msg, index) => {
+          let textColor = Colors.Foreground;
+          let icon = '\u2139'; // Information source (ℹ)
+
+          switch (msg.type) {
+            case 'warn':
+              textColor = Colors.AccentYellow;
+              icon = '\u26A0'; // Warning sign (⚠)
+              break;
+            case 'error':
+              textColor = Colors.AccentRed;
+              icon = '\u2716'; // Heavy multiplication x (✖)
+              break;
+            case 'debug':
+              textColor = Colors.Gray; // Or Colors.Gray
+              icon = '\u1F50D'; // Left-pointing magnifying glass (????)
+              break;
+            case 'log':
+            default:
+              // Default textColor and icon are already set
+              break;
+          }
+
+          return (
+            <Box key={`${msg.type}-${index}`} flexDirection="row">
+              <Text color={textColor}>{icon} </Text>
+              <Text color={textColor} wrap="wrap">
+                {msg.content}
+                {msg.count && msg.count > 1 && (
+                  <Text color={Colors.Gray}> (x{msg.count})</Text>
+                )}
+              </Text>
+            </Box>
+          );
+        })}
+      </MaxSizedBox>
+    </Box>
+  );
+}
+
+export const DetailedMessagesDisplay = React.memo(
+  DetailedMessagesDisplayComponent,
+  (prevProps, nextProps) => {
+    // Return true if props are equal (no re-render), false to re-render
+    return (
+      prevProps.messages.length === nextProps.messages.length &&
+      prevProps.width === nextProps.width &&
+      prevProps.maxHeight === nextProps.maxHeight
+    );
+  }
+);
