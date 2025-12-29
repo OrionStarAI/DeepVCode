@@ -864,6 +864,14 @@ export class GeminiChat {
   }
 
   /**
+   * 更新系统指令（用于动态更新系统提示，如当MCP prompts被发现时）
+   * @param systemInstruction 新的系统指令
+   */
+  setSystemInstruction(systemInstruction: ContentUnion | undefined): void {
+    this.generationConfig.systemInstruction = systemInstruction;
+  }
+
+  /**
    * 获取系统指令（用于 token 计数等场景）
    * @returns 系统指令内容，如果未设置则返回 undefined
    */
