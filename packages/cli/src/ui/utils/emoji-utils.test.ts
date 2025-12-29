@@ -5,11 +5,11 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { 
-  isEmoji, 
-  isCommonSymbol, 
-  analyzeTextForHighlight, 
-  calculateHighlightableLength 
+import {
+  isEmoji,
+  isCommonSymbol,
+  analyzeTextForHighlight,
+  calculateHighlightableLength
 } from './emoji-utils.js';
 
 describe('emoji-utils', () => {
@@ -52,7 +52,7 @@ describe('emoji-utils', () => {
   describe('analyzeTextForHighlight', () => {
     it('should correctly analyze text with emojis', () => {
       const result = analyzeTextForHighlight('💡 Hello World');
-      
+
       expect(result).toHaveLength(13);
       expect(result[0]).toEqual({
         char: '💡',
@@ -76,7 +76,7 @@ describe('emoji-utils', () => {
 
     it('should analyze pure text without emojis', () => {
       const result = analyzeTextForHighlight('Hello World');
-      
+
       expect(result).toHaveLength(11);
       expect(result.every(item => item.shouldHighlight)).toBe(true);
       expect(result.every(item => !item.isEmoji)).toBe(true);
@@ -84,7 +84,7 @@ describe('emoji-utils', () => {
 
     it('should analyze text with only emojis', () => {
       const result = analyzeTextForHighlight('💡🚀⭐');
-      
+
       expect(result).toHaveLength(3);
       expect(result.every(item => !item.shouldHighlight)).toBe(true);
       expect(result.every(item => item.isEmoji)).toBe(true);
@@ -103,9 +103,9 @@ describe('emoji-utils', () => {
       const text = '💡 Use dvcode -c 🚀';
       const result = calculateHighlightableLength(text);
       // 让我们验证实际长度：总长度减去emoji数量
-      const totalLength = text.length; // 应该是17
+      const codePointLength = Array.from(text).length; // 应该是17
       const emojiCount = 2; // 💡 和 🚀
-      expect(result).toBe(totalLength - emojiCount); // 17 - 2 = 15
+      expect(result).toBe(codePointLength - emojiCount); // 17 - 2 = 15
     });
 
     it('should handle Chinese text with emojis', () => {

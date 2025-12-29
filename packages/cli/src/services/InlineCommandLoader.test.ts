@@ -38,25 +38,25 @@ describe('InlineCommandLoader', () => {
     const signal = new AbortController().signal;
 
     const commands = await loader.loadCommands(signal);
-    const analyzeCommand = commands.find(cmd => cmd.name === 'analyze');
+    const askCommand = commands.find(cmd => cmd.name === 'ask');
 
-    expect(analyzeCommand).toBeDefined();
-    expect(analyzeCommand?.action).toBeDefined();
+    expect(askCommand).toBeDefined();
+    expect(askCommand?.action).toBeDefined();
 
-    if (analyzeCommand?.action) {
+    if (askCommand?.action) {
       const mockContext = {
         invocation: {
-          raw: '/analyze test code',
-          name: 'analyze',
-          args: 'test code'
+          raw: '/ask what is the weather',
+          name: 'ask',
+          args: 'what is the weather'
         }
       } as any;
 
-      const result = await analyzeCommand.action(mockContext, 'test code');
+      const result = await askCommand.action(mockContext, 'what is the weather');
 
       expect(result).toEqual({
         type: 'submit_prompt',
-        content: expect.stringContaining('test code')
+        content: expect.stringContaining('what is the weather')
       });
     }
   });
@@ -64,15 +64,15 @@ describe('InlineCommandLoader', () => {
 
 describe('inlineCommands utilities', () => {
   it('should find command by name', () => {
-    const command = findInlineCommand('analyze');
+    const command = findInlineCommand('ask');
     expect(command).toBeDefined();
-    expect(command?.name).toBe('analyze');
+    expect(command?.name).toBe('ask');
   });
 
   it('should find command by alias', () => {
-    const command = findInlineCommand('分析');
+    const command = findInlineCommand('问');
     expect(command).toBeDefined();
-    expect(command?.name).toBe('analyze');
+    expect(command?.name).toBe('ask');
   });
 
   it('should return undefined for non-existent command', () => {

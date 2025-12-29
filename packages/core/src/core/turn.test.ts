@@ -99,6 +99,7 @@ describe('Turn', () => {
           config: { abortSignal: expect.any(AbortSignal) },
         },
         'prompt-id-1',
+        'chat_conversation',
       );
 
       expect(events).toEqual([
@@ -156,7 +157,7 @@ describe('Turn', () => {
         }),
       );
       expect(event2.value.callId).toEqual(
-        expect.stringMatching(/^tool2-\d{13}-\w{10,}$/),
+        expect.stringMatching(/^tool2-\d{13}-[a-z0-9]+$/),
       );
       expect(turn.pendingToolCalls[1]).toEqual(event2.value);
       expect(turn.getDebugResponses().length).toBe(1);

@@ -13,15 +13,18 @@ import { MessageType } from '../types.js';
 describe('compressCommand', () => {
   let context: ReturnType<typeof createMockCommandContext>;
   let mockTryCompressChat: ReturnType<typeof vi.fn>;
+  let mockIsCompressionInProgress: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     mockTryCompressChat = vi.fn();
+    mockIsCompressionInProgress = vi.fn().mockReturnValue(false);
     context = createMockCommandContext({
       services: {
         config: {
           getGeminiClient: () =>
             ({
               tryCompressChat: mockTryCompressChat,
+              isCompressionInProgress: mockIsCompressionInProgress,
             }) as unknown as GeminiClient,
         },
       },
@@ -72,6 +75,7 @@ describe('compressCommand', () => {
 
     expect(mockTryCompressChat).toHaveBeenCalledWith(
       expect.stringMatching(/^compress-\d+$/),
+      expect.any(AbortSignal),
       true,
     );
 

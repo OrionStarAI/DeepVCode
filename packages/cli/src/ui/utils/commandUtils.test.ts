@@ -42,6 +42,12 @@ describe('commandUtils', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+
+    // Clear WSL environment variables to ensure platform-specific logic is tested correctly
+    delete process.env.WSL_DISTRO_NAME;
+    delete process.env.WSL_INTEROP;
+    delete process.env.WSLENV;
+
     // Dynamically import and set up spawn mock
     const { spawn } = await import('child_process');
     mockSpawn = spawn as Mock;

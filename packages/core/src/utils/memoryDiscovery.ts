@@ -93,7 +93,10 @@ async function getGeminiMdFilePathsInternal(
 ): Promise<string[]> {
   const allPaths = new Set<string>();
   // Search for all possible context file names, not just the currently configured one
-  const geminiMdFilenames = DEFAULT_CONTEXT_FILENAMES.filter(filename => !filename.includes('*')); // Exclude glob patterns for now
+  const geminiMdFilenames = Array.from(new Set([
+    ...getAllGeminiMdFilenames(),
+    ...DEFAULT_CONTEXT_FILENAMES
+  ])).filter(filename => !filename.includes('*')); // Exclude glob patterns for now
 
   for (const geminiMdFilename of geminiMdFilenames) {
     const resolvedCwd = path.resolve(currentWorkingDirectory);

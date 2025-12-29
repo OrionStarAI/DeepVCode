@@ -32,7 +32,7 @@ export class MarketplaceLoader implements IPluginLoader {
     for (const mp of marketplaces) {
       if (!mp.enabled) continue;
 
-      const mpPath = path.join(SkillsPaths.MARKETPLACE_ROOT, mp.id);
+      const mpPath = mp.source === 'local' ? mp.location : path.join(SkillsPaths.MARKETPLACE_ROOT, mp.id);
       if (!(await fs.pathExists(mpPath))) continue;
 
       // 2. 尝试从 marketplace.json 加载插件定义

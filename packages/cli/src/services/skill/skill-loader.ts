@@ -111,7 +111,12 @@ export class SkillLoader {
       const targetPlugin = plugins.find(p => p.id === pluginId);
 
       if (targetPlugin) {
-        return targetPlugin.components.map(comp => this.convertToSkill(comp, loadLevel));
+        return targetPlugin.components.map(comp => {
+          const skill = this.convertToSkill(comp, loadLevel);
+          // 添加到缓存，确保后续 loadSkill 能命中
+          this.addToCache(skill);
+          return skill;
+        });
       }
 
       return [];
@@ -135,6 +140,17 @@ export class SkillLoader {
     if (!metadata.name) metadata.name = component.name;
     if (!metadata.description) metadata.description = component.description;
 
+    // 根据加载级别决定是否包含内容 (使用枚举值比较)
+    const levelOrder = [
+      SkillLoadLevel.METADATA,
+      SkillLoadLevel.FULL,
+      SkillLoadLevel.RESOURCES,
+    ];
+    const requestedLevelIndex = levelOrder.indexOf(loadLevel);
+    const fullLevelIndex = levelOrder.indexOf(SkillLoadLevel.FULL);
+
+    const content = requestedLevelIndex >= fullLevelIndex ? component.content : undefined;
+
     return {
       id: component.id,
       type,
@@ -145,10 +161,15 @@ export class SkillLoader {
       path: component.location.type === 'directory' ? component.location.path : path.dirname(component.location.path),
       skillFilePath: component.location.path,
       metadata,
-      content: component.content,
+      content,
       enabled: component.enabled,
       loadLevel: loadLevel,
-      scripts: [],
+      scripts: (component.scripts || []).map(s => ({
+        name: s.name,
+        path: s.path,
+        type: this.detectScriptType(s.name)
+      })),
+      references: component.references || [],
     };
   }
 

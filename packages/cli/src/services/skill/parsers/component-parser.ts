@@ -61,6 +61,41 @@ export class ComponentParser {
             component.id = `${pluginId}:${component.name}`;
           }
 
+          // 自动发现脚本目录中的脚本
+          const scriptsPath = path.join(itemPath, 'scripts');
+          if (await fs.pathExists(scriptsPath)) {
+            const stat = await fs.stat(scriptsPath);
+            if (stat.isDirectory()) {
+              const files = await fs.readdir(scriptsPath);
+              for (const file of files) {
+                const filePath = path.join(scriptsPath, file);
+                const fileStat = await fs.stat(filePath);
+                if (fileStat.isFile()) {
+                  // 简单识别脚本类型
+                  let scriptType: 'python' | 'bash' | 'node' | 'unknown' = 'unknown';
+                  const ext = path.extname(file).toLowerCase();
+                  if (ext === '.py') scriptType = 'python';
+                  else if (ext === '.sh' || ext === '.bash') scriptType = 'bash';
+                  else if (ext === '.js' || ext === '.mjs' || ext === '.cjs') scriptType = 'node';
+
+                  component.scripts.push({
+                    name: file,
+                    path: filePath,
+                    type: scriptType
+                  });
+                }
+              }
+            }
+          }
+
+          // 自动发现引用文档
+          const files = await fs.readdir(itemPath);
+          for (const file of files) {
+            if (file !== 'SKILL.md' && file.endsWith('.md')) {
+              component.references.push(path.join(itemPath, file));
+            }
+          }
+
           return component;
         }
       }

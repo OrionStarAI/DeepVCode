@@ -345,6 +345,7 @@ describe('ToolRegistry', () => {
         undefined,
         toolRegistry,
         undefined,
+        undefined,
         false,
       );
     });
@@ -367,6 +368,7 @@ describe('ToolRegistry', () => {
         mcpServerConfigVal,
         undefined,
         toolRegistry,
+        undefined,
         undefined,
         false,
       );

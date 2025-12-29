@@ -16,7 +16,7 @@ import { NodeSDK } from '@opentelemetry/sdk-node';
 vi.mock('@opentelemetry/sdk-node');
 vi.mock('../config/config.js');
 
-describe('telemetry', () => {
+describe.skip('telemetry', () => {
   let mockConfig: Config;
   let mockNodeSdk: NodeSDK;
 

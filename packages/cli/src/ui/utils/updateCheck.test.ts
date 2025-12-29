@@ -12,31 +12,49 @@ vi.mock('../../utils/package.js', () => ({
   getPackageJson,
 }));
 
-const updateNotifier = vi.hoisted(() => vi.fn());
-vi.mock('update-notifier', () => ({
-  default: updateNotifier,
-}));
+// Mock fs and os properly for Vitest 3
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>();
+  return {
+    ...actual,
+    promises: {
+      ...actual.promises,
+      readFile: vi.fn().mockRejectedValue({ code: 'ENOENT' }),
+      writeFile: vi.fn().mockResolvedValue(undefined),
+      mkdir: vi.fn().mockResolvedValue(undefined),
+    }
+  };
+});
+
+vi.mock('node:os', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:os')>();
+  return {
+    ...actual,
+    homedir: vi.fn().mockReturnValue('/tmp/home'),
+  };
+});
+
+// Mock fetch globally
+const mockFetch = vi.fn();
+global.fetch = mockFetch;
 
 describe('checkForUpdates', () => {
   beforeEach(() => {
     vi.resetAllMocks();
     // Clear DEV environment variable before each test
     delete process.env.DEV;
+    // Mock successful package.json
+    getPackageJson.mockResolvedValue({
+      name: 'deepv-code-cli',
+      version: '1.0.0',
+    });
   });
 
   it('should return null when running from source (DEV=true)', async () => {
     process.env.DEV = 'true';
-    getPackageJson.mockResolvedValue({
-      name: 'test-package',
-      version: '1.0.0',
-    });
-    updateNotifier.mockReturnValue({
-      update: { current: '1.0.0', latest: '1.1.0' },
-    });
     const result = await checkForUpdates();
     expect(result).toBeNull();
     expect(getPackageJson).not.toHaveBeenCalled();
-    expect(updateNotifier).not.toHaveBeenCalled();
   });
 
   it('should return null if package.json is missing', async () => {
@@ -46,54 +64,80 @@ describe('checkForUpdates', () => {
   });
 
   it('should return null if there is no update', async () => {
-    getPackageJson.mockResolvedValue({
-      name: 'test-package',
-      version: '1.0.0',
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        success: true,
+        hasUpdate: false,
+      }),
     });
-    updateNotifier.mockReturnValue({ update: null });
-    const result = await checkForUpdates();
+
+    const result = await checkForUpdates(false, true);
     expect(result).toBeNull();
   });
 
-  it('should return a message if a newer version is available', async () => {
-    getPackageJson.mockResolvedValue({
-      name: 'test-package',
-      version: '1.0.0',
+  it('should return a message if a newer version is available and showProgress is true', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        success: true,
+        hasUpdate: true,
+        latestVersion: '1.1.0',
+        updateCommand: 'npm install -g deepv-code-cli',
+      }),
     });
-    updateNotifier.mockReturnValue({
-      update: { current: '1.0.0', latest: '1.1.0' },
-    });
-    const result = await checkForUpdates();
-    expect(result).toContain('1.0.0 → 1.1.0');
+
+    const result = await checkForUpdates(true, true);
+    expect(result).not.toBeNull();
+    expect(result).toContain('UPDATE_AVAILABLE:1.1.0');
+    expect(result).toContain('1.0.0');
+    expect(result).toContain('1.1.0');
   });
 
-  it('should return null if the latest version is the same as the current version', async () => {
-    getPackageJson.mockResolvedValue({
-      name: 'test-package',
-      version: '1.0.0',
+  it('should return null if newer version available but showProgress is false and not forced update', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        success: true,
+        hasUpdate: true,
+        latestVersion: '1.1.0',
+        updateCommand: 'npm install -g deepv-code-cli',
+      }),
     });
-    updateNotifier.mockReturnValue({
-      update: { current: '1.0.0', latest: '1.0.0' },
-    });
-    const result = await checkForUpdates();
+
+    const result = await checkForUpdates(false, true);
     expect(result).toBeNull();
   });
 
-  it('should return null if the latest version is older than the current version', async () => {
-    getPackageJson.mockResolvedValue({
-      name: 'test-package',
-      version: '1.1.0',
+  it('should return a FORCE_UPDATE message if forceUpdate is true', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        success: true,
+        hasUpdate: true,
+        forceUpdate: true,
+        latestVersion: '1.1.0',
+        updateCommand: 'npm install -g deepv-code-cli',
+      }),
     });
-    updateNotifier.mockReturnValue({
-      update: { current: '1.1.0', latest: '1.0.0' },
-    });
-    const result = await checkForUpdates();
+
+    const result = await checkForUpdates(false, true);
+    expect(result).not.toBeNull();
+    expect(result).toContain('FORCE_UPDATE:1.1.0');
+  });
+
+  it('should handle fetch errors gracefully', async () => {
+    mockFetch.mockRejectedValue(new Error('Network error'));
+    const result = await checkForUpdates(false, true);
     expect(result).toBeNull();
   });
 
-  it('should handle errors gracefully', async () => {
-    getPackageJson.mockRejectedValue(new Error('test error'));
-    const result = await checkForUpdates();
+  it('should handle HTTP error status gracefully', async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 500,
+    });
+    const result = await checkForUpdates(false, true);
     expect(result).toBeNull();
   });
 });

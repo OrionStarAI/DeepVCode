@@ -856,6 +856,11 @@ export async function discoverTools(
   mcpClient: Client,
 ): Promise<DiscoveredMCPTool[]> {
   try {
+    // Only request tools if the server supports them.
+    if (mcpClient.getServerCapabilities()?.tools == null) {
+      return [];
+    }
+
     const mcpCallableTool = mcpToTool(mcpClient);
     const tool = await mcpCallableTool.tool();
 
@@ -883,7 +888,17 @@ export async function discoverTools(
     }
     return discoveredTools;
   } catch (error) {
-    throw new Error(`Error discovering tools: ${error}`);
+    if (
+      error instanceof Error &&
+      !error.message?.includes('Method not found')
+    ) {
+      console.error(
+        `Error discovering tools from ${mcpServerName}: ${getErrorMessage(
+          error,
+        )}`,
+      );
+    }
+    return [];
   }
 }
 

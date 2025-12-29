@@ -129,9 +129,10 @@ describe('SessionManager', () => {
       expect(loadedSession!.history).toHaveLength(2);
     });
 
-    it('should return null when loading non-existent session', async () => {
+    it('should create a default session when loading non-existent session', async () => {
       const loadedSession = await sessionManager.loadSession('non-existent-id');
-      expect(loadedSession).toBeNull();
+      expect(loadedSession).not.toBeNull();
+      expect(loadedSession!.sessionId).toBe('non-existent-id');
     });
   });
 
@@ -139,19 +140,19 @@ describe('SessionManager', () => {
     it('should identify empty sessions correctly', async () => {
       // 创建一个空会话
       const emptySession = await sessionManager.createNewSession('Empty Session');
-      
+
       // 验证会话为空
       const isEmpty = await sessionManager.isSessionEmpty(emptySession.sessionId);
       expect(isEmpty).toBe(true);
-      
+
       // 添加一个用户消息
       const historyWithUserMessage = [
         { type: 'user', text: 'Hello, AI!' },
         { type: 'assistant', text: 'Hello! How can I help you?' }
       ];
-      
+
       await sessionManager.saveSessionHistory(emptySession.sessionId, historyWithUserMessage);
-      
+
       // 验证会话不再为空
       const isEmptyAfterMessage = await sessionManager.isSessionEmpty(emptySession.sessionId);
       expect(isEmptyAfterMessage).toBe(false);
@@ -161,18 +162,18 @@ describe('SessionManager', () => {
       // 创建一个空会话
       const emptySession = await sessionManager.createNewSession('Empty Session');
       const sessionId = emptySession.sessionId;
-      
+
       // 验证会话存在
       const sessionsBefore = await sessionManager.listSessions();
       expect(sessionsBefore.some(s => s.sessionId === sessionId)).toBe(true);
-      
+
       // 调用清理函数
       await sessionManager.cleanupCurrentEmptySessionOnExit(sessionId);
-      
+
       // 验证空会话已被删除
       const sessionsAfter = await sessionManager.listSessions();
       expect(sessionsAfter.some(s => s.sessionId === sessionId)).toBe(false);
-      
+
       // 验证会话目录也被删除
       const sessionDir = sessionManager.getSessionDirectory(sessionId);
       const exists = await fs.access(sessionDir).then(() => true).catch(() => false);
@@ -183,26 +184,26 @@ describe('SessionManager', () => {
       // 创建一个有内容的会话
       const session = await sessionManager.createNewSession('Session with Content');
       const sessionId = session.sessionId;
-      
+
       // 添加用户消息
       const history = [
         { type: 'user', text: 'Hello, AI!' },
         { type: 'assistant', text: 'Hello! How can I help you?' }
       ];
-      
+
       await sessionManager.saveSessionHistory(sessionId, history);
-      
+
       // 验证会话存在
       const sessionsBefore = await sessionManager.listSessions();
       expect(sessionsBefore.some(s => s.sessionId === sessionId)).toBe(true);
-      
+
       // 调用清理函数
       await sessionManager.cleanupCurrentEmptySessionOnExit(sessionId);
-      
+
       // 验证有内容的会话未被删除
       const sessionsAfter = await sessionManager.listSessions();
       expect(sessionsAfter.some(s => s.sessionId === sessionId)).toBe(true);
-      
+
       // 验证会话目录仍然存在
       const sessionDir = sessionManager.getSessionDirectory(sessionId);
       const exists = await fs.access(sessionDir).then(() => true).catch(() => false);
@@ -211,7 +212,7 @@ describe('SessionManager', () => {
 
     it('should handle cleanup errors gracefully', async () => {
       const nonExistentSessionId = 'non-existent-session-id';
-      
+
       // 调用清理函数不应该抛出错误
       await expect(sessionManager.cleanupCurrentEmptySessionOnExit(nonExistentSessionId))
         .resolves.not.toThrow();
@@ -221,19 +222,19 @@ describe('SessionManager', () => {
       // 创建两个会话，一个空的，一个有内容的
       const emptySession = await sessionManager.createNewSession('Empty Session');
       const contentSession = await sessionManager.createNewSession('Content Session');
-      
+
       // 为内容会话添加消息
       await sessionManager.saveSessionHistory(contentSession.sessionId, [
         { type: 'user', text: 'Test message' }
       ]);
-      
+
       // 验证两个会话都在索引中
       const sessionsBefore = await sessionManager.listSessions();
       expect(sessionsBefore).toHaveLength(2);
-      
+
       // 清理空会话
       await sessionManager.cleanupCurrentEmptySessionOnExit(emptySession.sessionId);
-      
+
       // 验证索引已更新，只剩下有内容的会话
       const sessionsAfter = await sessionManager.listSessions();
       expect(sessionsAfter).toHaveLength(1);

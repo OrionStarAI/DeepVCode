@@ -85,6 +85,7 @@ export interface UnifiedComponent {
   // 执行相关
   executable: boolean;
   scripts: ComponentScript[];
+  references: string[]; // 引用文档路径列表
 
   // 状态
   installed: boolean;

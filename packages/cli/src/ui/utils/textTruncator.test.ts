@@ -35,9 +35,8 @@ describe('textTruncator', () => {
       expect(result.fullText).toBe(text);
       expect(result.omittedLines).toBeGreaterThan(0);
 
-      // 应该包含省略提示
-      expect(result.displayText).toContain('已省略显示');
-      expect(result.displayText).toContain('行');
+      // 应该包含省略提示占位符
+      expect(result.displayText).toContain('___OMITTED_NOTICE___');
 
       // 应该包含头部和尾部
       expect(result.displayText).toContain('Line 1');

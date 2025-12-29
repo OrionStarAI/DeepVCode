@@ -11,72 +11,48 @@ import {
   vi,
   beforeEach,
   afterEach,
-  afterAll,
+  Mock,
 } from 'vitest';
 import { Logger, MessageSenderType, LogEntry } from './logger.js';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { Content } from '../types/extendedContent.js';
-
-import crypto from 'node:crypto';
 import os from 'node:os';
+import { getProjectTempDir } from '../utils/paths.js';
 
-const GEMINI_DIR_NAME = '.gemini';
-const TMP_DIR_NAME = 'tmp';
+vi.mock('../utils/paths.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../utils/paths.js')>();
+  return {
+    ...actual,
+    getProjectTempDir: vi.fn(),
+  };
+});
+
 const LOG_FILE_NAME = 'logs.json';
 const CHECKPOINT_FILE_NAME = 'checkpoint.json';
-
-const projectDir = process.cwd();
-const hash = crypto.createHash('sha256').update(projectDir).digest('hex');
-const TEST_GEMINI_DIR = path.join(
-  os.homedir(),
-  GEMINI_DIR_NAME,
-  TMP_DIR_NAME,
-  hash,
-);
-
-const TEST_LOG_FILE_PATH = path.join(TEST_GEMINI_DIR, LOG_FILE_NAME);
-const TEST_CHECKPOINT_FILE_PATH = path.join(
-  TEST_GEMINI_DIR,
-  CHECKPOINT_FILE_NAME,
-);
-
-async function cleanupLogAndCheckpointFiles() {
-  try {
-    await fs.rm(TEST_GEMINI_DIR, { recursive: true, force: true });
-  } catch (_error) {
-    // Ignore errors, as the directory may not exist, which is fine.
-  }
-}
-
-async function readLogFile(): Promise<LogEntry[]> {
-  try {
-    const content = await fs.readFile(TEST_LOG_FILE_PATH, 'utf-8');
-    return JSON.parse(content) as LogEntry[];
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-      return [];
-    }
-    throw error;
-  }
-}
-
-vi.mock('../utils/session.js', () => ({
-  sessionId: 'test-session-id',
-}));
 
 describe('Logger', () => {
   let logger: Logger;
   const testSessionId = 'test-session-id';
+  let testGeminiDir: string;
+  let testLogFilePath: string;
+  let testCheckpointFilePath: string;
 
   beforeEach(async () => {
     vi.resetAllMocks();
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2025-01-01T12:00:00.000Z'));
-    // Clean up before the test
-    await cleanupLogAndCheckpointFiles();
+
+    // Create a unique temporary directory for each test
+    testGeminiDir = await fs.mkdtemp(path.join(os.tmpdir(), 'gemini-cli-logger-test-dir-'));
+    (getProjectTempDir as Mock).mockReturnValue(testGeminiDir);
+
+    testLogFilePath = path.join(testGeminiDir, LOG_FILE_NAME);
+    testCheckpointFilePath = path.join(testGeminiDir, CHECKPOINT_FILE_NAME);
+
     // Ensure the directory exists for the test
-    await fs.mkdir(TEST_GEMINI_DIR, { recursive: true });
+    await fs.mkdir(testGeminiDir, { recursive: true });
+
     logger = new Logger(testSessionId);
     await logger.initialize();
   });
@@ -86,26 +62,33 @@ describe('Logger', () => {
       logger.close();
     }
     // Clean up after the test
-    await cleanupLogAndCheckpointFiles();
+    await fs.rm(testGeminiDir, { recursive: true, force: true });
     vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
-  afterAll(async () => {
-    // Final cleanup
-    await cleanupLogAndCheckpointFiles();
-  });
+  async function readLogFile(): Promise<LogEntry[]> {
+    try {
+      const content = await fs.readFile(testLogFilePath, 'utf-8');
+      return JSON.parse(content) as LogEntry[];
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+        return [];
+      }
+      throw error;
+    }
+  }
 
   describe('initialize', () => {
-    it('should create .gemini directory and an empty log file if none exist', async () => {
+    it('should create .deepv directory and an empty log file if none exist', async () => {
       const dirExists = await fs
-        .access(TEST_GEMINI_DIR)
+        .access(testGeminiDir)
         .then(() => true)
         .catch(() => false);
       expect(dirExists).toBe(true);
 
       const fileExists = await fs
-        .access(TEST_LOG_FILE_PATH)
+        .access(testLogFilePath)
         .then(() => true)
         .catch(() => false);
       expect(fileExists).toBe(true);
@@ -141,7 +124,7 @@ describe('Logger', () => {
         },
       ];
       await fs.writeFile(
-        TEST_LOG_FILE_PATH,
+        testLogFilePath,
         JSON.stringify(existingLogs, null, 2),
       );
       const newLogger = new Logger(currentSessionId);
@@ -162,7 +145,7 @@ describe('Logger', () => {
         },
       ];
       await fs.writeFile(
-        TEST_LOG_FILE_PATH,
+        testLogFilePath,
         JSON.stringify(existingLogs, null, 2),
       );
       const newLogger = new Logger('a-new-session');
@@ -185,7 +168,7 @@ describe('Logger', () => {
     });
 
     it('should handle invalid JSON in log file by backing it up and starting fresh', async () => {
-      await fs.writeFile(TEST_LOG_FILE_PATH, 'invalid json');
+      await fs.writeFile(testLogFilePath, 'invalid json');
       const consoleDebugSpy = vi
         .spyOn(console, 'debug')
         .mockImplementation(() => {});
@@ -199,7 +182,7 @@ describe('Logger', () => {
       );
       const logContent = await readLogFile();
       expect(logContent).toEqual([]);
-      const dirContents = await fs.readdir(TEST_GEMINI_DIR);
+      const dirContents = await fs.readdir(testGeminiDir);
       expect(
         dirContents.some(
           (f) =>
@@ -211,7 +194,7 @@ describe('Logger', () => {
 
     it('should handle non-array JSON in log file by backing it up and starting fresh', async () => {
       await fs.writeFile(
-        TEST_LOG_FILE_PATH,
+        testLogFilePath,
         JSON.stringify({ not: 'an array' }),
       );
       const consoleDebugSpy = vi
@@ -222,11 +205,11 @@ describe('Logger', () => {
       await newLogger.initialize();
 
       expect(consoleDebugSpy).toHaveBeenCalledWith(
-        `Log file at ${TEST_LOG_FILE_PATH} is not a valid JSON array. Starting with empty logs.`,
+        `Log file at ${testLogFilePath} is not a valid JSON array. Starting with empty logs.`,
       );
       const logContent = await readLogFile();
       expect(logContent).toEqual([]);
-      const dirContents = await fs.readdir(TEST_GEMINI_DIR);
+      const dirContents = await fs.readdir(testGeminiDir);
       expect(
         dirContents.some(
           (f) =>
@@ -397,8 +380,8 @@ describe('Logger', () => {
       const tag = 'my-test-tag';
       await logger.saveCheckpoint(conversation, tag);
       const taggedFilePath = path.join(
-        TEST_GEMINI_DIR,
-        `${CHECKPOINT_FILE_NAME.replace('.json', '')}-${tag}.json`,
+        testGeminiDir,
+        `checkpoint-${tag}.json`,
       );
       const fileContent = await fs.readFile(taggedFilePath, 'utf-8');
       expect(JSON.parse(fileContent)).toEqual(conversation);
@@ -415,7 +398,7 @@ describe('Logger', () => {
         uninitializedLogger.saveCheckpoint(conversation, 'tag'),
       ).resolves.not.toThrow();
       expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Logger not initialized or checkpoint file path not set. Cannot save a checkpoint.',
+        '[CHECKPOINT DEBUG] Logger not initialized, cannot save checkpoint',
       );
     });
   });
@@ -426,13 +409,6 @@ describe('Logger', () => {
       { role: 'model', parts: [{ text: 'Hi there' }] },
     ];
 
-    beforeEach(async () => {
-      await fs.writeFile(
-        TEST_CHECKPOINT_FILE_PATH,
-        JSON.stringify(conversation, null, 2),
-      );
-    });
-
     it('should load from a tagged checkpoint file when a tag is provided', async () => {
       const tag = 'my-load-tag';
       const taggedConversation = [
@@ -440,8 +416,8 @@ describe('Logger', () => {
         { role: 'user', parts: [{ text: 'Another message' }] },
       ];
       const taggedFilePath = path.join(
-        TEST_GEMINI_DIR,
-        `${CHECKPOINT_FILE_NAME.replace('.json', '')}-${tag}.json`,
+        testGeminiDir,
+        `checkpoint-${tag}.json`,
       );
       await fs.writeFile(
         taggedFilePath,
@@ -458,20 +434,22 @@ describe('Logger', () => {
     });
 
     it('should return an empty array if the checkpoint file does not exist', async () => {
-      await fs.unlink(TEST_CHECKPOINT_FILE_PATH); // Ensure it's gone
       const loaded = await logger.loadCheckpoint('missing');
       expect(loaded).toEqual([]);
     });
 
     it('should return an empty array if the file contains invalid JSON', async () => {
-      await fs.writeFile(TEST_CHECKPOINT_FILE_PATH, 'invalid json');
+      const tag = 'invalid-json';
+      const taggedFilePath = path.join(testGeminiDir, `checkpoint-${tag}.json`);
+      await fs.writeFile(taggedFilePath, 'invalid json');
+
       const consoleErrorSpy = vi
         .spyOn(console, 'error')
         .mockImplementation(() => {});
-      const loadedCheckpoint = await logger.loadCheckpoint('missing');
+      const loadedCheckpoint = await logger.loadCheckpoint(tag);
       expect(loadedCheckpoint).toEqual([]);
       expect(consoleErrorSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Failed to read or parse checkpoint file'),
+        expect.stringContaining('[CHECKPOINT DEBUG] Failed to load checkpoint:'),
         expect.any(Error),
       );
     });
@@ -485,7 +463,7 @@ describe('Logger', () => {
       const loadedCheckpoint = await uninitializedLogger.loadCheckpoint('tag');
       expect(loadedCheckpoint).toEqual([]);
       expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Logger not initialized or checkpoint file path not set. Cannot load checkpoint.',
+        '[CHECKPOINT DEBUG] Logger not initialized, cannot load checkpoint',
       );
     });
   });

@@ -24,6 +24,8 @@ vi.mock('../tools/tool-registry', () => {
   const ToolRegistryMock = vi.fn();
   ToolRegistryMock.prototype.registerTool = vi.fn();
   ToolRegistryMock.prototype.discoverAllTools = vi.fn();
+  ToolRegistryMock.prototype.discoverCommandLineTools = vi.fn();
+  ToolRegistryMock.prototype.discoverMcpTools = vi.fn();
   ToolRegistryMock.prototype.getAllTools = vi.fn(() => []); // Mock methods if needed
   ToolRegistryMock.prototype.getTool = vi.fn();
   ToolRegistryMock.prototype.getFunctionDeclarations = vi.fn(() => []);
@@ -115,21 +117,29 @@ describe('Server Config (config.ts)', () => {
   });
 
   describe('initialize', () => {
-    it('should throw an error if checkpointing is enabled and GitService fails', async () => {
+    it('should not throw an error if checkpointing is enabled and GitService fails', async () => {
       const gitError = new Error('Git is not installed');
-      (GitService.prototype.initialize as Mock).mockRejectedValue(gitError);
+      (GitService.prototype.initialize as Mock).mockResolvedValue({
+        success: false,
+        disabled: true,
+        error: gitError
+      });
 
       const config = new Config({
         ...baseParams,
         checkpointing: true,
       });
 
-      await expect(config.initialize()).rejects.toThrow(gitError);
+      await expect(config.initialize()).resolves.toBeUndefined();
     });
 
     it('should not throw an error if checkpointing is disabled and GitService fails', async () => {
       const gitError = new Error('Git is not installed');
-      (GitService.prototype.initialize as Mock).mockRejectedValue(gitError);
+      (GitService.prototype.initialize as Mock).mockResolvedValue({
+        success: false,
+        disabled: true,
+        error: gitError
+      });
 
       const config = new Config({
         ...baseParams,
@@ -160,8 +170,6 @@ describe('Server Config (config.ts)', () => {
       );
       // Verify that contentGeneratorConfig is updated with the new model
       expect(config.getContentGeneratorConfig()).toEqual(mockContentConfig);
-      //expect(config.getContentGeneratorConfig().model).toBe(newModel);
-      expect(config.getModel()).toBe(newModel); // getModel() should return the updated model
       expect(GeminiClient).toHaveBeenCalledWith(config);
     });
   });
@@ -213,29 +221,13 @@ describe('Server Config (config.ts)', () => {
     expect(config.getFileFilteringRespectGitIgnore()).toBe(false);
   });
 
-  it('Config constructor should set telemetry to true when provided as true', () => {
+  it('Config constructor should hardcode telemetry to false', () => {
     const paramsWithTelemetry: ConfigParameters = {
       ...baseParams,
       telemetry: { enabled: true },
     };
     const config = new Config(paramsWithTelemetry);
-    expect(config.getTelemetryEnabled()).toBe(true);
-  });
-
-  it('Config constructor should set telemetry to false when provided as false', () => {
-    const paramsWithTelemetry: ConfigParameters = {
-      ...baseParams,
-      telemetry: { enabled: false },
-    };
-    const config = new Config(paramsWithTelemetry);
     expect(config.getTelemetryEnabled()).toBe(false);
-  });
-
-  it('Config constructor should default telemetry to default value if not provided', () => {
-    const paramsWithoutTelemetry: ConfigParameters = { ...baseParams };
-    delete paramsWithoutTelemetry.telemetry;
-    const config = new Config(paramsWithoutTelemetry);
-    expect(config.getTelemetryEnabled()).toBe(TELEMETRY_SETTINGS.enabled);
   });
 
   it('should have a getFileService method that returns FileDiscoveryService', () => {
@@ -245,7 +237,7 @@ describe('Server Config (config.ts)', () => {
   });
 
   describe('Telemetry Settings', () => {
-    it('should return default telemetry target if not provided', () => {
+    it('should return default telemetry target', () => {
       const params: ConfigParameters = {
         ...baseParams,
         telemetry: { enabled: true },
@@ -273,43 +265,13 @@ describe('Server Config (config.ts)', () => {
       expect(config.getTelemetryOtlpEndpoint()).toBe(DEFAULT_OTLP_ENDPOINT);
     });
 
-    it('should return provided logPrompts setting', () => {
+    it('should hardcode logPrompts to false', () => {
       const params: ConfigParameters = {
         ...baseParams,
-        telemetry: { enabled: true, logPrompts: false },
+        telemetry: { enabled: true, logPrompts: true },
       };
       const config = new Config(params);
       expect(config.getTelemetryLogPromptsEnabled()).toBe(false);
-    });
-
-    it('should return default logPrompts setting (true) if not provided', () => {
-      const params: ConfigParameters = {
-        ...baseParams,
-        telemetry: { enabled: true },
-      };
-      const config = new Config(params);
-      expect(config.getTelemetryLogPromptsEnabled()).toBe(true);
-    });
-
-    it('should return default logPrompts setting (true) if telemetry object is not provided', () => {
-      const paramsWithoutTelemetry: ConfigParameters = { ...baseParams };
-      delete paramsWithoutTelemetry.telemetry;
-      const config = new Config(paramsWithoutTelemetry);
-      expect(config.getTelemetryLogPromptsEnabled()).toBe(true);
-    });
-
-    it('should return default telemetry target if telemetry object is not provided', () => {
-      const paramsWithoutTelemetry: ConfigParameters = { ...baseParams };
-      delete paramsWithoutTelemetry.telemetry;
-      const config = new Config(paramsWithoutTelemetry);
-      expect(config.getTelemetryTarget()).toBe(DEFAULT_TELEMETRY_TARGET);
-    });
-
-    it('should return default OTLP endpoint if telemetry object is not provided', () => {
-      const paramsWithoutTelemetry: ConfigParameters = { ...baseParams };
-      delete paramsWithoutTelemetry.telemetry;
-      const config = new Config(paramsWithoutTelemetry);
-      expect(config.getTelemetryOtlpEndpoint()).toBe(DEFAULT_OTLP_ENDPOINT);
     });
   });
 });

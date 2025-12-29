@@ -205,7 +205,7 @@ description: Test Skill 2
 
       await expect(
         loader.parseSkillFile(skillPath, 'test-mp:test-plugin', 'test-mp'),
-      ).rejects.toThrow('SKILL.md not found');
+      ).rejects.toThrow('Skill file not found');
     });
 
     it('should validate required metadata fields', async () => {
