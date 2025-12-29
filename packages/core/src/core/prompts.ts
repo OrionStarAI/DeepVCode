@@ -22,6 +22,7 @@ import { TaskTool } from '../tools/task.js';
 import { TodoWriteTool } from '../tools/todo-write.js';
 import { ReadLintsTool } from '../tools/read-lints.js';
 import { TaskPrompts } from './taskPrompts.js';
+import { PromptRegistry } from '../prompts/prompt-registry.js';
 
 /**
  * 获取静态系统提示词（所有用户相同，适合缓存）
@@ -564,7 +565,47 @@ You are running outside of a sandbox container, directly on the user's system. F
   return `${sandboxContent}${gitContent}${skillsContent}${memorySuffix}`.trim();
 }
 
-export function getCoreSystemPrompt(userMemory?: string, isVSCode?: boolean): string {
+/**
+ * Generates MCP Prompts context information for the system prompt.
+ * Lists all available MCP prompts organized by server for user awareness.
+ */
+function getMcpPromptsContext(promptRegistry?: PromptRegistry): string {
+  if (!promptRegistry) {
+    return '';
+  }
+
+  try {
+    const allPrompts = promptRegistry.getAllPrompts();
+    if (allPrompts.length === 0) {
+      return '';
+    }
+
+    // Group prompts by server
+    const promptsByServer = new Map<string, string[]>();
+    for (const prompt of allPrompts) {
+      if (!promptsByServer.has(prompt.serverName)) {
+        promptsByServer.set(prompt.serverName, []);
+      }
+      promptsByServer.get(prompt.serverName)?.push(prompt.name);
+    }
+
+    // Format as readable context
+    let mcpPromptsText = '\n\n## Available MCP Prompts\n\n';
+    for (const [serverName, promptNames] of promptsByServer.entries()) {
+      mcpPromptsText += `**${serverName}:**\n`;
+      for (const promptName of promptNames) {
+        mcpPromptsText += `- \`${promptName}\`\n`;
+      }
+    }
+
+    return mcpPromptsText;
+  } catch (error) {
+    // MCP prompts system not available or failed to load
+    return '';
+  }
+}
+
+export function getCoreSystemPrompt(userMemory?: string, isVSCode?: boolean, promptRegistry?: PromptRegistry): string {
   // if GEMINI_SYSTEM_MD is set (and not 0|false), override system prompt from file
   // default path is .deepv/system.md but can be modified via custom path in GEMINI_SYSTEM_MD
   let systemMdEnabled = false;
@@ -621,7 +662,14 @@ export function getCoreSystemPrompt(userMemory?: string, isVSCode?: boolean): st
     }
   }
 
-  return dynamicPrompt.length > 0 ? `${basePrompt}\n\n${dynamicPrompt}` : basePrompt;
+  const mcpPromptsContext = getMcpPromptsContext(promptRegistry);
+
+  let finalPrompt = `${basePrompt}\n\n${dynamicPrompt}`;
+  if (mcpPromptsContext) {
+    finalPrompt += mcpPromptsContext;
+  }
+
+  return finalPrompt.trim();
 }
 
 

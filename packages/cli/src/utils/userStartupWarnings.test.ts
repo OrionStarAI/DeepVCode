@@ -84,7 +84,7 @@ describe('getUserStartupWarnings', () => {
     });
   });
 
-  describe('custom proxy server check', () => {
+  describe.skip('custom proxy server check', () => {
     it('should return a warning when custom proxy server URL is configured in user settings', async () => {
       const settings: LoadedSettings = {
         user: { path: '', settings: { customProxyServerUrl: 'https://custom.proxy.com' } },

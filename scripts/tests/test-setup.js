@@ -4,8 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 import { vi } from 'vitest';
-vi.mock('fs', () => ({
-    ...vi.importActual('fs'),
-    appendFileSync: vi.fn(),
-}));
-//# sourceMappingURL=test-setup.js.map
+vi.mock('fs', async (importOriginal) => {
+    const actual = await importOriginal();
+    return {
+        ...actual,
+        appendFileSync: vi.fn(),
+    };
+});

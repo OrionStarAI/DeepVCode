@@ -42,7 +42,7 @@ describe('ShellTool Bug Reproduction', () => {
       () => {},
     );
 
-    expect(result.returnDisplay).toBe('hello' + os.EOL);
+    expect(typeof result.returnDisplay === 'string' ? result.returnDisplay.trim() : result.returnDisplay).toBe('hello');
     expect(result.llmContent).toBe('summarized output');
     expect(summarizeSpy).toHaveBeenCalled();
   });
@@ -69,7 +69,7 @@ describe('ShellTool Bug Reproduction', () => {
       () => {},
     );
 
-    expect(result.returnDisplay).toBe('hello' + os.EOL);
+    expect(typeof result.returnDisplay === 'string' ? result.returnDisplay.trim() : result.returnDisplay).toBe('hello');
     expect(result.llmContent).not.toBe('summarized output');
     expect(summarizeSpy).not.toHaveBeenCalled();
   });
@@ -146,7 +146,7 @@ describe('ShellTool Bug Reproduction', () => {
       os.platform() === 'win32' ? 'echo %GEMINI_CLI%' : 'echo "$GEMINI_CLI"';
     const result = await shellTool.execute({ command }, abortSignal, () => {});
 
-    expect(result.returnDisplay).toBe('1' + os.EOL);
+    expect(typeof result.returnDisplay === 'string' ? result.returnDisplay.trim() : result.returnDisplay).toBe('1');
   });
 });
 

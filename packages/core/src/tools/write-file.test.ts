@@ -74,6 +74,11 @@ const mockConfigInternal = {
       registerTool: vi.fn(),
       discoverTools: vi.fn(),
     }) as unknown as ToolRegistry,
+  getProjectSettingsManager: vi.fn().mockReturnValue({
+    getSettings: vi.fn().mockReturnValue({ autoTrimTrailingSpaces: true })
+  }),
+  getVsCodePluginMode: vi.fn().mockReturnValue(false),
+  getUsageStatisticsEnabled: vi.fn().mockReturnValue(false),
 };
 const mockConfig = mockConfigInternal as unknown as Config;
 // --- END MOCKS ---
@@ -561,7 +566,7 @@ describe('WriteFileTool', () => {
         abortSignal,
       );
       if (typeof confirmDetails === 'object' && confirmDetails.onConfirm) {
-        await confirmDetails.onConfirm(ToolConfirmationOutcome.ProceedOnce);
+        await confirmDetails.onConfirm(ToolConfirmationOutcome.ProceedAlways);
       }
 
       await tool.execute(params, abortSignal);

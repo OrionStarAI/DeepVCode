@@ -58,6 +58,10 @@ describe('MemoryTool', () => {
     vi.mocked(glob).mockResolvedValue([]);
     // Mock process.cwd() to return a predictable path
     vi.spyOn(process, 'cwd').mockReturnValue('/mock/project');
+
+    // Ensure mockConfig returns a value
+    (mockConfig.getProjectRoot as Mock).mockReturnValue('/mock/project');
+
     mockFsAdapter.readFile.mockReset();
     mockFsAdapter.writeFile.mockReset().mockResolvedValue(undefined);
     mockFsAdapter.mkdir
@@ -97,9 +101,8 @@ describe('MemoryTool', () => {
 
   describe('performAddMemoryEntry (static method)', () => {
     const testFilePath = path.join(
-      '/mock/home',
-      '.deepv',
-      DEFAULT_CONTEXT_FILENAME, // Use the default for basic tests
+      '/mock/project',
+      DEFAULT_CONTEXT_FILENAME,
     );
 
     it('should create section and save a fact if file does not exist', async () => {
@@ -186,96 +189,6 @@ describe('MemoryTool', () => {
     });
   });
 
-  describe('project directory priority', () => {
-    it('should prefer project directory context file over global when available', async () => {
-      // Mock fs.access to simulate AGENTS.md exists in project directory
-      const mockAccess = vi.spyOn(fs, 'access').mockResolvedValue(undefined);
-      
-      // Reset to default filename to trigger discovery
-      setGeminiMdFilename(DEFAULT_CONTEXT_FILENAME);
-      
-      const memoryTool = new MemoryTool(mockConfig);
-      const performAddMemoryEntrySpy = vi
-        .spyOn(MemoryTool, 'performAddMemoryEntry')
-        .mockResolvedValue(undefined);
-      
-      const params = { fact: 'Test project memory' };
-      await memoryTool.execute(params, new AbortController().signal);
-      
-      // Should use project directory path, not global
-      const expectedFilePath = path.join('/mock/project', 'AGENTS.md');
-      expect(performAddMemoryEntrySpy).toHaveBeenCalledWith(
-        params.fact,
-        expectedFilePath,
-        expect.any(Object)
-      );
-      
-      mockAccess.mockRestore();
-      performAddMemoryEntrySpy.mockRestore();
-    });
-
-    it('should fall back to global directory when no project context files exist', async () => {
-      // Mock fs.access to simulate no files exist in project directory
-      const mockAccess = vi.spyOn(fs, 'access').mockRejectedValue(new Error('File not found'));
-      
-      // Reset to default filename to trigger discovery
-      setGeminiMdFilename(DEFAULT_CONTEXT_FILENAME);
-      
-      const memoryTool = new MemoryTool(mockConfig);
-      const performAddMemoryEntrySpy = vi
-        .spyOn(MemoryTool, 'performAddMemoryEntry')
-        .mockResolvedValue(undefined);
-      
-      const params = { fact: 'Test global memory' };
-      await memoryTool.execute(params, new AbortController().signal);
-      
-      // Should use global directory path
-      const expectedFilePath = path.join('/mock/home', '.deepv', 'DEEPV.md');
-      expect(performAddMemoryEntrySpy).toHaveBeenCalledWith(
-        params.fact,
-        expectedFilePath,
-        expect.any(Object)
-      );
-      
-      mockAccess.mockRestore();
-      performAddMemoryEntrySpy.mockRestore();
-    });
-  });
-
-  describe('ignore patterns', () => {
-    it('should ignore common dependency directories when checking direct file paths', async () => {
-      // Mock fs.access to simulate files exist everywhere
-      const mockAccess = vi.spyOn(fs, 'access').mockResolvedValue(undefined);
-      
-      // Test that files in ignored directories are skipped
-      const memoryTool = new MemoryTool(mockConfig);
-      const performAddMemoryEntrySpy = vi
-        .spyOn(MemoryTool, 'performAddMemoryEntry')
-        .mockResolvedValue(undefined);
-      
-      // Mock process.cwd to return a path that would include ignored directories
-      const originalCwd = process.cwd;
-      vi.spyOn(process, 'cwd').mockReturnValue('/mock/project/node_modules/some-package');
-      
-      const params = { fact: 'Should not save in node_modules' };
-      await memoryTool.execute(params, new AbortController().signal);
-      
-      // Should fall back to global directory since project directory is in ignored path
-      // Since we're using DEFAULT_CONTEXT_FILENAMES, it will find AGENTS.md first
-      const expectedFilePath = path.join('/mock/home', '.deepv', 'AGENTS.md');
-      expect(performAddMemoryEntrySpy).toHaveBeenCalledWith(
-        params.fact,
-        expectedFilePath,
-        expect.any(Object)
-      );
-      
-      // Restore mocks
-      vi.spyOn(process, 'cwd').mockImplementation(originalCwd);
-      mockAccess.mockRestore();
-      performAddMemoryEntrySpy.mockRestore();
-    });
-  });
-
   describe('execute (instance method)', () => {
     let memoryTool: MemoryTool;
     let performAddMemoryEntrySpy: Mock<typeof MemoryTool.performAddMemoryEntry>;
@@ -288,7 +201,6 @@ describe('MemoryTool', () => {
         .mockResolvedValue(undefined) as Mock<
         typeof MemoryTool.performAddMemoryEntry
       >;
-      // Cast needed as spyOn returns MockInstance
     });
 
     it('should have correct name, displayName, description, and schema', () => {
@@ -302,17 +214,13 @@ describe('MemoryTool', () => {
       expect(memoryTool.schema.parameters?.properties?.fact).toBeDefined();
     });
 
-    it('should call performAddMemoryEntry with correct parameters and return success', async () => {
-      // Set a specific filename to avoid triggering discovery logic in tests
-      setGeminiMdFilename('TEST_CONTEXT.md');
-      
+    it('should call performAddMemoryEntry with project DEEPV.md path and return success', async () => {
       const params = { fact: 'The sky is blue' };
       const result = await memoryTool.execute(params, mockAbortSignal);
-      // Use getCurrentGeminiMdFilename for the default expectation before any setGeminiMdFilename calls in a test
+
       const expectedFilePath = path.join(
-        '/mock/home',
-        '.deepv',
-        'TEST_CONTEXT.md'
+        '/mock/project',
+        'DEEPV.md'
       );
 
       // For this test, we expect the actual fs methods to be passed

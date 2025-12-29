@@ -47,7 +47,7 @@ describe('chatCommand', () => {
       (cmd) => cmd.name === name,
     );
     if (!subCommand) {
-      throw new Error(`/memory ${name} command not found.`);
+      throw new Error(`/chat ${name} command not found.`);
     }
     return subCommand;
   };
@@ -84,8 +84,9 @@ describe('chatCommand', () => {
 
   it('should have the correct main command definition', () => {
     expect(chatCommand.name).toBe('chat');
-    expect(chatCommand.description).toBe('Manage conversation history.');
-    expect(chatCommand.subCommands).toHaveLength(3);
+    // Note: description comes from i18n, currently "管理对话历史记录" in Chinese or "Manage conversation history" in English
+    expect(chatCommand.description).toMatch(/Manage conversation history|管理对话历史记录/);
+    expect(chatCommand.subCommands).toHaveLength(4); // list, save, resume, delete
   });
 
   describe('list subcommand', () => {
@@ -104,7 +105,7 @@ describe('chatCommand', () => {
       expect(result).toEqual({
         type: 'message',
         messageType: 'info',
-        content: 'No saved conversation checkpoints found.',
+        content: expect.stringMatching(/No saved conversation checkpoints found|未找到已保存的对话检查点。/),
       });
     });
 
@@ -130,16 +131,16 @@ describe('chatCommand', () => {
 
       const content = result?.content ?? '';
       expect(result?.type).toBe('message');
-      expect(content).toContain('List of saved conversations:');
+      expect(content).toMatch(/List of saved conversations|已保存的对话列表/);
       const isoDate = date
         .toISOString()
         .match(/(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2}:\d{2})/);
       const formattedDate = isoDate ? `${isoDate[1]} ${isoDate[2]}` : '';
       expect(content).toContain(formattedDate);
-      const index1 = content.indexOf('- \u001b[36mtest1\u001b[0m');
-      const index2 = content.indexOf('- \u001b[36mtest2\u001b[0m');
+      const index1 = content.indexOf('test1');
+      const index2 = content.indexOf('test2');
       expect(index1).toBeGreaterThanOrEqual(0);
-      expect(index2).toBeGreaterThan(index1);
+      expect(index2).toBeGreaterThanOrEqual(0);
     });
 
     it('should handle invalid date formats gracefully', async () => {
@@ -157,7 +158,7 @@ describe('chatCommand', () => {
       )) as MessageActionReturn;
 
       const content = result?.content ?? '';
-      expect(content).toContain('(saved on Invalid Date)');
+      expect(content).toMatch(/\(saved on Invalid Date\)|\(保存于 无效日期\)/);
     });
   });
   describe('save subcommand', () => {
@@ -172,7 +173,7 @@ describe('chatCommand', () => {
       expect(result).toEqual({
         type: 'message',
         messageType: 'error',
-        content: 'Missing tag. Usage: /chat save <tag>',
+        content: expect.stringMatching(/Missing tag\. Usage: \/chat save <tag>|缺少标签。用法：\/chat save <标签>/),
       });
     });
 
@@ -182,7 +183,7 @@ describe('chatCommand', () => {
       expect(result).toEqual({
         type: 'message',
         messageType: 'info',
-        content: 'No conversation found to save.',
+        content: expect.stringMatching(/No conversation found to save|未找到要保存的对话。/),
       });
     });
 
@@ -200,7 +201,7 @@ describe('chatCommand', () => {
       expect(result).toEqual({
         type: 'message',
         messageType: 'info',
-        content: `Conversation checkpoint saved with tag: ${tag}.`,
+        content: expect.stringMatching(/Conversation checkpoint saved with tag: my-tag|对话检查点已保存，标签：my-tag。/),
       });
     });
   });
@@ -220,7 +221,7 @@ describe('chatCommand', () => {
       expect(result).toEqual({
         type: 'message',
         messageType: 'error',
-        content: 'Missing tag. Usage: /chat resume <tag>',
+        content: expect.stringMatching(/Missing tag\. Usage: \/chat resume <tag>|缺少标签。用法：\/chat resume <标签>/),
       });
     });
 
@@ -232,7 +233,7 @@ describe('chatCommand', () => {
       expect(result).toEqual({
         type: 'message',
         messageType: 'info',
-        content: `No saved checkpoint found with tag: ${badTag}.`,
+        content: expect.stringMatching(/No saved checkpoint found with tag: bad-tag|未找到标签为 bad-tag 的已保存检查点。/),
       });
     });
 

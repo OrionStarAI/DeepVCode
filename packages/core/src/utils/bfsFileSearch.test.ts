@@ -137,8 +137,8 @@ describe('bfsFileSearch', () => {
       expect(result).toEqual([targetFilePath]);
     });
 
-    it('should ignore geminiignored files', async () => {
-      await createTestFile('node_modules/', 'project', '.geminiignore');
+    it('should ignore deepvignored files', async () => {
+      await createTestFile('node_modules/', 'project', '.deepvignore');
       await createTestFile('content', 'project', 'node_modules', 'target.txt');
       const targetFilePath = await createTestFile(
         'content',

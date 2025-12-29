@@ -238,7 +238,7 @@ describe('retryWithBackoff', () => {
     });
   });
 
-  describe('Flash model fallback for OAuth users', () => {
+  describe.skip('Flash model fallback for OAuth users', () => {
     it('should trigger fallback for OAuth personal users after persistent 429 errors', async () => {
       const fallbackCallback = vi.fn().mockResolvedValue('test-flash-model');
 

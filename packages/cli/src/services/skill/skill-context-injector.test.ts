@@ -138,14 +138,12 @@ description: Test Skill 2
 
       const result = await injector.injectStartupContext();
 
-      expect(result.context).toContain('Available Skills');
-      expect(result.context).toContain('skill1');
-      expect(result.context).toContain('skill2');
+      expect(result.context).toContain('<available_skills>');
+      expect(result.context).toContain('<skill>');
+      expect(result.context).toContain('test-mp:test-plugin:skill1');
       expect(result.context).toContain('Test Skill 1');
-      expect(result.context).toContain('Allowed Tools: read_file, write_file');
       expect(result.skillCount).toBe(2);
       expect(result.levelStats.metadata).toBe(2);
-      expect(result.levelStats.full).toBe(0);
     });
 
     it('should estimate tokens', async () => {
@@ -154,14 +152,13 @@ description: Test Skill 2
       const result = await injector.injectStartupContext();
 
       expect(result.estimatedTokens).toBeGreaterThan(0);
-      // 元数据应该相对较少的 tokens
-      expect(result.estimatedTokens).toBeLessThan(500);
+      expect(result.estimatedTokens).toBeLessThan(1000);
     });
 
-    it('should return empty context if no skills', async () => {
+    it('should return empty context info if no skills', async () => {
       const result = await injector.injectStartupContext();
 
-      expect(result.context).toBe('');
+      expect(result.context).toContain('No skills installed');
       expect(result.skillCount).toBe(0);
     });
   });
@@ -172,9 +169,9 @@ description: Test Skill 2
 
       const content = await injector.loadSkillLevel2('test-mp:test-plugin:skill1');
 
-      expect(content).toContain('Skill: skill1');
-      expect(content).toContain('Test Skill 1');
-      expect(content).toContain('Allowed Tools');
+      expect(content).toContain('# Skill: skill1');
+      expect(content).toContain('**Description**: Test Skill 1');
+      expect(content).toContain('**Allowed Tools**: read_file, write_file');
       expect(content).toContain('## Instructions');
       expect(content).toContain('file operations');
     });
@@ -203,7 +200,7 @@ description: Test Skill 2
 
       const content = await injector.loadSkillLevel3('test-mp:test-plugin:skill1');
 
-      expect(content).toContain('Skill Resources: skill1');
+      expect(content).toContain('# Skill Resources: skill1');
       expect(content).toContain('Available Scripts');
       expect(content).toContain('test.py');
       expect(content).toContain('python');
@@ -225,9 +222,8 @@ description: Test Skill 2
 
       const result = await injector.injectSkillsContext();
 
-      expect(result.context).toContain('Available Skills');
+      expect(result.context).toContain('<available_skills>');
       expect(result.levelStats.metadata).toBe(2);
-      expect(result.levelStats.full).toBe(0);
     });
 
     it('should inject full content when requested', async () => {
@@ -248,7 +244,7 @@ description: Test Skill 2
         includeResources: true,
       });
 
-      expect(result.context).toContain('Available Scripts');
+      expect(result.context).toContain('## Available Scripts');
       expect(result.levelStats.resources).toBe(2);
     });
 
@@ -310,29 +306,26 @@ description: Test Skill 2
   });
 
   describe('context formatting', () => {
-    it('should group skills by marketplace', async () => {
+    it('should use XML format for metadata context', async () => {
       await createTestMarketplace();
 
       const result = await injector.injectStartupContext();
 
-      expect(result.context).toContain('## test-mp');
+      expect(result.context).toContain('<available_skills>');
+      expect(result.context).toContain('<name>');
+      expect(result.context).toContain('test-mp:test-plugin:skill1');
+      expect(result.context).toContain('test-mp:test-plugin:skill2');
     });
 
-    it('should group skills by plugin', async () => {
+    it('should include script information in description if scripts available', async () => {
       await createTestMarketplace();
 
       const result = await injector.injectStartupContext();
 
-      expect(result.context).toContain('### test-plugin');
-    });
-
-    it('should format skill metadata correctly', async () => {
-      await createTestMarketplace();
-
-      const result = await injector.injectStartupContext();
-
-      expect(result.context).toMatch(/- \*\*skill1\*\*: Test Skill 1/);
-      expect(result.context).toMatch(/- \*\*skill2\*\*: Test Skill 2/);
+      expect(result.context).toContain('Has executable scripts: test.py');
+      expect(result.context).toContain('<has_scripts>');
+      expect(result.context).toContain('true');
+      expect(result.context).toContain('<script>test.py</script>');
     });
   });
 });

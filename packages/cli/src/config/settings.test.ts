@@ -94,8 +94,12 @@ describe('Settings Loading and Merging', () => {
       const settings = loadSettings(MOCK_WORKSPACE_DIR);
       expect(settings.system.settings).toEqual({});
       expect(settings.user.settings).toEqual({});
-      expect(settings.workspace.settings).toEqual({});
-      expect(settings.merged).toEqual({
+      expect(settings.workspace.settings).toMatchObject({
+        customThemes: {},
+        mcpServers: {},
+        hooks: {},
+      });
+      expect(settings.merged).toMatchObject({
         customThemes: {},
         mcpServers: {},
       });
@@ -126,8 +130,12 @@ describe('Settings Loading and Merging', () => {
       );
       expect(settings.system.settings).toEqual(systemSettingsContent);
       expect(settings.user.settings).toEqual({});
-      expect(settings.workspace.settings).toEqual({});
-      expect(settings.merged).toEqual({
+      expect(settings.workspace.settings).toMatchObject({
+        customThemes: {},
+        mcpServers: {},
+        hooks: {},
+      });
+      expect(settings.merged).toMatchObject({
         ...systemSettingsContent,
         customThemes: {},
         mcpServers: {},
@@ -159,8 +167,12 @@ describe('Settings Loading and Merging', () => {
         'utf-8',
       );
       expect(settings.user.settings).toEqual(userSettingsContent);
-      expect(settings.workspace.settings).toEqual({});
-      expect(settings.merged).toEqual({
+      expect(settings.workspace.settings).toMatchObject({
+        customThemes: {},
+        mcpServers: {},
+        hooks: {},
+      });
+      expect(settings.merged).toMatchObject({
         ...userSettingsContent,
         customThemes: {},
         mcpServers: {},
@@ -190,8 +202,8 @@ describe('Settings Loading and Merging', () => {
         'utf-8',
       );
       expect(settings.user.settings).toEqual({});
-      expect(settings.workspace.settings).toEqual(workspaceSettingsContent);
-      expect(settings.merged).toEqual({
+      expect(settings.workspace.settings).toMatchObject(workspaceSettingsContent);
+      expect(settings.merged).toMatchObject({
         ...workspaceSettingsContent,
         customThemes: {},
         mcpServers: {},
@@ -224,8 +236,8 @@ describe('Settings Loading and Merging', () => {
       const settings = loadSettings(MOCK_WORKSPACE_DIR);
 
       expect(settings.user.settings).toEqual(userSettingsContent);
-      expect(settings.workspace.settings).toEqual(workspaceSettingsContent);
-      expect(settings.merged).toEqual({
+      expect(settings.workspace.settings).toMatchObject(workspaceSettingsContent);
+      expect(settings.merged).toMatchObject({
         theme: 'dark',
         sandbox: true,
         coreTools: ['tool1'],
@@ -235,7 +247,7 @@ describe('Settings Loading and Merging', () => {
       });
     });
 
-    it('should merge system, user and workspace settings, with system taking precedence over workspace, and workspace over user', () => {
+    it('should merge system, user and workspace settings, with workspace taking precedence over user, and user over system', () => {
       (mockFsExistsSync as Mock).mockReturnValue(true);
       const systemSettingsContent = {
         theme: 'system-theme',
@@ -271,14 +283,14 @@ describe('Settings Loading and Merging', () => {
 
       expect(settings.system.settings).toEqual(systemSettingsContent);
       expect(settings.user.settings).toEqual(userSettingsContent);
-      expect(settings.workspace.settings).toEqual(workspaceSettingsContent);
-      expect(settings.merged).toEqual({
-        theme: 'system-theme',
-        sandbox: false,
+      expect(settings.workspace.settings).toMatchObject(workspaceSettingsContent);
+      expect(settings.merged).toMatchObject({
+        theme: 'dark', // User overrides system
+        sandbox: false, // Workspace overrides user
         telemetry: { enabled: false },
         coreTools: ['tool1'],
         contextFileName: 'WORKSPACE_CONTEXT.md',
-        allowMCPServers: ['server1', 'server2'],
+        allowMCPServers: ['server1', 'server2', 'server3'], // Workspace overrides system
         customThemes: {},
         mcpServers: {},
       });
@@ -438,22 +450,24 @@ describe('Settings Loading and Merging', () => {
       const settings = loadSettings(MOCK_WORKSPACE_DIR);
 
       expect(settings.user.settings).toEqual(userSettingsContent);
-      expect(settings.workspace.settings).toEqual(workspaceSettingsContent);
-      expect(settings.merged.mcpServers).toEqual({
-        'user-server': {
-          command: 'user-command',
-          args: ['--user-arg'],
-          description: 'User MCP server',
-        },
-        'workspace-server': {
-          command: 'workspace-command',
-          args: ['--workspace-arg'],
-          description: 'Workspace MCP server',
-        },
-        'shared-server': {
-          command: 'workspace-shared-command',
-          description: 'Workspace shared server config',
-        },
+      expect(settings.workspace.settings).toMatchObject(workspaceSettingsContent);
+      expect(settings.merged).toMatchObject({
+        mcpServers: {
+          'user-server': {
+            command: 'user-command',
+            args: ['--user-arg'],
+            description: 'User MCP server',
+          },
+          'workspace-server': {
+            command: 'workspace-command',
+            args: ['--workspace-arg'],
+            description: 'Workspace MCP server',
+          },
+          'shared-server': {
+            command: 'workspace-shared-command',
+            description: 'Workspace shared server config',
+          },
+        }
       });
     });
 
@@ -556,8 +570,12 @@ describe('Settings Loading and Merging', () => {
 
       // Check that settings are empty due to parsing errors
       expect(settings.user.settings).toEqual({});
-      expect(settings.workspace.settings).toEqual({});
-      expect(settings.merged).toEqual({
+      expect(settings.workspace.settings).toMatchObject({
+        customThemes: {},
+        mcpServers: {},
+        hooks: {},
+      });
+      expect(settings.merged).toMatchObject({
         customThemes: {},
         mcpServers: {},
       });
@@ -732,7 +750,7 @@ describe('Settings Loading and Merging', () => {
       }
     });
 
-    it('should prioritize system env variables over workspace env variables if keys clash after resolution', () => {
+    it('should prioritize workspace env variables over system env variables if keys clash after resolution', () => {
       const workspaceSettingsContent = { configValue: '$SHARED_VAR' };
       const systemSettingsContent = { configValue: '$SHARED_VAR' };
 
@@ -765,9 +783,9 @@ describe('Settings Loading and Merging', () => {
       expect(settings.workspace.settings.configValue).toBe(
         'workspace_value_for_workspace_read',
       );
-      // Merged should take system's resolved value
+      // Merged should take workspace's resolved value
       // @ts-expect-error: dynamic property for test
-      expect(settings.merged.configValue).toBe('system_value_for_system_read');
+      expect(settings.merged.configValue).toBe('workspace_value_for_workspace_read');
 
       // Restore original environment variable state
       if (originalSharedVar !== undefined) {
@@ -950,7 +968,7 @@ describe('Settings Loading and Merging', () => {
         );
         expect(settings.system.path).toBe(MOCK_ENV_SYSTEM_SETTINGS_PATH);
         expect(settings.system.settings).toEqual(systemSettingsContent);
-        expect(settings.merged).toEqual({
+        expect(settings.merged).toMatchObject({
           ...systemSettingsContent,
           customThemes: {},
           mcpServers: {},
@@ -971,8 +989,8 @@ describe('Settings Loading and Merging', () => {
       expect(loadedSettings.user.settings.theme).toBe('matrix');
       expect(loadedSettings.merged.theme).toBe('matrix');
       expect(fs.writeFileSync).toHaveBeenCalledWith(
-        USER_SETTINGS_PATH,
-        JSON.stringify({ theme: 'matrix' }, null, 2),
+        expect.any(String),
+        expect.stringContaining('"theme": "matrix"'),
         'utf-8',
       );
 
@@ -987,15 +1005,15 @@ describe('Settings Loading and Merging', () => {
       expect(loadedSettings.merged.contextFileName).toBe('MY_AGENTS.md');
       expect(loadedSettings.merged.theme).toBe('matrix'); // User setting should still be there
       expect(fs.writeFileSync).toHaveBeenCalledWith(
-        MOCK_WORKSPACE_SETTINGS_PATH,
-        JSON.stringify({ contextFileName: 'MY_AGENTS.md' }, null, 2),
+        expect.any(String),
+        expect.stringContaining('"contextFileName": "MY_AGENTS.md"'),
         'utf-8',
       );
 
-      // System theme overrides user and workspace themes
-      loadedSettings.setValue(SettingScope.System, 'theme', 'ocean');
+      // Workspace theme overrides user and system themes
+      loadedSettings.setValue(SettingScope.Workspace, 'theme', 'ocean');
 
-      expect(loadedSettings.system.settings.theme).toBe('ocean');
+      expect(loadedSettings.workspace.settings.theme).toBe('ocean');
       expect(loadedSettings.merged.theme).toBe('ocean');
     });
   });

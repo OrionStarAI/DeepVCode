@@ -41,6 +41,10 @@ vi.mock('./config/config.js', () => ({
     originalModelBeforeSwitch: null,
     finalModel: 'test-model',
   }),
+  parseArguments: vi.fn().mockResolvedValue({
+    model: 'test-model',
+    _: [],
+  }),
 }));
 
 vi.mock('read-package-up', () => ({
@@ -78,6 +82,9 @@ describe('gemini.tsx main function', () => {
   let originalEnvSandbox: string | undefined;
   let initialUnhandledRejectionListeners: NodeJS.UnhandledRejectionListener[] =
     [];
+
+  // Increase timeout for complex main function tests
+  vi.setConfig({ testTimeout: 30000 });
 
   const processExitSpy = vi
     .spyOn(process, 'exit')

@@ -23,6 +23,7 @@ describe('validateCustomTheme', () => {
     AccentCyan: '#00FFFF',
     AccentGreen: '#008000',
     AccentYellow: '#FFFF00',
+    AccentOrange: '#FFA500',
     AccentRed: '#FF0000',
     DiffAdded: '#00FF00',
     DiffRemoved: '#FF0000',
@@ -125,6 +126,7 @@ describe('themeManager.loadCustomThemes', () => {
     AccentCyan: '#0FF',
     AccentGreen: '#080',
     AccentYellow: '#FF0',
+    AccentOrange: '#FFA500',
     AccentRed: '#F00',
     Comment: '#888',
     Gray: '#888',
@@ -139,6 +141,7 @@ describe('themeManager.loadCustomThemes', () => {
     themeManager.loadCustomThemes({ 'Legacy Custom Theme': legacyTheme as CustomTheme });
     const result = themeManager.getTheme('Legacy Custom Theme')!;
 
+    expect(result).toBeDefined();
     expect(result.colors.DiffAdded).toBe(darkTheme.DiffAdded);
     expect(result.colors.DiffRemoved).toBe(darkTheme.DiffRemoved);
     expect(result.colors.AccentBlue).toBe(legacyTheme.AccentBlue);

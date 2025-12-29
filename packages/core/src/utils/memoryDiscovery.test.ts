@@ -20,7 +20,7 @@ vi.mock('os', async (importOriginal) => {
   const actualOs = await importOriginal<typeof os>();
   return {
     ...actualOs,
-    homedir: vi.fn(),
+    homedir: vi.fn().mockReturnValue('/tmp/mock-home'),
   };
 });
 

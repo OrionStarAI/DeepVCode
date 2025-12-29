@@ -451,9 +451,11 @@ export class Config {
   private async discoverMcpToolsAsync(): Promise<void> {
     try {
       await this.toolRegistry.discoverMcpTools();
-      // 更新AI模型的工具列表，使其能够感知到新加载的MCP工具
+      // 更新AI模型的工具列表和系统提示，使其能够感知到新加载的MCP工具和prompts
       if (this.geminiClient && this.geminiClient.isInitialized()) {
         await this.geminiClient.setTools();
+        // 同时更新系统提示以包含最新发现的MCP prompts
+        await this.geminiClient.updateSystemPromptWithMcpPrompts();
       }
     } catch (error) {
       // MCP discovery errors are already logged in mcp-client.ts

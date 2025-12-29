@@ -48,7 +48,8 @@ describe('generateValidName', () => {
 
   it('should ensure name starts with letter or underscore', () => {
     expect(generateValidName('123invalid')).toBe('_123invalid');
-    expect(generateValidName('!@#valid')).toBe('_valid');
+    expect(generateValidName('!@#valid')).toBe('___valid');
+    expect(generateValidName('___valid')).toBe('___valid');
   });
 
   it('should truncate long names at 128 characters', () => {
@@ -107,8 +108,7 @@ describe('DiscoveredMCPTool', () => {
       expect(tool.name).toBe(serverToolName);
       expect(tool.schema.name).toBe(serverToolName);
       expect(tool.schema.description).toBe(baseDescription);
-      expect(tool.schema.parameters).toBeUndefined();
-      expect(tool.schema.parametersJsonSchema).toEqual(inputSchema);
+      expect(tool.schema.parameters).toEqual(inputSchema);
       expect(tool.serverToolName).toBe(serverToolName);
       expect(tool.timeout).toBeUndefined();
     });

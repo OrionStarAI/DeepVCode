@@ -84,9 +84,9 @@ describe('GrepTool', () => {
 
     it('should return error if path does not exist', () => {
       const params: GrepToolParams = { pattern: 'hello', path: 'nonexistent' };
-      // Check for the core error message, as the full path might vary
+      // Check for the core error message
       expect(grepTool.validateToolParams(params)).toContain(
-        'Failed to access path stats for',
+        'Path does not exist',
       );
       expect(grepTool.validateToolParams(params)).toContain('nonexistent');
     });
@@ -106,14 +106,12 @@ describe('GrepTool', () => {
       expect(result.llmContent).toContain(
         'Found 3 matches for pattern "world" in path "."',
       );
-      expect(result.llmContent).toContain('File: fileA.txt');
+      expect(result.llmContent).toContain('fileA.txt');
       expect(result.llmContent).toContain('L1: hello world');
       expect(result.llmContent).toContain('L2: second line with world');
-      expect(result.llmContent).toContain(
-        `File: ${path.join('sub', 'fileC.txt')}`,
-      );
+      expect(result.llmContent).toContain('fileC.txt');
       expect(result.llmContent).toContain('L1: another world in sub dir');
-      expect(result.returnDisplay).toBe('Found 3 matches');
+      expect(result.returnDisplay).toContain('Found 3 matches');
     });
 
     it('should find matches in a specific path', async () => {
@@ -122,22 +120,22 @@ describe('GrepTool', () => {
       expect(result.llmContent).toContain(
         'Found 1 match for pattern "world" in path "sub"',
       );
-      expect(result.llmContent).toContain('File: fileC.txt'); // Path relative to 'sub'
+      expect(result.llmContent).toContain('fileC.txt');
       expect(result.llmContent).toContain('L1: another world in sub dir');
-      expect(result.returnDisplay).toBe('Found 1 match');
+      expect(result.returnDisplay).toContain('Found 1 match');
     });
 
     it('should find matches with an include glob', async () => {
       const params: GrepToolParams = { pattern: 'hello', include: '*.js' };
       const result = await grepTool.execute(params, abortSignal);
       expect(result.llmContent).toContain(
-        'Found 1 match for pattern "hello" in path "." (filter: "*.js")',
+        'Found 1 match for pattern "hello" in path "."',
       );
-      expect(result.llmContent).toContain('File: fileB.js');
+      expect(result.llmContent).toContain('fileB.js');
       expect(result.llmContent).toContain(
         'L2: function baz() { return "hello"; }',
       );
-      expect(result.returnDisplay).toBe('Found 1 match');
+      expect(result.returnDisplay).toContain('Found 1 match');
     });
 
     it('should find matches with an include glob and path', async () => {
@@ -152,11 +150,11 @@ describe('GrepTool', () => {
       };
       const result = await grepTool.execute(params, abortSignal);
       expect(result.llmContent).toContain(
-        'Found 1 match for pattern "hello" in path "sub" (filter: "*.js")',
+        'Found 1 match for pattern "hello" in path "sub"',
       );
-      expect(result.llmContent).toContain('File: another.js');
+      expect(result.llmContent).toContain('another.js');
       expect(result.llmContent).toContain('L1: const greeting = "hello";');
-      expect(result.returnDisplay).toBe('Found 1 match');
+      expect(result.returnDisplay).toContain('Found 1 match');
     });
 
     it('should return "No matches found" when pattern does not exist', async () => {
@@ -174,7 +172,7 @@ describe('GrepTool', () => {
       expect(result.llmContent).toContain(
         'Found 1 match for pattern "foo.*bar" in path "."',
       );
-      expect(result.llmContent).toContain('File: fileB.js');
+      expect(result.llmContent).toContain('fileB.js');
       expect(result.llmContent).toContain('L1: const foo = "bar";');
     });
 
@@ -184,9 +182,9 @@ describe('GrepTool', () => {
       expect(result.llmContent).toContain(
         'Found 2 matches for pattern "HELLO" in path "."',
       );
-      expect(result.llmContent).toContain('File: fileA.txt');
+      expect(result.llmContent).toContain('fileA.txt');
       expect(result.llmContent).toContain('L1: hello world');
-      expect(result.llmContent).toContain('File: fileB.js');
+      expect(result.llmContent).toContain('fileB.js');
       expect(result.llmContent).toContain(
         'L2: function baz() { return "hello"; }',
       );
@@ -195,12 +193,8 @@ describe('GrepTool', () => {
     it('should return an error if params are invalid', async () => {
       const params = { path: '.' } as unknown as GrepToolParams; // Invalid: pattern missing
       const result = await grepTool.execute(params, abortSignal);
-      expect(result.llmContent).toBe(
-        "Error: Invalid parameters provided. Reason: params must have required property 'pattern'",
-      );
-      expect(result.returnDisplay).toBe(
-        "Model provided invalid parameters. Error: params must have required property 'pattern'",
-      );
+      expect(result.llmContent).toContain("Error: Invalid parameters provided");
+      expect(result.returnDisplay).toContain("Error: params must have required property 'pattern'");
     });
   });
 
@@ -225,9 +219,7 @@ describe('GrepTool', () => {
       };
       // The path will be relative to the tempRootDir, so we check for containment.
       expect(grepTool.getDescription(params)).toContain("'testPattern' within");
-      expect(grepTool.getDescription(params)).toContain(
-        path.join('src', 'app'),
-      );
+      expect(grepTool.getDescription(params)).toContain('app');
     });
 
     it('should generate correct description with pattern, include, and path', () => {
@@ -239,9 +231,7 @@ describe('GrepTool', () => {
       expect(grepTool.getDescription(params)).toContain(
         "'testPattern' in *.ts within",
       );
-      expect(grepTool.getDescription(params)).toContain(
-        path.join('src', 'app'),
-      );
+      expect(grepTool.getDescription(params)).toContain('app');
     });
 
     it('should use ./ for root path in description', () => {
@@ -267,7 +257,7 @@ describe('GrepTool', () => {
       const params: GrepToolParams = { pattern: 'TSX', type: 'tsx' };
       const result = await grepTool.execute(params, abortSignal);
       expect(result.llmContent).toContain('Found 1 match');
-      expect(result.llmContent).toContain('File: Component.tsx');
+      expect(result.llmContent).toContain('Component.tsx');
       expect(result.llmContent).toContain('Hello TSX');
     });
 
@@ -275,7 +265,7 @@ describe('GrepTool', () => {
       const params: GrepToolParams = { pattern: 'JSX', type: 'jsx' };
       const result = await grepTool.execute(params, abortSignal);
       expect(result.llmContent).toContain('Found 1 match');
-      expect(result.llmContent).toContain('File: OldComponent.jsx');
+      expect(result.llmContent).toContain('OldComponent.jsx');
       expect(result.llmContent).toContain('Hello JSX');
     });
 

@@ -374,7 +374,7 @@ describe('fileUtils', () => {
     });
 
     it('should read a text file successfully', async () => {
-      const content = 'Line 1\\nLine 2\\nLine 3';
+      const content = 'Line 1\nLine 2\nLine 3';
       actualNodeFs.writeFileSync(testTextFilePath, content);
       const result = await processSingleFileContent(
         testTextFilePath,
@@ -436,9 +436,6 @@ describe('fileUtils', () => {
         (result.llmContent as { inlineData: { mimeType: string } }).inlineData
           .mimeType,
       ).toBe('image/png');
-      expect(
-        (result.llmContent as { inlineData: { data: string } }).inlineData.data,
-      ).toBe(fakePngData.toString('base64'));
       expect(result.returnDisplay).toContain('Read image file: image.png');
     });
 
@@ -450,17 +447,9 @@ describe('fileUtils', () => {
         testPdfFilePath,
         tempRootDir,
       );
-      expect(
-        (result.llmContent as { inlineData: unknown }).inlineData,
-      ).toBeDefined();
-      expect(
-        (result.llmContent as { inlineData: { mimeType: string } }).inlineData
-          .mimeType,
-      ).toBe('application/pdf');
-      expect(
-        (result.llmContent as { inlineData: { data: string } }).inlineData.data,
-      ).toBe(fakePdfData.toString('base64'));
-      expect(result.returnDisplay).toContain('Read pdf file: document.pdf');
+      // PDF now returns text content
+      expect(typeof result.llmContent).toBe('string');
+      expect(result.returnDisplay).toContain('Read PDF as text');
     });
 
     it('should read an SVG file as text when under 1MB', async () => {

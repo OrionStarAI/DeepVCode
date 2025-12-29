@@ -266,7 +266,13 @@ dvcode
    - src/controllers/userController.js
    - src/models/User.js
 
-启动服务器：npm run dev
+### 第四步：使用开源服务端 (可选)
+
+如果您希望使用本地部署的服务端，可以配合 [DeepVCode-Server-mini](https://github.com/OrionStarAI/DeepVCode-Server-mini) 使用。
+
+```bash
+# 启动并连接本地服务端
+cross-env DEEPX_SERVER_URL=http://localhost:8000 npm run start
 ```
 
 ---
@@ -802,7 +808,8 @@ npm install
 |:---|:---|
 | `npm install` | 安装所有依赖 |
 | `npm run build` | 构建所有包 |
-| `npm run dev` | 开发模式运行（带调试） |
+| `npm run start` | 启动 CLI (可配合 DEEPX_SERVER_URL 使用) |
+| `npm run dev` | 开发模式运行（带调试，连接官方测试环境） |
 | `npm run test` | 运行所有测试 |
 | `npm run lint` | 代码风格检查 |
 | `npm run lint:fix` | 自动修复代码风格 |
@@ -1025,6 +1032,7 @@ You may obtain a copy of the License at
 |:---:|:---|
 | 🌐 **官方网站** | [https://dvcode.deepvlab.ai](https://dvcode.deepvlab.ai) |
 | 📦 **npm 包** | [https://www.npmjs.com/package/deepv-code](https://www.npmjs.com/package/deepv-code) |
+| 🖥️ **开源服务端** | [DeepVCode-Server-mini](https://github.com/OrionStarAI/DeepVCode-Server-mini) |
 | 📖 **白皮书** | [DeepV_Code_Whitepaper.md](./DeepV_Code_Whitepaper.md) |
 | 🐛 **问题反馈** | [GitHub Issues](https://github.com/OrionStarAI/DeepVCode/issues) |
 | 💬 **讨论区** | [GitHub Discussions](https://github.com/OrionStarAI/DeepVCode/discussions) |

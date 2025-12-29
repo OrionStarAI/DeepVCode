@@ -128,8 +128,11 @@ describe('UiTelemetryService', () => {
       output_token_count: 20,
       total_token_count: 30,
       cached_content_token_count: 5,
+      cache_write_input_tokens: 0,
+      cache_read_input_tokens: 0,
       thoughts_token_count: 2,
       tool_token_count: 3,
+      credits_usage: 1,
     } as ApiResponseEvent & { 'event.name': typeof EVENT_API_RESPONSE };
 
     service.addEvent(event);
@@ -150,28 +153,34 @@ describe('UiTelemetryService', () => {
         output_token_count: 20,
         total_token_count: 30,
         cached_content_token_count: 5,
+        cache_write_input_tokens: 0,
+        cache_read_input_tokens: 0,
         thoughts_token_count: 2,
         tool_token_count: 3,
+        credits_usage: 5,
       } as ApiResponseEvent & { 'event.name': typeof EVENT_API_RESPONSE };
 
       service.addEvent(event);
 
       const metrics = service.getMetrics();
-      expect(metrics.models['test-model-pro']).toEqual({
+      expect(metrics.models['test-model-pro']).toEqual(expect.objectContaining({
         api: {
           totalRequests: 1,
           totalErrors: 0,
           totalLatencyMs: 500,
         },
-        tokens: {
+        tokens: expect.objectContaining({
           prompt: 10,
           candidates: 20,
           total: 30,
           cached: 5,
           thoughts: 2,
           tool: 3,
+        }),
+        credits: {
+          total: 5,
         },
-      });
+      }));
       expect(service.getLastPromptTokenCount()).toBe(10);
     });
 
@@ -184,8 +193,11 @@ describe('UiTelemetryService', () => {
         output_token_count: 20,
         total_token_count: 30,
         cached_content_token_count: 5,
+        cache_write_input_tokens: 0,
+        cache_read_input_tokens: 0,
         thoughts_token_count: 2,
         tool_token_count: 3,
+        credits_usage: 1,
       } as ApiResponseEvent & {
         'event.name': typeof EVENT_API_RESPONSE;
       };
@@ -197,8 +209,11 @@ describe('UiTelemetryService', () => {
         output_token_count: 25,
         total_token_count: 40,
         cached_content_token_count: 10,
+        cache_write_input_tokens: 0,
+        cache_read_input_tokens: 0,
         thoughts_token_count: 4,
         tool_token_count: 6,
+        credits_usage: 2,
       } as ApiResponseEvent & {
         'event.name': typeof EVENT_API_RESPONSE;
       };
@@ -207,21 +222,24 @@ describe('UiTelemetryService', () => {
       service.addEvent(event2);
 
       const metrics = service.getMetrics();
-      expect(metrics.models['test-model-pro']).toEqual({
+      expect(metrics.models['test-model-pro']).toEqual(expect.objectContaining({
         api: {
           totalRequests: 2,
           totalErrors: 0,
           totalLatencyMs: 1100,
         },
-        tokens: {
+        tokens: expect.objectContaining({
           prompt: 25,
           candidates: 45,
           total: 70,
           cached: 15,
           thoughts: 6,
           tool: 9,
-        },
-      });
+        }),
+        credits: {
+          total: 3,
+        }
+      }));
       expect(service.getLastPromptTokenCount()).toBe(15);
     });
 
@@ -234,8 +252,11 @@ describe('UiTelemetryService', () => {
         output_token_count: 20,
         total_token_count: 30,
         cached_content_token_count: 5,
+        cache_write_input_tokens: 0,
+        cache_read_input_tokens: 0,
         thoughts_token_count: 2,
         tool_token_count: 3,
+        credits_usage: 1,
       } as ApiResponseEvent & {
         'event.name': typeof EVENT_API_RESPONSE;
       };
@@ -247,8 +268,11 @@ describe('UiTelemetryService', () => {
         output_token_count: 200,
         total_token_count: 300,
         cached_content_token_count: 50,
+        cache_write_input_tokens: 0,
+        cache_read_input_tokens: 0,
         thoughts_token_count: 20,
         tool_token_count: 30,
+        credits_usage: 10,
       } as ApiResponseEvent & {
         'event.name': typeof EVENT_API_RESPONSE;
       };
@@ -277,21 +301,21 @@ describe('UiTelemetryService', () => {
       service.addEvent(event);
 
       const metrics = service.getMetrics();
-      expect(metrics.models['test-model-pro']).toEqual({
+      expect(metrics.models['test-model-pro']).toEqual(expect.objectContaining({
         api: {
           totalRequests: 1,
           totalErrors: 1,
           totalLatencyMs: 300,
         },
-        tokens: {
+        tokens: expect.objectContaining({
           prompt: 0,
           candidates: 0,
           total: 0,
           cached: 0,
           thoughts: 0,
           tool: 0,
-        },
-      });
+        }),
+      }));
     });
 
     it('should aggregate ApiErrorEvents and ApiResponseEvents', () => {
@@ -303,8 +327,11 @@ describe('UiTelemetryService', () => {
         output_token_count: 20,
         total_token_count: 30,
         cached_content_token_count: 5,
+        cache_write_input_tokens: 0,
+        cache_read_input_tokens: 0,
         thoughts_token_count: 2,
         tool_token_count: 3,
+        credits_usage: 1,
       } as ApiResponseEvent & {
         'event.name': typeof EVENT_API_RESPONSE;
       };
@@ -319,21 +346,21 @@ describe('UiTelemetryService', () => {
       service.addEvent(errorEvent);
 
       const metrics = service.getMetrics();
-      expect(metrics.models['test-model-pro']).toEqual({
+      expect(metrics.models['test-model-pro']).toEqual(expect.objectContaining({
         api: {
           totalRequests: 2,
           totalErrors: 1,
           totalLatencyMs: 800,
         },
-        tokens: {
+        tokens: expect.objectContaining({
           prompt: 10,
           candidates: 20,
           total: 30,
           cached: 5,
           thoughts: 2,
           tool: 3,
-        },
-      });
+        }),
+      }));
     });
   });
 
@@ -358,7 +385,7 @@ describe('UiTelemetryService', () => {
       expect(tools.totalFail).toBe(0);
       expect(tools.totalDurationMs).toBe(150);
       expect(tools.totalDecisions[ToolCallDecision.ACCEPT]).toBe(1);
-      expect(tools.byName['test_tool']).toEqual({
+      expect(tools.byName['test_tool']).toEqual(expect.objectContaining({
         count: 1,
         success: 1,
         fail: 0,
@@ -368,7 +395,7 @@ describe('UiTelemetryService', () => {
           [ToolCallDecision.REJECT]: 0,
           [ToolCallDecision.MODIFY]: 0,
         },
-      });
+      }));
     });
 
     it('should process a single failed ToolCallEvent', () => {
@@ -391,7 +418,7 @@ describe('UiTelemetryService', () => {
       expect(tools.totalFail).toBe(1);
       expect(tools.totalDurationMs).toBe(200);
       expect(tools.totalDecisions[ToolCallDecision.REJECT]).toBe(1);
-      expect(tools.byName['test_tool']).toEqual({
+      expect(tools.byName['test_tool']).toEqual(expect.objectContaining({
         count: 1,
         success: 0,
         fail: 1,
@@ -401,7 +428,7 @@ describe('UiTelemetryService', () => {
           [ToolCallDecision.REJECT]: 1,
           [ToolCallDecision.MODIFY]: 0,
         },
-      });
+      }));
     });
 
     it('should process a ToolCallEvent with modify decision', () => {
@@ -479,7 +506,7 @@ describe('UiTelemetryService', () => {
       expect(tools.totalDurationMs).toBe(250);
       expect(tools.totalDecisions[ToolCallDecision.ACCEPT]).toBe(1);
       expect(tools.totalDecisions[ToolCallDecision.REJECT]).toBe(1);
-      expect(tools.byName['test_tool']).toEqual({
+      expect(tools.byName['test_tool']).toEqual(expect.objectContaining({
         count: 2,
         success: 1,
         fail: 1,
@@ -489,7 +516,7 @@ describe('UiTelemetryService', () => {
           [ToolCallDecision.REJECT]: 1,
           [ToolCallDecision.MODIFY]: 0,
         },
-      });
+      }));
     });
 
     it('should handle ToolCallEvents for different tools', () => {
@@ -527,9 +554,12 @@ describe('UiTelemetryService', () => {
         input_token_count: 100,
         output_token_count: 200,
         total_token_count: 300,
-        cached_content_token_count: 50,
+        cached_content_token_count: 5,
+        cache_write_input_tokens: 0,
+        cache_read_input_tokens: 0,
         thoughts_token_count: 20,
         tool_token_count: 30,
+        credits_usage: 1,
       } as ApiResponseEvent & { 'event.name': typeof EVENT_API_RESPONSE };
 
       service.addEvent(event);
@@ -552,9 +582,12 @@ describe('UiTelemetryService', () => {
         input_token_count: 100,
         output_token_count: 200,
         total_token_count: 300,
-        cached_content_token_count: 50,
+        cached_content_token_count: 5,
+        cache_write_input_tokens: 0,
+        cache_read_input_tokens: 0,
         thoughts_token_count: 20,
         tool_token_count: 30,
+        credits_usage: 1,
       } as ApiResponseEvent & { 'event.name': typeof EVENT_API_RESPONSE };
 
       service.addEvent(event);
@@ -577,9 +610,12 @@ describe('UiTelemetryService', () => {
         input_token_count: 100,
         output_token_count: 200,
         total_token_count: 300,
-        cached_content_token_count: 50,
+        cached_content_token_count: 5,
+        cache_write_input_tokens: 0,
+        cache_read_input_tokens: 0,
         thoughts_token_count: 20,
         tool_token_count: 30,
+        credits_usage: 1,
       } as ApiResponseEvent & { 'event.name': typeof EVENT_API_RESPONSE };
 
       service.addEvent(event);
@@ -609,9 +645,12 @@ describe('UiTelemetryService', () => {
         input_token_count: 100,
         output_token_count: 200,
         total_token_count: 300,
-        cached_content_token_count: 50,
+        cached_content_token_count: 5,
+        cache_write_input_tokens: 0,
+        cache_read_input_tokens: 0,
         thoughts_token_count: 20,
         tool_token_count: 30,
+        credits_usage: 1,
       } as ApiResponseEvent & { 'event.name': typeof EVENT_API_RESPONSE };
 
       service.addEvent(event);

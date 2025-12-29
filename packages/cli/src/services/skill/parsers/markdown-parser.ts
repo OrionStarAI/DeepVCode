@@ -61,6 +61,7 @@ export class MarkdownParser {
 
       executable: true,
       scripts: [], // Markdown 组件通常没有关联脚本，或者是自包含的
+      references: [],
 
       installed: true,
       enabled: true,

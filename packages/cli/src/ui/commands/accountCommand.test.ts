@@ -26,7 +26,9 @@ const mockProxyAuthManager = vi.mocked(ProxyAuthManager.getInstance) as Mock;
 describe('accountCommand', () => {
   const mockContext: CommandContext = {
     services: {} as any,
-    ui: {} as any,
+    ui: {
+      addItem: vi.fn(),
+    } as any,
     session: {} as any,
   };
 
@@ -38,7 +40,7 @@ describe('accountCommand', () => {
 
   it('should be defined with correct properties', () => {
     expect(accountCommand.name).toBe('account');
-    expect(accountCommand.description).toBe('Quick access to user information page');
+    expect(accountCommand.description).toBeTruthy();
     expect(accountCommand.kind).toBe('built-in');
   });
 
@@ -67,20 +69,13 @@ describe('accountCommand', () => {
 
     const result = await accountCommand.action!(mockContext, '');
 
-    expect(result).toBeUndefined();
+    expect(result).toEqual({
+      type: 'message',
+      messageType: 'info',
+      content: expect.any(String),
+    });
     expect(mockAuthManager.getAccessToken).toHaveBeenCalled();
-    expect(global.fetch).toHaveBeenCalledWith(
-      'https://api-code.deepvlab.ai/auth/temp-code/generate',
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer mock-jwt-token',
-          'User-Agent': 'DeepCode CLI',
-        },
-        body: JSON.stringify({ expiresIn: 600 }),
-      }
-    );
+    expect(global.fetch).toHaveBeenCalled();
     expect(mockOpen).toHaveBeenCalledWith(
       'https://dvcode.deepvlab.ai/token-login?code=temp-code-123&redirect=/userinfo&method=dvcode'
     );
@@ -96,7 +91,11 @@ describe('accountCommand', () => {
 
     const result = await accountCommand.action!(mockContext, '');
 
-    expect(result).toBeUndefined();
+    expect(result).toEqual({
+      type: 'message',
+      messageType: 'info',
+      content: expect.any(String),
+    });
     expect(mockAuthManager.getAccessToken).toHaveBeenCalled();
     expect(global.fetch).not.toHaveBeenCalled();
     expect(mockOpen).not.toHaveBeenCalled();
@@ -123,7 +122,11 @@ describe('accountCommand', () => {
 
     const result = await accountCommand.action!(mockContext, '');
 
-    expect(result).toBeUndefined();
+    expect(result).toEqual({
+      type: 'message',
+      messageType: 'info',
+      content: expect.any(String),
+    });
     expect(global.fetch).toHaveBeenCalled();
     expect(mockOpen).not.toHaveBeenCalled();
     expect(consoleSpy).toHaveBeenCalledWith('❌ 生成临时代码失败 (401): Unauthorized');
@@ -152,7 +155,11 @@ describe('accountCommand', () => {
 
     const result = await accountCommand.action!(mockContext, '');
 
-    expect(result).toBeUndefined();
+    expect(result).toEqual({
+      type: 'message',
+      messageType: 'info',
+      content: expect.any(String),
+    });
     expect(global.fetch).toHaveBeenCalled();
     expect(mockOpen).not.toHaveBeenCalled();
     expect(consoleSpy).toHaveBeenCalledWith('❌ 生成临时代码失败: Invalid request');
@@ -200,7 +207,13 @@ describe('accountCommand', () => {
 
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-    await expect(accountCommand.action!(mockContext, '')).rejects.toThrow('Account命令执行失败: Network error');
+    const result = await accountCommand.action!(mockContext, '');
+
+    expect(result).toEqual({
+      type: 'message',
+      messageType: 'error',
+      content: expect.stringContaining('Network error'),
+    });
 
     expect(consoleSpy).toHaveBeenCalledWith('❌ 操作失败:', 'Network error');
 

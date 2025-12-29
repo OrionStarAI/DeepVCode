@@ -281,7 +281,7 @@ describe('MarketplaceManager', () => {
       expect(plugin.name).toBe('my-plugin');
       // Should have resolved to skills directory
       expect(plugin.skillPaths).toHaveLength(1);
-      expect(plugin.skillPaths[0]).toContain('skills/my-plugin/commands/cmd1.md');
+      expect(plugin.skillPaths[0].replace(/\\/g, '/')).toContain('skills/my-plugin/commands/cmd1.md');
     });
   });
 });

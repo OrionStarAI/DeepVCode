@@ -84,7 +84,7 @@ describe('GeminiChat', () => {
         model: 'gemini-pro',
         contents: [{ role: 'user', parts: [{ text: 'hello' }] }],
         config: {},
-      });
+      }, SceneType.CHAT_CONVERSATION);
     });
   });
 
@@ -116,7 +116,7 @@ describe('GeminiChat', () => {
         model: 'gemini-pro',
         contents: [{ role: 'user', parts: [{ text: 'hello' }] }],
         config: {},
-      });
+      }, SceneType.CHAT_CONVERSATION);
     });
   });
 

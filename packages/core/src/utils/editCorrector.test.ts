@@ -11,6 +11,7 @@ import {
   it,
   expect,
   beforeEach,
+  afterEach,
   Mock,
   type Mocked,
 } from 'vitest';
@@ -25,19 +26,26 @@ let mockGenerateJson: any;
 let mockStartChat: any;
 let mockSendMessageStream: any;
 
-vi.mock('fs', () => ({
-  statSync: vi.fn(),
-}));
+vi.mock('fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>();
+  return {
+    ...actual,
+    statSync: vi.fn(),
+  };
+});
 
 vi.mock('../core/client.js', () => ({
   GeminiClient: vi.fn().mockImplementation(function (
     this: any,
     _config: Config,
   ) {
-    this.generateJson = (...params: any[]) => mockGenerateJson(...params); // Corrected: use mockGenerateJson
-    this.startChat = (...params: any[]) => mockStartChat(...params); // Corrected: use mockStartChat
+    this.generateJson = (...params: any[]) => mockGenerateJson(...params);
+    this.startChat = (...params: any[]) => mockStartChat(...params);
     this.sendMessageStream = (...params: any[]) =>
-      mockSendMessageStream(...params); // Corrected: use mockSendMessageStream
+      mockSendMessageStream(...params);
+    this.getContentGenerator = vi.fn().mockReturnValue({
+      generateContent: vi.fn().mockImplementation((...params: any[]) => mockGenerateJson(...params))
+    });
     return this;
   }),
 }));
@@ -132,6 +140,7 @@ describe('editCorrector', () => {
       );
     });
     it('should correctly process strings with some targeted escapes', () => {
+      // Note: \n is an escape sequence in JS literal too.
       expect(unescapeStringForGeminiBug('C:\\Users\\name')).toBe(
         'C:\\Users\name',
       );
@@ -144,6 +153,7 @@ describe('editCorrector', () => {
     it('should handle escaped backslashes', () => {
       expect(unescapeStringForGeminiBug('\\\\')).toBe('\\');
       expect(unescapeStringForGeminiBug('C:\\\\Users')).toBe('C:\\Users');
+      // Note: \\t becomes TAB
       expect(unescapeStringForGeminiBug('path\\\\to\\\\file')).toBe(
         'path\to\\file',
       );
@@ -216,17 +226,16 @@ describe('editCorrector', () => {
         }),
         getQuotaErrorOccurred: vi.fn().mockReturnValue(false),
         setQuotaErrorOccurred: vi.fn(),
+        getProjectSettingsManager: vi.fn().mockReturnValue({
+          getSettings: vi.fn().mockReturnValue({ autoTrimTrailingSpaces: true })
+        }),
       } as unknown as Config;
 
       callCount = 0;
       mockResponses.length = 0;
       mockGenerateJson = vi
         .fn()
-        .mockImplementation((_contents, _schema, signal) => {
-          // Check if the signal is aborted. If so, throw an error or return a specific response.
-          if (signal && signal.aborted) {
-            return Promise.reject(new Error('Aborted')); // Or some other specific error/response
-          }
+        .mockImplementation((_params, _scene) => {
           const response = mockResponses[callCount];
           callCount++;
           if (response === undefined) return Promise.resolve({});
@@ -248,7 +257,7 @@ describe('editCorrector', () => {
         const originalParams = {
           file_path: '/test/file.txt',
           old_string: 'find me',
-          new_string: 'replace with \\"this\\"',
+          new_string: 'replace with \\\\"this\\\\"', // This matches literal \"
         };
         mockResponses.push({
           corrected_new_string_escaping: 'replace with "this"',
@@ -289,7 +298,7 @@ describe('editCorrector', () => {
         const originalParams = {
           file_path: '/test/file.txt',
           old_string: 'find\\me',
-          new_string: 'replace with \\"this\\"',
+          new_string: 'replace with \\\\"this\\\\"',
         };
         mockResponses.push({
           corrected_new_string_escaping: 'replace with "this"',
@@ -332,8 +341,8 @@ describe('editCorrector', () => {
         const currentContent = 'This is a test string to find "me".';
         const originalParams = {
           file_path: '/test/file.txt',
-          old_string: 'find \\"me\\"',
-          new_string: 'replace with \\"this\\"',
+          old_string: 'find \\\\"me\\\\"',
+          new_string: 'replace with \\\\"this\\\\"',
         };
         mockResponses.push({ corrected_new_string: 'replace with "this"' });
         const result = await ensureCorrectEdit(
@@ -352,7 +361,7 @@ describe('editCorrector', () => {
         const currentContent = 'This is a test string to find "me".';
         const originalParams = {
           file_path: '/test/file.txt',
-          old_string: 'find \\"me\\"',
+          old_string: 'find \\\\"me\\\\"',
           new_string: 'replace with this',
         };
         const result = await ensureCorrectEdit(
@@ -394,7 +403,7 @@ describe('editCorrector', () => {
         const originalParams = {
           file_path: '/test/file.txt',
           old_string: 'find me',
-          new_string: 'replace with \\\\"this\\\\"',
+          new_string: 'replace with \\\\\\\\"this\\\\\\\\"', // Actual: replace with \\"this\\"
         };
         const llmNewString = 'LLM says replace with "that"';
         mockResponses.push({ corrected_new_string_escaping: llmNewString });
@@ -415,7 +424,7 @@ describe('editCorrector', () => {
         const originalParams = {
           file_path: '/test/file.txt',
           old_string: 'find\\me',
-          new_string: 'replace with \\\\"this\\\\"',
+          new_string: 'replace with \\\\\\\\"this\\\\\\\\"',
         };
         const llmCorrectedOldString = 'corrected find me';
         const llmNewString = 'LLM says replace with "that"';
@@ -438,10 +447,11 @@ describe('editCorrector', () => {
         const originalParams = {
           file_path: '/test/file.txt',
           old_string: 'fiiind me',
-          new_string: 'replace with "this"',
+          new_string: 'replace with \\\\"this\\\\"',
         };
         const llmCorrectedOldString = 'to be corrected';
         mockResponses.push({ corrected_target_snippet: llmCorrectedOldString });
+        mockResponses.push({ corrected_new_string_escaping: 'replace with "this"' });
         const result = await ensureCorrectEdit(
           '/test/file.txt',
           currentContent,
@@ -449,7 +459,7 @@ describe('editCorrector', () => {
           mockGeminiClientInstance,
           abortSignal,
         );
-        expect(mockGenerateJson).toHaveBeenCalledTimes(1);
+        expect(mockGenerateJson).toHaveBeenCalledTimes(2);
         expect(result.params.new_string).toBe('replace with "this"');
         expect(result.params.old_string).toBe(llmCorrectedOldString);
         expect(result.occurrences).toBe(1);
@@ -459,7 +469,7 @@ describe('editCorrector', () => {
         const originalParams = {
           file_path: '/test/file.txt',
           old_string: 'find me',
-          new_string: 'replace with \\\\"this\\\\"',
+          new_string: 'replace with \\\\\\\\"this\\\\\\\\"',
         };
         const newStringForLLMAndReturnedByLLM = 'replace with "this"';
         mockResponses.push({
@@ -484,7 +494,7 @@ describe('editCorrector', () => {
         const originalParams = {
           file_path: '/test/file.txt',
           old_string: 'nonexistent string',
-          new_string: 'some new string',
+          new_string: 'some new string \\\\n',
         };
         mockResponses.push({ corrected_target_snippet: 'still nonexistent' });
         const result = await ensureCorrectEdit(
@@ -524,8 +534,8 @@ describe('editCorrector', () => {
         const currentContent = 'const x = "a\nbc\\"def\\"';
         const originalParams = {
           file_path: '/test/file.txt',
-          old_string: 'const x = \\"a\\nbc\\\\"def\\\\"',
-          new_string: 'const y = \\"new\\nval\\\\"content\\\\"',
+          old_string: 'const x = \\\\\\\\"a\\\\nbc\\\\\\\\\\\\"def\\\\\\\\\\\\"',
+          new_string: 'const y = \\\\\\\\"new\\\\nval\\\\\\\\\\\\"content\\\\\\\\\\\\"',
         };
         const expectedFinalNewString = 'const y = "new\nval\\"content\\"';
         mockResponses.push({ corrected_target_snippet: currentContent });
@@ -658,16 +668,16 @@ describe('editCorrector', () => {
         }),
         getQuotaErrorOccurred: vi.fn().mockReturnValue(false),
         setQuotaErrorOccurred: vi.fn(),
+        getProjectSettingsManager: vi.fn().mockReturnValue({
+          getSettings: vi.fn().mockReturnValue({ autoTrimTrailingSpaces: true })
+        }),
       } as unknown as Config;
 
       callCount = 0;
       mockResponses.length = 0;
       mockGenerateJson = vi
         .fn()
-        .mockImplementation((_contents, _schema, signal) => {
-          if (signal && signal.aborted) {
-            return Promise.reject(new Error('Aborted'));
-          }
+        .mockImplementation((_params, _scene) => {
           const response = mockResponses[callCount];
           callCount++;
           if (response === undefined) return Promise.resolve({});
@@ -694,7 +704,7 @@ describe('editCorrector', () => {
     });
 
     it('should call correctStringEscaping for potentially escaped content', async () => {
-      const content = 'console.log(\\"Hello World\\");';
+      const content = 'console.log(\\\\"Hello World\\\\");';
       const correctedContent = 'console.log("Hello World");';
       mockResponses.push({
         corrected_string_escaping: correctedContent,
@@ -712,7 +722,7 @@ describe('editCorrector', () => {
 
     it('should handle correctStringEscaping returning corrected content via correct property name', async () => {
       // This test specifically verifies the property name fix
-      const content = 'const message = \\"Hello\\nWorld\\";';
+      const content = 'const message = \\\\"Hello\\\\nWorld\\\\";';
       const correctedContent = 'const message = "Hello\nWorld";';
 
       // Mock the response with the correct property name
@@ -731,7 +741,7 @@ describe('editCorrector', () => {
     });
 
     it('should return original content if LLM correction fails', async () => {
-      const content = 'console.log(\\"Hello World\\");';
+      const content = 'console.log(\\\\"Hello World\\\\");';
       // Mock empty response to simulate LLM failure
       mockResponses.push({});
 
@@ -747,7 +757,7 @@ describe('editCorrector', () => {
 
     it('should handle various escape sequences that need correction', async () => {
       const content =
-        'const obj = { name: \\"John\\", age: 30, bio: \\"Developer\\nEngineer\\" };';
+        'const obj = { name: \\\\"John\\\\", age: 30, bio: \\\\"Developer\\\\nEngineer\\\\" };';
       const correctedContent =
         'const obj = { name: "John", age: 30, bio: "Developer\nEngineer" };';
 

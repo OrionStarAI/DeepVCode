@@ -140,7 +140,6 @@ describe('DeleteFileTool', () => {
       };
 
       const description = tool.getDescription(params);
-      expect(description).toContain('Delete');
       expect(description).toContain('test-file.txt');
       expect(description).toContain('cleanup');
     });

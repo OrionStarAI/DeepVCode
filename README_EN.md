@@ -68,6 +68,18 @@ npm run build
 
 # Run locally
 npm run dev
+
+### 🌐 Using Open Source Server (Self-hosted)
+
+If you want to deploy the DeepV Code server locally or in a private environment, you can use our open-source version:
+
+**Open Source Server:** [DeepVCode-Server-mini](https://github.com/OrionStarAI/DeepVCode-Server-mini)
+
+To start the CLI and connect to your local server:
+
+```bash
+# Set server URL and start
+cross-env DEEPX_SERVER_URL=http://localhost:8000 npm run start
 ```
 
 ---
@@ -237,7 +249,8 @@ DeepV Code's AI interacts with the external environment through an extensible to
 |:---:|:---|
 | `npm install` | Install all dependencies |
 | `npm run build` | Build project |
-| `npm run dev` | Run in development mode |
+| `npm run start` | Start CLI (can be used with DEEPX_SERVER_URL) |
+| `npm run dev` | Run in development mode (with debugging, connects to official dev server) |
 | `npm run test` | Run tests |
 | `npm run lint` | Code linting |
 | `npm run pack:prod` | Production build |
@@ -280,6 +293,7 @@ This project is open-sourced under the [Apache License 2.0](LICENSE).
 
 - 🌐 **Official Website**: [https://dvcode.deepvlab.ai](https://dvcode.deepvlab.ai)
 - 📦 **npm Package**: [deepv-code](https://www.npmjs.com/package/deepv-code)
+- 🖥️ **Open Source Server**: [DeepVCode-Server-mini](https://github.com/OrionStarAI/DeepVCode-Server-mini)
 - 🐦 **Issue Tracker**: [GitHub Issues](https://github.com/OrionStarAI/DeepVCode/issues)
 
 ---

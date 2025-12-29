@@ -10,131 +10,74 @@ import {
   AuthType,
   createContentGeneratorConfig,
 } from './contentGenerator.js';
-import { createCodeAssistContentGenerator } from '../code_assist/codeAssist.js';
-import { GoogleGenAI } from '@google/genai';
+import { DeepVServerAdapter } from './DeepVServerAdapter.js';
 import { Config } from '../config/config.js';
+import * as proxyConfig from '../config/proxyConfig.js';
 
-vi.mock('../code_assist/codeAssist.js');
-vi.mock('@google/genai');
+vi.mock('./DeepVServerAdapter.js');
+vi.mock('../config/proxyConfig.js');
 
-const mockConfig = {} as unknown as Config;
+const mockConfig = {
+  getCustomProxyServerUrl: vi.fn(),
+  getModel: vi.fn().mockReturnValue('gemini-pro'),
+  getProxy: vi.fn(),
+} as unknown as Config;
 
 describe('createContentGenerator', () => {
-  it('should create a CodeAssistContentGenerator', async () => {
-    const mockGenerator = {} as unknown;
-    vi.mocked(createCodeAssistContentGenerator).mockResolvedValue(
-      mockGenerator as never,
-    );
-    const generator = await createContentGenerator(
-      {
-        //  model: 'test-model',
-        authType: AuthType.USE_PROXY_AUTH,
-      },
-      mockConfig,
-    );
-    expect(createCodeAssistContentGenerator).toHaveBeenCalled();
-    expect(generator).toBe(mockGenerator);
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.mocked(proxyConfig.hasAvailableProxyServer).mockReturnValue(true);
+    vi.mocked(proxyConfig.getActiveProxyServerUrl).mockReturnValue('http://mock-server');
   });
 
-  it('should create a GoogleGenAI content generator', async () => {
-    const mockGenerator = {
-      models: {},
-    } as unknown;
-    vi.mocked(GoogleGenAI).mockImplementation(() => mockGenerator as never);
+  it('should create a DeepVServerAdapter', async () => {
     const generator = await createContentGenerator(
       {
-        // model: 'test-model',
         authType: AuthType.USE_PROXY_AUTH,
       },
       mockConfig,
     );
-    expect(GoogleGenAI).toHaveBeenCalledWith({
-      apiKey: 'test-api-key',
-      vertexai: undefined,
-      httpOptions: {
-        headers: {
-          'User-Agent': expect.any(String),
-        },
+    expect(DeepVServerAdapter).toHaveBeenCalled();
+    expect(generator).toBeInstanceOf(DeepVServerAdapter);
+  });
+
+  it('should use custom proxy server URL if provided', async () => {
+    vi.mocked(mockConfig.getCustomProxyServerUrl).mockReturnValue('http://custom-server');
+
+    await createContentGenerator(
+      {
+        authType: AuthType.USE_PROXY_AUTH,
       },
-    });
-    expect(generator).toBe((mockGenerator as GoogleGenAI).models);
+      mockConfig,
+    );
+
+    expect(DeepVServerAdapter).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      'http://custom-server',
+      mockConfig
+    );
   });
 });
 
 describe('createContentGeneratorConfig', () => {
   const originalEnv = process.env;
-  const mockConfig = {
-    getModel: vi.fn().mockReturnValue('gemini-pro'),
-    setModel: vi.fn(),
-    flashFallbackHandler: vi.fn(),
-    getProxy: vi.fn(),
-  } as unknown as Config;
 
   beforeEach(() => {
-    // Reset modules to re-evaluate imports and environment variables
     vi.resetModules();
-    // Restore process.env before each test
     process.env = { ...originalEnv };
     vi.clearAllMocks();
   });
 
   afterAll(() => {
-    // Restore original process.env after all tests
     process.env = originalEnv;
   });
 
-  it('should configure for Gemini using GEMINI_API_KEY when set', async () => {
-    process.env.GEMINI_API_KEY = 'env-gemini-key';
+  it('should create a config with proxy auth type', async () => {
     const config = await createContentGeneratorConfig(
       mockConfig,
       AuthType.USE_PROXY_AUTH,
     );
-    // apiKey and vertexai properties removed from ContentGeneratorConfig
-    expect(config.authType).toBe(AuthType.USE_PROXY_AUTH);
-  });
-
-  it('should not configure for Gemini if GEMINI_API_KEY is empty', async () => {
-    process.env.GEMINI_API_KEY = '';
-    const config = await createContentGeneratorConfig(
-      mockConfig,
-      AuthType.USE_PROXY_AUTH,
-    );
-    // apiKey and vertexai properties removed from ContentGeneratorConfig
-    expect(config.authType).toBe(AuthType.USE_PROXY_AUTH);
-  });
-
-  it('should configure for Vertex AI using GOOGLE_API_KEY when set', async () => {
-    process.env.GOOGLE_API_KEY = 'env-google-key';
-    const config = await createContentGeneratorConfig(
-      mockConfig,
-      AuthType.USE_PROXY_AUTH,
-    );
-    // apiKey and vertexai properties removed from ContentGeneratorConfig
-    expect(config.authType).toBe(AuthType.USE_PROXY_AUTH);
-  });
-
-  it('should configure for Vertex AI using GCP project and location when set', async () => {
-    process.env.GOOGLE_CLOUD_PROJECT = 'env-gcp-project';
-    process.env.GOOGLE_CLOUD_LOCATION = 'env-gcp-location';
-    const config = await createContentGeneratorConfig(
-      mockConfig,
-      AuthType.USE_PROXY_AUTH,
-    );
-    // vertexai property removed from ContentGeneratorConfig
-    expect(config.authType).toBe(AuthType.USE_PROXY_AUTH);
-    // apiKey property removed from ContentGeneratorConfig
-    expect(config.authType).toBe(AuthType.USE_PROXY_AUTH);
-  });
-
-  it('should not configure for Vertex AI if required env vars are empty', async () => {
-    process.env.GOOGLE_API_KEY = '';
-    process.env.GOOGLE_CLOUD_PROJECT = '';
-    process.env.GOOGLE_CLOUD_LOCATION = '';
-    const config = await createContentGeneratorConfig(
-      mockConfig,
-      AuthType.USE_PROXY_AUTH,
-    );
-    // apiKey and vertexai properties removed from ContentGeneratorConfig
     expect(config.authType).toBe(AuthType.USE_PROXY_AUTH);
   });
 });
