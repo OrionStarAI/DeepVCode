@@ -176,7 +176,7 @@ export const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({
   return (
     <Box marginTop={1} paddingLeft={0} flexDirection="column">
       {/* Main loading line */}
-      <Box>
+      <Box width="100%">
         <Box marginRight={1}>
           {/* 🎯 关键修复：在等待确认时完全不渲染GeminiRespondingSpinner，
               使用静态Text组件代替，确保没有任何动画效果 */}
@@ -186,43 +186,47 @@ export const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({
             <GeminiRespondingSpinner key="dynamic-spinner" />
           )}
         </Box>
-        {primaryText && (
-          shouldShowLEDEffect ? (
-            // LED跑马灯效果的文本 - 使用渐变色效果
-            <Text>
-              {textLED.map(({ char, highlightIntensity, index }) => {
-                // 根据强度选择颜色：0=暗色，1=中等，2=最亮
-                let color;
-                switch (highlightIntensity) {
-                  case 2:
-                    color = gradientColors.bright; // 最亮
-                    break;
-                  case 1:
-                    color = gradientColors.medium; // 中等亮度
-                    break;
-                  default:
-                    color = gradientColors.dim; // 暗色
-                    break;
-                }
+        <Box flexShrink={1}>
+          <Text wrap="wrap" color={Colors.AccentOrange}>
+            {primaryText && (
+              shouldShowLEDEffect ? (
+                // LED跑马灯效果的文本 - 使用渐变色效果
+                <Text>
+                  {textLED.map(({ char, highlightIntensity, index }) => {
+                    // 根据强度选择颜色：0=暗色，1=中等，2=最亮
+                    let color;
+                    switch (highlightIntensity) {
+                      case 2:
+                        color = gradientColors.bright; // 最亮
+                        break;
+                      case 1:
+                        color = gradientColors.medium; // 中等亮度
+                        break;
+                      default:
+                        color = gradientColors.dim; // 暗色
+                        break;
+                    }
 
-                return (
-                  <Text key={index} color={color}>
-                    {char}
-                  </Text>
-                );
-              })}
+                    return (
+                      <Text key={index} color={color}>
+                        {char}
+                      </Text>
+                    );
+                  })}
+                </Text>
+              ) : (
+                // 静态文本（等待确认状态、小窗口优化或矮终端）- 保持原始颜色
+                <Text color={Colors.AccentOrange}>{primaryText}</Text>
+              )
+            )}
+            <Text color={Colors.Gray}>
+              {streamingState === StreamingState.WaitingForConfirmation
+                ? ''
+                : ` (${getCancelKeyHint()} to cancel, ${elapsedTime < 60 ? `${elapsedTime}s` : formatDuration(elapsedTime * 1000)})`}
+              {/* Token 计数已隐藏 - 不再显示 ↑ 和 🪓 符号 */}
             </Text>
-          ) : (
-            // 静态文本（等待确认状态、小窗口优化或矮终端）- 保持原始颜色
-            <Text color={Colors.AccentOrange}>{primaryText}</Text>
-          )
-        )}
-        <Text color={Colors.Gray}>
-          {streamingState === StreamingState.WaitingForConfirmation
-            ? ''
-            : ` (${getCancelKeyHint()} to cancel, ${elapsedTime < 60 ? `${elapsedTime}s` : formatDuration(elapsedTime * 1000)})`}
-          {/* Token 计数已隐藏 - 不再显示 ↑ 和 🪓 符号 */}
-        </Text>
+          </Text>
+        </Box>
         <Box flexGrow={1}>{/* Spacer */}</Box>
         {rightContent && <Box>{rightContent}</Box>}
       </Box>

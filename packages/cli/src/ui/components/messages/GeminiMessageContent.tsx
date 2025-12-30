@@ -37,7 +37,8 @@ export const GeminiMessageContent: React.FC<GeminiMessageContentProps> = ({
         <MarkdownDisplay
           text={text}
           isPending={isPending}
-          availableTerminalHeight={availableTerminalHeight}
+          // 🎯 优化：对于 AI 已完成的回复，放宽高度限制（传入 undefined 禁用折叠）
+          availableTerminalHeight={isPending ? availableTerminalHeight : undefined}
           terminalWidth={terminalWidth - prefixWidth}
         />
       </Box>
