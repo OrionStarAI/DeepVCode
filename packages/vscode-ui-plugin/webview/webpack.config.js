@@ -48,6 +48,10 @@ module.exports = {
   },
   target: 'web',
   devtool: 'inline-source-map',
+  infrastructureLogging: {
+    level: 'warn', // 🚀 只显示基础架构层的警告和错误，忽略缓存恢复失败等信息
+  },
+  stats: 'errors-warnings', // 🚀 只显示编译过程中的错误和警告
   cache: {
     type: 'filesystem', // 🚀 关键优化：启用文件系统缓存
   },
