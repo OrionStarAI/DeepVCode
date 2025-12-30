@@ -215,14 +215,15 @@ export const ToolMessage: React.FC<ToolMessageProps> = ({
     }
   }
   return (
-    <Box paddingX={1} paddingY={0} flexDirection="column">
-      <Box minHeight={1}>
+    <Box paddingX={1} paddingY={0} flexDirection="column" width={terminalWidth}>
+      <Box minHeight={1} width="100%">
         <ToolStatusIndicator status={status} />
         <ToolInfo
           name={name}
           status={status}
           description={description}
           emphasis={emphasis}
+          terminalWidth={terminalWidth - 2} // 减去 paddingX={1} 的两列
         />
         {emphasis === 'high' && <TrailingIndicator />}
       </Box>
@@ -386,17 +387,19 @@ const ToolStatusIndicator: React.FC<ToolStatusIndicatorProps> = ({
   </Box>
 );
 
-type ToolInfo = {
+type ToolInfoProps = {
   name: string;
   description: string;
   status: ToolCallStatus;
   emphasis: TextEmphasis;
+  terminalWidth: number;
 };
-const ToolInfo: React.FC<ToolInfo> = ({
+const ToolInfo: React.FC<ToolInfoProps> = ({
   name,
   description,
   status,
   emphasis,
+  terminalWidth,
 }) => {
   // Special handling for Sequential thinking tool - show summary instead of full thought
   let displayDescription = description;
@@ -432,16 +435,23 @@ const ToolInfo: React.FC<ToolInfo> = ({
     console.log('🖼️ [ToolInfo] RENDERING with displayDescription:', displayDescription.substring(0, 100));
   }
 
+  // 计算文本区域的可用宽度：
+  // terminalWidth 是 ToolMessage 接收到的宽度 (由 ToolGroupMessage 计算给出)
+  // 减去左边状态指示器的宽度 STATUS_INDICATOR_WIDTH(3)
+  // 减去右边 TrailingIndicator(←) 的宽度 (如果存在且 emphasis === 'high'，约占2列)
+  const textWidth = terminalWidth - STATUS_INDICATOR_WIDTH - (emphasis === 'high' ? 2 : 0);
+
   return (
-    <Box>
+    <Box width={textWidth}>
       <Text
-        wrap="truncate-end"
+        wrap="wrap"
+        color={Colors.Gray}
         strikethrough={status === ToolCallStatus.Canceled}
       >
         <Text color={nameColor} bold>
           {getLocalizedToolName(name)}
         </Text>{' '}
-        <Text color={Colors.Gray}>{displayDescription}</Text>
+        {displayDescription}
       </Text>
     </Box>
   );
