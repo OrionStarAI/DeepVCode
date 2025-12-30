@@ -1891,6 +1891,37 @@ A：在配置中设置 `"sequential": true`，后一个 Hook 可以看到前一�
 
 ---
 
+## 🚀 LSP (语言服务协议) 支持
+
+DeepV Code 现在集成了强大的 **LSP (Language Server Protocol)** 能力。这意味着 AI 不再仅仅是通过“搜索字符串”来猜你的代码，而是像真正的 IDE 一样，能够完全“读懂”代码的语义。
+
+### 什么是 LSP？
+**LSP** 是由微软、Google 和 RedHat 共同推出的行业标准。它将代码分析逻辑与编辑器分离。通过 LSP，DeepV Code 可以调用各语言官方最专业的分析引擎（如 `typescript-language-server`, `pyright`, `rust-analyzer` 等），为 AI 提供极致的代码感知力。
+
+### 为什么 LSP 比传统搜索更强？
+- **语义感知**：理解变量、函数、类和作用域，而不仅仅是匹配文本。
+- **准确度高**：只返回真实的定义和类型，不会被同名注释或字符串干扰。
+- **跨文件追踪**：准确追踪 `import` 和依赖链，支持跨文件跳转定义。
+- **深度信息**：提供详细的类型推导和文档注释。
+
+### 核心特性：小白式“零配置”体验
+- **按需触发**：当你第一次询问某种语言的问题时，系统才会启动。
+- **自动安装**：如果你的电脑没装对应的 LSP 服务端，DeepV Code 会**自动在后台下载并安装**到隔离目录。
+- **无感运行**：用户无需配置环境变量，真正做到“开箱即用”。
+
+### 已支持的语言矩阵 (11 种)
+- **通用编程**：TypeScript, JavaScript, Python, Rust, Go
+- **底层开发**：C, C++ (`clangd`)
+- **Web 前端**：HTML, CSS
+- **配置与数据**：JSON, YAML, SQL, Dockerfile
+
+### 如何测试与体验？
+1. **确认工具**：输入 `/tools`，确认能看到 `lsp_hover` 和 `lsp_goto_definition`。
+2. **实战提问**：问 AI “使用 LSP Goto Definition，帮我看看这个函数是在哪里定义的？”，或者 “使用 LSP Hover 告诉我的这个变量是什么类型？”。
+3. **观察后台**：第一次使用新语言时，你会看到系统自动下载 LSP 服务端的提示。
+
+---
+
 **DeepV Code 出品方信息：**
 - 官网：https://dvcode.deepvlab.ai/
 - 出品公司：Deep X Corporation Limited
