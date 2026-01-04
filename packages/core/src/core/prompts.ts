@@ -23,6 +23,10 @@ import { TodoWriteTool } from '../tools/todo-write.js';
 import { ReadLintsTool } from '../tools/read-lints.js';
 import { LSPHoverTool } from '../tools/lsp/lsp-hover.js';
 import { LSPGotoDefinitionTool } from '../tools/lsp/lsp-goto-definition.js';
+import { LSPFindReferencesTool } from '../tools/lsp/lsp-find-references.js';
+import { LSPDocumentSymbolsTool } from '../tools/lsp/lsp-document-symbols.js';
+import { LSPWorkspaceSymbolsTool } from '../tools/lsp/lsp-workspace-symbols.js';
+import { LSPImplementationTool } from '../tools/lsp/lsp-implementation.js';
 import { TaskPrompts } from './taskPrompts.js';
 import { PromptRegistry } from '../prompts/prompt-registry.js';
 
@@ -121,11 +125,20 @@ When requested to perform tasks like fixing bugs, adding features, refactoring, 
 
   Launch multiple analysis experts concurrently when investigating different technical aspects. The experts will provide detailed reports with actionable insights. Only use direct tools (${ReadFileTool.Name}/${GrepTool.Name}/${GlobTool.Name}) when you need to verify specific details or know exact file paths.
 - **Task Management:** Use '${TodoWriteTool.Name}' for complex multi-step tasks or when user mentions multiple requirements. STRONGLY RECOMMENDED when you need to: search files AND modify code, analyze AND implement, debug AND fix, or handle requests with "and", "also", "then", "while", "after" keywords. MANDATORY for error logs, build failures, test results, or any technical content requiring systematic breakdown. Create todos at task start, update status after each major step, mark completed when done. Skip only for truly atomic operations (single file read, one command, simple questions).
-- **LSP Code Intelligence (PREFERRED for type/definition queries):** **ALWAYS use '${LSPHoverTool.Name}' and '${LSPGotoDefinitionTool.Name}' FIRST** when user asks about types or definitions. These tools provide IDE-level semantic analysis that grep/read_file cannot match.
-  - **'${LSPHoverTool.Name}' - MANDATORY for type queries:** When user asks "what type", "return type", "parameter type", "type definition", "function signature", "interface definition" → Use this tool FIRST, not grep/read_file.
-  - **'${LSPGotoDefinitionTool.Name}' - MANDATORY for definition queries:** When user asks "where is X defined", "go to definition", "find definition", "where is X declared", "在哪里定义", "定义在哪" → Use this tool FIRST to jump directly to the definition location.
-  - **Why LSP over grep/read_file:** LSP understands code semantically (resolves imports, follows type chains, handles re-exports). Text search only finds string matches. For "where is X defined" questions, grep finds all mentions but LSP finds the actual definition.
-  - **Workflow:** First use LSP to get precise location/type info, then use read_file only if you need to see more context around that location.
+- **LSP Code Intelligence (PREFERRED for code analysis):** **ALWAYS use LSP tools FIRST** when user asks about types, definitions, references, or symbols. These tools provide IDE-level semantic analysis (1-based line/char) that grep/read_file cannot match.
+  - **'${LSPHoverTool.Name}' - MANDATORY for type queries:** Use this for "what type", "return type", "parameter type", "interface definition".
+  - **'${LSPGotoDefinitionTool.Name}' - MANDATORY for definitions:** Use this for "where is X defined", "go to definition", "find declaration".
+  - **'${LSPFindReferencesTool.Name}' - For usage analysis:** Use this to find all locations where a symbol is used.
+  - **'${LSPDocumentSymbolsTool.Name}' - For file structure:** Use this to list all functions, classes, and variables in a file.
+  - **'${LSPWorkspaceSymbolsTool.Name}' - For global search:** Use this to search for symbols across the entire project.
+  - **'${LSPImplementationTool.Name}' - For interface implementations:** Use this to find implementations of an interface or abstract class.
+  - **Coordinate System:** All LSP tools use **1-based** line and character numbers (matching what you see in editors).
+  - **Workflow (Semantic First):**
+    1. If you don't know the exact line/char: Use '${LSPDocumentSymbolsTool.Name}' for the file (or '${LSPWorkspaceSymbolsTool.Name}' for global) to find the symbol's precise coordinates.
+    2. Then call '${LSPHoverTool.Name}' or '${LSPGotoDefinitionTool.Name}' using those coordinates.
+    3. **Tip:** If '${LSPHoverTool.Name}' returns "No hover information found" on a line where a function/class is defined, you might be hitting a keyword (like 'async', 'export', 'public'). Try moving the \`character\` offset forward (to the right) to hit the actual name of the symbol.
+    4. Do NOT guess line numbers from raw text as it is error-prone.
+  - **Why LSP over grep/read_file:** LSP understands code semantically (resolves imports, follows type chains). Text search only finds string matches.
 
 - **Remembering Facts:** Use the '${MemoryTool.Name}' tool to remember specific, *user-related* facts or preferences when the user explicitly asks, or when they state a clear, concise piece of information that would help personalize or streamline *your future interactions with them* (e.g., preferred coding style, common project paths they use, personal tool aliases). This tool is for user-specific information that should persist across sessions. Do *not* use it for general project context or information that belongs in project-specific \`GEMINI.md\` files. If unsure whether to save something, you can ask the user, "Should I remember that for you?"
 - **Respect User Confirmations:** Most tool calls (also denoted as 'function calls') will first require confirmation from the user, where they will either approve or cancel the function call. If a user cancels a function call, respect their choice and do _not_ try to make the function call again. It is okay to request the tool call again _only_ if the user requests that same tool call on a subsequent prompt. When a user cancels a function call, assume best intentions from the user and consider inquiring if they prefer any alternative paths forward.
@@ -388,11 +401,20 @@ When requested to perform tasks like fixing bugs, adding features, refactoring, 
 
 - **File Analysis:** Use '${GrepTool.Name}' for content searches, '${GlobTool.Name}' for file discovery, and '${ReadFileTool.Name}'/'${ReadManyFilesTool.Name}' for file content analysis.
 - **Task Management:** Use '${TodoWriteTool.Name}' for complex multi-step tasks or when user mentions multiple requirements. STRONGLY RECOMMENDED when you need to: search files AND modify code, analyze AND implement, debug AND fix, or handle requests with "and", "also", "then", "while", "after" keywords. MANDATORY for error logs, build failures, test results, or any technical content requiring systematic breakdown. Create todos at task start, update status after each major step, mark completed when done. Skip only for truly atomic operations (single file read, one command, simple questions).
-- **LSP Code Intelligence (PREFERRED for type/definition queries):** **ALWAYS use '${LSPHoverTool.Name}' and '${LSPGotoDefinitionTool.Name}' FIRST** when user asks about types or definitions. These tools provide IDE-level semantic analysis that grep/read_file cannot match.
-  - **'${LSPHoverTool.Name}' - MANDATORY for type queries:** When user asks "what type", "return type", "parameter type", "type definition", "function signature", "interface definition" → Use this tool FIRST, not grep/read_file.
-  - **'${LSPGotoDefinitionTool.Name}' - MANDATORY for definition queries:** When user asks "where is X defined", "go to definition", "find definition", "where is X declared", "在哪里定义", "定义在哪" → Use this tool FIRST to jump directly to the definition location.
-  - **Why LSP over grep/read_file:** LSP understands code semantically (resolves imports, follows type chains, handles re-exports). Text search only finds string matches. For "where is X defined" questions, grep finds all mentions but LSP finds the actual definition.
-  - **Workflow:** First use LSP to get precise location/type info, then use read_file only if you need to see more context around that location.
+- **LSP Code Intelligence (PREFERRED for code analysis):** **ALWAYS use LSP tools FIRST** when user asks about types, definitions, references, or symbols. These tools provide IDE-level semantic analysis (1-based line/char) that grep/read_file cannot match.
+  - **'${LSPHoverTool.Name}' - MANDATORY for type queries:** Use this for "what type", "return type", "parameter type", "interface definition".
+  - **'${LSPGotoDefinitionTool.Name}' - MANDATORY for definitions:** Use this for "where is X defined", "go to definition", "find declaration".
+  - **'${LSPFindReferencesTool.Name}' - For usage analysis:** Use this to find all locations where a symbol is used.
+  - **'${LSPDocumentSymbolsTool.Name}' - For file structure:** Use this to list all functions, classes, and variables in a file.
+  - **'${LSPWorkspaceSymbolsTool.Name}' - For global search:** Use this to search for symbols across the entire project.
+  - **'${LSPImplementationTool.Name}' - For interface implementations:** Use this to find implementations of an interface or abstract class.
+  - **Coordinate System:** All LSP tools use **1-based** line and character numbers (matching what you see in editors).
+  - **Workflow (Semantic First):**
+    1. If you don't know the exact line/char: Use '${LSPDocumentSymbolsTool.Name}' for the file (or '${LSPWorkspaceSymbolsTool.Name}' for global) to find the symbol's precise coordinates.
+    2. Then call '${LSPHoverTool.Name}' or '${LSPGotoDefinitionTool.Name}' using those coordinates.
+    3. **Tip:** If '${LSPHoverTool.Name}' returns "No hover information found" on a line where a function/class is defined, you might be hitting a keyword (like 'async', 'export', 'public'). Try moving the \`character\` offset forward (to the right) to hit the actual name of the symbol.
+    4. Do NOT guess line numbers from raw text as it is error-prone.
+  - **Why LSP over grep/read_file:** LSP understands code semantically (resolves imports, follows type chains). Text search only finds string matches.
 - **Linter Diagnostics:** **ALWAYS use '${ReadLintsTool.Name}' immediately after using '${EditTool.Name}' or '${WriteFileTool.Name}' for code files** to verify quality in VSCode environment. This tool provides comprehensive diagnostics from all configured linters and type checkers. **Prefer this over shell commands for post-edit verification**. Only call this tool on files you've modified or created to avoid overwhelming output. For build/CI scenarios or specialized linting tasks, shell commands remain appropriate.
 - **Remembering Facts:** Use the '${MemoryTool.Name}' tool to remember specific, *user-related* facts or preferences when the user explicitly asks, or when they state a clear, concise piece of information that would help personalize or streamline *your future interactions with them* (e.g., preferred coding style, common project paths they use, personal tool aliases). This tool is for user-specific information that should persist across sessions. Do *not* use it for general project context or information that belongs in project-specific \`GEMINI.md\` files. If unsure whether to save something, you can ask the user, "Should I remember that for you?"
 - **Respect User Confirmations:** Most tool calls (also denoted as 'function calls') will first require confirmation from the user, where they will either approve or cancel the function call. If a user cancels a function call, respect their choice and do _not_ try to make the function call again. It is okay to request the tool call again _only_ if the user requests that same tool call on a subsequent prompt. When a user cancels a function call, assume best intentions from the user and consider inquiring if they prefer any alternative paths forward.

@@ -15,16 +15,23 @@ import { BinaryManager } from './binaryManager.js';
  */
 export const NearestRoot = (includePatterns: string[], projectRoot: string) => {
   return async (file: string): Promise<string> => {
-    let current = path.dirname(path.resolve(file));
-    const stop = path.resolve(projectRoot);
+    // 🎯 Windows 兼容性：规范化路径并转为小写进行比较，防止驱动器盘符大小写不一致导致判断失败
+    let current = path.normalize(path.dirname(path.resolve(file)));
+    const stop = path.normalize(path.resolve(projectRoot));
 
-    while (current.startsWith(stop) || current === stop) {
+    const isInside = (child: string, parent: string) => {
+      const c = child.toLowerCase();
+      const p = parent.toLowerCase();
+      return c.startsWith(p) || c === p;
+    };
+
+    while (isInside(current, stop)) {
       for (const pattern of includePatterns) {
         if (fs.existsSync(path.join(current, pattern))) {
           return current;
         }
       }
-      const parent = path.dirname(current);
+      const parent = path.normalize(path.dirname(current));
       if (parent === current) break;
       current = parent;
     }
@@ -44,8 +51,16 @@ export const TypeScriptLSP = (projectRoot: string): LSPServer.Info => ({
     const bin = await BinaryManager.ensureBinary('typescript-language-server',
       await BinaryManager.npmInstaller(['typescript-language-server', 'typescript'], 'typescript-language-server')
     );
+
+    // 🎯 优化点：显式找到 tsserver.js 的路径，防止 server 启动后找不到 tsserver
+    const tsServerPath = path.join(path.dirname(bin), '..', '..', 'typescript', 'lib', 'tsserver.js');
+    const args = ['--stdio'];
+    if (fs.existsSync(tsServerPath)) {
+      args.push('--tsserver-path', tsServerPath);
+    }
+
     return {
-      process: spawn(bin, ['--stdio'], { cwd: root, shell: true })
+      process: spawn(bin, args, { cwd: root, shell: true })
     };
   }
 });

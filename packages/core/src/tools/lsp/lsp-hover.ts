@@ -43,11 +43,11 @@ export class LSPHoverTool extends BaseTool<LSPHoverParams, ToolResult> {
           },
           line: {
             type: Type.NUMBER,
-            description: 'The 0-based line number.'
+            description: 'The 1-based line number (as shown in editors).'
           },
           character: {
             type: Type.NUMBER,
-            description: 'The 0-based character offset on the line.'
+            description: 'The 1-based character offset on the line (as shown in editors).'
           }
         },
         required: ['filePath', 'line', 'character']
@@ -59,19 +59,20 @@ export class LSPHoverTool extends BaseTool<LSPHoverParams, ToolResult> {
     if (!params.filePath || !path.isAbsolute(params.filePath)) {
       return 'filePath must be an absolute path.';
     }
-    if (params.line < 0 || params.character < 0) {
-      return 'line and character must be non-negative.';
+    if (params.line < 1 || params.character < 1) {
+      return 'line and character must be 1-based (>= 1).';
     }
     return null;
   }
 
   async execute(params: LSPHoverParams): Promise<ToolResult> {
     const manager = getLSPManager(this.config.getTargetDir());
-    const results = await manager.getHover(params.filePath, params.line, params.character);
+    // Convert 1-based to 0-based for LSP
+    const results = await manager.getHover(params.filePath, params.line - 1, params.character - 1);
 
-    if (results.length === 0) {
+    if (results.length === 0 || !results[0]) {
       return {
-        llmContent: 'No hover information found.',
+        llmContent: 'No hover information found. This might be because the position is on a keyword, or the LSP server is still indexing. Try moving the character offset to the symbol name.',
         returnDisplay: 'No hover information found.'
       };
     }
