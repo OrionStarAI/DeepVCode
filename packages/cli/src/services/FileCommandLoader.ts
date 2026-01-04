@@ -11,8 +11,8 @@ import { glob } from 'glob';
 import { z } from 'zod';
 import {
   Config,
-  getProjectCommandsDir,
-  getUserCommandsDir,
+  getProjectCommandsDirs,
+  getUserCommandsDirs,
 } from 'deepv-code-core';
 import { ICommandLoader } from './types.js';
 import {
@@ -75,35 +75,45 @@ export class FileCommandLoader implements ICommandLoader {
 
     try {
       // User Commands
-      const userDir = getUserCommandsDir();
-      const userFiles = await glob('**/*.toml', {
-        ...globOptions,
-        cwd: userDir,
-      });
-      const userCommandPromises = userFiles.map((file) =>
-        this.parseAndAdaptFile(path.join(userDir, file), userDir),
-      );
-      const userCommands = (await Promise.all(userCommandPromises)).filter(
-        (cmd): cmd is SlashCommand => cmd !== null,
-      );
-      for (const cmd of userCommands) {
-        commandMap.set(cmd.name, cmd);
+      for (const userDir of getUserCommandsDirs()) {
+        try {
+          const userFiles = await glob('**/*.toml', {
+            ...globOptions,
+            cwd: userDir,
+          });
+          const userCommandPromises = userFiles.map((file) =>
+            this.parseAndAdaptFile(path.join(userDir, file), userDir),
+          );
+          const userCommands = (await Promise.all(userCommandPromises)).filter(
+            (cmd): cmd is SlashCommand => cmd !== null,
+          );
+          for (const cmd of userCommands) {
+            commandMap.set(cmd.name, cmd);
+          }
+        } catch (e) {
+          // Ignore errors for individual directories (e.g. if they don't exist)
+        }
       }
 
       // Project Commands (these intentionally override user commands)
-      const projectDir = getProjectCommandsDir(this.projectRoot);
-      const projectFiles = await glob('**/*.toml', {
-        ...globOptions,
-        cwd: projectDir,
-      });
-      const projectCommandPromises = projectFiles.map((file) =>
-        this.parseAndAdaptFile(path.join(projectDir, file), projectDir),
-      );
-      const projectCommands = (
-        await Promise.all(projectCommandPromises)
-      ).filter((cmd): cmd is SlashCommand => cmd !== null);
-      for (const cmd of projectCommands) {
-        commandMap.set(cmd.name, cmd);
+      for (const projectDir of getProjectCommandsDirs(this.projectRoot)) {
+        try {
+          const projectFiles = await glob('**/*.toml', {
+            ...globOptions,
+            cwd: projectDir,
+          });
+          const projectCommandPromises = projectFiles.map((file) =>
+            this.parseAndAdaptFile(path.join(projectDir, file), projectDir),
+          );
+          const projectCommands = (
+            await Promise.all(projectCommandPromises)
+          ).filter((cmd): cmd is SlashCommand => cmd !== null);
+          for (const cmd of projectCommands) {
+            commandMap.set(cmd.name, cmd);
+          }
+        } catch (e) {
+          // Ignore errors for individual directories
+        }
       }
     } catch (error) {
       console.error(`[FileCommandLoader] Error during file search:`, error);

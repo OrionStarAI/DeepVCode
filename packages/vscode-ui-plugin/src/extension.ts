@@ -147,6 +147,14 @@ export async function activate(context: vscode.ExtensionContext) {
     await slashCommandService.initialize();
     logger.info('SlashCommandService initialized');
 
+    // 监听工作区文件夹变化，重新加载斜杠命令
+    context.subscriptions.push(
+      vscode.workspace.onDidChangeWorkspaceFolders(async () => {
+        logger.info('Workspace folders changed, reloading slash commands');
+        await slashCommandService.reload();
+      })
+    );
+
     // 🎯 初始化终端输出服务（早期初始化以捕获更多输出）
     terminalOutputService = TerminalOutputService.getInstance(logger);
     logger.info('TerminalOutputService initialized');
