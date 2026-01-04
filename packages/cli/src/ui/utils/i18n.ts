@@ -423,6 +423,8 @@ export const translations = {
     'checkpoint.clean.deleting': '🗑️  Deleting checkpoint history...',
     'checkpoint.clean.success': '✅ Successfully cleaned checkpoint history. Freed {size} of disk space.',
     'checkpoint.clean.error': '❌ Error cleaning checkpoint history: {error}',
+    'checkpoint.history.large.warning': '⚠️  Checkpoint history is quite large ({size}).',
+    'checkpoint.history.large.question': 'Would you like to clean it now to free up space? (y/N): ',
 
     // Diff display messages
     'diff.new.file': '📄 New file',
@@ -1527,6 +1529,8 @@ export const translations = {
     'checkpoint.clean.deleting': '🗑️  正在删除检查点历史...',
     'checkpoint.clean.success': '✅ 检查点历史清理完成。已释放 {size} 磁盘空间。',
     'checkpoint.clean.error': '❌ 清理检查点历史时出错：{error}',
+    'checkpoint.history.large.warning': '⚠️  检查点历史记录较大 ({size})。',
+    'checkpoint.history.large.question': '是否现在清理以释放空间？(y/N): ',
 
     // Diff display messages
     'diff.new.file': '📄 新建文件',

@@ -28,6 +28,11 @@ import { loadExtensions, Extension } from './config/extension.js';
 import { cleanupCheckpoints, registerCleanup, runExitCleanup } from './utils/cleanup.js';
 import { getCliVersion } from './utils/version.js';
 import { checkForUpdates, executeUpdateCommand } from './ui/utils/updateCheck.js';
+import {
+  getHistoryDir,
+  getDirectorySize,
+  formatBytes
+} from './utils/historyUtils.js';
 import { t, tp } from './ui/utils/i18n.js';
 import {
   ApprovalMode,
@@ -203,6 +208,60 @@ async function askUserForUpdate(): Promise<boolean> {
       resolve(answer.toLowerCase().trim() === 'y' || answer.toLowerCase().trim() === 'yes');
     });
   });
+}
+
+/**
+ * Check if checkpoint history size exceeds 2GB and prompt for cleanup
+ */
+async function checkAndPromptHistoryCleanup(settings: LoadedSettings) {
+  // 检查是否在 7 天内已经检查过
+  const lastCheck = settings.merged.lastHistoryCleanupCheck;
+  const now = Date.now();
+  const sevenDaysInMs = 7 * 24 * 60 * 60 * 1000;
+
+  if (lastCheck && now - lastCheck < sevenDaysInMs) {
+    return;
+  }
+
+  const historyDir = getHistoryDir();
+  try {
+    // 检查目录是否存在
+    await fs.promises.access(historyDir);
+
+    // 计算大小
+    const size = await getDirectorySize(historyDir);
+    const threshold = 2 * 1024 * 1024 * 1024; // 2GB
+
+    if (size > threshold) {
+      console.log(`\n${tp('checkpoint.history.large.warning', { size: formatBytes(size) })}`);
+
+      const rl = createConfirmationReadlineInterface({
+        input: process.stdin,
+        output: process.stdout
+      });
+
+      const shouldClean = await new Promise<boolean>((resolve) => {
+        rl.question(t('checkpoint.history.large.question'), (answer) => {
+          rl.close();
+          resolve(answer.toLowerCase().trim() === 'y' || answer.toLowerCase().trim() === 'yes');
+        });
+      });
+
+      if (shouldClean) {
+        console.log(t('checkpoint.clean.deleting'));
+        await fs.promises.rm(historyDir, { recursive: true, force: true });
+        console.log(tp('checkpoint.clean.success', { size: formatBytes(size) }));
+      }
+
+      // 用户做了选择（无论是清理还是不清理），记录时间戳
+      settings.setValue(SettingScope.User, 'lastHistoryCleanupCheck', now);
+    } else {
+      // 如果大小未超过阈值，也记录时间戳，避免每次启动都进行目录扫描
+      settings.setValue(SettingScope.User, 'lastHistoryCleanupCheck', now);
+    }
+  } catch (error) {
+    // 如果目录不存在或出现其他错误，静默跳过
+  }
 }
 
 /**
@@ -711,6 +770,9 @@ export async function main() {
 
   // Render UI, passing necessary config values. Check that there is no command line question.
   if (shouldBeInteractive) {
+    // 检查历史记录大小并提示清理
+    await checkAndPromptHistoryCleanup(settings);
+
     // Perform VSCode terminal startup resize calibration before UI renders
     performStartupResize();
 
