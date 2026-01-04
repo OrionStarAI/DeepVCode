@@ -491,6 +491,7 @@ export class MarketplaceManager {
     // 1. Resolve Source Path
     let sourcePath = '';
     if (typeof pluginDef.source === 'string') {
+      // Local relative path
       sourcePath = path.join(marketplacePath, pluginDef.source);
 
       // Fallback: Check if 'plugins' directory should be 'skills' (common in some marketplaces)
@@ -501,10 +502,51 @@ export class MarketplaceManager {
           sourcePath = altPath;
         }
       }
+    } else if (typeof pluginDef.source === 'object') {
+      // Remote Git source (github/url)
+      // For Git-based marketplaces, the plugin should already be cloned
+      // The plugin directory is typically in the marketplace root with the same name as the plugin
+      const possiblePaths = [
+        path.join(marketplacePath, pluginDef.name), // Direct: marketplace/plugin-name
+        path.join(marketplacePath, 'plugins', pluginDef.name), // Common: marketplace/plugins/plugin-name
+        path.join(marketplacePath, 'skills', pluginDef.name), // Alternative: marketplace/skills/plugin-name
+      ];
+
+      for (const possiblePath of possiblePaths) {
+        if (await fs.pathExists(possiblePath)) {
+          sourcePath = possiblePath;
+          break;
+        }
+      }
+
+      if (!sourcePath) {
+        // Plugin directory not found - try to clone it
+        if ('url' in pluginDef.source && pluginDef.source.url) {
+          const targetPath = path.join(marketplacePath, pluginDef.name);
+          console.log(`Cloning plugin ${pluginDef.name} from ${pluginDef.source.url}...`);
+
+          try {
+            await this.cloneRepository(pluginDef.source.url, targetPath);
+            sourcePath = targetPath;
+            console.log(`✓ Successfully cloned ${pluginDef.name}`);
+          } catch (error) {
+            console.warn(
+              `Failed to clone plugin ${pluginDef.name}\n` +
+              `  URL: ${pluginDef.source.url}\n` +
+              `  Error: ${error instanceof Error ? error.message : String(error)}`
+            );
+          }
+        } else {
+          console.warn(
+            `Remote plugin source path not found: ${pluginDef.name}\n` +
+            `  Source: ${JSON.stringify(pluginDef.source)}\n` +
+            `  Searched paths:\n` +
+            possiblePaths.map(p => `    - ${p}`).join('\n')
+          );
+        }
+      }
     } else {
-      // TODO: Handle remote sources (git/github)
-      // For now, we only support local relative paths or warn
-      console.warn(`Remote plugin sources not fully supported yet: ${pluginDef.name}`);
+      console.warn(`Unsupported plugin source type: ${pluginDef.name}`);
     }
 
     // 2. Handle Strict Mode & plugin.json
