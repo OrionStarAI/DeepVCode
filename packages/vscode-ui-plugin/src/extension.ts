@@ -1571,17 +1571,28 @@ function setupBasicMessageHandlers() {
         throw new Error(`Failed to fetch user stats: ${response.status} ${response.statusText}`);
       }
 
-      const data = await response.json() as any;
+      const result = await response.json() as any;
+
+      // 解析 API 响应数据
+      if (!result.success || !result.data) {
+        throw new Error('Invalid API response');
+      }
+
+      const data = result.data;
+      const totalQuota = data.totalCreditsLimits || 0;
+      const usedCredits = data.creditsUsage?.totalCreditsUsed || 0;
+      const remainingCredits = totalQuota - usedCredits;
+      const usagePercentage = totalQuota > 0 ? (usedCredits / totalQuota) * 100 : 0;
 
       // 发送成功响应
       await communicationService.sendMessage({
         type: 'user_stats_response',
         payload: {
           stats: {
-            totalQuota: data.totalQuota || 0,
-            usedCredits: data.usedCredits || 0,
-            remainingCredits: data.remainingCredits || 0,
-            usagePercentage: data.usagePercentage || 0
+            totalQuota,
+            usedCredits,
+            remainingCredits,
+            usagePercentage
           }
         }
       });

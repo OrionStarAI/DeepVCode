@@ -501,14 +501,14 @@ export const enUS: Translations = {
     tabHint: '← Tab Switch',
 
     // Points overview
-    pointsOverviewTitle: 'Points Overview (Local Estimate)',
-    localEstimate: 'Estimate',
+    pointsOverviewTitle: 'Points Overview',
+    localEstimate: '',
     viewDetails: 'View Details',
     totalQuota: 'Total Quota',
     usedCredits: 'Used',
     remainingCredits: 'Remaining',
-    estimateLabel: '(Est.)',
-    localDataHint: 'Local estimated data. Click "View Details" above to visit the official website for accurate credit information',
+    estimateLabel: '',
+    localDataHint: 'Click "View Details" above to visit the official website for more credit information',
 
     // States
     loading: 'Loading...',
