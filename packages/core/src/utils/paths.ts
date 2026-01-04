@@ -179,10 +179,33 @@ export function getUserCommandsDir(): string {
 }
 
 /**
+ * Returns all possible user-level commands directories for compatibility.
+ * @returns An array of paths to the user's commands directories.
+ */
+export function getUserCommandsDirs(): string[] {
+  return [
+    getUserCommandsDir(),
+    path.join(os.homedir(), '.gemini', COMMANDS_DIR_NAME),
+  ];
+}
+
+/**
  * Returns the absolute path to the project-level commands directory.
  * @param projectRoot The absolute path to the project's root directory.
  * @returns The path to the project's commands directory.
  */
 export function getProjectCommandsDir(projectRoot: string): string {
   return path.join(projectRoot, PROJECT_DIR_PREFIX, COMMANDS_DIR_NAME);
+}
+
+/**
+ * Returns all possible project-level commands directories for compatibility.
+ * @param projectRoot The absolute path to the project's root directory.
+ * @returns An array of absolute paths to the project's commands directories.
+ */
+export function getProjectCommandsDirs(projectRoot: string): string[] {
+  return [
+    getProjectCommandsDir(projectRoot),
+    path.join(projectRoot, '.gemini', COMMANDS_DIR_NAME),
+  ];
 }

@@ -18,7 +18,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import * as toml from '@iarna/toml';
 import { glob } from 'glob';
-import { getUserCommandsDir, getProjectCommandsDir } from 'deepv-code-core';
+import { getUserCommandsDirs, getProjectCommandsDirs } from 'deepv-code-core';
 import { Logger } from '../utils/logger';
 
 /**
@@ -126,16 +126,26 @@ export class SlashCommandService {
       dot: true,
     };
 
-    // Load user-level commands (~/.deepv/commands)
-    const userDir = getUserCommandsDir();
-    await this.loadCommandsFromDir(userDir, globOptions);
+    // Load user-level commands (~/.deepv/commands and ~/.gemini/commands)
+    for (const userDir of getUserCommandsDirs()) {
+      await this.loadCommandsFromDir(userDir, globOptions);
+    }
 
-    // Load project-level commands (project/.deepvcode/commands)
+    // Load project-level commands (project/.deepvcode/commands and project/.gemini/commands)
     // Project commands override user commands with the same name
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    if (workspaceRoot) {
-      const projectDir = getProjectCommandsDir(workspaceRoot);
-      await this.loadCommandsFromDir(projectDir, globOptions);
+    const workspaceFolders = vscode.workspace.workspaceFolders;
+    if (workspaceFolders) {
+      this.logger.info(`[SlashCommandService] Found ${workspaceFolders.length} workspace folders`);
+      for (const folder of workspaceFolders) {
+        const workspaceRoot = folder.uri.fsPath;
+        const projectDirs = getProjectCommandsDirs(workspaceRoot);
+        this.logger.info(`[SlashCommandService] Checking project command dirs for ${workspaceRoot}: ${projectDirs.join(', ')}`);
+        for (const projectDir of projectDirs) {
+          await this.loadCommandsFromDir(projectDir, globOptions);
+        }
+      }
+    } else {
+      this.logger.info('[SlashCommandService] No workspace folders found');
     }
   }
 
@@ -155,6 +165,8 @@ export class SlashCommandService {
         cwd: baseDir,
       });
 
+      this.logger.info(`[SlashCommandService] Found ${files.length} command files in ${baseDir}`);
+
       for (const file of files) {
         const filePath = path.join(baseDir, file);
         const command = await this.parseTomlFile(filePath, baseDir);
@@ -162,9 +174,9 @@ export class SlashCommandService {
           this.commands.set(command.name, command);
         }
       }
-    } catch {
+    } catch (error) {
       // Directory doesn't exist or not accessible - that's fine
-      this.logger.debug(`[SlashCommandService] Directory not accessible: ${baseDir}`);
+      this.logger.debug(`[SlashCommandService] Directory not accessible or error reading: ${baseDir}. Error: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -192,8 +204,11 @@ export class SlashCommandService {
         0,
         relativePathWithExt.length - 5 // remove '.toml'
       );
-      const commandName = relativePath
-        .split(path.sep)
+
+      // Normalize to forward slashes for consistent name splitting across platforms
+      const normalizedPath = relativePath.replace(/\\/g, '/');
+      const commandName = normalizedPath
+        .split('/')
         .map((segment) => segment.split(':').join('_'))
         .join(':');
 
