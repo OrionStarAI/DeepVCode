@@ -209,6 +209,7 @@ export interface MessageToExtension {
        'goto_symbol' |                // 🎯 新增：跳转到符号（方法名）
        'goto_line' |                  // 🎯 新增：跳转到当前文件的指定行
        'show_notification' |          // 🎯 新增：显示通知
+       'request_jwt_token' |          // 🎯 新增：请求 JWT Token（用于积分查询）
        'ready';
   payload: Record<string, unknown>;
 }

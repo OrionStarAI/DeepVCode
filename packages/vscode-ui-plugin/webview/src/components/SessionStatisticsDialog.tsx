@@ -3,13 +3,15 @@
  * 会话统计对话框组件
  *
  * 展示当前会话的积分消耗、Token 使用情况以及各模型的调用统计
+ * 支持切换到积分概览标签页查看用户总体积分信息
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useTranslation } from '../hooks/useTranslation';
 import { ChatMessage } from '../types';
-import { X, BarChart2, Zap, TrendingUp, Info } from 'lucide-react';
+import { X, BarChart2, Zap, TrendingUp, Info, Wallet, ExternalLink } from 'lucide-react';
 import './SessionStatisticsDialog.css';
+import { UserStatsService, UserStats } from '../services/userStatsService';
 
 interface ModelStatEntry {
   modelId: string;
@@ -18,6 +20,8 @@ interface ModelStatEntry {
   tokens: number;
   credits: number;
 }
+
+type TabType = 'session' | 'points';
 
 interface SessionStatisticsDialogProps {
   /** 是否显示对话框 */
@@ -28,15 +32,55 @@ interface SessionStatisticsDialogProps {
   messages: ChatMessage[];
   /** 模型 ID 到显示名称的映射 */
   modelNameMap?: Record<string, string>;
+  /** JWT Token for API authentication */
+  jwtToken?: string;
+  /** 代理服务器URL */
+  proxyServerUrl?: string;
 }
 
 export const SessionStatisticsDialog: React.FC<SessionStatisticsDialogProps> = ({
   isOpen,
   onClose,
   messages,
-  modelNameMap = {}
+  modelNameMap = {},
+  jwtToken,
+  proxyServerUrl = 'https://api-code.deepvlab.ai'
 }) => {
   const { t } = useTranslation();
+  const [activeTab, setActiveTab] = useState<TabType>('session');
+  const [userStats, setUserStats] = useState<UserStats | null>(null);
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
+  const [statsError, setStatsError] = useState<string | null>(null);
+
+  const userStatsService = useMemo(() => new UserStatsService(proxyServerUrl), [proxyServerUrl]);
+
+  // 加载用户积分统计
+  useEffect(() => {
+    if (isOpen && activeTab === 'points' && jwtToken && !userStats) {
+      setIsLoadingStats(true);
+      setStatsError(null);
+
+      userStatsService.getUserStats(jwtToken, true)
+        .then(stats => {
+          setUserStats(stats);
+          setIsLoadingStats(false);
+        })
+        .catch(error => {
+          console.error('Failed to load user stats:', error);
+          setStatsError(error.message || 'Failed to load stats');
+          setIsLoadingStats(false);
+        });
+    }
+  }, [isOpen, activeTab, jwtToken, userStats, userStatsService]);
+
+  // 重置状态当对话框关闭时
+  useEffect(() => {
+    if (!isOpen) {
+      setActiveTab('session');
+      setUserStats(null);
+      setStatsError(null);
+    }
+  }, [isOpen]);
 
   // 计算统计数据
   const stats = useMemo(() => {
@@ -105,6 +149,16 @@ export const SessionStatisticsDialog: React.FC<SessionStatisticsDialogProps> = (
 
   if (!isOpen) return null;
 
+  // 格式化积分数字
+  const formatCredits = (value: number): string => {
+    if (value >= 1000000) {
+      return `${(value / 1000000).toFixed(1)}M`;
+    } else if (value >= 1000) {
+      return `${(value / 1000).toFixed(1)}K`;
+    }
+    return value.toFixed(0);
+  };
+
   return (
     <div className="stats-dialog-backdrop" onClick={onClose}>
       <div className="stats-dialog" onClick={e => e.stopPropagation()}>
@@ -119,10 +173,30 @@ export const SessionStatisticsDialog: React.FC<SessionStatisticsDialogProps> = (
           </button>
         </div>
 
+        {/* 标签切换 */}
+        <div className="stats-tabs">
+          <button
+            className={`stats-tab ${activeTab === 'session' ? 'active' : ''}`}
+            onClick={() => setActiveTab('session')}
+          >
+            {t('stats.sessionTab')}
+          </button>
+          <button
+            className={`stats-tab ${activeTab === 'points' ? 'active' : ''}`}
+            onClick={() => setActiveTab('points')}
+          >
+            {t('stats.pointsTab')}
+          </button>
+          <div className="stats-tab-hint">{t('stats.tabHint')}</div>
+        </div>
+
         {/* 主体 */}
         <div className="stats-dialog-body">
-          {/* 总览卡片 */}
-          <div className="stats-summary-grid">
+          {/* 会话统计标签页 */}
+          {activeTab === 'session' && (
+            <>
+              {/* 总览卡片 */}
+              <div className="stats-summary-grid">
             <div className="stats-summary-card">
               <div className="stats-card-header">
                 <div className="stats-card-icon">
@@ -202,6 +276,104 @@ export const SessionStatisticsDialog: React.FC<SessionStatisticsDialogProps> = (
               </div>
             )}
           </div>
+            </>
+          )}
+
+          {/* 积分概览标签页 */}
+          {activeTab === 'points' && (
+            <>
+              {isLoadingStats ? (
+                <div className="stats-loading">
+                  <Info size={32} />
+                  <p>{t('stats.loading')}</p>
+                </div>
+              ) : statsError ? (
+                <div className="stats-error">
+                  <Info size={32} />
+                  <p>{t('stats.loadError')}</p>
+                  <button
+                    className="stats-retry-button"
+                    onClick={() => {
+                      setUserStats(null);
+                      setStatsError(null);
+                    }}
+                  >
+                    {t('stats.retry')}
+                  </button>
+                </div>
+              ) : userStats ? (
+                <>
+                  {/* 积分概览标题 */}
+                  <div className="points-overview-header">
+                    <h3 className="points-overview-title">
+                      {t('stats.pointsOverviewTitle')}
+                      <span className="points-estimate-badge">{t('stats.localEstimate')}</span>
+                    </h3>
+                    <button
+                      className="points-detail-link"
+                      onClick={() => {
+                        window.open('https://dvcode.deepvlab.ai/userinfo', '_blank');
+                      }}
+                      title={t('stats.viewDetails')}
+                    >
+                      <ExternalLink size={14} />
+                      <span>{t('stats.viewDetails')}</span>
+                    </button>
+                  </div>
+
+                  {/* 积分卡片 */}
+                  <div className="points-cards-grid">
+                    <div className="points-card">
+                      <div className="points-card-label">{t('stats.totalQuota')}</div>
+                      <div className="points-card-value">
+                        {formatCredits(userStats.totalQuota)}
+                        <span className="points-unit">{t('stats.estimateLabel')}</span>
+                      </div>
+                    </div>
+
+                    <div className="points-card">
+                      <div className="points-card-label">{t('stats.usedCredits')}</div>
+                      <div className="points-card-value used">
+                        {formatCredits(userStats.usedCredits)}
+                      </div>
+                    </div>
+
+                    <div className="points-card">
+                      <div className="points-card-label">{t('stats.remainingCredits')}</div>
+                      <div className="points-card-value remaining">
+                        {formatCredits(userStats.remainingCredits)}
+                        <span className="points-unit">{t('stats.estimateLabel')}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 进度条 */}
+                  <div className="points-progress-section">
+                    <div className="points-progress-bar">
+                      <div
+                        className="points-progress-fill"
+                        style={{ width: `${Math.min(userStats.usagePercentage, 100)}%` }}
+                      />
+                    </div>
+                    <div className="points-progress-label">
+                      {userStats.usagePercentage.toFixed(1)}%
+                    </div>
+                  </div>
+
+                  {/* 提示信息 */}
+                  <div className="points-info-box">
+                    <Info size={16} />
+                    <p>{t('stats.localDataHint')}</p>
+                  </div>
+                </>
+              ) : (
+                <div className="stats-empty">
+                  <Wallet size={32} />
+                  <p>{t('stats.noPointsData')}</p>
+                </div>
+              )}
+            </>
+          )}
         </div>
 
         {/* 底部 */}

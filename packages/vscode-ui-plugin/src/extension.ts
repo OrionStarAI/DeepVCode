@@ -1532,6 +1532,40 @@ function setupBasicMessageHandlers() {
     }
   });
 
+  // 🎯 Handle JWT token requests for user stats
+  communicationService.addMessageHandler('request_jwt_token', async () => {
+    try {
+      logger.info('Received JWT token request from webview');
+
+      const { ProxyAuthManager } = require('deepv-code-core');
+      const authManager = ProxyAuthManager.getInstance();
+
+      const token = await authManager.getAccessToken();
+      const proxyServerUrl = authManager.getProxyServerUrl();
+
+      await communicationService.sendMessage({
+        type: 'jwt_token_response',
+        payload: {
+          token,
+          proxyServerUrl
+        }
+      });
+
+      logger.info('✅ Sent JWT token response to webview');
+    } catch (error) {
+      logger.error('❌ Failed to get JWT token', error instanceof Error ? error : undefined);
+
+      // Send empty response on error
+      await communicationService.sendMessage({
+        type: 'jwt_token_response',
+        payload: {
+          token: null,
+          proxyServerUrl: 'https://api-code.deepvlab.ai'
+        }
+      });
+    }
+  });
+
   // 🎯 处理登录相关消息
   setupLoginHandlers();
 }
