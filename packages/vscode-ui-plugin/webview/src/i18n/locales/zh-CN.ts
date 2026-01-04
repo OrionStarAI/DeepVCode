@@ -81,6 +81,12 @@ export const zhCN: Translations = {
     stopProcessing: '⏸️ 停止AI处理',
     cannotStop: '⚠️ 处理中，无法停止',
     sending: '⏳ 发送中...',
+    copyMessage: '复制消息',
+    copied: '已复制!',
+    regenerate: '重新生成',
+    tokenUsage: 'Token 使用情况',
+    editMessage: '编辑消息',
+    rollback: '回退到此消息',
     editPlaceholder: '编辑你的消息...',
     undoneFileHistory: '用户撤销了对文件 "{{fileName}}" 的修改',
     fileChangesTitle: '文件变更',
@@ -497,16 +503,21 @@ export const zhCN: Translations = {
 
     // Tab switching
     sessionTab: '会话统计',
-    pointsTab: '积分概览',
+    creditsTab: '积分概览',
     tabHint: '← Tab 切换',
 
-    // Points overview
-    pointsOverviewTitle: '积分概览',
+    // Credits overview
+    creditsOverviewTitle: '积分概览',
     localEstimate: '',
     viewDetails: '查看详情',
-    totalQuota: '总额度',
-    usedCredits: '已使用',
+    totalQuota: '总积分额度',
+    usedCredits: '已使用积分',
     remainingCredits: '剩余',
+    totalRequests: '总请求数',
+    expiration: '配额到期',
+    alwaysValid: '长期有效',
+    activeQuotas: '活跃配额详情',
+    dailyUsage: '每日消耗统计（最近 7 日）',
     estimateLabel: '',
     localDataHint: '点击上方"查看详情"访问官网获取更多积分信息',
 

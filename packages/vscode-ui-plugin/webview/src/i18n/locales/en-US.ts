@@ -81,6 +81,12 @@ export const enUS: Translations = {
     stopProcessing: '⏸️ Stop AI processing',
     cannotStop: '⚠️ Processing, cannot stop',
     sending: '⏳ Sending...',
+    copyMessage: 'Copy Message',
+    copied: 'Copied!',
+    regenerate: 'Regenerate',
+    tokenUsage: 'Token Usage',
+    editMessage: 'Edit Message',
+    rollback: 'Rollback to this message',
     editPlaceholder: 'Edit your message...',
     undoneFileHistory: 'User undid changes to file "{{fileName}}"',
     fileChangesTitle: 'CHANGES',
@@ -497,16 +503,21 @@ export const enUS: Translations = {
 
     // Tab switching
     sessionTab: 'Session Stats',
-    pointsTab: 'Points Overview',
+    creditsTab: 'Credits Overview',
     tabHint: '← Tab Switch',
 
-    // Points overview
-    pointsOverviewTitle: 'Points Overview',
+    // Credits overview
+    creditsOverviewTitle: 'Credits Overview',
     localEstimate: '',
     viewDetails: 'View Details',
     totalQuota: 'Total Quota',
     usedCredits: 'Used',
     remainingCredits: 'Remaining',
+    totalRequests: 'Total Requests',
+    expiration: 'Expiration',
+    alwaysValid: 'Always Valid',
+    activeQuotas: 'Active Quotas',
+    dailyUsage: 'Daily Usage (Last 7 Days)',
     estimateLabel: '',
     localDataHint: 'Click "View Details" above to visit the official website for more credit information',
 
