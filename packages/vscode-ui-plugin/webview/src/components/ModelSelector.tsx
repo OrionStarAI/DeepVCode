@@ -92,8 +92,6 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
   const [modelOptions, setModelOptions] = useState<ModelOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [jwtToken, setJwtToken] = useState<string | undefined>(undefined);
-  const [proxyServerUrl, setProxyServerUrl] = useState<string>('https://api-code.deepvlab.ai');
 
   const [selectedModel, setSelectedModel] = useState<ModelOption | null>(null);
   const [isSwitchingLocal, setIsSwitchingLocal] = useState(false); // 🎯 本地切换状态
@@ -521,34 +519,6 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
     return map;
   }, [modelOptions]);
 
-  // 🎯 Request JWT token when stats dialog opens
-  useEffect(() => {
-    if (isStatsOpen && !jwtToken) {
-      window.vscode.postMessage({
-        type: 'request_jwt_token',
-        payload: {}
-      });
-    }
-  }, [isStatsOpen, jwtToken]);
-
-  // 🎯 Listen for JWT token and proxy URL from extension
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      const message = event.data;
-      if (message.type === 'jwt_token_response') {
-        setJwtToken(message.payload.token);
-        if (message.payload.proxyServerUrl) {
-          setProxyServerUrl(message.payload.proxyServerUrl);
-        }
-      }
-    };
-
-    window.addEventListener('message', handleMessage);
-    return () => {
-      window.removeEventListener('message', handleMessage);
-    };
-  }, []);
-
   return (
     <div
       ref={containerRef}
@@ -733,8 +703,6 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
         onClose={() => setIsStatsOpen(false)}
         messages={messages}
         modelNameMap={modelNameMap}
-        jwtToken={jwtToken}
-        proxyServerUrl={proxyServerUrl}
       />
     </div>
   );
