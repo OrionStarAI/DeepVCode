@@ -323,12 +323,11 @@ export const SessionStatisticsDialog: React.FC<SessionStatisticsDialogProps> = (
                   <div className="points-overview-header">
                     <h3 className="points-overview-title">
                       {t('stats.pointsOverviewTitle')}
-                      <span className="points-estimate-badge">{t('stats.localEstimate')}</span>
                     </h3>
                     <button
                       className="points-detail-link"
                       onClick={() => {
-                        window.open('https://dvcode.deepvlab.ai/userinfo', '_blank');
+                        window.open('https://dvcode.deepvlab.ai/zh/userinfo', '_blank');
                       }}
                       title={t('stats.viewDetails')}
                     >
@@ -343,7 +342,6 @@ export const SessionStatisticsDialog: React.FC<SessionStatisticsDialogProps> = (
                       <div className="points-card-label">{t('stats.totalQuota')}</div>
                       <div className="points-card-value">
                         {formatCredits(userStats.totalQuota)}
-                        <span className="points-unit">{t('stats.estimateLabel')}</span>
                       </div>
                     </div>
 
@@ -358,7 +356,6 @@ export const SessionStatisticsDialog: React.FC<SessionStatisticsDialogProps> = (
                       <div className="points-card-label">{t('stats.remainingCredits')}</div>
                       <div className="points-card-value remaining">
                         {formatCredits(userStats.remainingCredits)}
-                        <span className="points-unit">{t('stats.estimateLabel')}</span>
                       </div>
                     </div>
                   </div>
@@ -390,13 +387,6 @@ export const SessionStatisticsDialog: React.FC<SessionStatisticsDialogProps> = (
               )}
             </>
           )}
-        </div>
-
-        {/* 底部 */}
-        <div className="stats-dialog-footer">
-          <button className="stats-button-primary" onClick={onClose}>
-            {t('common.ok')}
-          </button>
         </div>
       </div>
     </div>

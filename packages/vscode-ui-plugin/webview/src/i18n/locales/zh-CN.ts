@@ -501,14 +501,14 @@ export const zhCN: Translations = {
     tabHint: '← Tab 切换',
 
     // Points overview
-    pointsOverviewTitle: '积分概览（本地估算）',
-    localEstimate: '估算',
+    pointsOverviewTitle: '积分概览',
+    localEstimate: '',
     viewDetails: '查看详情',
     totalQuota: '总额度',
     usedCredits: '已使用',
     remainingCredits: '剩余',
-    estimateLabel: '（估算）',
-    localDataHint: '本地估算数据，点击上方"查看详情"访问官网获取精确积分信息',
+    estimateLabel: '',
+    localDataHint: '点击上方"查看详情"访问官网获取更多积分信息',
 
     // States
     loading: '加载中...',
