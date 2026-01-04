@@ -324,16 +324,6 @@ export const SessionStatisticsDialog: React.FC<SessionStatisticsDialogProps> = (
                     <h3 className="points-overview-title">
                       {t('stats.pointsOverviewTitle')}
                     </h3>
-                    <button
-                      className="points-detail-link"
-                      onClick={() => {
-                        window.open('https://dvcode.deepvlab.ai/zh/userinfo', '_blank');
-                      }}
-                      title={t('stats.viewDetails')}
-                    >
-                      <ExternalLink size={14} />
-                      <span>{t('stats.viewDetails')}</span>
-                    </button>
                   </div>
 
                   {/* 积分卡片 */}
@@ -371,12 +361,6 @@ export const SessionStatisticsDialog: React.FC<SessionStatisticsDialogProps> = (
                     <div className="points-progress-label">
                       {userStats.usagePercentage.toFixed(1)}%
                     </div>
-                  </div>
-
-                  {/* 提示信息 */}
-                  <div className="points-info-box">
-                    <Info size={16} />
-                    <p>{t('stats.localDataHint')}</p>
                   </div>
                 </>
               ) : (
