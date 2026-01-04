@@ -5,6 +5,7 @@
  */
 
 import { FileCommandLoader } from './FileCommandLoader.js';
+import path from 'path';
 import {
   Config,
   getProjectCommandsDir,
@@ -144,6 +145,32 @@ describe('FileCommandLoader', () => {
     } else {
       assert.fail('Incorrect action type');
     }
+  });
+
+  it('loads commands from both .deepvcode and .gemini project directories', async () => {
+    const projectRoot = process.cwd();
+    // Use the actual path resolution logic to ensure we are testing correctly
+    const deepvcodeDir = path.join(projectRoot, '.deepvcode', 'commands');
+    const geminiDir = path.join(projectRoot, '.gemini', 'commands');
+
+    mock({
+      [deepvcodeDir]: {
+        'deepv.toml': 'prompt = "DeepV prompt"',
+      },
+      [geminiDir]: {
+        'gemini.toml': 'prompt = "Gemini prompt"',
+      },
+    });
+
+    const loader = new FileCommandLoader({
+      getProjectRoot: () => projectRoot,
+    } as Config);
+    const commands = await loader.loadCommands(signal);
+
+    expect(commands).toHaveLength(2);
+    const names = commands.map((c) => c.name);
+    expect(names).toContain('deepv');
+    expect(names).toContain('gemini');
   });
 
   it('ignores files with TOML syntax errors', async () => {

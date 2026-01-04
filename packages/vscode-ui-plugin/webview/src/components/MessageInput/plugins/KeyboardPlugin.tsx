@@ -39,8 +39,8 @@ export function KeyboardPlugin({ onSend, onClear }: KeyboardPluginProps) {
             alt: event.altKey
           });
 
-          // 🎯 检查是否有活动的 @ 菜单
-          let hasActiveAtMenu = false;
+          // 🎯 检查是否有活动的 @ 或 / 菜单
+          let hasActiveMenu = false;
           editor.getEditorState().read(() => {
             const selection = $getSelection();
             if ($isRangeSelection(selection)) {
@@ -48,22 +48,40 @@ export function KeyboardPlugin({ onSend, onClear }: KeyboardPluginProps) {
               const textContent = anchorNode.getTextContent();
               const offset = selection.anchor.offset;
 
-              // 检查光标前是否有未完成的 @ 触发
+              // 检查光标前是否有未完成的触发符 (@ 或 /)
               const textBeforeCursor = textContent.slice(0, offset);
+
+              // 检查 @ 菜单
               const lastAtIndex = textBeforeCursor.lastIndexOf('@');
               if (lastAtIndex !== -1) {
                 const textAfterAt = textBeforeCursor.slice(lastAtIndex + 1);
                 // 如果 @ 后面没有空格且不超过合理长度，认为是活动菜单
                 if (!textAfterAt.includes(' ') && textAfterAt.length <= 50) {
-                  hasActiveAtMenu = true;
-                  console.log('Active @ menu detected, text after @:', textAfterAt);
+                  hasActiveMenu = true;
+                  console.log('Active @ menu detected');
+                }
+              }
+
+              // 检查 / 菜单 (斜杠命令)
+              if (!hasActiveMenu) {
+                const lastSlashIndex = textBeforeCursor.lastIndexOf('/');
+                // 只在行首或空格后的 / 才触发
+                const isTriggerLocation = lastSlashIndex === 0 || (lastSlashIndex > 0 && textBeforeCursor[lastSlashIndex - 1] === ' ');
+
+                if (lastSlashIndex !== -1 && isTriggerLocation) {
+                  const textAfterSlash = textBeforeCursor.slice(lastSlashIndex + 1);
+                  // 如果 / 后面没有空格且不超过合理长度，认为是活动菜单
+                  if (!textAfterSlash.includes(' ') && textAfterSlash.length <= 50) {
+                    hasActiveMenu = true;
+                    console.log('Active / menu detected');
+                  }
                 }
               }
             }
           });
 
-          if (hasActiveAtMenu) {
-            console.log('@ menu is active, letting typeahead handle Enter');
+          if (hasActiveMenu) {
+            console.log('Typeahead menu is active, letting it handle Enter');
             return false; // 让 typeahead 菜单处理
           }
 

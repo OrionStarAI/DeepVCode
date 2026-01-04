@@ -91,6 +91,9 @@ export interface Settings {
   checkpointing?: CheckpointingSettings;
   autoConfigureMaxOldSpaceSize?: boolean;
 
+  // Checkpoint history cleanup
+  lastHistoryCleanupCheck?: number;
+
   // Git-aware file filtering settings
   fileFiltering?: {
     respectGitIgnore?: boolean;
