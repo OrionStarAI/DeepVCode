@@ -520,12 +520,30 @@ export class MarketplaceManager {
       }
 
       if (!sourcePath) {
-        console.warn(
-          `Remote plugin source path not found: ${pluginDef.name}\n` +
-          `  Source: ${JSON.stringify(pluginDef.source)}\n` +
-          `  Searched paths:\n` +
-          possiblePaths.map(p => `    - ${p}`).join('\n')
-        );
+        // Plugin directory not found - try to clone it
+        if ('url' in pluginDef.source && pluginDef.source.url) {
+          const targetPath = path.join(marketplacePath, pluginDef.name);
+          console.log(`Cloning plugin ${pluginDef.name} from ${pluginDef.source.url}...`);
+
+          try {
+            await this.cloneRepository(pluginDef.source.url, targetPath);
+            sourcePath = targetPath;
+            console.log(`✓ Successfully cloned ${pluginDef.name}`);
+          } catch (error) {
+            console.warn(
+              `Failed to clone plugin ${pluginDef.name}\n` +
+              `  URL: ${pluginDef.source.url}\n` +
+              `  Error: ${error instanceof Error ? error.message : String(error)}`
+            );
+          }
+        } else {
+          console.warn(
+            `Remote plugin source path not found: ${pluginDef.name}\n` +
+            `  Source: ${JSON.stringify(pluginDef.source)}\n` +
+            `  Searched paths:\n` +
+            possiblePaths.map(p => `    - ${p}`).join('\n')
+          );
+        }
       }
     } else {
       console.warn(`Unsupported plugin source type: ${pluginDef.name}`);
