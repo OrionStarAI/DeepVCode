@@ -1909,16 +1909,32 @@ DeepV Code 现在集成了强大的 **LSP (Language Server Protocol)** 能力。
 - **自动安装**：如果你的电脑没装对应的 LSP 服务端，DeepV Code 会**自动在后台下载并安装**到隔离目录。
 - **无感运行**：用户无需配置环境变量，真正做到“开箱即用”。
 
-### 已支持的语言矩阵 (11 种)
+### 已支持的语言矩阵
 - **通用编程**：TypeScript, JavaScript, Python, Rust, Go
 - **底层开发**：C, C++ (`clangd`)
 - **Web 前端**：HTML, CSS
 - **配置与数据**：JSON, YAML, SQL, Dockerfile
 
+### 核心功能与工具集
+DeepV Code 提供了一套完整的语义化工具，帮助 AI 实现“手术刀”级的代码操作：
+
+1.  **`lsp_hover` (悬停详情)**：获取变量、函数或类的类型定义、文档注释和函数签名。
+2.  **`lsp_goto_definition` (跳转定义)**：精准定位符号的声明位置，支持跨文件追踪。
+3.  **`lsp_find_references` (查找引用)**：分析符号在整个项目中的所有使用位置，是代码重构的必备利器。
+4.  **`lsp_document_symbols` (文件大纲)**：一键列出文件内的所有函数、类、变量及其层级结构，快速掌握大文件逻辑。
+5.  **`lsp_workspace_symbols` (全局搜索)**：在整个项目中按名称搜索符号，无需打开文件即可精确定位。
+6.  **`lsp_implementation` (查找实现)**：查找接口（Interface）或抽象方法的具体实现类。
+
+### 极致的智能体验
+- **1-based 坐标系**：所有工具使用的行号/列号与编辑器（如 VS Code）完全一致，AI 感知不再有偏差。
+- **自动激活与索引**：当 AI 需要分析代码时，会自动探测项目语言并启动 LSP Server。
+- **智能暖机与重试**：针对大型项目索引慢的问题，系统内置了“自动暖机”和“空结果自动重试”机制，确保在服务器扫描项目期间依然能获得稳健的响应。
+
 ### 如何测试与体验？
-1. **确认工具**：输入 `/tools`，确认能看到 `lsp_hover` 和 `lsp_goto_definition`。
-2. **实战提问**：问 AI “使用 LSP Goto Definition，帮我看看这个函数是在哪里定义的？”，或者 “使用 LSP Hover 告诉我的这个变量是什么类型？”。
-3. **观察后台**：第一次使用新语言时，你会看到系统自动下载 LSP 服务端的提示。
+1.  **类型查询**：“`packages/core/src/lsp/index.ts` 中的 `syncDocument` 方法的返回值类型是什么？”
+2.  **查找引用**：“项目中哪些地方调用了 `LSPManager` 类？”
+3.  **结构分析**：“给我一份 `packages/core/src/config/config.ts` 的结构大纲。”
+4.  **全局定位**：“在整个项目中搜索名为 `performAutoLintCheck` 的符号。”
 
 ---
 

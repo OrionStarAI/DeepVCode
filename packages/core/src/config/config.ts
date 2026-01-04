@@ -40,6 +40,10 @@ import { ListSkillsTool } from '../tools/list-skills.js';
 import { GetSkillDetailsTool } from '../tools/get-skill-details.js';
 import { LSPHoverTool } from '../tools/lsp/lsp-hover.js';
 import { LSPGotoDefinitionTool } from '../tools/lsp/lsp-goto-definition.js';
+import { LSPFindReferencesTool } from '../tools/lsp/lsp-find-references.js';
+import { LSPDocumentSymbolsTool } from '../tools/lsp/lsp-document-symbols.js';
+import { LSPWorkspaceSymbolsTool } from '../tools/lsp/lsp-workspace-symbols.js';
+import { LSPImplementationTool } from '../tools/lsp/lsp-implementation.js';
 import { PptOutlineTool } from '../tools/ppt/pptOutlineTool.js';
 import { PptGenerateTool } from '../tools/ppt/pptGenerateTool.js';
 import { ProjectSettingsManager } from './projectSettings.js';
@@ -940,6 +944,10 @@ export class Config {
     registerCoreTool(GetSkillDetailsTool, this);
     registerCoreTool(LSPHoverTool, this);
     registerCoreTool(LSPGotoDefinitionTool, this);
+    registerCoreTool(LSPFindReferencesTool, this);
+    registerCoreTool(LSPDocumentSymbolsTool, this);
+    registerCoreTool(LSPWorkspaceSymbolsTool, this);
+    registerCoreTool(LSPImplementationTool, this);
     registerCoreTool(PptOutlineTool, this);
     registerCoreTool(PptGenerateTool, this);
 
