@@ -44,11 +44,11 @@ export class LSPGotoDefinitionTool extends BaseTool<LSPDefinitionParams, ToolRes
           },
           line: {
             type: Type.NUMBER,
-            description: 'The 0-based line number.'
+            description: 'The 1-based line number (as shown in editors).'
           },
           character: {
             type: Type.NUMBER,
-            description: 'The 0-based character offset on the line.'
+            description: 'The 1-based character offset on the line (as shown in editors).'
           }
         },
         required: ['filePath', 'line', 'character']
@@ -60,13 +60,17 @@ export class LSPGotoDefinitionTool extends BaseTool<LSPDefinitionParams, ToolRes
     if (!params.filePath || !path.isAbsolute(params.filePath)) {
       return 'filePath must be an absolute path.';
     }
+    if (params.line < 1 || params.character < 1) {
+      return 'line and character must be 1-based (>= 1).';
+    }
     return null;
   }
 
 
   async execute(params: LSPDefinitionParams): Promise<ToolResult> {
     const manager = getLSPManager(this.config.getTargetDir());
-    const results = await manager.getDefinition(params.filePath, params.line, params.character);
+    // Convert 1-based to 0-based for LSP
+    const results = await manager.getDefinition(params.filePath, params.line - 1, params.character - 1);
 
     if (results.length === 0) {
       return {
@@ -81,7 +85,8 @@ export class LSPGotoDefinitionTool extends BaseTool<LSPDefinitionParams, ToolRes
       const uri = loc.uri || loc.targetUri;
       const range = loc.range || loc.targetSelectionRange;
       const filePath = fileURLToPath(uri);
-      return `- File: ${filePath}\n  Range: Line ${range.start.line}, Char ${range.start.character} to Line ${range.end.line}, Char ${range.end.character}`;
+      // Return 1-based to the AI as well for consistency
+      return `- File: ${filePath}\n  Range: Line ${range.start.line + 1}, Char ${range.start.character + 1} to Line ${range.end.line + 1}, Char ${range.end.character + 1}`;
     }).join('\n');
 
     return {

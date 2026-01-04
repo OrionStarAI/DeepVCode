@@ -134,6 +134,7 @@ export class ReadLintsTool extends BaseTool<ReadLintsParams, ToolResult> {
 
       // 生成输出内容
       const output = this.formatDiagnostics(groupedDiagnostics, params.paths);
+      const aiOutput = this.formatDiagnosticsForAI(groupedDiagnostics);
 
       // 统计信息
       const stats = this.generateStats(diagnostics);
@@ -141,7 +142,7 @@ export class ReadLintsTool extends BaseTool<ReadLintsParams, ToolResult> {
 
       return {
         summary,
-        llmContent: output,
+        llmContent: aiOutput,
         returnDisplay: output,
       };
 
@@ -154,6 +155,26 @@ export class ReadLintsTool extends BaseTool<ReadLintsParams, ToolResult> {
         returnDisplay: `Operation failed: ${errorMessage}`,
       };
     }
+  }
+
+  /**
+   * 格式化诊断信息输出 (AI 专用，遵循 reference 建议)
+   */
+  private formatDiagnosticsForAI(groupedDiagnostics: Record<string, LintDiagnostic[]>): string {
+    const files = Object.keys(groupedDiagnostics);
+    if (files.length === 0) return '✅ No linter errors found.';
+
+    let output = '';
+    for (const file of files) {
+      const diagnostics = groupedDiagnostics[file];
+      output += `<file_diagnostics path="${file}">\n`;
+      for (const d of diagnostics) {
+        const severityStr = d.severity === 'error' ? 'Error' : d.severity.charAt(0).toUpperCase() + d.severity.slice(1);
+        output += `[Line ${d.line}] ${severityStr}: ${d.message}${d.code ? ` (${d.code})` : ''}\n`;
+      }
+      output += `</file_diagnostics>\n`;
+    }
+    return output.trim();
   }
 
   /**

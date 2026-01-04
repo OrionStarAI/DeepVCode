@@ -36,30 +36,21 @@ export function formatLintResults(diagnostics: LintDiagnostic[], filePath: strin
   const others = diagnostics.filter(d => d.severity !== 'error' && d.severity !== 'warning');
 
   let result = `🔍 **Lint Check Results** for ${path.basename(filePath)}:\n`;
+  result += `<file_diagnostics path="${filePath}">\n`;
 
   if (errors.length > 0) {
-    result += `❌ **${errors.length} Error${errors.length > 1 ? 's' : ''}**:\n`;
-    errors.slice(0, 3).forEach(error => {
-      result += `  - Line ${error.line}:${error.column}: ${error.message} [${error.source}]\n`;
+    errors.forEach(error => {
+      result += `[Line ${error.line}] Error: ${error.message}${error.code ? ` (${error.code})` : ''}\n`;
     });
-    if (errors.length > 3) {
-      result += `  - ... and ${errors.length - 3} more errors\n`;
-    }
   }
 
   if (warnings.length > 0) {
-    result += `⚠️ **${warnings.length} Warning${warnings.length > 1 ? 's' : ''}**:\n`;
-    warnings.slice(0, 2).forEach(warning => {
-      result += `  - Line ${warning.line}:${warning.column}: ${warning.message} [${warning.source}]\n`;
+    warnings.forEach(warning => {
+      result += `[Line ${warning.line}] Warning: ${warning.message}${warning.code ? ` (${warning.code})` : ''}\n`;
     });
-    if (warnings.length > 2) {
-      result += `  - ... and ${warnings.length - 2} more warnings\n`;
-    }
   }
 
-  if (others.length > 0) {
-    result += `💡 **${others.length} Other issue${others.length > 1 ? 's' : ''}** (info/hints)\n`;
-  }
+  result += `</file_diagnostics>`;
 
   return result.trim();
 }
