@@ -1532,10 +1532,10 @@ function setupBasicMessageHandlers() {
     }
   });
 
-  // 🎯 Handle JWT token requests for user stats
-  communicationService.addMessageHandler('request_jwt_token', async () => {
+  // 🎯 Handle user stats requests
+  communicationService.addMessageHandler('request_user_stats', async () => {
     try {
-      logger.info('Received JWT token request from webview');
+      logger.info('📊 Received user stats request from webview');
 
       const { ProxyAuthManager } = require('deepv-code-core');
       const authManager = ProxyAuthManager.getInstance();
@@ -1543,24 +1543,50 @@ function setupBasicMessageHandlers() {
       const token = await authManager.getAccessToken();
       const proxyServerUrl = authManager.getProxyServerUrl();
 
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
+
+      // 通过后端代理请求用户积分数据
+      const response = await fetch(`${proxyServerUrl}/web-api/user/stats`, {
+        method: 'GET',
+        headers: {
+          'accept': 'application/json, text/plain, */*',
+          'authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'User-Agent': 'DeepVCode-VSCode'
+        },
+        timeout: 30000
+      } as any);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch user stats: ${response.status} ${response.statusText}`);
+      }
+
+      const data = await response.json() as any;
+
+      // 发送成功响应
       await communicationService.sendMessage({
-        type: 'jwt_token_response',
+        type: 'user_stats_response',
         payload: {
-          token,
-          proxyServerUrl
+          stats: {
+            totalQuota: data.totalQuota || 0,
+            usedCredits: data.usedCredits || 0,
+            remainingCredits: data.remainingCredits || 0,
+            usagePercentage: data.usagePercentage || 0
+          }
         }
       });
 
-      logger.info('✅ Sent JWT token response to webview');
+      logger.info('✅ Sent user stats response to webview');
     } catch (error) {
-      logger.error('❌ Failed to get JWT token', error instanceof Error ? error : undefined);
+      logger.error('❌ Failed to fetch user stats', error instanceof Error ? error : undefined);
 
-      // Send empty response on error
+      // 发送错误响应
       await communicationService.sendMessage({
-        type: 'jwt_token_response',
+        type: 'user_stats_response',
         payload: {
-          token: null,
-          proxyServerUrl: 'https://api-code.deepvlab.ai'
+          error: error instanceof Error ? error.message : 'Failed to fetch user stats'
         }
       });
     }

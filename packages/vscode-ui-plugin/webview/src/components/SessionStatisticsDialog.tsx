@@ -11,7 +11,17 @@ import { useTranslation } from '../hooks/useTranslation';
 import { ChatMessage } from '../types';
 import { X, BarChart2, Zap, TrendingUp, Info, Wallet, ExternalLink } from 'lucide-react';
 import './SessionStatisticsDialog.css';
-import { UserStatsService, UserStats } from '../services/userStatsService';
+
+export interface UserStats {
+  /** 总额度（估算） */
+  totalQuota: number;
+  /** 已使用积分 */
+  usedCredits: number;
+  /** 剩余积分（估算） */
+  remainingCredits: number;
+  /** 使用百分比 */
+  usagePercentage: number;
+}
 
 interface ModelStatEntry {
   modelId: string;
@@ -32,19 +42,13 @@ interface SessionStatisticsDialogProps {
   messages: ChatMessage[];
   /** 模型 ID 到显示名称的映射 */
   modelNameMap?: Record<string, string>;
-  /** JWT Token for API authentication */
-  jwtToken?: string;
-  /** 代理服务器URL */
-  proxyServerUrl?: string;
 }
 
 export const SessionStatisticsDialog: React.FC<SessionStatisticsDialogProps> = ({
   isOpen,
   onClose,
   messages,
-  modelNameMap = {},
-  jwtToken,
-  proxyServerUrl = 'https://api-code.deepvlab.ai'
+  modelNameMap = {}
 }) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<TabType>('session');
@@ -52,26 +56,39 @@ export const SessionStatisticsDialog: React.FC<SessionStatisticsDialogProps> = (
   const [isLoadingStats, setIsLoadingStats] = useState(false);
   const [statsError, setStatsError] = useState<string | null>(null);
 
-  const userStatsService = useMemo(() => new UserStatsService(proxyServerUrl), [proxyServerUrl]);
-
-  // 加载用户积分统计
+  // 加载用户积分统计 - 通过消息通信
   useEffect(() => {
-    if (isOpen && activeTab === 'points' && jwtToken && !userStats) {
+    if (isOpen && activeTab === 'points' && !userStats) {
       setIsLoadingStats(true);
       setStatsError(null);
 
-      userStatsService.getUserStats(jwtToken, true)
-        .then(stats => {
-          setUserStats(stats);
-          setIsLoadingStats(false);
-        })
-        .catch(error => {
-          console.error('Failed to load user stats:', error);
-          setStatsError(error.message || 'Failed to load stats');
-          setIsLoadingStats(false);
-        });
+      // 向 Extension 请求用户积分数据
+      window.vscode.postMessage({
+        type: 'request_user_stats',
+        payload: {}
+      });
     }
-  }, [isOpen, activeTab, jwtToken, userStats, userStatsService]);
+  }, [isOpen, activeTab, userStats]);
+
+  // 监听用户积分响应
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      const message = event.data;
+      if (message.type === 'user_stats_response') {
+        setIsLoadingStats(false);
+        if (message.payload.error) {
+          setStatsError(message.payload.error);
+        } else {
+          setUserStats(message.payload.stats);
+        }
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => {
+      window.removeEventListener('message', handleMessage);
+    };
+  }, []);
 
   // 重置状态当对话框关闭时
   useEffect(() => {
@@ -187,7 +204,6 @@ export const SessionStatisticsDialog: React.FC<SessionStatisticsDialogProps> = (
           >
             {t('stats.pointsTab')}
           </button>
-          <div className="stats-tab-hint">{t('stats.tabHint')}</div>
         </div>
 
         {/* 主体 */}
