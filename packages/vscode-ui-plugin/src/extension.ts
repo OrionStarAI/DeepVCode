@@ -1540,6 +1540,77 @@ function setupBasicMessageHandlers() {
     }
   });
 
+  // 🎯 Handle user stats requests
+  communicationService.addMessageHandler('request_user_stats', async () => {
+    try {
+      logger.info('📊 Received user stats request from webview');
+
+      const { ProxyAuthManager } = require('deepv-code-core');
+      const authManager = ProxyAuthManager.getInstance();
+
+      const token = await authManager.getAccessToken();
+      const proxyServerUrl = authManager.getProxyServerUrl();
+
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
+
+      // 通过后端代理请求用户积分数据
+      const response = await fetch(`${proxyServerUrl}/web-api/user/stats`, {
+        method: 'GET',
+        headers: {
+          'accept': 'application/json, text/plain, */*',
+          'authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+          'User-Agent': 'DeepVCode-VSCode'
+        },
+        timeout: 30000
+      } as any);
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch user stats: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.json() as any;
+
+      // 解析 API 响应数据
+      if (!result.success || !result.data) {
+        throw new Error('Invalid API response');
+      }
+
+      const data = result.data;
+      const totalQuota = data.totalCreditsLimits || 0;
+      const usedCredits = data.creditsUsage?.totalCreditsUsed || 0;
+      const remainingCredits = totalQuota - usedCredits;
+      const usagePercentage = totalQuota > 0 ? (usedCredits / totalQuota) * 100 : 0;
+
+      // 发送成功响应
+      await communicationService.sendMessage({
+        type: 'user_stats_response',
+        payload: {
+          stats: {
+            totalQuota,
+            usedCredits,
+            remainingCredits,
+            usagePercentage
+          }
+        }
+      });
+
+      logger.info('✅ Sent user stats response to webview');
+    } catch (error) {
+      logger.error('❌ Failed to fetch user stats', error instanceof Error ? error : undefined);
+
+      // 发送错误响应
+      await communicationService.sendMessage({
+        type: 'user_stats_response',
+        payload: {
+          error: error instanceof Error ? error.message : 'Failed to fetch user stats'
+        }
+      });
+    }
+  });
+
   // 🎯 处理登录相关消息
   setupLoginHandlers();
 }

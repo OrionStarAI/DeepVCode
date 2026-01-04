@@ -269,7 +269,9 @@ export type WebViewToExtensionMessage =
   | { type: 'version_revert_previous'; payload: { sessionId: string } }
   // 🎯 自定义斜杠命令相关
   | { type: 'get_slash_commands'; payload: {} }
-  | { type: 'execute_custom_slash_command'; payload: { commandName: string; args: string } };
+  | { type: 'execute_custom_slash_command'; payload: { commandName: string; args: string } }
+  // 🎯 用户积分统计请求
+  | { type: 'request_user_stats'; payload: {} };
 
 // Message types from Extension to WebView
 export type ExtensionToWebViewMessage =
@@ -364,7 +366,9 @@ export type ExtensionToWebViewMessage =
   // 🎯 Token使用情况更新（压缩后）
   | { type: 'token_usage_update'; payload: { sessionId: string; tokenUsage: { totalTokens: number; tokenLimit: number; inputTokens: number; outputTokens: number } } }
   // 🎯 模型切换完成（压缩成功后通知前端更新模型选择器）
-  | { type: 'model_switch_complete'; payload: { sessionId: string; modelName: string } };
+  | { type: 'model_switch_complete'; payload: { sessionId: string; modelName: string } }
+  // 🎯 用户积分统计响应
+  | { type: 'user_stats_response'; payload: { stats?: { totalQuota: number; usedCredits: number; remainingCredits: number; usagePercentage: number }; error?: string } };
 
 /**
  * 🔌 MCP 状态消息负载

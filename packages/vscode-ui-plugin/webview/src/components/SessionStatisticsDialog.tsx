@@ -3,13 +3,25 @@
  * 会话统计对话框组件
  *
  * 展示当前会话的积分消耗、Token 使用情况以及各模型的调用统计
+ * 支持切换到积分概览标签页查看用户总体积分信息
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useTranslation } from '../hooks/useTranslation';
 import { ChatMessage } from '../types';
-import { X, BarChart2, Zap, TrendingUp, Info } from 'lucide-react';
+import { X, BarChart2, Zap, TrendingUp, Info, Wallet, ExternalLink } from 'lucide-react';
 import './SessionStatisticsDialog.css';
+
+export interface UserStats {
+  /** 总额度（估算） */
+  totalQuota: number;
+  /** 已使用积分 */
+  usedCredits: number;
+  /** 剩余积分（估算） */
+  remainingCredits: number;
+  /** 使用百分比 */
+  usagePercentage: number;
+}
 
 interface ModelStatEntry {
   modelId: string;
@@ -18,6 +30,8 @@ interface ModelStatEntry {
   tokens: number;
   credits: number;
 }
+
+type TabType = 'session' | 'points';
 
 interface SessionStatisticsDialogProps {
   /** 是否显示对话框 */
@@ -37,6 +51,53 @@ export const SessionStatisticsDialog: React.FC<SessionStatisticsDialogProps> = (
   modelNameMap = {}
 }) => {
   const { t } = useTranslation();
+  const [activeTab, setActiveTab] = useState<TabType>('session');
+  const [userStats, setUserStats] = useState<UserStats | null>(null);
+  const [isLoadingStats, setIsLoadingStats] = useState(false);
+  const [statsError, setStatsError] = useState<string | null>(null);
+
+  // 加载用户积分统计 - 通过消息通信
+  useEffect(() => {
+    if (isOpen && activeTab === 'points' && !userStats) {
+      setIsLoadingStats(true);
+      setStatsError(null);
+
+      // 向 Extension 请求用户积分数据
+      window.vscode.postMessage({
+        type: 'request_user_stats',
+        payload: {}
+      });
+    }
+  }, [isOpen, activeTab, userStats]);
+
+  // 监听用户积分响应
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      const message = event.data;
+      if (message.type === 'user_stats_response') {
+        setIsLoadingStats(false);
+        if (message.payload.error) {
+          setStatsError(message.payload.error);
+        } else {
+          setUserStats(message.payload.stats);
+        }
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+    return () => {
+      window.removeEventListener('message', handleMessage);
+    };
+  }, []);
+
+  // 重置状态当对话框关闭时
+  useEffect(() => {
+    if (!isOpen) {
+      setActiveTab('session');
+      setUserStats(null);
+      setStatsError(null);
+    }
+  }, [isOpen]);
 
   // 计算统计数据
   const stats = useMemo(() => {
@@ -105,6 +166,16 @@ export const SessionStatisticsDialog: React.FC<SessionStatisticsDialogProps> = (
 
   if (!isOpen) return null;
 
+  // 格式化积分数字
+  const formatCredits = (value: number): string => {
+    if (value >= 1000000) {
+      return `${(value / 1000000).toFixed(1)}M`;
+    } else if (value >= 1000) {
+      return `${(value / 1000).toFixed(1)}K`;
+    }
+    return value.toFixed(0);
+  };
+
   return (
     <div className="stats-dialog-backdrop" onClick={onClose}>
       <div className="stats-dialog" onClick={e => e.stopPropagation()}>
@@ -119,10 +190,29 @@ export const SessionStatisticsDialog: React.FC<SessionStatisticsDialogProps> = (
           </button>
         </div>
 
+        {/* 标签切换 */}
+        <div className="stats-tabs">
+          <button
+            className={`stats-tab ${activeTab === 'session' ? 'active' : ''}`}
+            onClick={() => setActiveTab('session')}
+          >
+            {t('stats.sessionTab')}
+          </button>
+          <button
+            className={`stats-tab ${activeTab === 'points' ? 'active' : ''}`}
+            onClick={() => setActiveTab('points')}
+          >
+            {t('stats.pointsTab')}
+          </button>
+        </div>
+
         {/* 主体 */}
         <div className="stats-dialog-body">
-          {/* 总览卡片 */}
-          <div className="stats-summary-grid">
+          {/* 会话统计标签页 */}
+          {activeTab === 'session' && (
+            <>
+              {/* 总览卡片 */}
+              <div className="stats-summary-grid">
             <div className="stats-summary-card">
               <div className="stats-card-header">
                 <div className="stats-card-icon">
@@ -202,13 +292,85 @@ export const SessionStatisticsDialog: React.FC<SessionStatisticsDialogProps> = (
               </div>
             )}
           </div>
-        </div>
+            </>
+          )}
 
-        {/* 底部 */}
-        <div className="stats-dialog-footer">
-          <button className="stats-button-primary" onClick={onClose}>
-            {t('common.ok')}
-          </button>
+          {/* 积分概览标签页 */}
+          {activeTab === 'points' && (
+            <>
+              {isLoadingStats ? (
+                <div className="stats-loading">
+                  <Info size={32} />
+                  <p>{t('stats.loading')}</p>
+                </div>
+              ) : statsError ? (
+                <div className="stats-error">
+                  <Info size={32} />
+                  <p>{t('stats.loadError')}</p>
+                  <button
+                    className="stats-retry-button"
+                    onClick={() => {
+                      setUserStats(null);
+                      setStatsError(null);
+                    }}
+                  >
+                    {t('stats.retry')}
+                  </button>
+                </div>
+              ) : userStats ? (
+                <>
+                  {/* 积分概览标题 */}
+                  <div className="points-overview-header">
+                    <h3 className="points-overview-title">
+                      {t('stats.pointsOverviewTitle')}
+                    </h3>
+                  </div>
+
+                  {/* 积分卡片 */}
+                  <div className="points-cards-grid">
+                    <div className="points-card">
+                      <div className="points-card-label">{t('stats.totalQuota')}</div>
+                      <div className="points-card-value">
+                        {formatCredits(userStats.totalQuota)}
+                      </div>
+                    </div>
+
+                    <div className="points-card">
+                      <div className="points-card-label">{t('stats.usedCredits')}</div>
+                      <div className="points-card-value used">
+                        {formatCredits(userStats.usedCredits)}
+                      </div>
+                    </div>
+
+                    <div className="points-card">
+                      <div className="points-card-label">{t('stats.remainingCredits')}</div>
+                      <div className="points-card-value remaining">
+                        {formatCredits(userStats.remainingCredits)}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 进度条 */}
+                  <div className="points-progress-section">
+                    <div className="points-progress-bar">
+                      <div
+                        className="points-progress-fill"
+                        style={{ width: `${Math.min(userStats.usagePercentage, 100)}%` }}
+                      />
+                    </div>
+                    <div className="points-progress-label">
+                      {userStats.usagePercentage.toFixed(1)}%
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <div className="stats-empty">
+                  <Wallet size={32} />
+                  <p>{t('stats.noPointsData')}</p>
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
     </div>

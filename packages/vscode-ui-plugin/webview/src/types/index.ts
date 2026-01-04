@@ -209,6 +209,7 @@ export interface MessageToExtension {
        'goto_symbol' |                // 🎯 新增：跳转到符号（方法名）
        'goto_line' |                  // 🎯 新增：跳转到当前文件的指定行
        'show_notification' |          // 🎯 新增：显示通知
+       'request_user_stats' |         // 🎯 新增：请求用户积分统计
        'ready';
   payload: Record<string, unknown>;
 }

@@ -494,5 +494,26 @@ export const zhCN: Translations = {
     avgTokens: '平均 Token',
     consumption: '消费积分',
     noData: '暂无统计数据',
+
+    // Tab switching
+    sessionTab: '会话统计',
+    pointsTab: '积分概览',
+    tabHint: '← Tab 切换',
+
+    // Points overview
+    pointsOverviewTitle: '积分概览',
+    localEstimate: '',
+    viewDetails: '查看详情',
+    totalQuota: '总额度',
+    usedCredits: '已使用',
+    remainingCredits: '剩余',
+    estimateLabel: '',
+    localDataHint: '点击上方"查看详情"访问官网获取更多积分信息',
+
+    // States
+    loading: '加载中...',
+    loadError: '加载失败',
+    retry: '重试',
+    noPointsData: '暂无积分数据',
   },
 };
