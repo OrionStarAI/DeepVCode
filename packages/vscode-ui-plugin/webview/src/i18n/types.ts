@@ -489,6 +489,24 @@ export interface Translations {
     avgTokens: string;
     consumption: string;
     noData: string;
+    // Tab switching
+    sessionTab: string;
+    pointsTab: string;
+    tabHint: string;
+    // Points overview
+    pointsOverviewTitle: string;
+    localEstimate: string;
+    viewDetails: string;
+    totalQuota: string;
+    usedCredits: string;
+    remainingCredits: string;
+    estimateLabel: string;
+    localDataHint: string;
+    // States
+    loading: string;
+    loadError: string;
+    retry: string;
+    noPointsData: string;
   };
 }
 

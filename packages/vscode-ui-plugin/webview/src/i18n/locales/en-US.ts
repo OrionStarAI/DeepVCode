@@ -494,5 +494,26 @@ export const enUS: Translations = {
     avgTokens: 'Avg Tokens',
     consumption: 'Credits',
     noData: 'No statistical data available',
+
+    // Tab switching
+    sessionTab: 'Session Stats',
+    pointsTab: 'Points Overview',
+    tabHint: '← Tab Switch',
+
+    // Points overview
+    pointsOverviewTitle: 'Points Overview (Local Estimate)',
+    localEstimate: 'Estimate',
+    viewDetails: 'View Details',
+    totalQuota: 'Total Quota',
+    usedCredits: 'Used',
+    remainingCredits: 'Remaining',
+    estimateLabel: '(Est.)',
+    localDataHint: 'Local estimated data. Click "View Details" above to visit the official website for accurate credit information',
+
+    // States
+    loading: 'Loading...',
+    loadError: 'Failed to load',
+    retry: 'Retry',
+    noPointsData: 'No points data available',
   },
 };

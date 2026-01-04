@@ -257,3 +257,246 @@
   background-color: var(--vscode-button-hoverBackground);
 }
 
+/* ===== Tab Switching Styles ===== */
+.stats-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  background-color: var(--vscode-sideBar-background);
+}
+
+.stats-tab {
+  padding: 8px 16px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--vscode-descriptionForeground);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.15s;
+  position: relative;
+}
+
+.stats-tab:hover {
+  color: var(--vscode-foreground);
+  background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.stats-tab.active {
+  color: var(--vscode-textLink-activeForeground);
+  border-bottom-color: var(--vscode-textLink-activeForeground);
+}
+
+.stats-tab-hint {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+  opacity: 0.7;
+}
+
+/* ===== Points Overview Styles ===== */
+.points-overview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-top: 4px;
+}
+
+.points-overview-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.points-estimate-badge {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--vscode-descriptionForeground);
+  background-color: var(--vscode-badge-background);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.points-detail-link {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: none;
+  border: 1px solid var(--vscode-button-border);
+  border-radius: 3px;
+  color: var(--vscode-textLink-foreground);
+  cursor: pointer;
+  font-size: 11px;
+  transition: all 0.15s;
+}
+
+.points-detail-link:hover {
+  background-color: var(--vscode-button-hoverBackground);
+  border-color: var(--vscode-textLink-activeForeground);
+}
+
+.points-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.points-card {
+  background-color: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+  padding: 16px 12px;
+  text-align: center;
+  transition: all 0.2s;
+}
+
+.points-card:hover {
+  border-color: var(--vscode-focusBorder);
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.points-card-label {
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+
+.points-card-value {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--vscode-editor-foreground);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+.points-card-value.used {
+  color: var(--vscode-charts-orange);
+}
+
+.points-card-value.remaining {
+  color: var(--vscode-charts-green);
+}
+
+.points-unit {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--vscode-descriptionForeground);
+}
+
+.points-progress-section {
+  margin-bottom: 20px;
+}
+
+.points-progress-bar {
+  width: 100%;
+  height: 24px;
+  background-color: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+  overflow: hidden;
+  position: relative;
+}
+
+.points-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg,
+    var(--vscode-charts-blue) 0%,
+    var(--vscode-charts-purple) 100%);
+  transition: width 0.3s ease;
+  position: relative;
+}
+
+.points-progress-fill::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 10px,
+    rgba(255, 255, 255, 0.1) 10px,
+    rgba(255, 255, 255, 0.1) 20px
+  );
+}
+
+.points-progress-label {
+  text-align: center;
+  margin-top: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.points-info-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px;
+  background-color: var(--vscode-inputValidation-infoBackground);
+  border: 1px solid var(--vscode-inputValidation-infoBorder);
+  border-radius: 3px;
+  font-size: 11px;
+  color: var(--vscode-foreground);
+  line-height: 1.5;
+}
+
+.points-info-box svg {
+  color: var(--vscode-textLink-foreground);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.points-info-box p {
+  margin: 0;
+}
+
+/* ===== Loading and Error States ===== */
+.stats-loading,
+.stats-error {
+  padding: 48px 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.stats-error svg {
+  color: var(--vscode-errorForeground);
+}
+
+.stats-retry-button {
+  margin-top: 8px;
+  padding: 6px 16px;
+  background-color: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background-color 0.1s;
+}
+
+.stats-retry-button:hover {
+  background-color: var(--vscode-button-hoverBackground);
+}
+
