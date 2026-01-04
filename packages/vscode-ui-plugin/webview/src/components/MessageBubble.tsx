@@ -35,7 +35,7 @@ declare const window: Window & {
 };
 
 // 代码块组件（提取为独立组件以正确管理状态）
-const CodeBlock: React.FC<any> = ({ node, children, ...props }) => {
+const CodeBlock: React.FC<any> = ({ node, children, t, ...props }) => {
   const [isCopied, setIsCopied] = React.useState(false);
   const [isCollapsed, setIsCollapsed] = React.useState(false);
 
@@ -120,12 +120,12 @@ const CodeBlock: React.FC<any> = ({ node, children, ...props }) => {
             <button
               className="code-toggle-btn"
               onClick={() => setIsCollapsed(true)}
-              title="折叠代码"
-              aria-label="折叠代码"
+              title={t('common.collapse', {}, 'Collapse')}
+              aria-label={t('common.collapse', {}, 'Collapse')}
               tabIndex={0}
             >
               <ChevronUp size={14} />
-              <span>折叠</span>
+              <span>{t('common.collapse', {}, 'Collapse')}</span>
             </button>
           )}
           <button
@@ -137,8 +137,8 @@ const CodeBlock: React.FC<any> = ({ node, children, ...props }) => {
                 copyToClipboard(codeString);
               }
             }}
-            title={isCopied ? "已复制!" : "复制代码"}
-            aria-label={isCopied ? "代码已复制到剪贴板" : "复制代码到剪贴板"}
+            title={isCopied ? t('chat.copied') : t('chat.copyMessage')}
+            aria-label={isCopied ? t('chat.copied') : t('chat.copyMessage')}
             aria-live="polite"
             tabIndex={0}
           >
@@ -155,7 +155,7 @@ const CodeBlock: React.FC<any> = ({ node, children, ...props }) => {
           <div className="code-expand-overlay" onClick={() => setIsCollapsed(false)}>
             <button className="code-expand-btn">
               <ChevronDown size={16} />
-              <span>展开代码</span>
+              <span>{t('common.expand', {}, 'Expand')}</span>
             </button>
           </div>
         )}
@@ -165,11 +165,11 @@ const CodeBlock: React.FC<any> = ({ node, children, ...props }) => {
             <button
               className="code-footer-collapse-btn"
               onClick={() => setIsCollapsed(true)}
-              title="折叠代码"
-              aria-label="折叠代码"
+              title={t('common.collapse', {}, 'Collapse')}
+              aria-label={t('common.collapse', {}, 'Collapse')}
             >
               <ChevronUp size={16} />
-              <span>折叠</span>
+              <span>{t('common.collapse', {}, 'Collapse')}</span>
             </button>
           </div>
         )}
@@ -499,8 +499,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
               <button
                 className="edit-button-inline"
                 onClick={() => onStartEdit(message.id)}
-                title="编辑消息"
-                aria-label="编辑消息"
+                title={t('chat.editMessage')}
+                aria-label={t('chat.editMessage')}
               >
                 <Pencil size={14} />
               </button>
@@ -512,8 +512,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
                   e.stopPropagation();
                   handleRevertToMessage();
                 }}
-                title="回退到此消息"
-                aria-label="回退到此消息"
+                title={t('chat.rollback')}
+                aria-label={t('chat.rollback')}
               >
                 <Undo size={14} />
               </button>
@@ -587,7 +587,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
 
               const markdownComponents = {
                 // 代码块美化 - 使用独立的 CodeBlock 组件
-                pre: CodeBlock,
+                pre: (props: any) => <CodeBlock {...props} t={t} />,
 
                 // 行内代码 - 添加文件路径和方法名链接支持
                 code({node, className, children, ...props}: any) {
@@ -735,8 +735,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
                 handleCopy();
               }
             }}
-            title="复制消息"
-            aria-label={copySuccess ? "消息已复制到剪贴板" : "复制消息到剪贴板"}
+            title={t('chat.copyMessage')}
+            aria-label={copySuccess ? t('chat.copied') : t('chat.copyMessage')}
             aria-live="polite"
             tabIndex={0}
           >
@@ -754,8 +754,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
                   onRegenerate(message.id);
                 }
               }}
-              title="重新生成回答"
-              aria-label="重新生成回答"
+              title={t('chat.regenerate')}
+              aria-label={t('chat.regenerate')}
               tabIndex={0}
             >
               <RefreshCw size={16} stroke="currentColor" />
@@ -777,8 +777,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
                     setShowTokenInfo(true);
                   }
                 }}
-                title="Token 使用情况"
-                aria-label="查看 Token 使用情况"
+                title={t('chat.tokenUsage')}
+                aria-label={t('chat.tokenUsage')}
                 aria-expanded={showTokenInfo}
               >
                 <Info size={16} stroke="currentColor" />

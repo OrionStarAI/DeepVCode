@@ -1578,22 +1578,11 @@ function setupBasicMessageHandlers() {
         throw new Error('Invalid API response');
       }
 
-      const data = result.data;
-      const totalQuota = data.totalCreditsLimits || 0;
-      const usedCredits = data.creditsUsage?.totalCreditsUsed || 0;
-      const remainingCredits = totalQuota - usedCredits;
-      const usagePercentage = totalQuota > 0 ? (usedCredits / totalQuota) * 100 : 0;
-
       // 发送成功响应
       await communicationService.sendMessage({
         type: 'user_stats_response',
         payload: {
-          stats: {
-            totalQuota,
-            usedCredits,
-            remainingCredits,
-            usagePercentage
-          }
+          stats: result.data
         }
       });
 

@@ -8,20 +8,9 @@
 
 import React, { useMemo, useState, useEffect } from 'react';
 import { useTranslation } from '../hooks/useTranslation';
-import { ChatMessage } from '../types';
-import { X, BarChart2, Zap, TrendingUp, Info, Wallet, ExternalLink } from 'lucide-react';
+import { ChatMessage, DetailedUserStats } from '../types';
+import { X, BarChart2, Zap, TrendingUp, Info, Wallet, ExternalLink, Calendar, Database, Clock } from 'lucide-react';
 import './SessionStatisticsDialog.css';
-
-export interface UserStats {
-  /** 总额度（估算） */
-  totalQuota: number;
-  /** 已使用积分 */
-  usedCredits: number;
-  /** 剩余积分（估算） */
-  remainingCredits: number;
-  /** 使用百分比 */
-  usagePercentage: number;
-}
 
 interface ModelStatEntry {
   modelId: string;
@@ -31,7 +20,7 @@ interface ModelStatEntry {
   credits: number;
 }
 
-type TabType = 'session' | 'points';
+type TabType = 'session' | 'credits';
 
 interface SessionStatisticsDialogProps {
   /** 是否显示对话框 */
@@ -52,13 +41,13 @@ export const SessionStatisticsDialog: React.FC<SessionStatisticsDialogProps> = (
 }) => {
   const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<TabType>('session');
-  const [userStats, setUserStats] = useState<UserStats | null>(null);
+  const [userStats, setUserStats] = useState<DetailedUserStats | null>(null);
   const [isLoadingStats, setIsLoadingStats] = useState(false);
   const [statsError, setStatsError] = useState<string | null>(null);
 
   // 加载用户积分统计 - 通过消息通信
   useEffect(() => {
-    if (isOpen && activeTab === 'points' && !userStats) {
+    if (isOpen && activeTab === 'credits' && !userStats) {
       setIsLoadingStats(true);
       setStatsError(null);
 
@@ -113,7 +102,6 @@ export const SessionStatisticsDialog: React.FC<SessionStatisticsDialogProps> = (
       if (msg.type === 'assistant' && msg.tokenUsage && typeof msg.tokenUsage === 'object') {
         const usage = msg.tokenUsage;
 
-        // 🎯 P2 修复：使用 ?? 确保即使值为 0 也能正确处理，并增强防御性
         const credits = usage.creditsUsage ?? 0;
         const tokens = usage.totalTokens ?? 0;
         const inputTokens = usage.inputTokens ?? 0;
@@ -124,7 +112,6 @@ export const SessionStatisticsDialog: React.FC<SessionStatisticsDialogProps> = (
         totalInputTokens += inputTokens;
         totalOutputTokens += outputTokens;
 
-        // 🎯 P1 修复：增强模型查找逻辑和回退机制
         // 标准化 ID 以提高匹配率
         const modelId = (msg.modelName || 'auto').toLowerCase();
 
@@ -173,7 +160,17 @@ export const SessionStatisticsDialog: React.FC<SessionStatisticsDialogProps> = (
     } else if (value >= 1000) {
       return `${(value / 1000).toFixed(1)}K`;
     }
-    return value.toFixed(0);
+    return value.toLocaleString(undefined, { maximumFractionDigits: 1 });
+  };
+
+  // 格式化日期
+  const formatDate = (dateString: string): string => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString();
+    } catch {
+      return dateString;
+    }
   };
 
   return (
@@ -199,10 +196,10 @@ export const SessionStatisticsDialog: React.FC<SessionStatisticsDialogProps> = (
             {t('stats.sessionTab')}
           </button>
           <button
-            className={`stats-tab ${activeTab === 'points' ? 'active' : ''}`}
-            onClick={() => setActiveTab('points')}
+            className={`stats-tab ${activeTab === 'credits' ? 'active' : ''}`}
+            onClick={() => setActiveTab('credits')}
           >
-            {t('stats.pointsTab')}
+            {t('stats.creditsTab')}
           </button>
         </div>
 
@@ -213,90 +210,90 @@ export const SessionStatisticsDialog: React.FC<SessionStatisticsDialogProps> = (
             <>
               {/* 总览卡片 */}
               <div className="stats-summary-grid">
-            <div className="stats-summary-card">
-              <div className="stats-card-header">
-                <div className="stats-card-icon">
-                  <Zap size={14} />
+                <div className="stats-summary-card">
+                  <div className="stats-card-header">
+                    <div className="stats-card-icon">
+                      <Zap size={14} />
+                    </div>
+                    <div className="stats-card-label">{t('stats.totalConsumption')}</div>
+                  </div>
+                  <div className="stats-card-value">
+                    {stats.totalCredits.toFixed(3)}
+                    <span className="stats-unit">credits</span>
+                  </div>
                 </div>
-                <div className="stats-card-label">{t('stats.totalConsumption')}</div>
-              </div>
-              <div className="stats-card-value">
-                {stats.totalCredits.toFixed(3)}
-                <span className="stats-unit">credits</span>
-              </div>
-            </div>
 
-            <div className="stats-summary-card">
-              <div className="stats-card-header">
-                <div className="stats-card-icon">
-                  <TrendingUp size={14} />
+                <div className="stats-summary-card">
+                  <div className="stats-card-header">
+                    <div className="stats-card-icon">
+                      <TrendingUp size={14} />
+                    </div>
+                    <div className="stats-card-label">{t('stats.totalTokens')}</div>
+                  </div>
+                  <div className="stats-card-value">
+                    {stats.totalTokens.toLocaleString()}
+                    <span className="stats-unit">tokens</span>
+                  </div>
                 </div>
-                <div className="stats-card-label">{t('stats.totalTokens')}</div>
               </div>
-              <div className="stats-card-value">
-                {stats.totalTokens.toLocaleString()}
-                <span className="stats-unit">tokens</span>
-              </div>
-            </div>
-          </div>
 
-          {/* 详细 Token 拆分 */}
-          <div className="stats-token-breakdown">
-             <div className="token-item">
-                <span className="token-label">{t('tokenUsage.input')}</span>
-                <span className="token-value">{stats.totalInputTokens.toLocaleString()}</span>
-             </div>
-             <div className="token-item">
-                <span className="token-label">{t('tokenUsage.output')}</span>
-                <span className="token-value">{stats.totalOutputTokens.toLocaleString()}</span>
-             </div>
-          </div>
-
-          {/* 模型统计列表 */}
-          <div className="stats-section">
-            <h3 className="stats-section-title">
-              {t('stats.modelStats')}
-            </h3>
-
-            {stats.modelStats.length > 0 ? (
-              <div className="stats-table-container">
-                <table className="stats-table">
-                  <thead>
-                    <tr>
-                      <th className="text-left">{t('stats.modelName')}</th>
-                      <th className="text-right">{t('stats.callCount')}</th>
-                      <th className="text-right">{t('stats.avgTokens')}</th>
-                      <th className="text-right">{t('stats.consumption')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {stats.modelStats.map((stat) => (
-                      <tr key={stat.modelId}>
-                        <td className="text-left font-medium">{stat.displayName}</td>
-                        <td className="text-right">{stat.calls}</td>
-                        <td className="text-right">
-                          {Math.round(stat.tokens / stat.calls).toLocaleString()}
-                        </td>
-                        <td className="text-right credits-value">
-                          {stat.credits.toFixed(3)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              {/* 详细 Token 拆分 */}
+              <div className="stats-token-breakdown">
+                <div className="token-item">
+                  <span className="token-label">{t('tokenUsage.input')}</span>
+                  <span className="token-value">{stats.totalInputTokens.toLocaleString()}</span>
+                </div>
+                <div className="token-item">
+                  <span className="token-label">{t('tokenUsage.output')}</span>
+                  <span className="token-value">{stats.totalOutputTokens.toLocaleString()}</span>
+                </div>
               </div>
-            ) : (
-              <div className="stats-empty">
-                <Info size={32} />
-                <p>{t('stats.noData')}</p>
+
+              {/* 模型统计列表 */}
+              <div className="stats-section">
+                <h3 className="stats-section-title">
+                  {t('stats.modelStats')}
+                </h3>
+
+                {stats.modelStats.length > 0 ? (
+                  <div className="stats-table-container">
+                    <table className="stats-table">
+                      <thead>
+                        <tr>
+                          <th className="text-left">{t('stats.modelName')}</th>
+                          <th className="text-right">{t('stats.callCount')}</th>
+                          <th className="text-right">{t('stats.avgTokens')}</th>
+                          <th className="text-right">{t('stats.consumption')}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {stats.modelStats.map((stat) => (
+                          <tr key={stat.modelId}>
+                            <td className="text-left font-medium">{stat.displayName}</td>
+                            <td className="text-right">{stat.calls}</td>
+                            <td className="text-right">
+                              {Math.round(stat.tokens / stat.calls).toLocaleString()}
+                            </td>
+                            <td className="text-right credits-value">
+                              {stat.credits.toFixed(3)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="stats-empty">
+                    <Info size={32} />
+                    <p>{t('stats.noData')}</p>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
             </>
           )}
 
           {/* 积分概览标签页 */}
-          {activeTab === 'points' && (
+          {activeTab === 'credits' && (
             <>
               {isLoadingStats ? (
                 <div className="stats-loading">
@@ -319,47 +316,103 @@ export const SessionStatisticsDialog: React.FC<SessionStatisticsDialogProps> = (
                 </div>
               ) : userStats ? (
                 <>
-                  {/* 积分概览标题 */}
-                  <div className="points-overview-header">
-                    <h3 className="points-overview-title">
-                      {t('stats.pointsOverviewTitle')}
-                    </h3>
-                  </div>
-
-                  {/* 积分卡片 */}
+                  {/* 积分概览卡片 */}
                   <div className="points-cards-grid">
                     <div className="points-card">
                       <div className="points-card-label">{t('stats.totalQuota')}</div>
                       <div className="points-card-value">
-                        {formatCredits(userStats.totalQuota)}
+                        {formatCredits(userStats.totalCreditsLimits)}
                       </div>
                     </div>
 
                     <div className="points-card">
                       <div className="points-card-label">{t('stats.usedCredits')}</div>
                       <div className="points-card-value used">
-                        {formatCredits(userStats.usedCredits)}
+                        {formatCredits(userStats.creditsUsage.totalCreditsUsed)}
+                        <span className="points-usage-percentage">
+                          {((userStats.creditsUsage.totalCreditsUsed / userStats.totalCreditsLimits) * 100).toFixed(1)}%
+                        </span>
                       </div>
                     </div>
 
                     <div className="points-card">
-                      <div className="points-card-label">{t('stats.remainingCredits')}</div>
-                      <div className="points-card-value remaining">
-                        {formatCredits(userStats.remainingCredits)}
+                      <div className="points-card-label">{t('stats.totalRequests')}</div>
+                      <div className="points-card-value">
+                        {formatCredits(userStats.creditsUsage.totalRequests)}
                       </div>
                     </div>
                   </div>
 
-                  {/* 进度条 */}
-                  <div className="points-progress-section">
-                    <div className="points-progress-bar">
-                      <div
-                        className="points-progress-fill"
-                        style={{ width: `${Math.min(userStats.usagePercentage, 100)}%` }}
-                      />
+                  {/* 配额到期信息 */}
+                  <div className="quota-expiration-info">
+                    <div className="info-item">
+                      <Calendar size={14} />
+                      <span className="info-label">{t('stats.expiration')}:</span>
+                      <span className="info-value">
+                        {userStats.quotaExpiration.hasExpiration && userStats.quotaExpiration.latestExpiresAt
+                          ? formatDate(userStats.quotaExpiration.latestExpiresAt)
+                          : t('stats.alwaysValid')}
+                      </span>
                     </div>
-                    <div className="points-progress-label">
-                      {userStats.usagePercentage.toFixed(1)}%
+                  </div>
+
+                  {/* 每日消耗图表 */}
+                  <div className="daily-usage-section">
+                    <h3 className="stats-section-title">{t('stats.dailyUsage')}</h3>
+                    <div className="usage-chart-container">
+                      {userStats.dailyUsage.map((usage, idx) => {
+                        const maxUsage = Math.max(...userStats.dailyUsage.map(u => u.creditsUsed), 100);
+                        const height = (usage.creditsUsed / maxUsage) * 100;
+                        const date = usage.date.split('-').slice(1).join('-'); // MM-DD
+                        return (
+                          <div key={idx} className="chart-bar-wrapper">
+                            <div
+                              className="chart-bar"
+                              style={{ height: `${Math.max(height, 2)}%` }}
+                            >
+                              <div className="chart-bar-tooltip">
+                                {usage.creditsUsed.toFixed(1)}
+                              </div>
+                            </div>
+                            <span className="chart-label">{date}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* 活跃配额详情 */}
+                  <div className="active-quotas-section">
+                    <h3 className="stats-section-title">{t('stats.activeQuotas')}</h3>
+                    <div className="quota-list">
+                      {userStats.quotas.map((quota) => (
+                        <div key={quota.id} className="quota-item">
+                          <div className="quota-item-header">
+                            <span className="quota-type-badge">{quota.quotaType}</span>
+                            <span className="quota-usage-text">
+                              {formatCredits(quota.creditsUsed)} / {formatCredits(quota.creditsLimits)} ({ (quota.utilizationRate * 100).toFixed(1)}%)
+                            </span>
+                          </div>
+                          <div className="quota-progress-mini">
+                            <div
+                              className="quota-progress-mini-fill"
+                              style={{ width: `${Math.min(quota.utilizationRate * 100, 100)}%` }}
+                            />
+                          </div>
+                          <div className="quota-details-grid">
+                            <div className="quota-detail-row">
+                              <span className="quota-detail-label">Requests:</span>
+                              <span className="quota-detail-value">{quota.requestsCount.toLocaleString()}</span>
+                            </div>
+                            <div className="quota-detail-row">
+                              <span className="quota-detail-label">Expires:</span>
+                              <span className="quota-detail-value">
+                                {quota.expiresAt ? formatDate(quota.expiresAt) : t('stats.alwaysValid')}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 </>
