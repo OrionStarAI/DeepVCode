@@ -79,6 +79,12 @@ export interface Translations {
     stopProcessing: string;
     cannotStop: string;
     sending: string;
+    copyMessage: string;
+    copied: string;
+    regenerate: string;
+    tokenUsage: string;
+    editMessage: string;
+    rollback: string;
     editPlaceholder: string;
     undoneFileHistory: string;
     fileChangesTitle: string;
@@ -491,15 +497,20 @@ export interface Translations {
     noData: string;
     // Tab switching
     sessionTab: string;
-    pointsTab: string;
+    creditsTab: string;
     tabHint: string;
-    // Points overview
-    pointsOverviewTitle: string;
+    // Credits overview
+    creditsOverviewTitle: string;
     localEstimate: string;
     viewDetails: string;
     totalQuota: string;
     usedCredits: string;
     remainingCredits: string;
+    totalRequests: string;
+    expiration: string;
+    alwaysValid: string;
+    activeQuotas: string;
+    dailyUsage: string;
     estimateLabel: string;
     localDataHint: string;
     // States

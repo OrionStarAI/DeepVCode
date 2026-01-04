@@ -81,7 +81,7 @@
 }
 
 .stats-dialog-body {
-  padding: 0 16px 16px 16px;
+  padding: 16px;
   overflow-y: auto;
   flex: 1;
 }
@@ -498,5 +498,185 @@
 
 .stats-retry-button:hover {
   background-color: var(--vscode-button-hoverBackground);
+}
+
+/* ===== Enhanced Credits Styles ===== */
+.points-usage-percentage {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--vscode-descriptionForeground);
+  margin-top: 2px;
+}
+
+.quota-expiration-info {
+  background-color: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+  padding: 10px 12px;
+  margin-bottom: 20px;
+}
+
+.info-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.info-item svg {
+  color: var(--vscode-charts-purple);
+}
+
+.info-label {
+  color: var(--vscode-descriptionForeground);
+}
+
+.info-value {
+  color: var(--vscode-foreground);
+  font-weight: 600;
+}
+
+/* ===== Detailed Quota List ===== */
+.active-quotas-section {
+  margin-top: 24px;
+}
+
+.quota-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.quota-item {
+  background-color: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+  padding: 12px;
+}
+
+.quota-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.quota-type-badge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  background-color: var(--vscode-badge-background);
+  color: var(--vscode-badge-foreground);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.quota-usage-text {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.quota-progress-mini {
+  height: 4px;
+  background-color: var(--vscode-panel-border);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.quota-progress-mini-fill {
+  height: 100%;
+  background-color: var(--vscode-textLink-foreground);
+  transition: width 0.3s ease;
+}
+
+.quota-details-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.quota-detail-row {
+  display: flex;
+  gap: 6px;
+  font-size: 11px;
+  align-items: center;
+}
+
+.quota-detail-label {
+  color: var(--vscode-descriptionForeground);
+}
+
+.quota-detail-value {
+  color: var(--vscode-foreground);
+  font-weight: 500;
+}
+
+/* ===== Daily Usage Chart ===== */
+.daily-usage-section {
+  margin-top: 24px;
+}
+
+.usage-chart-container {
+  height: 120px;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  padding: 10px 0 20px 0;
+  border-bottom: 1px solid var(--vscode-panel-border);
+  margin-bottom: 8px;
+}
+
+.chart-bar-wrapper {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  height: 100%;
+}
+
+.chart-bar {
+  width: 100%;
+  max-width: 30px;
+  background-color: var(--vscode-charts-blue);
+  border-top-left-radius: 2px;
+  border-top-right-radius: 2px;
+  transition: height 0.3s ease;
+  position: relative;
+  min-height: 2px;
+}
+
+.chart-bar:hover {
+  background-color: var(--vscode-textLink-activeForeground);
+}
+
+.chart-bar-tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: var(--vscode-debugConsole-infoForeground);
+  color: #fff;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.2s;
+  margin-bottom: 4px;
+  z-index: 10;
+}
+
+.chart-bar:hover .chart-bar-tooltip {
+  opacity: 1;
+}
+
+.chart-label {
+  font-size: 9px;
+  color: var(--vscode-descriptionForeground);
+  white-space: nowrap;
 }
 

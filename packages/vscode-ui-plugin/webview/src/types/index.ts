@@ -100,6 +100,53 @@ export interface ChatMessage {
   modelName?: string;
 }
 
+// 🎯 用户积分/额度统计接口
+export interface QuotaInfo {
+  id: number;
+  quotaType: string;
+  creditsLimits: number;
+  isActive: boolean;
+  autoUse: boolean;
+  effectiveFrom: string;
+  expiresAt: string | null;
+  creditsUsed: number;
+  requestsCount: number;
+  utilizationRate: number;
+}
+
+export interface QuotaExpiration {
+  hasExpiration: boolean;
+  latestExpiresAt: string | null;
+  daysRemaining: number | null;
+  isExpired: boolean;
+  isExpiringSoon: boolean;
+}
+
+export interface CreditsUsage {
+  totalCreditsUsed: number;
+  totalRequests: number;
+  lastUsed: string;
+}
+
+export interface DailyUsage {
+  date: string;
+  creditsUsed: number;
+}
+
+export interface DetailedUserStats {
+  userInfo?: {
+    userUuid: string;
+    name: string;
+    email: string;
+    status: string;
+  };
+  quotas: QuotaInfo[];
+  totalCreditsLimits: number;
+  quotaExpiration: QuotaExpiration;
+  creditsUsage: CreditsUsage;
+  dailyUsage: DailyUsage[];
+}
+
 // 🎯 增强的工具调用状态枚举
 export enum ToolCallStatus {
   Scheduled = 'scheduled',
