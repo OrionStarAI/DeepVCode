@@ -16,7 +16,11 @@ function revealFile(filePath: string): Promise<void> {
           resolve();
         });
       } else if (platform === 'win32') {
-        execFile('explorer.exe', ['/select', filePath], (error) => {
+        // Windows: use explorer.exe /select,"path\to\file"
+        // The comma after /select is important for some Windows versions
+        // and we ensure the path uses backslashes
+        const winPath = path.win32.normalize(filePath);
+        execFile('explorer.exe', [`/select,${winPath}`], (error) => {
           if (error) {
             console.warn(`Unable to open file in Explorer: ${error.message}`);
           }
@@ -118,7 +122,7 @@ export async function exportSessionToMarkdown(
 
   const timestamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
   const fileName = 'session_export_' + sessionId.substring(0, 8) + '_' + timestamp + '.md';
-  const exportPath = path.join(projectRoot, fileName);
+  const exportPath = path.resolve(projectRoot, fileName);
 
   try {
     await fs.writeFile(exportPath, markdown, 'utf-8');

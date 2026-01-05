@@ -38,6 +38,13 @@ export const exportDebugCommand: SlashCommand = {
         content: tp('export.success', { path: exportPath }),
       };
     } catch (error) {
+      if (error instanceof Error && error.message === 'NO_ERRORS_OR_WARNINGS') {
+        return {
+          type: 'message',
+          messageType: 'info',
+          content: t('export_debug.no_errors'),
+        };
+      }
       return {
         type: 'message',
         messageType: 'error',
