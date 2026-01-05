@@ -225,10 +225,10 @@ export const ToolMessage: React.FC<ToolMessageProps> = ({
           emphasis={emphasis}
           terminalWidth={terminalWidth - 2} // 减去 paddingX={1} 的两列
         />
-        {emphasis === 'high' && <TrailingIndicator />}
+        {emphasis === 'high' ? <TrailingIndicator /> : null}
       </Box>
       {/* Show thinking display if available */}
-      {thinkingDisplayData && (
+      {thinkingDisplayData ? (
         <Box paddingLeft={STATUS_INDICATOR_WIDTH} width="100%">
           <Box flexDirection="column">
             <Box flexDirection="row">
@@ -239,18 +239,18 @@ export const ToolMessage: React.FC<ToolMessageProps> = ({
             </Box>
           </Box>
         </Box>
-      )}
+      ) : null}
       {/* Show regular resultDisplay if no thinking display */}
-      {!thinkingDisplayData && resultDisplay && (
+      {!thinkingDisplayData && resultDisplay ? (
         <Box paddingLeft={STATUS_INDICATOR_WIDTH} width="100%">
           <Box flexDirection="column">
-            {typeof resultDisplay === 'string' && renderOutputAsMarkdown && (
+            {typeof resultDisplay === 'string' && renderOutputAsMarkdown ? (
               <Text wrap="wrap">
                 <Text color={Colors.Gray}>└ </Text>
                 {resultDisplay}
               </Text>
-            )}
-            {typeof resultDisplay === 'string' && !renderOutputAsMarkdown && (
+            ) : null}
+            {typeof resultDisplay === 'string' && !renderOutputAsMarkdown ? (
               (() => {
                 // 🔧 修复闪屏：执行中限制高度，完成后扩大限制（兼容Windows）
                 // Windows平台对大文本写入更敏感，需要保留MaxSizedBox但放宽限制
@@ -274,7 +274,7 @@ export const ToolMessage: React.FC<ToolMessageProps> = ({
                       <Text color={Colors.Gray} wrap="truncate">
                         ... omitted {truncated.omittedLines} lines ...
                       </Text>
-                      {parts[1] && <Text wrap="wrap">{parts[1]}</Text>}
+                      {parts[1] ? <Text wrap="wrap">{parts[1]}</Text> : null}
                     </Box>
                   );
                 }
@@ -297,32 +297,32 @@ export const ToolMessage: React.FC<ToolMessageProps> = ({
                   )
                 );
               })()
-            )}
-            {typeof resultDisplay !== 'string' && (resultDisplay as any).type === 'todo_display' && (
+            ) : null}
+            {typeof resultDisplay !== 'string' && (resultDisplay as any).type === 'todo_display' ? (
               <Box flexDirection="row">
                 <Text color={Colors.Gray}>└ </Text>
                 <Box flexGrow={1}>
                   <TodoDisplayRenderer data={resultDisplay as any} />
                 </Box>
               </Box>
-            )}
-            {typeof resultDisplay !== 'string' && (resultDisplay as any).type === 'subagent_display' && (
+            ) : null}
+            {typeof resultDisplay !== 'string' && (resultDisplay as any).type === 'subagent_display' ? (
               <Box flexDirection="row">
                 <Text color={Colors.Gray}>└ </Text>
                 <Box flexGrow={1}>
                   <SubAgentDisplayRenderer data={resultDisplay as any} />
                 </Box>
               </Box>
-            )}
-            {typeof resultDisplay !== 'string' && (resultDisplay as any).type === 'subagent_update' && (
+            ) : null}
+            {typeof resultDisplay !== 'string' && (resultDisplay as any).type === 'subagent_update' ? (
               <Box flexDirection="row">
                 <Text color={Colors.Gray}>└ </Text>
                 <Box flexGrow={1}>
                   <SubAgentDisplayRenderer data={(resultDisplay as any).data} />
                 </Box>
               </Box>
-            )}
-            {typeof resultDisplay !== 'string' && (resultDisplay as any).fileDiff && (
+            ) : null}
+            {typeof resultDisplay !== 'string' && (resultDisplay as any).fileDiff ? (
               <Box flexDirection="row">
                 <Text color={Colors.Gray}>└ </Text>
                 <Box flexGrow={1}>
@@ -341,10 +341,10 @@ export const ToolMessage: React.FC<ToolMessageProps> = ({
                   )}
                 </Box>
               </Box>
-            )}
+            ) : null}
           </Box>
         </Box>
-      )}
+      ) : null}
     </Box>
   );
 };
@@ -357,33 +357,33 @@ const ToolStatusIndicator: React.FC<ToolStatusIndicatorProps> = ({
   status,
 }) => (
   <Box minWidth={STATUS_INDICATOR_WIDTH}>
-    {status === ToolCallStatus.Pending && (
+    {status === ToolCallStatus.Pending ? (
       <Text color={Colors.AccentGreen}>o</Text>
-    )}
-    {status === ToolCallStatus.Executing && (
+    ) : null}
+    {status === ToolCallStatus.Executing ? (
       <GeminiRespondingSpinner
         nonRespondingDisplay={'⊷'}
       />
-    )}
-    {status === ToolCallStatus.SubAgentRunning && (
+    ) : null}
+    {status === ToolCallStatus.SubAgentRunning ? (
       <BlinkingRobotEmoji />
-    )}
-    {status === ToolCallStatus.Success && (
+    ) : null}
+    {status === ToolCallStatus.Success ? (
       <Text color={Colors.AccentGreen}>●</Text>
-    )}
-    {status === ToolCallStatus.Confirming && (
+    ) : null}
+    {status === ToolCallStatus.Confirming ? (
       <Text color={Colors.AccentYellow}>?</Text>
-    )}
-    {status === ToolCallStatus.Canceled && (
+    ) : null}
+    {status === ToolCallStatus.Canceled ? (
       <Text color={Colors.AccentYellow} bold>
         -
       </Text>
-    )}
-    {status === ToolCallStatus.Error && (
+    ) : null}
+    {status === ToolCallStatus.Error ? (
       <Text color={Colors.AccentRed} bold>
         x
       </Text>
-    )}
+    ) : null}
   </Box>
 );
 

@@ -86,7 +86,7 @@ export const TokenUsageDisplay: React.FC<TokenUsageDisplayProps> = ({
           <Text>{totalTokens.toLocaleString()}</Text>
         </Box>
 
-        {(credits_usage > 0 || (cumulativeCredits && cumulativeCredits > 0)) ? (
+        {credits_usage > 0 || (cumulativeCredits && cumulativeCredits > 0) ? (
           <Box flexDirection="row">
             <Text color={Colors.AccentPurple}>{t('token.credits')}</Text>
             <Text>{(cumulativeCredits || credits_usage || 0).toLocaleString()}</Text>

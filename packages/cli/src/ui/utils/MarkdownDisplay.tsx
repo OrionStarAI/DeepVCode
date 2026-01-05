@@ -442,11 +442,11 @@ const RenderThinkBlockInternal: React.FC<RenderThinkBlockProps> = ({
         <Text color={Colors.Comment} italic wrap="wrap">
           {displayLines.join('\n')}
         </Text>
-        {isPending && (
+        {isPending ? (
           <Text color={Colors.Comment}>
             ...
           </Text>
-        )}
+        ) : null}
       </Box>
       <Box flexDirection="row" alignItems="center" width={terminalWidth}>
         <Text color={Colors.Gray}>

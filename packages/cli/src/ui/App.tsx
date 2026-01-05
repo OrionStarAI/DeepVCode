@@ -1696,7 +1696,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     <StreamingContext.Provider value={streamingState}>
       <Box flexDirection="column" width="90%" ref={rootUiRef}>
         {/* Move UpdateNotification outside Static so it can re-render when updateMessage changes */}
-        {updateMessage && <UpdateNotification message={updateMessage} />}
+        {updateMessage ? <UpdateNotification message={updateMessage} /> : null}
 
         {/*
          * The Static component is an Ink intrinsic in which there can only be 1 per application.
@@ -1736,19 +1736,19 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
           </Box>
         </OverflowProvider>
 
-        {showHelp && <Help commands={slashCommands} />}
+        {showHelp ? <Help commands={slashCommands} /> : null}
 
         {/* 🆕 显示思考过程框（在pending内容后，一旦开始内容就隐藏） */}
-        {reasoning && !hasContentStarted && (
+        {reasoning && !hasContentStarted ? (
           <ReasoningDisplay
             reasoning={reasoning}
             terminalHeight={terminalHeight}
             terminalWidth={terminalWidth}
           />
-        )}
+        ) : null}
 
         <Box flexDirection="column" ref={mainControlsRef}>
-          {startupWarnings.length > 0 && (
+          {startupWarnings.length > 0 ? (
             <Box
               borderStyle="round"
               borderColor={Colors.AccentYellow}
@@ -1762,15 +1762,15 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                 </Text>
               ))}
             </Box>
-          )}
+          ) : null}
 
           {isThemeDialogOpen ? (
             <Box flexDirection="column">
-              {themeError && (
+              {themeError ? (
                 <Box marginBottom={1}>
                   <Text color={Colors.AccentRed}>{themeError}</Text>
                 </Box>
-              )}
+              ) : null}
               <ThemeDialog
                 onSelect={handleThemeSelect}
                 onHighlight={handleThemeHighlight}
@@ -1785,11 +1785,11 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
             </Box>
           ) : isModelDialogOpen ? (
             <Box flexDirection="column">
-              {modelError && (
+              {modelError ? (
                 <Box marginBottom={1}>
                   <Text color={Colors.AccentRed}>{modelError}</Text>
                 </Box>
-              )}
+              ) : null}
               <ModelDialog
                 onSelect={handleModelSelect}
                 onHighlight={handleModelHighlight}
@@ -1843,11 +1843,11 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
             </Box>
           ) : isEditorDialogOpen ? (
             <Box flexDirection="column">
-              {editorError && (
+              {editorError ? (
                 <Box marginBottom={1}>
                   <Text color={Colors.AccentRed}>{editorError}</Text>
                 </Box>
-              )}
+              ) : null}
               <EditorSettingsDialog
                 onSelect={handleEditorSelect}
                 settings={settings}
@@ -1862,11 +1862,11 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
           ) : (
             <>
               {/* 🎯 Checkpoint创建中提示 */}
-              {isCreatingCheckpoint && (
+              {isCreatingCheckpoint ? (
                 <Box marginBottom={1}>
                   <Text color={Colors.AccentBlue}>🔄 {t('checkpoint.creating')}</Text>
                 </Box>
-              )}
+              ) : null}
 
               <LoadingIndicator
                 thought={
@@ -1894,9 +1894,9 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                 width="100%"
               >
                 <Box>
-                  {process.env.GEMINI_SYSTEM_MD && (
+                  {process.env.GEMINI_SYSTEM_MD ? (
                     <Text color={Colors.AccentRed}>|⌐■_■| </Text>
-                  )}
+                  ) : null}
                   {ctrlCPressedOnce ? (
                     <Text color={Colors.AccentYellow}>
                       {t('exit.confirm.ctrl.c')}
@@ -1917,23 +1917,23 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                   )}
                 </Box>
                 <Box>
-                  {planModeActive && <PlanModeIndicator />}
+                  {planModeActive ? <PlanModeIndicator /> : null}
                   {showAutoAcceptIndicator !== ApprovalMode.DEFAULT &&
-                    !shellModeActive && !helpModeActive && !planModeActive && (
+                    !shellModeActive && !helpModeActive && !planModeActive ? (
                       <AutoAcceptIndicator
                         approvalMode={showAutoAcceptIndicator}
                       />
-                    )}
-                  {shellModeActive && <ShellModeIndicator />}
-                  {helpModeActive && <HelpModeIndicator />}
+                    ) : null}
+                  {shellModeActive ? <ShellModeIndicator /> : null}
+                  {helpModeActive ? <HelpModeIndicator /> : null}
                 </Box>
               </Box>
-              {showIDEContextDetail && (
+              {showIDEContextDetail ? (
                 <IDEContextDetailDisplay openFiles={openFiles} />
-              )}
+              ) : null}
 
               {/* 图片生成轮询动画 - 显示在 ContextSummaryDisplay 上方 */}
-              {imagePolling.isVisible && (
+              {imagePolling.isVisible ? (
                 <Box marginY={0} marginBottom={1}>
                   <ImagePollingSpinner
                     isVisible={imagePolling.isVisible}
@@ -1941,19 +1941,19 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                     estimated={imagePolling.estimated}
                   />
                 </Box>
-              )}
+              ) : null}
 
               {/* Token Usage Display - 显示在输入框上方 */}
-              {lastTokenUsage && streamingState !== StreamingState.Responding && (
+              {lastTokenUsage && streamingState !== StreamingState.Responding ? (
                 <TokenUsageDisplay
                   tokenUsage={lastTokenUsage}
                   inputWidth={inputWidth}
                   cumulativeCredits={cumulativeCredits}
                 />
-              )}
+              ) : null}
 
               {/* 队列消息显示 - 简洁模式（无Queued标签） */}
-              {queuedPrompts.length > 0 && !initError && (
+              {queuedPrompts.length > 0 && !initError ? (
                 <Box marginY={1} flexDirection="column" gap={0}>
                   {queuedPrompts.map((prompt, index) => {
                     const preview = prompt.length > 60 ? `${prompt.slice(0, 60)}...` : prompt;
@@ -1963,16 +1963,16 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                       </Text>
                     );
                   })}
-                  {queuedPrompts.length > 0 && (
+                  {queuedPrompts.length > 0 ? (
                     <Text dimColor>
                       {t('input.queue.edit.hint')}
                     </Text>
-                  )}
+                  ) : null}
                 </Box>
-              )}
+              ) : null}
 
               {/* 队列编辑模式界面 */}
-              {queueEditMode && (
+              {queueEditMode ? (
                 <Box marginY={1}>
                   <Text color={Colors.AccentBlue}>
                     🔄 {tp('input.queue.edit.mode', {
@@ -1981,10 +1981,10 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                     })} • {t('input.queue.edit.actions')}
                   </Text>
                 </Box>
-              )}
+              ) : null}
 
               {/* 润色 Loading 界面 */}
-              {refineLoading && (
+              {refineLoading ? (
                 <Box
                   flexDirection="column"
                   borderStyle="round"
@@ -2000,10 +2000,10 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                     <Text color={Colors.Gray}>{t('command.refine.loading.message')}</Text>
                   </Box>
                 </Box>
-              )}
+              ) : null}
 
               {/* 润色结果确认界面 */}
-              {refineResult && !refineLoading && (
+              {refineResult && !refineLoading ? (
                 <Box
                   flexDirection="column"
                   borderStyle="round"
@@ -2034,7 +2034,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                     <Box marginRight={2}>
                       <Text bold color={Colors.AccentYellow}>{t('command.refine.confirm.hint.refine-again')}</Text>
                     </Box>
-                    {refineResult.omittedLines && !refineResult.showFullText && (
+                    {refineResult.omittedLines && !refineResult.showFullText ? (
                       <>
                         <Box marginRight={2}>
                           <Text color={Colors.Gray}>|</Text>
@@ -2043,7 +2043,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                           <Text bold color={Colors.AccentBlue}>{t('command.refine.confirm.hint.view-full')}</Text>
                         </Box>
                       </>
-                    )}
+                    ) : null}
                     <Box marginRight={2}>
                       <Text color={Colors.Gray}>|</Text>
                     </Box>
@@ -2052,9 +2052,9 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                     </Box>
                   </Box>
                 </Box>
-              )}
+              ) : null}
 
-              {shouldRenderInputPrompt && (
+              {shouldRenderInputPrompt ? (
                 <InputPrompt
                   buffer={buffer}
                   inputWidth={inputWidth}
@@ -2078,11 +2078,11 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                   isBusy={streamingState !== StreamingState.Idle || queuedPrompts.length > 0}
                   isInSpecialMode={!!refineResult || queueEditMode}
                 />
-              )}
+              ) : null}
             </>
           )}
 
-          {initError && streamingState !== StreamingState.Responding && (
+          {initError && streamingState !== StreamingState.Responding ? (
             <Box
               borderStyle="round"
               borderColor={Colors.AccentRed}
@@ -2113,7 +2113,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                 </>
               )}
             </Box>
-          )}
+          ) : null}
           {/* Debug Console - Fixed at bottom before Footer */}
           {renderDebugPanel()}
           <Footer

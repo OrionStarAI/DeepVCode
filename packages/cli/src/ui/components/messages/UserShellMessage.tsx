@@ -24,11 +24,11 @@ export const UserShellMessage: React.FC<UserShellMessageProps> = ({ text, termin
         <Text color={Colors.AccentCyan}>$ </Text>
         <Text>{commandToDisplay}</Text>
       </Box>
-      {terminalWidth && (
+      {terminalWidth ? (
         <Box flexGrow={1} justifyContent="flex-end" alignItems="center">
           <Text>{userIndicator}</Text>
         </Box>
-      )}
+      ) : null}
     </Box>
   );
 };
