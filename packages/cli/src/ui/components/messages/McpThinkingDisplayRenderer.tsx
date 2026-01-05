@@ -48,43 +48,46 @@ export const McpThinkingDisplayRenderer: React.FC<{ data: McpThinkingDisplay }> 
       {/* Header with status and progress */}
       <Box>
         {getStatusIndicator()}
-        {progressText && (
+        {progressText ? (
           <>
             <Text color={Colors.Gray}> · </Text>
             <Text color={Colors.Gray}>{progressText}</Text>
           </>
-        )}
+        ) : null}
       </Box>
 
       {/* Main thought content - use gray color to be less distracting, limited to 5 lines */}
       <Box marginTop={0} marginLeft={2}>
         <Text color={Colors.Gray} wrap="wrap">
           {displayThought}
-          {isTruncated && <Text color={Colors.Gray} dimColor>
-            {'\n'}... (更多思考内容)</Text>}
+          {isTruncated ? (
+            <Text color={Colors.Gray} dimColor>
+              {'\n'}... (更多思考内容)
+            </Text>
+          ) : null}
         </Text>
       </Box>
 
       {/* Optional metadata - de-emphasized */}
-      {(data.isRevision || data.branchId || data.needsMoreThoughts) && (
+      {data.isRevision || data.branchId || data.needsMoreThoughts ? (
         <Box marginTop={0} marginLeft={2} flexDirection="column">
-          {data.isRevision && data.revisesThought !== undefined && (
+          {data.isRevision && data.revisesThought !== undefined ? (
             <Text color={Colors.Gray} dimColor>
               ↪ 修正步骤 {data.revisesThought}
             </Text>
-          )}
-          {data.branchId && data.branchFromThought !== undefined && (
+          ) : null}
+          {data.branchId && data.branchFromThought !== undefined ? (
             <Text color={Colors.Gray} dimColor>
               ↪ 从步骤 {data.branchFromThought} 分支 ({data.branchId})
             </Text>
-          )}
-          {data.needsMoreThoughts && (
+          ) : null}
+          {data.needsMoreThoughts ? (
             <Text color={Colors.Gray} dimColor>
               ↪ 需要更多思考步骤
             </Text>
-          )}
+          ) : null}
         </Box>
-      )}
+      ) : null}
     </Box>
   );
 };

@@ -1049,7 +1049,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
               <Text color={Colors.Gray}>
                 {focus ? chalk.inverse(placeholderText.charAt(0)) : placeholderText.charAt(0)}{placeholderText.slice(1)}
               </Text>
-              {!helpModeActive && <Text color={Colors.AccentYellow}> ({getNewlineHint()}, esc: Cancel)</Text>}
+              {!helpModeActive ? <Text color={Colors.AccentYellow}> ({getNewlineHint()}, esc: Cancel)</Text> : null}
             </Text>
           ) : (
             renderedInputLines
@@ -1058,7 +1058,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
       </Box>
 
       {/* 长文本粘贴提示 */}
-      {pasteSegments.length > 0 && (
+      {pasteSegments.length > 0 ? (
         <Box marginTop={1} flexDirection="column">
           <Text color={Colors.AccentYellow}>
             💡 {tp('input.paste.detected', { count: pasteSegments.length })}
@@ -1069,16 +1069,16 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
             </Text>
           ))}
         </Box>
-      )}
+      ) : null}
 
       {/* 剪贴板图片粘贴提示 */}
-      {isClipboardImagePasting && (
+      {isClipboardImagePasting ? (
         <Box marginTop={1}>
           <Text color={Colors.AccentYellow}>
             {t('input.paste.clipboard.image')}
           </Text>
         </Box>
-      )}
+      ) : null}
 
       {completion.showSuggestions && (
         <Box>

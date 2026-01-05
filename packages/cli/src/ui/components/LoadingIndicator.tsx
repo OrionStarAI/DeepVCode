@@ -188,7 +188,7 @@ export const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({
         </Box>
         <Box flexShrink={1}>
           <Text wrap="wrap" color={Colors.AccentOrange}>
-            {primaryText && (
+            {primaryText ? (
               shouldShowLEDEffect ? (
                 // LED跑马灯效果的文本 - 使用渐变色效果
                 <Text>
@@ -218,7 +218,7 @@ export const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({
                 // 静态文本（等待确认状态、小窗口优化或矮终端）- 保持原始颜色
                 <Text color={Colors.AccentOrange}>{primaryText}</Text>
               )
-            )}
+            ) : null}
             <Text color={Colors.Gray}>
               {streamingState === StreamingState.WaitingForConfirmation
                 ? ''
@@ -228,7 +228,7 @@ export const LoadingIndicator: React.FC<LoadingIndicatorProps> = ({
           </Text>
         </Box>
         <Box flexGrow={1}>{/* Spacer */}</Box>
-        {rightContent && <Box>{rightContent}</Box>}
+        {rightContent ? <Box>{rightContent}</Box> : null}
       </Box>
     </Box>
   );
