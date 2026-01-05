@@ -51,7 +51,7 @@ export const SCENE_MODEL_MAPPING: Record<SceneType, string> = {
   [SceneType.WEB_SEARCH]: 'gemini-2.5-flash',     // 保持不变
   [SceneType.CODE_ASSIST]: 'auto',                // 原: claude-sonnet-4@20250514 → 现: auto
   [SceneType.CONTENT_SUMMARY]: 'gemini-2.5-flash-lite', // checkpoint 摘要：改为 lite 降低成本
-  [SceneType.EDIT_CORRECTION]: 'auto',            // 原: claude-sonnet-4@20250514 → 现: auto
+  [SceneType.EDIT_CORRECTION]: 'gemini-2.5-flash-lite', // 编辑校正：使用 lite 模型（与 Gemini CLI 一致）
   [SceneType.JSON_GENERATION]: 'gemini-2.5-flash', // 保持不变
   [SceneType.COMPRESSION]: 'gemini-2.5-flash',    // 保持不变
   [SceneType.SUB_AGENT]: 'auto',                  // 原: claude-sonnet-4@20250514 → 现: auto
