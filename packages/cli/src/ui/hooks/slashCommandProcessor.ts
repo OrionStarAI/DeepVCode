@@ -17,6 +17,7 @@ import {
   HistoryItemWithoutId,
   HistoryItem,
   SlashCommandProcessorResult,
+  ConsoleMessageItem,
 } from '../types.js';
 import { TokenUsageInfo } from '../components/TokenUsageDisplay.js';
 import { LoadedSettings } from '../../config/settings.js';
@@ -56,6 +57,7 @@ export const useSlashCommandProcessor = (
   toggleVimEnabled: () => Promise<boolean>,
   cumulativeCredits: number, // 🆕 接收 cumulativeCredits
   totalSessionCredits: number, // 🆕 接收 totalSessionCredits
+  consoleMessages: ConsoleMessageItem[], // 🆕 接收 consoleMessages
   lastTokenUsage?: TokenUsageInfo | null, // 🆕 接收 lastTokenUsage
 ) => {
   const session = useSessionStats();
@@ -160,6 +162,7 @@ export const useSlashCommandProcessor = (
         setPendingItem: setPendingCompressionItem,
         toggleCorgiMode,
         toggleVimEnabled,
+        debugMessages: consoleMessages,
       },
       session: {
         stats: session.stats,
