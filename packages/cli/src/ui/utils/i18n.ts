@@ -860,12 +860,13 @@ export const translations = {
     'session.list.helpInfo': 'View help: /session help',
     'command.session.rebuild.description': 'Rebuild session index (fix session list display issues)',
     'command.session.help.description': 'Show session management help information',
-    'export.success': 'Success',
+    'export.success': 'Success: {path}',
     'export.exporting': 'Exporting',
     'export.failed': 'Failed',
     'export.loading': 'Loading',
     'export.no_config': 'No config',
     'export_debug.no_messages': 'No debug messages found.',
+    'export_debug.no_errors': 'No errors or warnings found, nothing to export.',
     'command.chat.list.description': 'List saved conversation checkpoints', // 已被 /session 替代，但保留以支持旧代码
     'command.chat.delete.description': 'Delete saved conversation checkpoints. Usage: /chat delete <label> or /chat delete --all', // 已被 /session 替代，但保留以支持旧代码
     'command.memory.show.description': 'Show current memory content',
@@ -1972,12 +1973,13 @@ export const translations = {
     'session.list.helpInfo': '查看帮助: /session help',
     'command.session.rebuild.description': '重建会话索引（修复会话列表显示问题）',
     'command.session.help.description': '显示会话管理帮助信息',
-    'export.success': '成功',
+    'export.success': '导出成功: {path}',
     'export.exporting': '正在导出',
     'export.failed': '失败',
     'export.loading': '正在加载',
     'export.no_config': '无配置',
     'export_debug.no_messages': '未找到调试信息。',
+    'export_debug.no_errors': '当前没有警告或错误信息，无需导出。',
     'command.chat.list.description': '列出已保存的对话检查点', // 已被 /session 替代，但保留以支持旧代码
     'command.chat.delete.description': '删除已保存的对话检查点。用法：/chat delete <标签> 或 /chat delete --all', // 已被 /session 替代，但保留以支持旧代码
     'command.memory.show.description': '显示当前记忆内容',
