@@ -74,6 +74,7 @@ export interface CliArgs {
   continue: boolean | undefined;
   session: string | undefined;
   listSessions: boolean | undefined;
+  exportSession: string | undefined;
   cloudMode: boolean | undefined;
   cloudServer: string | undefined;
   testAudio: boolean | undefined;
@@ -235,6 +236,10 @@ export async function parseArguments(extensions: Extension[] = []): Promise<CliA
       type: 'boolean',
       description: 'List all available sessions with their timestamps and exit',
       default: false,
+    })
+    .option('export-session', {
+      type: 'string',
+      description: 'Export a specific session history to a Markdown file and exit',
     })
     .option('cloud-mode', {
       type: 'boolean',

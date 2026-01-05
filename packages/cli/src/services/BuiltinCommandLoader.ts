@@ -17,6 +17,8 @@ import { copyCommand } from '../ui/commands/copyCommand.js';
 // import { corgiCommand } from '../ui/commands/corgiCommand.js'; // 已禁用
 // import { docsCommand } from '../ui/commands/docsCommand.js'; // 已禁用
 import { editorCommand } from '../ui/commands/editorCommand.js';
+import { exportCommand } from '../ui/commands/exportCommand.js';
+import { exportDebugCommand } from '../ui/commands/exportDebugCommand.js';
 import { extensionsCommand } from '../ui/commands/extensionsCommand.js';
 import { helpCommand } from '../ui/commands/helpCommand.js';
 import { helpAskCommand } from '../ui/commands/helpAskCommand.js';
@@ -72,6 +74,8 @@ export class BuiltinCommandLoader implements ICommandLoader {
       // corgiCommand, // 已禁用柯基模式命令
       // docsCommand, // 已禁用文档命令
       editorCommand,
+      exportCommand,
+      exportDebugCommand,
       extensionsCommand,
       helpCommand,
       helpAskCommand,

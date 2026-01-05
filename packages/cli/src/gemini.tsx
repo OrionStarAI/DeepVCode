@@ -157,6 +157,7 @@ async function relaunchWithAdditionalArgs(additionalArgs: string[]) {
 }
 import { runAcpPeer } from './acp/acpPeer.js';
 import { cleanupOldClipboardImages } from './ui/utils/clipboardUtils.js';
+import { exportSessionToMarkdown } from './utils/sessionExport.js';
 
 export function setupUnhandledRejectionHandler() {
   let unhandledRejectionOccurred = false;
@@ -504,6 +505,20 @@ export async function main() {
     );
     await listAvailableSessions(tempConfig);
     process.exit(0);
+  }
+
+  // Handle --export-session flag
+  if (argv.exportSession) {
+    try {
+      const sessionId = argv.exportSession;
+      console.log(tp('export.exporting', { sessionId }));
+      const exportPath = await exportSessionToMarkdown(sessionId, workspaceRoot);
+      console.log(tp('export.success', { path: exportPath }));
+      process.exit(0);
+    } catch (error) {
+      console.error(tp('export.failed', { error: error instanceof Error ? error.message : String(error) }));
+      process.exit(1);
+    }
   }
 
   // Handle --test-audio flag
