@@ -793,6 +793,10 @@ export async function main() {
 
     const version = await getCliVersion();
     setWindowTitle(basename(workspaceRoot), settings);
+
+    // 🚀 启动优化：给事件循环一个喘息机会，确保之前的初始化任务（如 Git, 进程检测）不会挤占首屏渲染
+    await new Promise(resolve => setImmediate(resolve));
+
     const instance = render(
       <React.StrictMode>
         <AppWrapper
