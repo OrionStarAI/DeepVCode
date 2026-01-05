@@ -9,7 +9,7 @@ import { HistoryItemWithoutId } from '../types.js';
 import { Config, GitService, Logger } from 'deepv-code-core';
 import { LoadedSettings } from '../../config/settings.js';
 import { UseHistoryManagerReturn } from '../hooks/useHistoryManager.js';
-import type { HistoryItem } from '../types.js';
+import type { HistoryItem, ConsoleMessageItem } from '../types.js';
 import { SessionStatsState } from '../contexts/SessionContext.js';
 import type { Suggestion } from '../components/SuggestionsDisplay.js';
 import { TokenUsageInfo } from '../components/TokenUsageDisplay.js';
@@ -61,6 +61,8 @@ export interface CommandContext {
     /** Toggles a special display mode. */
     toggleCorgiMode: () => void;
     toggleVimEnabled: () => Promise<boolean>;
+    /** Current console/debug messages. */
+    debugMessages?: ConsoleMessageItem[];
   };
   // Session-specific data
   session: {

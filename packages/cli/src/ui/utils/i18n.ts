@@ -728,6 +728,8 @@ export const translations = {
     'command.queue.description': 'Manage prompt queue',
     'command.queue.clear.description': 'Clear all queued prompts',
     'command.quit.description': 'Exit command line interface',
+    'command.export.description': 'Export session',
+    'command.export_debug.description': 'Export debug logs',
     'command.about.description': 'Show version information',
     'command.theme.description': 'Theme',
     'command.auth.description': 'Login to your account',
@@ -858,6 +860,12 @@ export const translations = {
     'session.list.helpInfo': 'View help: /session help',
     'command.session.rebuild.description': 'Rebuild session index (fix session list display issues)',
     'command.session.help.description': 'Show session management help information',
+    'export.success': 'Success',
+    'export.exporting': 'Exporting',
+    'export.failed': 'Failed',
+    'export.loading': 'Loading',
+    'export.no_config': 'No config',
+    'export_debug.no_messages': 'No debug messages found.',
     'command.chat.list.description': 'List saved conversation checkpoints', // 已被 /session 替代，但保留以支持旧代码
     'command.chat.delete.description': 'Delete saved conversation checkpoints. Usage: /chat delete <label> or /chat delete --all', // 已被 /session 替代，但保留以支持旧代码
     'command.memory.show.description': 'Show current memory content',
@@ -1832,6 +1840,8 @@ export const translations = {
     'command.queue.description': '管理提示队列',
     'command.queue.clear.description': '清空所有排队的提示',
     'command.quit.description': '退出命令行界面',
+    'command.export.description': '导出会话',
+    'command.export_debug.description': '导出调试日志',
     'command.about.description': '显示版本信息',
     'command.theme.description': '主题',
     'command.auth.description': '登录账号',
@@ -1962,6 +1972,12 @@ export const translations = {
     'session.list.helpInfo': '查看帮助: /session help',
     'command.session.rebuild.description': '重建会话索引（修复会话列表显示问题）',
     'command.session.help.description': '显示会话管理帮助信息',
+    'export.success': '成功',
+    'export.exporting': '正在导出',
+    'export.failed': '失败',
+    'export.loading': '正在加载',
+    'export.no_config': '无配置',
+    'export_debug.no_messages': '未找到调试信息。',
     'command.chat.list.description': '列出已保存的对话检查点', // 已被 /session 替代，但保留以支持旧代码
     'command.chat.delete.description': '删除已保存的对话检查点。用法：/chat delete <标签> 或 /chat delete --all', // 已被 /session 替代，但保留以支持旧代码
     'command.memory.show.description': '显示当前记忆内容',

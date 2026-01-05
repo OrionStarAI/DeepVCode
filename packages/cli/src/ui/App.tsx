@@ -900,6 +900,8 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     toggleVimEnabled,
     cumulativeCredits, // 🆕 传递 cumulativeCredits
     totalSessionCredits, // 🆕 传递 totalSessionCredits
+    consoleMessages,
+    lastTokenUsage,
   );
 
   const {
