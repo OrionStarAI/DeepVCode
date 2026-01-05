@@ -45,7 +45,10 @@ export function useGitBranchName(cwd: string): string | undefined {
   );
 
   useEffect(() => {
-    fetchBranchName(); // Initial fetch
+    // 🚀 启动优化：稍微延迟初始获取，避免在 UI 挂载最繁忙时执行 exec
+    const timer = setTimeout(() => {
+      fetchBranchName();
+    }, 200);
 
     const gitLogsHeadPath = path.join(cwd, '.git', 'logs', 'HEAD');
     let watcher: fs.FSWatcher | undefined;
@@ -71,6 +74,7 @@ export function useGitBranchName(cwd: string): string | undefined {
     setupWatcher();
 
     return () => {
+      clearTimeout(timer);
       watcher?.close();
     };
   }, [cwd, fetchBranchName]);

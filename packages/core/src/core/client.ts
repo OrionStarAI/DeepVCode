@@ -379,6 +379,9 @@ export class GeminiClient {
         nodeProcessInfo = `Running in VSCode extension (PID: ${process.pid})`;
       } else {
         // CLI 环境：进行完整的进程检测 - 使用新的异步检测方法（带超时保护）
+        // 🚀 性能优化：让出事件循环，避免连续执行重型任务
+        await new Promise(resolve => setImmediate(resolve));
+
         const nodeProcesses = await Promise.race([
           getNodeProcessTreeAsync(false), // CLI 环境不跳过
           new Promise<any[]>((_, reject) =>
@@ -393,6 +396,9 @@ export class GeminiClient {
             commandLine: process.argv.join(' ')
           }];
         });
+
+        // 🚀 性能优化：在格式化前再次让出事件循环
+        await new Promise(resolve => setImmediate(resolve));
 
         nodeProcessInfo = await Promise.race([
           formatNodeProcessInfo(nodeProcesses),
@@ -409,6 +415,9 @@ export class GeminiClient {
       environmentInfo = `My operating system: ${process.platform}`;
       nodeProcessInfo = `Current process PID: ${process.pid} (Node.js CLI - do not kill)`;
     }
+
+    // 🚀 性能优化：在获取目录结构前让出事件循环
+    await new Promise(resolve => setImmediate(resolve));
 
     // 优化：使用更简洁的项目结构信息，避免初始上下文过大
     const folderStructure = await getFolderStructure(cwd, {

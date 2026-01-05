@@ -213,6 +213,9 @@ async function getWindowsProcessInfoMap(): Promise<Map<number, {name: string, pp
   }
 
   pendingCachePromise = (async () => {
+    // 🚀 启动优化：稍微延迟执行，避免抢占启动资源
+    await new Promise(resolve => setTimeout(resolve, 300));
+
     const map = new Map<number, {name: string, ppid: number, commandLine: string}>();
     try {
       // wmic process get 字段顺序通常为字母序: CommandLine, Name, ParentProcessId, ProcessId
@@ -220,6 +223,9 @@ async function getWindowsProcessInfoMap(): Promise<Map<number, {name: string, pp
       const { stdout: result } = await execAsync('wmic process get processid,parentprocessid,name,commandline /format:csv', {
         timeout: 4500,
       });
+
+      // 🚀 性能优化：让出事件循环，避免大文本解析阻塞
+      await new Promise(resolve => setImmediate(resolve));
 
       // 清理可能存在的 BOM 或特殊字符
       const cleanResult = result.replace(/^\uFEFF/, '').replace(/\r/g, '');
@@ -229,6 +235,11 @@ async function getWindowsProcessInfoMap(): Promise<Map<number, {name: string, pp
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim();
         if (!line) continue;
+
+        // 如果行数太多，每 100 行让出一次事件循环
+        if (i > 0 && i % 100 === 0) {
+          await new Promise(resolve => setImmediate(resolve));
+        }
 
         const fields = line.split(',');
         // wmic CSV 第一行是表头，或者包含关键字段名
