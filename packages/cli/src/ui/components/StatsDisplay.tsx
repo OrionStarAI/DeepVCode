@@ -342,7 +342,7 @@ export const StatsDisplay: React.FC<StatsDisplayProps> = ({
       {renderTitle()}
       <Box height={1} />
 
-      {tools.totalCalls > 0 && (
+      {tools.totalCalls > 0 ? (
         <Section title={t('section.interaction.summary')}>
           <StatRow title={t('stats.tool.calls')}>
             <Text>
@@ -354,7 +354,7 @@ export const StatsDisplay: React.FC<StatsDisplayProps> = ({
           <StatRow title={t('stats.success.rate')}>
             <Text color={successColor}>{computed.successRate.toFixed(1)}%</Text>
           </StatRow>
-          {computed.totalDecisions > 0 && (
+          {computed.totalDecisions > 0 ? (
             <StatRow title={t('stats.user.agreement')}>
               <Text color={agreementColor}>
                 {computed.agreementRate.toFixed(1)}%{' '}
@@ -363,9 +363,9 @@ export const StatsDisplay: React.FC<StatsDisplayProps> = ({
                 </Text>
               </Text>
             </StatRow>
-          )}
+          ) : null}
         </Section>
-      )}
+      ) : null}
 
       <Section title={t('section.performance')}>
         <StatRow title={t('stats.wall.time')}>
@@ -392,7 +392,7 @@ export const StatsDisplay: React.FC<StatsDisplayProps> = ({
         </SubStatRow>
       </Section>
 
-      {(Object.keys(models).length > 0 || (otherCredits !== undefined && otherCredits > 0)) && (
+      {(Object.keys(models).length > 0 || (otherCredits !== undefined && otherCredits > 0)) ? (
         <ModelUsageTable
           models={models}
           totalCachedTokens={computed.totalCachedTokens}
@@ -401,7 +401,7 @@ export const StatsDisplay: React.FC<StatsDisplayProps> = ({
           config={config}
           sizeLevel={smallWindowConfig.sizeLevel}
         />
-      )}
+      ) : null}
 
       {/* SubAgent统计展示 - 仅在有活动时显示 */}
       <SubAgentStatsContainer />

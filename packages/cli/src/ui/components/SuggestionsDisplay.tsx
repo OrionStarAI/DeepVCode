@@ -83,7 +83,7 @@ export function SuggestionsDisplay({
 
   return (
     <Box flexDirection="column" paddingX={1} width={width}>
-      {scrollOffset > 0 && <Text color={Colors.Foreground}>▲</Text>}
+      {scrollOffset > 0 ? <Text color={Colors.Foreground}>▲</Text> : null}
 
       {visibleSuggestions.map((suggestion, index) => {
         const originalIndex = startIndex + index;
@@ -139,12 +139,12 @@ export function SuggestionsDisplay({
           </Box>
         );
       })}
-      {endIndex < suggestions.length && <Text color="gray">▼</Text>}
-      {suggestions.length > MAX_SUGGESTIONS_TO_SHOW && (
+      {endIndex < suggestions.length ? <Text color="gray">▼</Text> : null}
+      {suggestions.length > MAX_SUGGESTIONS_TO_SHOW ? (
         <Text color="gray">
           ({activeIndex + 1}/{suggestions.length})
         </Text>
-      )}
+      ) : null}
     </Box>
   );
 }

@@ -27,24 +27,24 @@ export const CompactHeader: React.FC<CompactHeaderProps> = ({
   ideConnectionStatus,
 }) => {
   const smallWindowConfig = useSmallWindowOptimization();
-  
+
   // 在极小窗口下完全隐藏Header
   if (smallWindowConfig.sizeLevel === WindowSizeLevel.TINY) {
     return null;
   }
-  
+
   // 小窗口下的简化显示
   if (smallWindowConfig.sizeLevel === WindowSizeLevel.SMALL) {
     return (
       <Box marginBottom={1}>
         <Text color={Colors.AccentCyan}>
           DeepV {version} | {currentModel}
-          {shellModeActive && <Text color={Colors.AccentYellow}> [SHELL]</Text>}
+          {shellModeActive ? <Text color={Colors.AccentYellow}> [SHELL]</Text> : null}
         </Text>
       </Box>
     );
   }
-  
+
   // 正常窗口返回null，让原Header组件处理
   return null;
 };

@@ -74,11 +74,11 @@ export const UserMessage: React.FC<UserMessageProps> = ({ text, terminalWidth })
       >
         <Text>{fullText}</Text>
       </Box>
-      {terminalWidth && (
+      {terminalWidth ? (
         <Box flexGrow={1} justifyContent="flex-end" alignItems="flex-start" marginY={1}>
           <Text>{userIndicator}</Text>
         </Box>
-      )}
+      ) : null}
     </Box>
   );
 };
