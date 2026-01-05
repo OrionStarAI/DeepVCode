@@ -59,8 +59,12 @@ export const useSessionRestore = ({ config, loadHistory }: UseSessionRestorePara
 
   // 在组件挂载时执行恢复
   useEffect(() => {
-    restoreSession();
-  }, []); // 只执行一次
+    // 🚀 启动优化：推迟会话恢复，优先保证界面响应
+    const timer = setTimeout(() => {
+      restoreSession();
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [restoreSession]);
 
   return { restoreSession };
 };

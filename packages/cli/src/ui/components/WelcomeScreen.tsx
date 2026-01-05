@@ -111,6 +111,8 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   // 获取最近会话
   useEffect(() => {
     const loadRecentSessions = async () => {
+      // 🚀 启动优化：将非核心任务推迟执行
+      await new Promise(resolve => setTimeout(resolve, 1000));
       try {
         const sessionManager = new SessionManager(config.getProjectRoot());
         const sessions = await sessionManager.listSessions();

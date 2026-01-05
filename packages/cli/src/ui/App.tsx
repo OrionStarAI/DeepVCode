@@ -323,12 +323,18 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   }, [config]);
 
   useEffect(() => {
-    checkForUpdates().then(setUpdateMessage);
+    // 🚀 启动优化：将更新检查推迟到界面渲染稳定后
+    const timer = setTimeout(() => {
+      checkForUpdates().then(setUpdateMessage);
+    }, 1500);
+    return () => clearTimeout(timer);
   }, []);
 
   // 🆕 在启动时异步更新云端模型列表
   useEffect(() => {
     (async () => {
+      // 🚀 启动优化：推迟模型列表刷新，避免抢占启动带宽
+      await new Promise(resolve => setTimeout(resolve, 2000));
       try {
         const { refreshModelsInBackground } = await import('../ui/commands/modelCommand.js');
         if (config.getDebugMode()) {
@@ -401,7 +407,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   const debouncedRefreshStatic = useCallback(() => {
     const timeoutId = setTimeout(() => {
       refreshStatic();
-    }, 50); // 50ms 防抖延迟，平衡响应性和性能
+    }, 150); // 🚀 优化：增加延迟到 150ms，减少启动时的剧烈重绘
     return () => clearTimeout(timeoutId);
   }, [refreshStatic]);
 

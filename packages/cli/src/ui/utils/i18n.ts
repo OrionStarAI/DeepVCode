@@ -4,7 +4,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { execSync } from 'child_process';
 import * as os from 'os';
 
 /**
@@ -77,7 +76,7 @@ let _cachedIsChineseLocale: boolean | null = null;
  */
 function detectChineseLocale(): boolean {
   try {
-    // Check environment variables first
+    // Check environment variables first (very fast)
     const env = process.env;
     const locale = env.LC_ALL || env.LC_CTYPE || env.LANG || '';
 
@@ -85,37 +84,39 @@ function detectChineseLocale(): boolean {
       return true;
     }
 
-    // For Windows, check system locale
-    if (os.platform() === 'win32') {
-      try {
-        const output = execSync('powershell -Command "Get-Culture | Select-Object -ExpandProperty Name"', {
-          encoding: 'utf8',
-          timeout: 5000
-        });
-        return output.toLowerCase().includes('zh');
-      } catch {
-        // Fallback: check if system language contains Chinese characters
-        try {
-          const winLocale = execSync('powershell -Command "Get-WinSystemLocale | Select-Object -ExpandProperty Name"', {
-            encoding: 'utf8',
-            timeout: 5000
-          });
-          return winLocale.toLowerCase().includes('zh');
-        } catch {
-          return false;
-        }
-      }
-    }
+    // 🚀 启动优化：避免在渲染路径上执行同步的 execSync
+    // 如果环境变量没检测到，我们先默认返回 false (English)，
+    // 然后在后台异步启动检测，检测完后更新缓存。
+    // 注意：这里的同步检测只在环境变量存在时才返回 true。
 
-    // For Unix-like systems, try locale command
-    try {
-      const localeOutput = execSync('locale', { encoding: 'utf8', timeout: 5000 });
-      return localeOutput.toLowerCase().includes('zh');
-    } catch {
-      return false;
-    }
+    return false;
   } catch {
     return false;
+  }
+}
+
+/**
+ * 异步刷新语言检测缓存
+ */
+export async function refreshLocaleAsync(): Promise<void> {
+  if (os.platform() === 'win32') {
+    try {
+      // 异步执行耗时的 powershell 命令
+      const { exec } = await import('node:child_process');
+      const { promisify } = await import('node:util');
+      const execAsync = promisify(exec);
+
+      const { stdout } = await execAsync('powershell -Command "Get-Culture | Select-Object -ExpandProperty Name"', {
+        timeout: 5000
+      });
+
+      if (stdout.toLowerCase().includes('zh')) {
+        _cachedIsChineseLocale = true;
+        _cachedLocale = 'zh';
+      }
+    } catch {
+      // 忽略错误
+    }
   }
 }
 
@@ -126,6 +127,13 @@ function detectChineseLocale(): boolean {
 export function isChineseLocale(): boolean {
   if (_cachedIsChineseLocale === null) {
     _cachedIsChineseLocale = detectChineseLocale();
+
+    // 如果同步检测结果是 false，我们在后台启动一个异步检测
+    if (!_cachedIsChineseLocale) {
+      setTimeout(() => {
+        refreshLocaleAsync().catch(() => {});
+      }, 1000);
+    }
   }
   return _cachedIsChineseLocale;
 }

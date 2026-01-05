@@ -43,7 +43,7 @@ export const DOUBLE_QUOTE = '"';
 
 // 快速粘贴检测相关常量（适用于所有平台）
 export const RAPID_PASTE_MIN_CHARS = 5; // 最少字符数才认为是粘贴
-export const RAPID_PASTE_BATCH_TIMEOUT_MS = 15; // 批量处理超时
+export const RAPID_PASTE_BATCH_TIMEOUT_MS = 5; // 批量处理超时 (从15ms降到5ms，提高启动响应性)
 
 export interface Key {
   name: string;
@@ -88,7 +88,7 @@ export function KeypressProvider({
   const isDraggingRef = useRef(false);
   const dragBufferRef = useRef('');
   const draggingTimerRef = useRef<NodeJS.Timeout | null>(null);
-  
+
   // 快速粘贴检测相关状态（适用于所有平台）
   const rapidPasteKeysRef = useRef<Key[]>([]);
   const rapidPasteTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -127,7 +127,7 @@ export function KeypressProvider({
       if (rapidPasteKeysRef.current.length > 0) {
         // 合并所有key的sequence
         const pastedContent = rapidPasteKeysRef.current.map(k => k.sequence).join('');
-        rapidPasteKeysRef.current = [];        
+        rapidPasteKeysRef.current = [];
         // 发送合并后的粘贴事件
         broadcast({
           name: '',
@@ -144,7 +144,7 @@ export function KeypressProvider({
 
       // 检查是否是可粘贴的字符类型
       const isNormalChar = !(key.ctrl || key.meta); // 非控制字符
-      
+
       // 只处理可能是粘贴的字符类型
       if (!isNormalChar) {
         // 如果有缓存内容，立即处理
@@ -165,7 +165,7 @@ export function KeypressProvider({
 
       // 🔑 关键修复：总是先缓存可粘贴的字符，然后根据后续输入判断是否为粘贴
       rapidPasteKeysRef.current.push(key);
-      
+
       // 重置或设置定时器
       clearRapidPasteTimer();
       rapidPasteTimerRef.current = setTimeout(() => {
@@ -179,7 +179,7 @@ export function KeypressProvider({
           rapidPasteKeysRef.current = [];
         }
       }, RAPID_PASTE_BATCH_TIMEOUT_MS);
-      
+
       return true; // 表示已经处理，不需要继续
     };
 
@@ -560,7 +560,7 @@ export function KeypressProvider({
         (key.ctrl && key.name === 'c') ||
         key.sequence === `${ESC}${KITTY_CTRL_C}`
       ) {
-        
+
         kittySequenceBuffer = '';
         if (key.sequence === `${ESC}${KITTY_CTRL_C}`) {
           broadcast({
@@ -588,7 +588,7 @@ export function KeypressProvider({
         ) {
           kittySequenceBuffer += key.sequence;
 
-          
+
 
           // Try to peel off as many complete sequences as are available at the
           // start of the buffer. This handles batched inputs cleanly. If the
@@ -601,13 +601,13 @@ export function KeypressProvider({
               // Look for the next potential CSI start beyond index 0
               const nextStart = kittySequenceBuffer.indexOf(`${ESC}[`, 1);
               if (nextStart > 0) {
-                
+
                 kittySequenceBuffer = kittySequenceBuffer.slice(nextStart);
                 continue;
               }
               break;
             }
-            
+
             // Consume the parsed prefix and broadcast it.
             kittySequenceBuffer = kittySequenceBuffer.slice(parsed.length);
             broadcast(parsed.key);
@@ -623,8 +623,8 @@ export function KeypressProvider({
           }
 
           if (kittySequenceBuffer.length > MAX_KITTY_SEQUENCE_LENGTH) {
-            
-            
+
+
             kittySequenceBuffer = '';
           } else {
             return;

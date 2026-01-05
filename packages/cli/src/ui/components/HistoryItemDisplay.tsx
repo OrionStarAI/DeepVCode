@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
+import React, { memo } from 'react';
 import type { HistoryItem } from '../types.js';
 import { UserMessage } from './messages/UserMessage.js';
 import { UserShellMessage } from './messages/UserShellMessage.js';
@@ -33,14 +33,14 @@ interface HistoryItemDisplayProps {
   isFocused?: boolean;
 }
 
-export const HistoryItemDisplay: React.FC<HistoryItemDisplayProps> = ({
+export const HistoryItemDisplay = memo(({
   item,
   availableTerminalHeight,
   terminalWidth,
   isPending,
   config,
   isFocused = true,
-}) => (
+}: HistoryItemDisplayProps) => (
   <Box flexDirection="column" key={item.id} width={terminalWidth}>
     {/* Render standard message types */}
     {item.type === 'user' && <UserMessage text={item.text} terminalWidth={terminalWidth} />}
@@ -113,4 +113,11 @@ export const HistoryItemDisplay: React.FC<HistoryItemDisplayProps> = ({
       <CompressionMessage compression={item.compression} />
     )}
   </Box>
-);
+), (prev, next) => {
+  // 自定义比较逻辑，提高性能
+  return prev.item.id === next.item.id &&
+         prev.item.text === next.item.text &&
+         prev.isPending === next.isPending &&
+         prev.terminalWidth === next.terminalWidth &&
+         prev.isFocused === next.isFocused;
+});
