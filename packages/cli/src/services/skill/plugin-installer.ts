@@ -118,8 +118,10 @@ export class PluginInstaller {
         );
       }
 
-      // 判断是否为本地插件
-      const isLocal = marketplace.source === MarketplaceSource.LOCAL;
+      // 判断是否为本地插件（基于 plugin.source 而非 marketplace.source）
+      // 本地插件：source 为相对路径（如 './' 或 '../'）
+      // 远程插件：source 为 object（github/git/url）
+      const isLocal = this.isLocalPluginSource(plugin.source);
 
       // 记录已安装 Plugin
       const installedInfo: InstalledPluginInfo = {
@@ -355,6 +357,21 @@ export class PluginInstaller {
       return source.source === 'github' || source.source === 'git' || source.source === 'url';
     }
 
+    return false;
+  }
+
+  /**
+   * 判断 plugin source 是否为本地路径
+   * @param source Plugin source
+   * @returns true 如果是本地相对路径（如 './' 或 '../'），false 如果是远程 Git source
+   */
+  private isLocalPluginSource(source: string | PluginSource): boolean {
+    if (typeof source === 'string') {
+      // 字符串类型：相对路径（./ 或 ../）为本地插件
+      return source.startsWith('./') || source.startsWith('../');
+    }
+
+    // object 类型（github/git/url）都是远程插件
     return false;
   }
 

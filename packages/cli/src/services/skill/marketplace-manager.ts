@@ -545,17 +545,26 @@ export class MarketplaceManager {
       // 确定基础目录名（使用 path 字段或插件名）
       const baseDirName = ('path' in source && source.path) ? source.path : pluginDef.name;
 
-      // 可能的插件位置
-      const possiblePaths = [
-        path.join(marketplacePath, baseDirName), // Direct: marketplace/plugin-name
-        path.join(marketplacePath, 'plugins', baseDirName), // Common: marketplace/plugins/plugin-name
-        path.join(marketplacePath, 'skills', baseDirName), // Alternative: marketplace/skills/plugin-name
-      ];
+      // 🔑 关键修复：优先检查 cache 目录（远程插件下载后的位置）
+      const version = pluginDef.version || 'unknown';
+      const cachePath = SkillsPaths.getPluginCachePath(marketplaceId, pluginDef.name, version);
 
-      for (const possiblePath of possiblePaths) {
-        if (await fs.pathExists(possiblePath)) {
-          sourcePath = possiblePath;
-          break;
+      if (await fs.pathExists(cachePath)) {
+        // 远程插件已下载到 cache
+        sourcePath = cachePath;
+      } else {
+        // 可能的插件位置（兼容旧结构）
+        const possiblePaths = [
+          path.join(marketplacePath, baseDirName), // Direct: marketplace/plugin-name
+          path.join(marketplacePath, 'plugins', baseDirName), // Common: marketplace/plugins/plugin-name
+          path.join(marketplacePath, 'skills', baseDirName), // Alternative: marketplace/skills/plugin-name
+        ];
+
+        for (const possiblePath of possiblePaths) {
+          if (await fs.pathExists(possiblePath)) {
+            sourcePath = possiblePath;
+            break;
+          }
         }
       }
 
