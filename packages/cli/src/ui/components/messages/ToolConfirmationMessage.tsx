@@ -123,8 +123,9 @@ export const ToolConfirmationMessage: React.FC<
       return (
         <Box
           minWidth="90%"
-          borderStyle="round"
+          borderStyle="single"
           borderColor={Colors.Gray}
+          borderDimColor={true}
           justifyContent="space-around"
           padding={1}
           overflow="hidden"
@@ -463,8 +464,9 @@ export const ToolConfirmationMessage: React.FC<
   return (
     <Box
       flexDirection="column"
-      borderStyle="round"
+      borderStyle="single"
       borderColor={Colors.Gray}
+      borderDimColor={true}
       padding={containerPadding}
       width={childWidth}
     >

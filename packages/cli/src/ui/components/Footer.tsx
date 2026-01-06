@@ -128,9 +128,9 @@ export const Footer: React.FC<FooterProps> = ({
           <Box>
             {contextDisplay ? <Text color={Colors.Gray}> | </Text> : null}
             {displayConfig.simplifyModel ? (
-              <Text color={Colors.AccentBlue}>{modelShortDisplay}</Text>
+              <Text color={Colors.Gray}>{modelShortDisplay}</Text>
             ) : (
-              <Text color={Colors.AccentBlue}>{t('footer.current.model')}: {modelDisplay}</Text>
+              <Text color={Colors.Gray}>{t('footer.current.model')}: {modelDisplay}</Text>
             )}
           </Box>
         ) : null}

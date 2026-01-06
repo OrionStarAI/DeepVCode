@@ -47,8 +47,8 @@ export const ToolGroupMessage: React.FC<ToolGroupMessageProps> = ({
   // 解决方案：Shell命令始终不显示边框，保持简洁且避免闪烁
   const shouldShowBorder = !isShellCommand;
 
-  const borderColor =
-    hasPending || isShellCommand ? Colors.AccentYellow : Colors.Gray;
+  // 🎨 边框颜色更暗淡，减少视觉干扰
+  const borderColor = Colors.Gray;
 
   // 根据是否显示边框调整静态高度和内部宽度
   const staticHeight = shouldShowBorder ? (/* border */ 2 + /* marginBottom */ 1) : (/* marginBottom */ 1);
@@ -109,7 +109,7 @@ export const ToolGroupMessage: React.FC<ToolGroupMessageProps> = ({
   return (
     <Box
       flexDirection="column"
-      borderStyle={shouldShowBorder ? "round" : undefined}
+      borderStyle={shouldShowBorder ? "single" : undefined}
       /*
         🔧 修复闪屏问题：
         1. 执行中的shell命令禁用边框，避免滚动输出时与终端边界冲突
@@ -118,7 +118,7 @@ export const ToolGroupMessage: React.FC<ToolGroupMessageProps> = ({
       */
       width={boxWidth}
       marginLeft={1}
-      borderDimColor={shouldShowBorder ? hasPending : undefined}
+      borderDimColor={shouldShowBorder ? true : undefined}
       borderColor={shouldShowBorder ? borderColor : undefined}
     >
       {toolCalls.map((tool, index) => {
@@ -150,15 +150,6 @@ export const ToolGroupMessage: React.FC<ToolGroupMessageProps> = ({
           </Box>
         );
       })}
-
-      {/* 🎯 Ctrl+B 提示 - Shell 命令执行时显示 */}
-      {isShellExecuting && (
-        <Box marginLeft={3}>
-          <Text color={Colors.AccentYellow}>
-            {t('shell.background.hint')}
-          </Text>
-        </Box>
-      )}
 
       {/* 🎯 全局确认框 - 显示在底部，处理任意层级的确认 */}
       {toolAwaitingApproval && toolAwaitingApproval.confirmationDetails && (
