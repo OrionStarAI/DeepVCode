@@ -86,7 +86,7 @@ export class PluginInstaller {
       // 判断是否为远程 Git source（使用缓存路径）
       if (this.isRemoteGitSource(plugin.source)) {
         // 远程插件：使用 cache 路径
-        const version = plugin.version || '0.0.0';
+        const version = plugin.version || 'unknown';
         installPath = SkillsPaths.getPluginCachePath(marketplaceId, plugin.name, version);
       } else if (typeof plugin.source === 'string') {
         // 字符串：使用 source 作为相对路径
