@@ -69,25 +69,25 @@ export const Footer: React.FC<FooterProps> = ({
   return (
     <Box justifyContent="space-between" width="100%" marginTop={1}>
       <Box>
-        {vimMode && <Text color={Colors.Gray}>[{vimMode}] </Text>}
+        {vimMode ? <Text color={Colors.Gray}>[{vimMode}] </Text> : null}
         {nightly ? (
           <Gradient colors={Colors.GradientColors}>
             <Text>
               {shortenPath(tildeifyPath(targetDir), 70)}
-              {branchName && <Text> ({branchName}*)</Text>}
+              {branchName ? <Text> ({branchName}*)</Text> : null}
             </Text>
           </Gradient>
         ) : (
           <Text color={Colors.LightBlue}>
             {shortenPath(tildeifyPath(targetDir), 70)}
-            {branchName && <Text color={Colors.Gray}> ({branchName}*)</Text>}
+            {branchName ? <Text color={Colors.Gray}> ({branchName}*)</Text> : null}
           </Text>
         )}
-        {debugMode && (
+        {debugMode ? (
           <Text color={Colors.AccentRed}>
             {' ' + (debugMessage || '--debug')}
           </Text>
-        )}
+        ) : null}
       </Box>
 
       {/* Middle Section: Centered Sandbox Info */}
@@ -111,40 +111,40 @@ export const Footer: React.FC<FooterProps> = ({
 
       {/* Right Section: Version, Context Info and Console Summary */}
       <Box alignItems="center">
-        {versionDisplay && (
+        {versionDisplay ? (
           <Box>
             <Text color={Colors.Gray}>{versionDisplay}</Text>
             <Text color={Colors.Gray}> | </Text>
           </Box>
-        )}
-        {contextDisplay && (
+        ) : null}
+        {contextDisplay ? (
           <Text color={Colors.Gray}>
             {contextDisplay}
           </Text>
-        )}
+        ) : null}
 
         {/* Current Model Display */}
-        {model && (
+        {model ? (
           <Box>
-            {contextDisplay && <Text color={Colors.Gray}> | </Text>}
+            {contextDisplay ? <Text color={Colors.Gray}> | </Text> : null}
             {displayConfig.simplifyModel ? (
               <Text color={Colors.AccentBlue}>{modelShortDisplay}</Text>
             ) : (
               <Text color={Colors.AccentBlue}>{t('footer.current.model')}: {modelDisplay}</Text>
             )}
           </Box>
-        )}
+        ) : null}
 
         {/* IDE Connection Status */}
-        {ideConnectionStatus === IDEConnectionStatus.Connected && (
+        {ideConnectionStatus === IDEConnectionStatus.Connected ? (
           <Box>
             <Text color={Colors.Gray}> | </Text>
             <Text color="green">{t('ide.connected')}</Text>
           </Box>
-        )}
+        ) : null}
 
         {/* Corgi mode display disabled
-        {corgiMode && (
+        {corgiMode ? (
           <Text>
             <Text color={Colors.Gray}>| </Text>
             <Text color={Colors.AccentRed}>▼</Text>
@@ -153,15 +153,15 @@ export const Footer: React.FC<FooterProps> = ({
             <Text color={Colors.Foreground}>`)</Text>
             <Text color={Colors.AccentRed}>▼ </Text>
           </Text>
-        )}
+        ) : null}
         */}
-        {!showErrorDetails && errorCount > 0 && (
+        {!showErrorDetails && errorCount > 0 ? (
           <Box>
             <Text color={Colors.Gray}>| </Text>
             <ConsoleSummaryDisplay errorCount={errorCount} />
           </Box>
-        )}
-        {showMemoryUsage && <MemoryUsageDisplay />}
+        ) : null}
+        {showMemoryUsage ? <MemoryUsageDisplay /> : null}
       </Box>
     </Box>
   );

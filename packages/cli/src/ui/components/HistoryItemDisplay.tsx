@@ -43,27 +43,27 @@ export const HistoryItemDisplay = memo(({
 }: HistoryItemDisplayProps) => (
   <Box flexDirection="column" key={item.id} width={terminalWidth}>
     {/* Render standard message types */}
-    {item.type === 'user' && <UserMessage text={item.text} terminalWidth={terminalWidth} />}
-    {item.type === 'user_shell' && <UserShellMessage text={item.text} terminalWidth={terminalWidth} />}
-    {item.type === 'gemini' && (
+    {item.type === 'user' ? <UserMessage text={item.text} terminalWidth={terminalWidth} /> : null}
+    {item.type === 'user_shell' ? <UserShellMessage text={item.text} terminalWidth={terminalWidth} /> : null}
+    {item.type === 'gemini' ? (
       <GeminiMessage
         text={item.text}
         isPending={isPending}
         availableTerminalHeight={availableTerminalHeight}
         terminalWidth={terminalWidth}
       />
-    )}
-    {item.type === 'gemini_content' && (
+    ) : null}
+    {item.type === 'gemini_content' ? (
       <GeminiMessageContent
         text={item.text}
         isPending={isPending}
         availableTerminalHeight={availableTerminalHeight}
         terminalWidth={terminalWidth}
       />
-    )}
-    {item.type === 'info' && <InfoMessage text={item.text} />}
-    {item.type === 'error' && <ErrorMessage text={item.text} />}
-    {item.type === 'about' && (
+    ) : null}
+    {item.type === 'info' ? <InfoMessage text={item.text} /> : null}
+    {item.type === 'error' ? <ErrorMessage text={item.text} /> : null}
+    {item.type === 'about' ? (
       <AboutBox
         cliVersion={item.cliVersion}
         osVersion={item.osVersion}
@@ -72,11 +72,11 @@ export const HistoryItemDisplay = memo(({
         selectedAuthType={item.selectedAuthType}
         gcpProject={item.gcpProject}
       />
-    )}
-    {item.type === 'stats' && <StatsDisplay duration={item.duration} config={config} />}
-    {item.type === 'model_stats' && <ModelStatsDisplay />}
-    {item.type === 'tool_stats' && <ToolStatsDisplay />}
-    {item.type === 'token_breakdown' && (
+    ) : null}
+    {item.type === 'stats' ? <StatsDisplay duration={item.duration} config={config} /> : null}
+    {item.type === 'model_stats' ? <ModelStatsDisplay /> : null}
+    {item.type === 'tool_stats' ? <ToolStatsDisplay /> : null}
+    {item.type === 'token_breakdown' ? (
       <TokenBreakdownDisplay
         systemPromptTokens={item.systemPromptTokens}
         userMessageTokens={item.userMessageTokens}
@@ -85,8 +85,8 @@ export const HistoryItemDisplay = memo(({
         totalInputTokens={item.totalInputTokens}
         maxTokens={item.maxTokens}
       />
-    )}
-    {item.type === 'context_breakdown' && (
+    ) : null}
+    {item.type === 'context_breakdown' ? (
       <ContextBreakdownDisplay
         systemPromptTokens={item.systemPromptTokens}
         systemToolsTokens={item.systemToolsTokens}
@@ -97,9 +97,9 @@ export const HistoryItemDisplay = memo(({
         freeSpaceTokens={item.freeSpaceTokens}
         maxTokens={item.maxTokens}
       />
-    )}
-    {item.type === 'quit' && <SessionSummaryDisplay duration={item.duration} credits={item.credits} config={config} />}
-    {item.type === 'tool_group' && (
+    ) : null}
+    {item.type === 'quit' ? <SessionSummaryDisplay duration={item.duration} credits={item.credits} config={config} /> : null}
+    {item.type === 'tool_group' ? (
       <ToolGroupMessage
         toolCalls={item.tools}
         groupId={item.id}
@@ -108,10 +108,10 @@ export const HistoryItemDisplay = memo(({
         config={config}
         isFocused={isFocused}
       />
-    )}
-    {item.type === 'compression' && (
+    ) : null}
+    {item.type === 'compression' ? (
       <CompressionMessage compression={item.compression} />
-    )}
+    ) : null}
   </Box>
 ), (prev, next) => {
   // 自定义比较逻辑，提高性能
