@@ -267,7 +267,7 @@ export class MarketplaceLoader implements IPluginLoader {
           hooks: pluginDef.hooks ? true : false,
           scripts: false
         },
-        detectedFormat: 'claude-code'
+        detectedFormat: 'deepv-code'
       },
       installed: true,
       enabled: true,
