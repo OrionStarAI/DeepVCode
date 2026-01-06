@@ -16,7 +16,7 @@ export const InfoMessage: React.FC<InfoMessageProps> = ({ text }) => {
   return (
     <Box flexDirection="row" marginTop={1} marginLeft={2}>
       <Box flexGrow={1}>
-        <Text wrap="wrap" color={Colors.AccentYellow} dimColor>
+        <Text wrap="wrap">
           {text}
         </Text>
       </Box>

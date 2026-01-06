@@ -463,7 +463,7 @@ export const useGeminiStream = (
       addItem(
         {
           type: MessageType.INFO,
-          text: `\x1b[32m✅ ${tp('checkpoint.created.success', { checkpointId: checkpointData.id })}\x1b[0m`,
+          text: `\x1b[32m ✓ ${tp('checkpoint.created.success', { checkpointId: checkpointData.id })}\x1b[0m`,
         },
         Date.now(),
       );
