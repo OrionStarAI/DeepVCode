@@ -19,6 +19,7 @@ import {
   ValidationError,
   SkillType,
   PluginSource,
+  MarketplaceSource,
 } from './types.js';
 import { SettingsManager, SkillsPaths } from './settings-manager.js';
 import { MarketplaceManager } from './marketplace-manager.js';
@@ -104,6 +105,9 @@ export class PluginInstaller {
         );
       }
 
+      // 判断是否为本地插件
+      const isLocal = marketplace.source === MarketplaceSource.LOCAL;
+
       // 记录已安装 Plugin
       const installedInfo: InstalledPluginInfo = {
         id: plugin.id,
@@ -114,7 +118,8 @@ export class PluginInstaller {
         installedAt: new Date().toISOString(),
         enabled: true, // 默认启用
         skillCount: plugin.skillPaths.length,
-        version: plugin.version,
+        version: plugin.version || 'unknown', // 默认 'unknown'
+        isLocal, // 本地插件标记
       };
       await this.settingsManager.addInstalledPlugin(installedInfo);
 
