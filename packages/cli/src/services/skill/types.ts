@@ -324,15 +324,17 @@ export interface InstalledPluginInfo {
   /** Marketplace ID */
   marketplaceId: string;
   /** 本地安装路径（绝对路径） */
-  installPath: string;
+  installPath?: string;
   /** 安装时间 */
   installedAt: string;
   /** 启用状态 */
   enabled: boolean;
-  /** 版本 */
+  /** 版本（默认 "unknown"） */
   version?: string;
   /** Skills 数量 */
   skillCount: number;
+  /** 是否为本地插件（true = 本地路径，false = Git 克隆） */
+  isLocal?: boolean;
 }
 
 // ============================================================================
