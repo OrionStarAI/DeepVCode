@@ -350,22 +350,48 @@ export class MarketplaceManager {
     try {
       await fs.ensureDir(path.dirname(targetPath));
 
-      // 如果指定了 ref，使用 --branch 参数
-      let cloneCommand = `git clone "${url}" "${targetPath}"`;
+      // 构建 git clone 命令
+      // 添加参数：
+      // --depth 1: 浅克隆，只获取最新提交，加快速度
+      // --no-single-branch: 允许后续 fetch 其他分支（如果需要）
+      // -c core.askpass=true: 禁用交互式密码提示（对于公开仓库不需要）
+      const baseArgs = ['clone', '--depth', '1', '-c', 'core.askPass=true'];
+
       if (ref) {
-        cloneCommand = `git clone --branch "${ref}" "${url}" "${targetPath}"`;
+        baseArgs.push('--branch', ref);
       }
+
+      baseArgs.push(url, targetPath);
+
+      const cloneCommand = `git ${baseArgs.join(' ')}`;
 
       const { stdout, stderr } = await execAsync(cloneCommand, {
         maxBuffer: 10 * 1024 * 1024, // 10MB
+        env: {
+          ...process.env,
+          GIT_TERMINAL_PROMPT: '0', // 禁用终端提示（避免要求输入密码）
+        },
       });
 
       if (stderr && stderr.includes('fatal')) {
         throw new Error(stderr);
       }
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+
+      // 提供更友好的错误信息
+      let friendlyMessage = `Git clone failed: ${errorMessage}`;
+
+      if (errorMessage.includes('Repository not found') || errorMessage.includes('404')) {
+        friendlyMessage = `Repository not found: ${url}\n\n请检查：\n  1. 仓库名是否正确\n  2. 仓库是否存在\n  3. 仓库是否为公开访问`;
+      } else if (errorMessage.includes('Could not resolve host') || errorMessage.includes('network')) {
+        friendlyMessage = `Network error: 无法连接到 ${url}\n\n请检查网络连接`;
+      } else if (errorMessage.includes('authentication') || errorMessage.includes('credential')) {
+        friendlyMessage = `Authentication required for ${url}\n\n此仓库需要认证访问，请确保：\n  1. 仓库是公开的，或\n  2. 已配置 Git 凭证（git config credential.helper）`;
+      }
+
       throw new MarketplaceError(
-        `Git clone failed: ${error instanceof Error ? error.message : String(error)}`,
+        friendlyMessage,
         SkillErrorCode.MARKETPLACE_CLONE_FAILED,
         { url, targetPath, ref, originalError: error },
       );
