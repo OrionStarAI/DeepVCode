@@ -24,12 +24,12 @@ export const AutoAcceptIndicator: React.FC<AutoAcceptIndicatorProps> = ({
     case ApprovalMode.AUTO_EDIT:
       textColor = Colors.AccentGreen;
       textContent = 'accepting edits';
-      subText = ' (shift + tab to toggle)';
+      subText = ' (shift+tab to toggle)';
       break;
     case ApprovalMode.YOLO:
       textColor = Colors.AccentRed;
       textContent = 'YOLO mode';
-      subText = ' (ctrl + y to toggle)';
+      subText = ' (ctrl+y to toggle)';
       break;
     case ApprovalMode.DEFAULT:
     default:
@@ -38,10 +38,8 @@ export const AutoAcceptIndicator: React.FC<AutoAcceptIndicatorProps> = ({
 
   return (
     <Box>
-      <Text color={textColor}>
-        {textContent}
-        {subText ? <Text color={Colors.Gray}>{subText}</Text> : null}
-      </Text>
+      <Text color={textColor} dimColor>{textContent}</Text>
+      {subText ? <Text color={Colors.Gray}>{subText}</Text> : null}
     </Box>
   );
 };

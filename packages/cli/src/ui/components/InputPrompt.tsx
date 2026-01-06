@@ -1037,11 +1037,11 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
   return (
     <>
       {/* Input content */}
-      <Box paddingX={1} minHeight={dynamicInputHeight}>
+      <Box paddingX={1} marginTop={1} minHeight={dynamicInputHeight}>
         <Text
-          color={shellModeActive ? Colors.AccentYellow : helpModeActive ? Colors.AccentCyan : Colors.AccentOrange}
+          color={shellModeActive ? Colors.AccentYellow : helpModeActive ? Colors.AccentCyan : Colors.Foreground}
         >
-          {shellModeActive ? '! ' : helpModeActive ? '💡 ' : '> '}
+          {shellModeActive ? '! ' : helpModeActive ? '💡 ' : '› '}
         </Text>
         <Box flexGrow={1} flexDirection="column">
           {buffer.text.length === 0 ? (
@@ -1049,7 +1049,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
               <Text color={Colors.Gray}>
                 {focus ? chalk.inverse(placeholderText.charAt(0)) : placeholderText.charAt(0)}{placeholderText.slice(1)}
               </Text>
-              {!helpModeActive ? <Text color={Colors.AccentYellow}> ({getNewlineHint()}, esc: Cancel)</Text> : null}
+              {!helpModeActive ? <Text color={Colors.AccentBlue} dimColor> ({getNewlineHint()})</Text> : null}
             </Text>
           ) : (
             renderedInputLines

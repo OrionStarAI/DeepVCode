@@ -16,7 +16,7 @@ import {
   useInput,
   type Key as InkKeyType,
 } from 'ink';
-import { StreamingState, type HistoryItem, MessageType } from './types.js';
+import { StreamingState, type HistoryItem, MessageType, ToolCallStatus, type IndividualToolCallDisplay } from './types.js';
 import { useTerminalSize } from './hooks/useTerminalSize.js';
 import { useGeminiStream } from './hooks/useGeminiStream.js';
 import { t, tp } from './utils/i18n.js';
@@ -31,6 +31,9 @@ import { useEditorSettings } from './hooks/useEditorSettings.js';
 import { useSlashCommandProcessor } from './hooks/slashCommandProcessor.js';
 import { useAutoAcceptIndicator } from './hooks/useAutoAcceptIndicator.js';
 import { useConsoleMessages } from './hooks/useConsoleMessages.js';
+import { useBackgroundTaskNotifications, formatBackgroundTaskResult } from './hooks/useBackgroundTaskNotifications.js';
+import { BackgroundTaskPanel } from './components/BackgroundTaskPanel.js';
+import { BackgroundTaskHint } from './components/BackgroundTaskHint.js';
 import { Header } from './components/Header.js';
 import { WelcomeScreen } from './components/WelcomeScreen.js';
 import { LoadingIndicator } from './components/LoadingIndicator.js';
@@ -56,7 +59,7 @@ import { ConsolePatcher } from './utils/ConsolePatcher.js';
 import { registerCleanup } from '../utils/cleanup.js';
 import { DetailedMessagesDisplay } from './components/DetailedMessagesDisplay.js';
 import { TokenUsageDisplay, type TokenUsageInfo } from './components/TokenUsageDisplay.js';
-import { tokenUsageEventManager, IDEConnectionStatus } from 'deepv-code-core';
+import { tokenUsageEventManager, IDEConnectionStatus, type BackgroundTask, getBackgroundTaskManager } from 'deepv-code-core';
 import { HistoryItemDisplay } from './components/HistoryItemDisplay.js';
 import { ImagePollingSpinner } from './components/ImagePollingSpinner.js';
 import { appEvents, AppEvent } from '../utils/events.js';
@@ -95,6 +98,8 @@ import { useBracketedPaste } from './hooks/useBracketedPaste.js';
 import { useTextBuffer } from './components/shared/text-buffer.js';
 import { useVimMode, VimModeProvider } from './contexts/VimModeContext.js';
 import { KeypressProvider } from './contexts/KeypressContext.js';
+import { BackgroundModeProvider } from './contexts/BackgroundModeContext.js';
+import { BackgroundModeBridge } from './components/BackgroundModeBridge.js';
 import { useVim } from './hooks/vim.js';
 import { useSmallWindowOptimization } from './hooks/useSmallWindowOptimization.js';
 import { useFlickerDetector } from './hooks/useFlickerDetector.js';
@@ -176,11 +181,15 @@ export const AppWrapper = (props: AppProps) => {
   return (
     <SessionStatsProvider>
       <VimModeProvider settings={props.settings}>
-        <KeypressProvider
-          config={props.config}
-        >
-          <App {...props} />
-        </KeypressProvider>
+        <BackgroundModeProvider>
+          <KeypressProvider
+            config={props.config}
+          >
+            <BackgroundModeBridge>
+              <App {...props} />
+            </BackgroundModeBridge>
+          </KeypressProvider>
+        </BackgroundModeProvider>
       </VimModeProvider>
     </SessionStatsProvider>
   );
@@ -414,6 +423,20 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   const [geminiMdFileCount, setGeminiMdFileCount] = useState<number>(0);
   const [debugMessage, setDebugMessage] = useState<string>('');
   const [showHelp, setShowHelp] = useState<boolean>(false);
+  const [showBackgroundTaskPanel, setShowBackgroundTaskPanelState] = useState<boolean>(false);
+
+  // 🎯 后台任务通知队列 - AI 忙时先缓存，等 AI 空闲后再注入历史
+  const [pendingBackgroundNotifications, setPendingBackgroundNotifications] = useState<string[]>([]);
+
+  // 🎯 包装 setter 来同步全局状态（用于 useGeminiStream 检查）
+  const setShowBackgroundTaskPanel = useCallback((value: boolean | ((prev: boolean) => boolean)) => {
+    setShowBackgroundTaskPanelState(prev => {
+      const newValue = typeof value === 'function' ? value(prev) : value;
+      // 同步到全局状态
+      import('./utils/modalState.js').then(m => m.setBackgroundTaskPanelOpen(newValue));
+      return newValue;
+    });
+  }, []);
 
   const [themeError, setThemeError] = useState<string | null>(null);
   const [modelError, setModelError] = useState<string | null>(null);
@@ -934,6 +957,135 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     customProxyUrl,
   );
 
+  // 🎯 监听后台任务完成事件
+  useBackgroundTaskNotifications({
+    onTaskCompleted: useCallback((task: BackgroundTask) => {
+      console.log('[App] Background task completed, adding to history:', task.id);
+      const result = formatBackgroundTaskResult(task);
+
+      // 🎯 使用 tool_group 格式显示任务输出（仿 Claude Code 风格）
+      const shortId = task.id;
+      const toolGroupItem: IndividualToolCallDisplay = {
+        callId: `bg-${task.id}`,
+        name: t('background.task.output'),
+        toolId: 'background_task_output',
+        description: `${shortId} ${task.command}`,
+        resultDisplay: task.output || `Exit code: ${task.exitCode ?? 'unknown'}`,
+        status: task.exitCode === 0 ? ToolCallStatus.Success : ToolCallStatus.Error,
+        confirmationDetails: undefined,
+      };
+      addItem(
+        { type: 'tool_group', tools: [toolGroupItem] } as any,
+        Date.now(),
+      );
+
+      // 🎯 构建通知消息（包含完整的任务信息，供 AI 理解）
+      const notificationText = `[System] Background task completed (Task ID: ${task.id}). Exit code: ${task.exitCode ?? 'unknown'}. Output:\n${task.output?.substring(0, 1000) || '(no output)'}`;
+
+      // 🎯 如果 AI 当前空闲，自动触发 AI 继续处理（静默模式，不显示用户消息）
+      if (streamingState === StreamingState.Idle) {
+        console.log('[App] AI is idle, auto-triggering continuation for background task:', task.id);
+        // 直接发送包含完整信息的消息，让 AI 能看到结果
+        submitQuery(notificationText, { silent: true });
+      } else {
+        // AI 正忙，加入队列等待
+        console.log('[App] AI is busy, queuing background task notification:', task.id);
+        setPendingBackgroundNotifications(prev => [...prev, notificationText]);
+      }
+    }, [addItem, streamingState, submitQuery]),
+    onTaskFailed: useCallback((task: BackgroundTask) => {
+      console.log('[App] Background task failed:', task.id);
+      // 🎯 使用 tool_group 格式显示任务失败
+      const shortId = task.id;
+      const toolGroupItem: IndividualToolCallDisplay = {
+        callId: `bg-${task.id}`,
+        name: t('background.task.output'),
+        toolId: 'background_task_output',
+        description: `${shortId} ${task.command}`,
+        resultDisplay: task.error || task.output || 'Unknown error',
+        status: ToolCallStatus.Error,
+        confirmationDetails: undefined,
+      };
+      addItem(
+        { type: 'tool_group', tools: [toolGroupItem] } as any,
+        Date.now(),
+      );
+
+      // 🎯 构建通知消息（包含完整的任务信息，供 AI 理解）
+      const notificationText = `[System] Background task failed (Task ID: ${task.id}). Command: ${task.command}. Error: ${task.error || 'Unknown error'}. Output:\n${task.output?.substring(0, 1000) || '(no output)'}`;
+
+      // 🎯 如果 AI 当前空闲，自动触发 AI 继续处理（静默模式，不显示用户消息）
+      if (streamingState === StreamingState.Idle) {
+        console.log('[App] AI is idle, auto-triggering continuation for failed task:', task.id);
+        // 直接发送包含完整信息的消息，让 AI 能看到结果
+        submitQuery(notificationText, { silent: true });
+      } else {
+        // AI 正忙，加入队列等待
+        console.log('[App] AI is busy, queuing background task failure notification:', task.id);
+        setPendingBackgroundNotifications(prev => [...prev, notificationText]);
+      }
+    }, [addItem, streamingState, submitQuery]),
+    onTaskKilled: useCallback((task: BackgroundTask) => {
+      console.log('[App] Background task killed by user:', task.id);
+      // 🎯 使用 tool_group 格式显示任务被终止
+      const shortId = task.id;
+      const toolGroupItem: IndividualToolCallDisplay = {
+        callId: `bg-${task.id}`,
+        name: t('background.task.output'),
+        toolId: 'background_task_output',
+        description: `${shortId} ${task.command}`,
+        resultDisplay: task.output || 'Killed by user',
+        status: ToolCallStatus.Canceled,
+        confirmationDetails: undefined,
+      };
+      addItem(
+        { type: 'tool_group', tools: [toolGroupItem] } as any,
+        Date.now(),
+      );
+
+      // 🎯 构建通知消息（包含完整的任务信息，供 AI 理解）
+      const notificationText = `[System] Background task killed by user (Task ID: ${task.id}). Command: ${task.command}. Output before kill:\n${task.output?.substring(0, 1000) || '(no output)'}`;
+
+      // 🎯 如果 AI 当前空闲，自动触发 AI 继续处理（静默模式，不显示用户消息）
+      if (streamingState === StreamingState.Idle) {
+        console.log('[App] AI is idle, auto-triggering continuation for killed task:', task.id);
+        // 直接发送包含完整信息的消息，让 AI 能看到结果
+        submitQuery(notificationText, { silent: true });
+      } else {
+        // AI 正忙，加入队列等待
+        console.log('[App] AI is busy, queuing background task kill notification:', task.id);
+        setPendingBackgroundNotifications(prev => [...prev, notificationText]);
+      }
+    }, [addItem, streamingState, submitQuery]),
+  });
+
+  // 🎯 当 AI 变为空闲时，处理队列中的后台任务通知
+  useEffect(() => {
+    if (streamingState === StreamingState.Idle && pendingBackgroundNotifications.length > 0) {
+      console.log('[App] AI is now idle, processing pending background notifications:', pendingBackgroundNotifications.length);
+
+      // 将所有待处理的通知注入到 AI 历史中
+      try {
+        const geminiClient = config.getGeminiClient();
+        for (const notification of pendingBackgroundNotifications) {
+          geminiClient.addHistory({
+            role: 'user',
+            parts: [{ text: notification }],
+          });
+        }
+        console.log('[App] Injected pending notifications into AI history');
+
+        // 清空队列
+        setPendingBackgroundNotifications([]);
+
+        // 自动触发 AI 继续处理（静默模式，不显示用户消息）
+        submitQuery('[System] Background tasks have completed while you were busy. Please review the results above and continue.', { silent: true });
+      } catch (e) {
+        console.error('[App] Failed to process pending background notifications:', e);
+      }
+    }
+  }, [streamingState, pendingBackgroundNotifications, config, submitQuery]);
+
   const sendPromptImmediately = useCallback(
     (promptText: string, pauseQueueUntilResponse = false) => {
       if (logoShows) {
@@ -1164,6 +1316,38 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   const pendingHistoryItems = [...pendingSlashCommandHistoryItems];
   pendingHistoryItems.push(...pendingGeminiHistoryItems);
 
+  // 🔧 菜单焦点管理修复: 追踪工具确认菜单状态
+  // 问题: 当工具批准菜单显示时, InputPrompt 仍然捕获键盘输入，导致无法通过 Enter 确认
+  // 解决: 检测是否有工具处于确认状态，将菜单状态传给 InputPrompt
+  // 关键: 需要同时检查 history 和 pendingHistoryItems，因为正在等待审批的工具在 pendingHistoryItems 中
+  const isToolConfirmationMenuOpen = useMemo(() => {
+    // 递归检查工具及其子工具调用
+    const hasConfirmingTool = (tools: IndividualToolCallDisplay[]): boolean => {
+      return tools.some((tool) =>
+        tool.status === ToolCallStatus.Confirming ||
+        (tool.subToolCalls && hasConfirmingTool(tool.subToolCalls))
+      );
+    };
+
+    // 检查 history 中的工具
+    const inHistory = history.some((item) => {
+      if (item.type === 'tool_group') {
+        return hasConfirmingTool(item.tools);
+      }
+      return false;
+    });
+
+    // 检查 pendingHistoryItems 中的工具（正在处理中的）
+    const inPending = pendingHistoryItems.some((item) => {
+      if (item.type === 'tool_group') {
+        return hasConfirmingTool(item.tools);
+      }
+      return false;
+    });
+
+    return inHistory || inPending;
+  }, [history, pendingHistoryItems]);
+
   const { elapsedTime, currentLoadingPhrase, estimatedInputTokens: loadingEstimatedTokens } =
     useLoadingIndicator(streamingState, estimatedInputTokens);
 
@@ -1223,6 +1407,21 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     //   });
     // }
 
+    // 🎯 后台任务面板按键处理（最高优先级）
+    if (showBackgroundTaskPanel) {
+      if (key.escape || input.toLowerCase() === 'q') {
+        // 只关闭面板，不做其他事情
+        setShowBackgroundTaskPanel(false);
+        return;
+      }
+      // 面板内的其他按键（↑↓K）由 BackgroundTaskPanel 组件自己的 useInput 处理
+      // 这里只需要拦截 Esc/Q，其他按键让它继续传递给面板
+      if (key.upArrow || key.downArrow || input.toLowerCase() === 'k') {
+        // 这些按键由面板处理，不要继续传递
+        return;
+      }
+    }
+
     // 检测IDEA环境下的替代取消键
     const isIDEATerminal = detectIDEAEnvironment();
     const isCancelKey = key.escape ||
@@ -1281,6 +1480,16 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
         setQueueEditIndex(0);
         buffer.setText(queuedPrompts[0]);
         return;
+      }
+
+      // 🎯 ↓ 键打开后台任务面板（仅当有后台任务时）
+      if (key.downArrow && !key.ctrl && !key.shift && !key.meta) {
+        const taskManager = getBackgroundTaskManager();
+        const tasks = taskManager.getAllTasks();
+        if (tasks.length > 0) {
+          setShowBackgroundTaskPanel(true);
+          return;
+        }
       }
     }
 
@@ -2073,12 +2282,15 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                   focus={isFocused}
                   vimHandleInput={vimHandleInput}
                   placeholder={placeholder}
-                  isModalOpen={isModelDialogOpen || isAuthDialogOpen || isThemeDialogOpen || isEditorDialogOpen}
+                  isModalOpen={isModelDialogOpen || isAuthDialogOpen || isThemeDialogOpen || isEditorDialogOpen || isToolConfirmationMenuOpen || showBackgroundTaskPanel}
                   isExecutingTools={isExecutingTools}
                   isBusy={streamingState !== StreamingState.Idle || queuedPrompts.length > 0}
                   isInSpecialMode={!!refineResult || queueEditMode}
                 />
               ) : null}
+
+              {/* 🎯 后台任务提示 - 显示在输入框下方 */}
+              <BackgroundTaskHint />
             </>
           )}
 
@@ -2116,6 +2328,14 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
           ) : null}
           {/* Debug Console - Fixed at bottom before Footer */}
           {renderDebugPanel()}
+
+          {/* 🎯 后台任务管理面板 (Ctrl+↓ 打开) */}
+          <BackgroundTaskPanel
+            isVisible={showBackgroundTaskPanel}
+            onClose={() => setShowBackgroundTaskPanel(false)}
+            terminalWidth={terminalWidth}
+          />
+
           <Footer
             model={currentModel}
             targetDir={config.getTargetDir()}

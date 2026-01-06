@@ -217,6 +217,7 @@ const resumeCommand: SlashCommand = {
             const toolCall: IndividualToolCallDisplay = {
               callId: funcCall.functionCall.id || 'unknown',
               name: funcCall.functionCall.name || 'unknown_tool',
+              toolId: funcCall.functionCall.name || 'unknown_tool',
               description: JSON.stringify(funcCall.functionCall.args || {}),
               status: funcResponse?.functionResponse?.response?.error
                 ? ToolCallStatus.Error
