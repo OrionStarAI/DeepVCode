@@ -94,6 +94,9 @@ export class SettingsManager {
 
       // 验证配置文件
       await this.validateConfigs();
+
+      // 运行数据迁移
+      await this.runMigrations();
     } catch (error) {
       throw new SkillError(
         `Failed to initialize Skills system: ${error instanceof Error ? error.message : String(error)}`,
@@ -547,6 +550,27 @@ export class SettingsManager {
     this.clearCache();
     await this.readSettings();
     await this.readInstalledPlugins();
+  }
+
+  // ============================================================================
+  // 数据迁移
+  // ============================================================================
+
+  /**
+   * 运行数据迁移
+   */
+  private async runMigrations(): Promise<void> {
+    try {
+      const { AddInstallPathMigration } = await import('./migrations/add-install-path.js');
+      const { MarketplaceManager } = await import('./marketplace-manager.js');
+
+      const marketplaceManager = new MarketplaceManager(this);
+      const migration = new AddInstallPathMigration(this, marketplaceManager);
+      await migration.run();
+    } catch (error) {
+      // 迁移失败不是致命错误，只记录警告
+      console.warn('[SettingsManager] Migration failed (non-fatal):', error);
+    }
   }
 }
 
