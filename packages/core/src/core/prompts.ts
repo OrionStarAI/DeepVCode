@@ -28,6 +28,7 @@ import { LSPDocumentSymbolsTool } from '../tools/lsp/lsp-document-symbols.js';
 import { LSPWorkspaceSymbolsTool } from '../tools/lsp/lsp-workspace-symbols.js';
 import { LSPImplementationTool } from '../tools/lsp/lsp-implementation.js';
 import { TaskPrompts } from './taskPrompts.js';
+import { SkillsContextBuilder } from '../skills/skills-context-builder.js';
 import { PromptRegistry } from '../prompts/prompt-registry.js';
 
 /**
@@ -601,22 +602,18 @@ You are running outside of a sandbox container, directly on the user's system. F
     : '';
 
   // Skills context (if available)
-  const skillsContent = (function () {
-    try {
-      const { SkillsContextBuilder } = require('../skills/skills-context-builder.js');
-      const builder = new SkillsContextBuilder();
-      const context = builder.buildContext();
+  let skillsContent = '';
+  try {
+    const builder = new SkillsContextBuilder();
+    const context = builder.buildContext();
 
-      if (context.available && context.summary) {
-        return `\n\n---\n\n${context.summary}`;
-      }
-      return '';
-    } catch (error) {
-      // Skills system not available or failed to load
-      // This is expected in environments where skills are not set up
-      return '';
+    if (context.available && context.summary) {
+      skillsContent = `\n\n---\n\n${context.summary}`;
     }
-  })();
+  } catch (error) {
+    // Skills system not available or failed to load
+    // This is expected in environments where skills are not set up
+  }
 
   return `${sandboxContent}${gitContent}${skillsContent}${memorySuffix}`.trim();
 }

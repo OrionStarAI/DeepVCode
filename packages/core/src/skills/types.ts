@@ -41,10 +41,13 @@ export interface InstalledPlugins {
 export interface PluginInfo {
   id: string;
   name: string;
+  description?: string;
   marketplaceId: string;
+  installPath: string;
   installedAt: string;
   enabled: boolean;
   skillCount: number;
+  version?: string;
 }
 
 export interface MarketplaceManifest {

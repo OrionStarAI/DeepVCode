@@ -18,6 +18,7 @@ import {
   SkillErrorCode,
   ValidationError,
   SkillType,
+  PluginSource,
 } from './types.js';
 import { SettingsManager, SkillsPaths } from './settings-manager.js';
 import { MarketplaceManager } from './marketplace-manager.js';
@@ -78,11 +79,38 @@ export class PluginInstaller {
         await this.copyPluginToPersonalDir(plugin, marketplaceId);
       }
 
+      // 确定插件的本地安装路径
+      let installPath: string;
+
+      // 判断是否为远程 Git source（使用缓存路径）
+      if (this.isRemoteGitSource(plugin.source)) {
+        // 远程插件：使用 cache 路径
+        const version = plugin.version || '0.0.0';
+        installPath = SkillsPaths.getPluginCachePath(marketplaceId, plugin.name, version);
+      } else if (typeof plugin.source === 'string') {
+        // 字符串：使用 source 作为相对路径
+        const pluginLocalPath = plugin.source;
+        installPath = path.join(
+          SkillsPaths.MARKETPLACE_ROOT,
+          marketplaceId,
+          pluginLocalPath
+        );
+      } else {
+        // 兜底：使用插件名
+        installPath = path.join(
+          SkillsPaths.MARKETPLACE_ROOT,
+          marketplaceId,
+          plugin.name
+        );
+      }
+
       // 记录已安装 Plugin
       const installedInfo: InstalledPluginInfo = {
         id: plugin.id,
         name: plugin.name,
+        description: plugin.description,
         marketplaceId,
+        installPath,
         installedAt: new Date().toISOString(),
         enabled: true, // 默认启用
         skillCount: plugin.skillPaths.length,
@@ -287,6 +315,29 @@ export class PluginInstaller {
    */
   async isPluginEnabled(pluginId: string): Promise<boolean> {
     return this.settingsManager.isPluginEnabled(pluginId);
+  }
+
+  // ============================================================================
+  // 私有方法 - Plugin Source 判断
+  // ============================================================================
+
+  /**
+   * 判断 plugin source 是否为远程 Git 类型（需要缓存）
+   * @param source Plugin source
+   * @returns true 如果是远程 Git source（需要缓存），false 如果是本地路径（不需要缓存）
+   */
+  private isRemoteGitSource(source: string | PluginSource): boolean {
+    if (typeof source === 'string') {
+      // 字符串类型：相对路径不缓存
+      return false;
+    }
+
+    if (typeof source === 'object' && source !== null) {
+      // GitHub、Git、URL 都需要缓存
+      return source.source === 'github' || source.source === 'git' || source.source === 'url';
+    }
+
+    return false;
   }
 
   // ============================================================================

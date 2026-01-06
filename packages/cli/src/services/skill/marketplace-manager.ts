@@ -342,11 +342,21 @@ export class MarketplaceManager {
 
   /**
    * 克隆 Git 仓库
+   * @param url Git 仓库 URL
+   * @param targetPath 目标路径
+   * @param ref 可选的分支、tag 或 commit hash
    */
-  private async cloneRepository(url: string, targetPath: string): Promise<void> {
+  private async cloneRepository(url: string, targetPath: string, ref?: string): Promise<void> {
     try {
       await fs.ensureDir(path.dirname(targetPath));
-      const { stdout, stderr } = await execAsync(`git clone "${url}" "${targetPath}"`, {
+
+      // 如果指定了 ref，使用 --branch 参数
+      let cloneCommand = `git clone "${url}" "${targetPath}"`;
+      if (ref) {
+        cloneCommand = `git clone --branch "${ref}" "${url}" "${targetPath}"`;
+      }
+
+      const { stdout, stderr } = await execAsync(cloneCommand, {
         maxBuffer: 10 * 1024 * 1024, // 10MB
       });
 
@@ -357,7 +367,7 @@ export class MarketplaceManager {
       throw new MarketplaceError(
         `Git clone failed: ${error instanceof Error ? error.message : String(error)}`,
         SkillErrorCode.MARKETPLACE_CLONE_FAILED,
-        { url, targetPath, originalError: error },
+        { url, targetPath, ref, originalError: error },
       );
     }
   }
@@ -503,13 +513,17 @@ export class MarketplaceManager {
         }
       }
     } else if (typeof pluginDef.source === 'object') {
-      // Remote Git source (github/url)
-      // For Git-based marketplaces, the plugin should already be cloned
-      // The plugin directory is typically in the marketplace root with the same name as the plugin
+      // Remote Git source (github/git/url)
+      const source = pluginDef.source;
+
+      // 确定基础目录名（使用 path 字段或插件名）
+      const baseDirName = ('path' in source && source.path) ? source.path : pluginDef.name;
+
+      // 可能的插件位置
       const possiblePaths = [
-        path.join(marketplacePath, pluginDef.name), // Direct: marketplace/plugin-name
-        path.join(marketplacePath, 'plugins', pluginDef.name), // Common: marketplace/plugins/plugin-name
-        path.join(marketplacePath, 'skills', pluginDef.name), // Alternative: marketplace/skills/plugin-name
+        path.join(marketplacePath, baseDirName), // Direct: marketplace/plugin-name
+        path.join(marketplacePath, 'plugins', baseDirName), // Common: marketplace/plugins/plugin-name
+        path.join(marketplacePath, 'skills', baseDirName), // Alternative: marketplace/skills/plugin-name
       ];
 
       for (const possiblePath of possiblePaths) {
@@ -520,19 +534,43 @@ export class MarketplaceManager {
       }
 
       if (!sourcePath) {
-        // Plugin directory not found - try to clone it
-        if ('url' in pluginDef.source && pluginDef.source.url) {
+        // Plugin directory not found - try to clone/download it
+        let gitUrl: string | null = null;
+        let ref: string | undefined = undefined;
+
+        if (source.source === 'github') {
+          // GitHub source: 转换为 git URL
+          gitUrl = `https://github.com/${source.repo}.git`;
+          ref = source.ref;
+        } else if (source.source === 'git') {
+          // Git source: 直接使用 URL
+          gitUrl = source.url;
+          ref = source.ref;
+        } else if (source.source === 'url') {
+          // URL source: 回退到旧逻辑
+          gitUrl = source.url;
+        }
+
+        if (gitUrl) {
           const targetPath = path.join(marketplacePath, pluginDef.name);
-          console.log(`Cloning plugin ${pluginDef.name} from ${pluginDef.source.url}...`);
+          console.log(`Cloning plugin ${pluginDef.name} from ${gitUrl}${ref ? ` (ref: ${ref})` : ''}...`);
 
           try {
-            await this.cloneRepository(pluginDef.source.url, targetPath);
-            sourcePath = targetPath;
+            await this.cloneRepository(gitUrl, targetPath, ref);
+
+            // 如果指定了 path 字段，更新 sourcePath 指向子目录
+            if ('path' in source && source.path) {
+              sourcePath = path.join(targetPath, source.path);
+            } else {
+              sourcePath = targetPath;
+            }
+
             console.log(`✓ Successfully cloned ${pluginDef.name}`);
           } catch (error) {
             console.warn(
               `Failed to clone plugin ${pluginDef.name}\n` +
-              `  URL: ${pluginDef.source.url}\n` +
+              `  URL: ${gitUrl}\n` +
+              `  Ref: ${ref || 'default'}\n` +
               `  Error: ${error instanceof Error ? error.message : String(error)}`
             );
           }
