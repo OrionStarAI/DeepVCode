@@ -1068,6 +1068,90 @@ export class MultiSessionCommunicationService {
     return this.addMessageHandler('nanobanana_status', handler);
   }
 
+  // =============================================================================
+  // 🎯 后台任务管理相关方法
+  // =============================================================================
+
+  /**
+   * 发送后台任务列表更新
+   */
+  async sendBackgroundTasksUpdate(tasks: Array<{
+    id: string;
+    command: string;
+    directory?: string;
+    status: 'running' | 'completed' | 'failed' | 'cancelled';
+    pid?: number;
+    startTime: number;
+    endTime?: number;
+    output: string;
+    stderr: string;
+    exitCode?: number;
+    error?: string;
+  }>) {
+    const runningCount = tasks.filter(t => t.status === 'running').length;
+    await this.sendMessage({
+      type: 'background_tasks_update',
+      payload: { tasks, runningCount }
+    });
+  }
+
+  /**
+   * 发送后台任务输出更新
+   */
+  async sendBackgroundTaskOutput(taskId: string, output: string, isStderr: boolean = false) {
+    await this.sendMessage({
+      type: 'background_task_output',
+      payload: { taskId, output, isStderr }
+    });
+  }
+
+  /**
+   * 🎯 发送后台任务完成通知（用于触发 AI 继续）
+   */
+  async sendBackgroundTaskCompletedNotification(payload: {
+    taskId: string;
+    command: string;
+    status: 'completed' | 'failed' | 'cancelled';
+    exitCode?: number;
+    output?: string;
+    error?: string;
+  }) {
+    await this.sendMessage({
+      type: 'background_task_completed_notification',
+      payload
+    });
+  }
+
+  /**
+   * 🎯 发送后台任务结果显示（在聊天界面显示任务输出）
+   */
+  async sendBackgroundTaskResult(sessionId: string, payload: {
+    taskId: string;
+    command: string;
+    status: 'completed' | 'failed' | 'cancelled';
+    exitCode?: number;
+    output: string;
+  }) {
+    await this.sendMessage({
+      type: 'background_task_result',
+      payload: { sessionId, ...payload }
+    });
+  }
+
+  /**
+   * 监听后台任务请求（列表、终止）
+   */
+  onBackgroundTaskRequest(handler: (data: { action: 'list' | 'kill'; taskId?: string }) => void) {
+    return this.addMessageHandler('background_task_request', handler);
+  }
+
+  /**
+   * 监听将任务转到后台的请求
+   */
+  onBackgroundTaskMoveToBackground(handler: (data: { sessionId: string; toolCallId: string }) => void) {
+    return this.addMessageHandler('background_task_move_to_background', handler);
+  }
+
   async dispose() {
     this.logger.info('Disposing MultiSessionCommunicationService');
     this.webview = undefined;

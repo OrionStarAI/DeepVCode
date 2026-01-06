@@ -91,8 +91,10 @@ const RenderInlineInternal: React.FC<RenderInlineProps> = ({ text }) => {
       ) {
         const codeMatch = fullMatch.match(/^(`+)(.+?)\1$/s);
         if (codeMatch && codeMatch[2]) {
+          // Use a blue-purple color similar to Claude Code CLI for inline code
+          // This provides better visual distinction from purple accent elements
           renderedNode = (
-            <Text key={key} color={Colors.AccentPurple}>
+            <Text key={key} color="#7B8CDE">
               {codeMatch[2]}
             </Text>
           );

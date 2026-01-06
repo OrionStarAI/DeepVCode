@@ -22,6 +22,7 @@ const githubLightColors: ColorsTheme = {
   DiffRemoved: '#FFCCCC',
   Comment: '#998',
   Gray: '#999',
+  InfoColor: '#8B7355', // Muted brown/amber for light theme
   GradientColors: ['#458', '#008080'],
 };
 

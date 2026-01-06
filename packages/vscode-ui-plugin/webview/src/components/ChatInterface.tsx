@@ -13,7 +13,9 @@ import { ToolCallList } from './ToolCallList';
 import { StickyTodoPanel } from './StickyTodoPanel';
 import { MessageInput } from './MessageInput';
 import FilesChangedBar from './FilesChangedBar';
+import BackgroundTasksBar from './BackgroundTasksBar';
 import { useTranslation } from '../hooks/useTranslation';
+import { useBackgroundTasks } from '../hooks/useBackgroundTasks';
 import './ChatInterface.css';
 import { getGlobalMessageService } from '../services/globalMessageService';
 import { createTextMessageContent } from '../utils/messageContentUtils';
@@ -90,7 +92,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   isModelSwitching = false
 }) => {
   const { t } = useTranslation();
+  const { tasks: backgroundTasks, runningCount: backgroundRunningCount, killTask: killBackgroundTask } = useBackgroundTasks();
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
+  const [isTasksBarDismissed, setIsTasksBarDismissed] = useState(false);
   // 🎯 使用 Ref 替代 State 来追踪自动滚动状态，避免 React 状态更新的延迟导致的"对抗"问题
   // 默认为 true，表示初始状态下允许自动滚动
   const shouldAutoScrollRef = useRef(true);
@@ -101,6 +105,13 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   // 🎯 Todo 面板可见性和折叠状态管理
   const [isTodoCollapsed, setIsTodoCollapsed] = useState(false);
   const [isTodoVisible, setIsTodoVisible] = useState(false);
+
+  // 🎯 当有新的 running 任务时，重新显示任务栏
+  useEffect(() => {
+    if (backgroundRunningCount > 0) {
+      setIsTasksBarDismissed(false);
+    }
+  }, [backgroundRunningCount]);
   const prevProcessingRef = useRef(false);
   const turnStartTodoSignatureRef = useRef<string>(""); // 🎯 记录回合开始时的 Todo 状态签名
 
@@ -462,6 +473,20 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
       }, 50);
     } else {
       console.error('无法重新生成：缺少sessionId或messageService');
+    }
+  };
+
+  // 🎯 新增：将工具调用移到后台执行
+  const handleMoveToBackground = (toolCallId: string) => {
+    console.log('🎯 [ChatInterface] Moving tool call to background:', toolCallId);
+    if (typeof window !== 'undefined' && window.vscode) {
+      window.vscode.postMessage({
+        type: 'background_task_move_to_background',
+        payload: {
+          toolCallId,
+          sessionId
+        }
+      });
     }
   };
 
@@ -877,6 +902,7 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
                         sessionId={sessionId}
                         messages={messages}
                         onUpdateMessages={onUpdateMessages}
+                        onMoveToBackground={handleMoveToBackground}
                       />
                     )}
                   </div>
@@ -920,6 +946,16 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
           </>
         )}
       </div>
+
+      {/* Background Tasks Bar - 放在 Files Changed Bar 上方 */}
+      {!isTasksBarDismissed && (
+        <BackgroundTasksBar
+          tasks={backgroundTasks}
+          runningCount={backgroundRunningCount}
+          onKillTask={killBackgroundTask}
+          onClose={() => setIsTasksBarDismissed(true)}
+        />
+      )}
 
       {/* Files Changed Bar */}
       <FilesChangedBar

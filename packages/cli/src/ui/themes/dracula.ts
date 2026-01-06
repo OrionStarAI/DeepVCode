@@ -22,6 +22,7 @@ const draculaColors: ColorsTheme = {
   DiffRemoved: '#6e1818',
   Comment: '#6272a4',
   Gray: '#6272a4',
+  InfoColor: '#B8A77E', // Muted yellow/amber for info messages
   GradientColors: ['#ff79c6', '#8be9fd'],
 };
 

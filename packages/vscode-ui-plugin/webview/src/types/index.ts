@@ -155,7 +155,8 @@ export enum ToolCallStatus {
   WaitingForConfirmation = 'awaiting_approval',
   Success = 'success',
   Error = 'error',
-  Canceled = 'cancelled'
+  Canceled = 'cancelled',
+  BackgroundRunning = 'background_running'  // 🎯 后台运行中
 }
 
 // 🎯 工具调用确认详情

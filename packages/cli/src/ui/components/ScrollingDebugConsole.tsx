@@ -143,7 +143,7 @@ function ScrollingDebugConsoleComponent({
             }
 
             const msg = item.message!;
-            let textColor = Colors.Foreground;
+            let textColor = Colors.InfoColor; // Muted yellow for log/info
             let icon = '\u2139'; // Information source (ℹ)
 
             switch (msg.type) {
@@ -161,7 +161,7 @@ function ScrollingDebugConsoleComponent({
                 break;
               case 'log':
               default:
-                // Default textColor and icon are already set
+                // Use InfoColor (muted yellow) for log messages
                 break;
             }
 

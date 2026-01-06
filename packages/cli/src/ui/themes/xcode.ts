@@ -22,6 +22,7 @@ const xcodeColors: ColorsTheme = {
   DiffRemoved: '#FEDEDE',
   Comment: '#007400',
   Gray: '#c0c0c0',
+  InfoColor: '#8B7355', // Muted brown/amber for light theme
   GradientColors: ['#1c00cf', '#007400'],
 };
 
