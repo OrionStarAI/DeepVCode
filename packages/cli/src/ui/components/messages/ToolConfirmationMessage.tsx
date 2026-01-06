@@ -68,12 +68,17 @@ export const ToolConfirmationMessage: React.FC<
   });
 
   const handleSelect = (item: ToolConfirmationOutcome) => {
+    // 🔧 调试日志
+    console.log('[ToolConfirmationMessage] handleSelect called with:', item);
+
     // 🎵 播放选择完成提示音
     AudioNotification.play(NotificationSound.SELECTION_MADE).catch(err => {
       console.debug('[AudioNotification] Failed to play selection made sound:', err);
     });
 
+    console.log('[ToolConfirmationMessage] Calling onConfirm...');
     onConfirm(item);
+    console.log('[ToolConfirmationMessage] onConfirm returned');
   };
 
   let bodyContent: React.ReactNode | null = null; // Removed contextDisplay here

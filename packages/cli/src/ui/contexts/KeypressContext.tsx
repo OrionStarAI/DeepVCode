@@ -60,6 +60,8 @@ export type KeypressHandler = (key: Key) => void;
 interface KeypressContextValue {
   subscribe: (handler: KeypressHandler) => void;
   unsubscribe: (handler: KeypressHandler) => void;
+  // NEW: Background mode detection for Ctrl+B
+  onBackgroundModeRequested?: (requested: boolean) => void;
 }
 
 const KeypressContext = createContext<KeypressContextValue | undefined>(
@@ -79,9 +81,12 @@ export function useKeypressContext() {
 export function KeypressProvider({
   children,
   config,
+  onBackgroundModeRequested,
 }: {
   children: React.ReactNode;
   config?: Config;
+  // NEW: Callback when Ctrl+B is pressed (for background task mode)
+  onBackgroundModeRequested?: (requested: boolean) => void;
 }) {
   const { stdin, setRawMode } = useStdin();
   const subscribers = useRef<Set<KeypressHandler>>(new Set()).current;
@@ -556,6 +561,29 @@ export function KeypressProvider({
         return;
       }
 
+      // NEW: Handle Ctrl+B for background task mode
+      if (key.ctrl && key.name === 'b') {
+        console.log('[KeypressContext] 🎯 Ctrl+B detected!', { ctrl: key.ctrl, name: key.name });
+
+        // Try local callback first
+        if (onBackgroundModeRequested) {
+          console.log('[KeypressContext] Calling onBackgroundModeRequested(true)');
+          onBackgroundModeRequested(true);
+        }
+
+        // Try global callback (from BackgroundModeBridge)
+        const globalCallback = (globalThis as any).__backgroundModeCallback;
+        if (globalCallback) {
+          console.log('[KeypressContext] Calling global __backgroundModeCallback(true)');
+          globalCallback(true);
+        } else {
+          console.log('[KeypressContext] ⚠️ No callback found!');
+        }
+
+        // Don't broadcast - consume the key
+        return;
+      }
+
       if (
         (key.ctrl && key.name === 'c') ||
         key.sequence === `${ESC}${KITTY_CTRL_C}`
@@ -770,7 +798,9 @@ export function KeypressProvider({
   ]);
 
   return (
-    <KeypressContext.Provider value={{ subscribe, unsubscribe }}>
+    <KeypressContext.Provider
+      value={{ subscribe, unsubscribe, onBackgroundModeRequested }}
+    >
       {children}
     </KeypressContext.Provider>
   );

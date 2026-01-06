@@ -560,6 +560,7 @@ export async function handleAtCommand({
     toolCallDisplay = {
       callId: `client-read-${userMessageTimestamp}`,
       name: readManyFilesTool.displayName,
+      toolId: 'read_many_files',
       description: readManyFilesTool.getDescription(toolArgs),
       status: ToolCallStatus.Success,
       resultDisplay:
@@ -620,6 +621,7 @@ export async function handleAtCommand({
     toolCallDisplay = {
       callId: `client-read-${userMessageTimestamp}`,
       name: readManyFilesTool.displayName,
+      toolId: 'read_many_files',
       description: readManyFilesTool.getDescription(toolArgs),
       status: ToolCallStatus.Error,
       resultDisplay: `Error reading files (${contentLabelsForDisplay.join(', ')}): ${getErrorMessage(error)}`,

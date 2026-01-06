@@ -16,7 +16,7 @@ import { MarkdownDisplay } from '../../utils/MarkdownDisplay.js';
 import { GeminiRespondingSpinner } from '../GeminiRespondingSpinner.js';
 import { BlinkingRobotEmoji } from '../BlinkingRobotEmoji.js';
 import { MaxSizedBox } from '../shared/MaxSizedBox.js';
-import { getLocalizedToolName, isChineseLocale } from '../../utils/i18n.js';
+import { getLocalizedToolName, isChineseLocale, t } from '../../utils/i18n.js';
 import { useSmallWindowOptimization, WindowSizeLevel } from '../../hooks/useSmallWindowOptimization.js';
 import stringWidth from 'string-width';
 import { truncateText } from '../../utils/textTruncator.js';
@@ -147,6 +147,7 @@ export interface ToolMessageProps extends IndividualToolCallDisplay {
 
 export const ToolMessage: React.FC<ToolMessageProps> = ({
   name,
+  toolId,
   description,
   resultDisplay,
   status,
@@ -158,6 +159,9 @@ export const ToolMessage: React.FC<ToolMessageProps> = ({
   forceMarkdown = false,
 }) => {
   const smallWindowConfig = useSmallWindowOptimization();
+  // 🎯 Shell 命令正在执行或等待时显示 Ctrl+B 提示
+  const isShellRunning = toolId === 'run_shell_command' &&
+    (status === ToolCallStatus.Executing || status === ToolCallStatus.Pending);
   const shouldSimplifyDiff = smallWindowConfig.sizeLevel === WindowSizeLevel.SMALL ||
                            smallWindowConfig.sizeLevel === WindowSizeLevel.TINY;
 
@@ -227,6 +231,14 @@ export const ToolMessage: React.FC<ToolMessageProps> = ({
         />
         {emphasis === 'high' ? <TrailingIndicator /> : null}
       </Box>
+      {/* 🎯 Show Ctrl+B prompt for shell commands when executing */}
+      {isShellRunning ? (
+        <Box paddingLeft={STATUS_INDICATOR_WIDTH} marginTop={0}>
+          <Text color={Colors.Gray}>
+            {t('shell.background.hint')}
+          </Text>
+        </Box>
+      ) : null}
       {/* Show thinking display if available */}
       {thinkingDisplayData ? (
         <Box paddingLeft={STATUS_INDICATOR_WIDTH} width="100%">
@@ -367,6 +379,9 @@ const ToolStatusIndicator: React.FC<ToolStatusIndicatorProps> = ({
     ) : null}
     {status === ToolCallStatus.SubAgentRunning ? (
       <BlinkingRobotEmoji />
+    ) : null}
+    {status === ToolCallStatus.BackgroundRunning ? (
+      <Text color={Colors.AccentYellow}>»</Text>
     ) : null}
     {status === ToolCallStatus.Success ? (
       <Text color={Colors.AccentGreen}>●</Text>

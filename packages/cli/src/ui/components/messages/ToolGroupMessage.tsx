@@ -5,13 +5,14 @@
  */
 
 import React, { useMemo } from 'react';
-import { Box } from 'ink';
+import { Box, Text } from 'ink';
 import { IndividualToolCallDisplay, ToolCallStatus } from '../../types.js';
 import { ToolMessage } from './ToolMessage.js';
 import { ToolConfirmationMessage } from './ToolConfirmationMessage.js';
 import { Colors } from '../../colors.js';
 import { Config } from 'deepv-code-core';
 import { SHELL_COMMAND_NAME } from '../../constants.js';
+import { t } from '../../utils/i18n.js';
 
 interface ToolGroupMessageProps {
   groupId: number;
@@ -34,6 +35,12 @@ export const ToolGroupMessage: React.FC<ToolGroupMessageProps> = ({
     (t) => t.status === ToolCallStatus.Success,
   );
   const isShellCommand = toolCalls.some((t) => t.name === SHELL_COMMAND_NAME);
+
+  // 🎯 检查是否有 Shell 命令正在执行或等待执行
+  const isShellExecuting = toolCalls.some(
+    (t) => t.name === SHELL_COMMAND_NAME &&
+           (t.status === ToolCallStatus.Executing || t.status === ToolCallStatus.Pending)
+  );
 
   // 🔧 修复闪屏问题：Shell命令完全禁用边框
   // 原因：即使在执行完成后，长输出也会导致边框与终端滚动冲突，引发闪烁
@@ -122,6 +129,7 @@ export const ToolGroupMessage: React.FC<ToolGroupMessageProps> = ({
               <ToolMessage
                 callId={tool.callId}
                 name={tool.name}
+                toolId={tool.toolId}
                 description={tool.description}
                 resultDisplay={tool.resultDisplay}
                 status={tool.status}
@@ -143,13 +151,22 @@ export const ToolGroupMessage: React.FC<ToolGroupMessageProps> = ({
         );
       })}
 
+      {/* 🎯 Ctrl+B 提示 - Shell 命令执行时显示 */}
+      {isShellExecuting && (
+        <Box marginLeft={3}>
+          <Text color={Colors.AccentYellow}>
+            {t('shell.background.hint')}
+          </Text>
+        </Box>
+      )}
+
       {/* 🎯 全局确认框 - 显示在底部，处理任意层级的确认 */}
       {toolAwaitingApproval && toolAwaitingApproval.confirmationDetails && (
         <Box marginTop={1}>
           <ToolConfirmationMessage
             confirmationDetails={toolAwaitingApproval.confirmationDetails}
             config={config}
-            isFocused={isFocused}
+            isFocused={true}
             availableTerminalHeight={availableTerminalHeightPerToolMessage}
             terminalWidth={innerWidth}
             showTitle={

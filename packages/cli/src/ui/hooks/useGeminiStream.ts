@@ -7,6 +7,7 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from 'react';
 import { useInput } from 'ink';
 import { t, tp, isChineseLocale } from '../utils/i18n.js';
+import { isBackgroundTaskPanelOpen } from '../utils/modalState.js';
 import {
   Config,
   GeminiClient,
@@ -629,6 +630,11 @@ export const useGeminiStream = (
                        (isIDEATerminal && key.ctrl && input === 'q') ||
                        (process.platform === 'darwin' && key.meta && input === 'q');
 
+    // 🎯 如果后台任务面板打开，不处理 ESC（由 App.tsx 统一处理）
+    if (isCancelKey && isBackgroundTaskPanelOpen()) {
+      return;
+    }
+
     if (streamingState === StreamingState.Responding && isCancelKey) {
       if (turnCancelledRef.current) {
         return;
@@ -684,9 +690,11 @@ export const useGeminiStream = (
       abortSignal: AbortSignal,
       prompt_id: string,
       originalQuery?: PartListUnion, // 可选的原始查询，用于历史记录
+      silent?: boolean, // 🎯 静默模式：不在 UI 上显示用户消息
     ): Promise<{
       queryToSend: PartListUnion | null;
       shouldProceed: boolean;
+      silent?: boolean; // 🎯 传递静默模式标志
     }> => {
       if (turnCancelledRef.current) {
         return { queryToSend: null, shouldProceed: false };
@@ -737,6 +745,7 @@ export const useGeminiStream = (
               return {
                 queryToSend: localQueryToSendToGemini,
                 shouldProceed: true,
+                silent: slashCommandResult.silent, // 🎯 传递静默模式
               };
             }
             case 'handled': {
@@ -812,11 +821,14 @@ export const useGeminiStream = (
           }
           localQueryToSendToGemini = atCommandResult.processedQuery;
         } else {
-          // Normal query for Gemini - 始终添加用户消息到历史记录（用于AI上下文）
-          addItem(
-            { type: MessageType.USER, text: queryForLogging },
-            userMessageTimestamp,
-          );
+          // Normal query for Gemini - 添加用户消息到历史记录（用于AI上下文）
+          // 🎯 静默模式下不在 UI 显示用户消息（如后台任务通知）
+          if (!silent) {
+            addItem(
+              { type: MessageType.USER, text: queryForLogging },
+              userMessageTimestamp,
+            );
+          }
           localQueryToSendToGemini = trimmedQuery; // 但仍使用修改后的查询发送给AI
         }
       } else {
@@ -1251,7 +1263,7 @@ export const useGeminiStream = (
   const submitQuery = useCallback(
     async (
       query: PartListUnion,
-      options?: { isContinuation: boolean },
+      options?: { isContinuation?: boolean; silent?: boolean },
       prompt_id?: string,
     ) => {
       // 🛡️ 同步检查和设置标志位，防止重入
@@ -1339,13 +1351,17 @@ User question: ${queryStr}`;
         currentUserQueryRef.current = query.trim();
       }
 
-      const { queryToSend, shouldProceed } = await prepareQueryForGemini(
+      const { queryToSend, shouldProceed, silent: resultSilent } = await prepareQueryForGemini(
         modifiedQuery,
         userMessageTimestamp,
         abortSignal,
         prompt_id!,
         originalQuery, // 传递原始查询用于历史记录
+        options?.silent, // 🎯 静默模式（从调用者传入）
       );
+
+      // 🎯 合并静默模式：来自调用者或来自命令返回
+      const effectiveSilent = options?.silent || resultSilent;
 
       if (!shouldProceed || queryToSend === null) {
         // 🛡️ 重置同步标志位
