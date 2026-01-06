@@ -963,22 +963,30 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
       console.log('[App] Background task completed, adding to history:', task.id);
       const result = formatBackgroundTaskResult(task);
 
-      // 添加到 UI 历史记录
+      // 🎯 使用 tool_group 格式显示任务输出（仿 Claude Code 风格）
+      const shortId = task.id;
+      const toolGroupItem: IndividualToolCallDisplay = {
+        callId: `bg-${task.id}`,
+        name: t('background.task.output'),
+        toolId: 'background_task_output',
+        description: `${shortId} ${task.command}`,
+        resultDisplay: task.output || `Exit code: ${task.exitCode ?? 'unknown'}`,
+        status: task.exitCode === 0 ? ToolCallStatus.Success : ToolCallStatus.Error,
+        confirmationDetails: undefined,
+      };
       addItem(
-        {
-          type: MessageType.INFO,
-          text: `Background task completed (Task ID: ${task.id})\nExit code: ${task.exitCode ?? 'unknown'}${task.output ? `\nOutput: ${task.output.substring(0, 500)}${task.output.length > 500 ? '...' : ''}` : ''}`,
-        },
+        { type: 'tool_group', tools: [toolGroupItem] } as any,
         Date.now(),
       );
 
-      // 🎯 构建通知消息
-      const notificationText = `[System] Background task completed (Task ID: ${task.id}). Exit code: ${task.exitCode ?? 'unknown'}. Output: ${task.output?.substring(0, 500) || '(no output)'}`;
+      // 🎯 构建通知消息（包含完整的任务信息，供 AI 理解）
+      const notificationText = `[System] Background task completed (Task ID: ${task.id}). Exit code: ${task.exitCode ?? 'unknown'}. Output:\n${task.output?.substring(0, 1000) || '(no output)'}`;
 
       // 🎯 如果 AI 当前空闲，自动触发 AI 继续处理（静默模式，不显示用户消息）
       if (streamingState === StreamingState.Idle) {
         console.log('[App] AI is idle, auto-triggering continuation for background task:', task.id);
-        submitQuery('[System] Background task completed. Please review the result above and continue.', { silent: true });
+        // 直接发送包含完整信息的消息，让 AI 能看到结果
+        submitQuery(notificationText, { silent: true });
       } else {
         // AI 正忙，加入队列等待
         console.log('[App] AI is busy, queuing background task notification:', task.id);
@@ -987,21 +995,30 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     }, [addItem, streamingState, submitQuery]),
     onTaskFailed: useCallback((task: BackgroundTask) => {
       console.log('[App] Background task failed:', task.id);
+      // 🎯 使用 tool_group 格式显示任务失败
+      const shortId = task.id;
+      const toolGroupItem: IndividualToolCallDisplay = {
+        callId: `bg-${task.id}`,
+        name: t('background.task.output'),
+        toolId: 'background_task_output',
+        description: `${shortId} ${task.command}`,
+        resultDisplay: task.error || task.output || 'Unknown error',
+        status: ToolCallStatus.Error,
+        confirmationDetails: undefined,
+      };
       addItem(
-        {
-          type: MessageType.ERROR,
-          text: `Background task failed (Task ID: ${task.id})\nError: ${task.error || 'Unknown error'}`,
-        },
+        { type: 'tool_group', tools: [toolGroupItem] } as any,
         Date.now(),
       );
 
-      // 🎯 构建通知消息
-      const notificationText = `[System] Background task failed (Task ID: ${task.id}). Command: ${task.command}. Error: ${task.error || 'Unknown error'}`;
+      // 🎯 构建通知消息（包含完整的任务信息，供 AI 理解）
+      const notificationText = `[System] Background task failed (Task ID: ${task.id}). Command: ${task.command}. Error: ${task.error || 'Unknown error'}. Output:\n${task.output?.substring(0, 1000) || '(no output)'}`;
 
       // 🎯 如果 AI 当前空闲，自动触发 AI 继续处理（静默模式，不显示用户消息）
       if (streamingState === StreamingState.Idle) {
         console.log('[App] AI is idle, auto-triggering continuation for failed task:', task.id);
-        submitQuery('[System] Background task failed. Please review the error above and continue.', { silent: true });
+        // 直接发送包含完整信息的消息，让 AI 能看到结果
+        submitQuery(notificationText, { silent: true });
       } else {
         // AI 正忙，加入队列等待
         console.log('[App] AI is busy, queuing background task failure notification:', task.id);
@@ -1010,21 +1027,30 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     }, [addItem, streamingState, submitQuery]),
     onTaskKilled: useCallback((task: BackgroundTask) => {
       console.log('[App] Background task killed by user:', task.id);
+      // 🎯 使用 tool_group 格式显示任务被终止
+      const shortId = task.id;
+      const toolGroupItem: IndividualToolCallDisplay = {
+        callId: `bg-${task.id}`,
+        name: t('background.task.output'),
+        toolId: 'background_task_output',
+        description: `${shortId} ${task.command}`,
+        resultDisplay: task.output || 'Killed by user',
+        status: ToolCallStatus.Canceled,
+        confirmationDetails: undefined,
+      };
       addItem(
-        {
-          type: MessageType.INFO,
-          text: `Background task killed by user (Task ID: ${task.id})\nCommand: ${task.command}`,
-        },
+        { type: 'tool_group', tools: [toolGroupItem] } as any,
         Date.now(),
       );
 
-      // 🎯 构建通知消息
-      const notificationText = `[System] Background task killed by user (Task ID: ${task.id}). Command: ${task.command}`;
+      // 🎯 构建通知消息（包含完整的任务信息，供 AI 理解）
+      const notificationText = `[System] Background task killed by user (Task ID: ${task.id}). Command: ${task.command}. Output before kill:\n${task.output?.substring(0, 1000) || '(no output)'}`;
 
       // 🎯 如果 AI 当前空闲，自动触发 AI 继续处理（静默模式，不显示用户消息）
       if (streamingState === StreamingState.Idle) {
         console.log('[App] AI is idle, auto-triggering continuation for killed task:', task.id);
-        submitQuery('[System] Background task was killed by user. Please review and continue.', { silent: true });
+        // 直接发送包含完整信息的消息，让 AI 能看到结果
+        submitQuery(notificationText, { silent: true });
       } else {
         // AI 正忙，加入队列等待
         console.log('[App] AI is busy, queuing background task kill notification:', task.id);

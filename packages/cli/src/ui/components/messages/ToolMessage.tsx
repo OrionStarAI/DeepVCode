@@ -24,6 +24,7 @@ import { truncateText } from '../../utils/textTruncator.js';
 const STATIC_HEIGHT = 1;
 const RESERVED_LINE_COUNT = 5; // for tool name, status, padding etc.
 const STATUS_INDICATOR_WIDTH = 3;
+const RESULT_DISPLAY_INDENT = 5; // 🎨 输出内容的缩进，比标题多偏移一些形成层次感
 const MIN_LINES_SHOWN = 2; // show at least this many lines
 
 // Large threshold to ensure we don't cause performance issues for very large
@@ -231,17 +232,15 @@ export const ToolMessage: React.FC<ToolMessageProps> = ({
         />
         {emphasis === 'high' ? <TrailingIndicator /> : null}
       </Box>
-      {/* 🎯 Show Ctrl+B prompt for shell commands when executing */}
+      {/* 🎯 Show Ctrl+B prompt for shell commands when executing - below title */}
       {isShellRunning ? (
-        <Box paddingLeft={STATUS_INDICATOR_WIDTH} marginTop={0}>
-          <Text color={Colors.Gray}>
-            {t('shell.background.hint')}
-          </Text>
+        <Box paddingLeft={RESULT_DISPLAY_INDENT}>
+          <Text color={Colors.Gray}>{t('shell.background.hint')}</Text>
         </Box>
       ) : null}
       {/* Show thinking display if available */}
       {thinkingDisplayData ? (
-        <Box paddingLeft={STATUS_INDICATOR_WIDTH} width="100%">
+        <Box paddingLeft={RESULT_DISPLAY_INDENT} width="100%">
           <Box flexDirection="column">
             <Box flexDirection="row">
               <Text color={Colors.Gray}>└ </Text>
@@ -252,9 +251,18 @@ export const ToolMessage: React.FC<ToolMessageProps> = ({
           </Box>
         </Box>
       ) : null}
-      {/* Show regular resultDisplay if no thinking display */}
-      {!thinkingDisplayData && resultDisplay ? (
-        <Box paddingLeft={STATUS_INDICATOR_WIDTH} width="100%">
+      {/* 🎯 后台运行状态专用显示（仿 Claude Code 风格）- 不显示 resultDisplay */}
+      {!thinkingDisplayData && status === ToolCallStatus.BackgroundRunning ? (
+        <Box paddingLeft={RESULT_DISPLAY_INDENT} width="100%">
+          <Text wrap="wrap" color={Colors.Gray}>
+            <Text color={Colors.Gray}>└ </Text>
+            {t('background.task.running.hint')}
+          </Text>
+        </Box>
+      ) : null}
+      {/* Show regular resultDisplay if no thinking display and NOT background running */}
+      {!thinkingDisplayData && resultDisplay && status !== ToolCallStatus.BackgroundRunning ? (
+        <Box paddingLeft={RESULT_DISPLAY_INDENT} width="100%">
           <Box flexDirection="column">
             {typeof resultDisplay === 'string' && renderOutputAsMarkdown ? (
               <Text wrap="wrap">
@@ -279,14 +287,14 @@ export const ToolMessage: React.FC<ToolMessageProps> = ({
                   const parts = truncated.displayText.split(truncated.omittedPlaceholder || '');
                   return (
                     <Box flexDirection="column">
-                      <Text wrap="wrap">
+                      <Text wrap="wrap" color={Colors.Gray}>
                         <Text color={Colors.Gray}>└ </Text>
                         {parts[0]}
                       </Text>
                       <Text color={Colors.Gray} wrap="truncate">
                         ... omitted {truncated.omittedLines} lines ...
                       </Text>
-                      {parts[1] ? <Text wrap="wrap">{parts[1]}</Text> : null}
+                      {parts[1] ? <Text wrap="wrap" color={Colors.Gray}>{parts[1]}</Text> : null}
                     </Box>
                   );
                 }
@@ -295,14 +303,14 @@ export const ToolMessage: React.FC<ToolMessageProps> = ({
                   availableHeight !== undefined ? (
                     <MaxSizedBox maxWidth={childWidth} maxHeight={maxRows} overflowDirection="top">
                       <Box>
-                        <Text wrap="wrap">
+                        <Text wrap="wrap" color={Colors.Gray}>
                           <Text color={Colors.Gray}>└ </Text>
                           {resultDisplay}
                         </Text>
                       </Box>
                     </MaxSizedBox>
                   ) : (
-                    <Text wrap="wrap">
+                    <Text wrap="wrap" color={Colors.Gray}>
                       <Text color={Colors.Gray}>└ </Text>
                       {resultDisplay}
                     </Text>
@@ -381,7 +389,7 @@ const ToolStatusIndicator: React.FC<ToolStatusIndicatorProps> = ({
       <BlinkingRobotEmoji />
     ) : null}
     {status === ToolCallStatus.BackgroundRunning ? (
-      <Text color={Colors.AccentYellow}>»</Text>
+      <Text color={Colors.AccentYellow}>▸</Text>
     ) : null}
     {status === ToolCallStatus.Success ? (
       <Text color={Colors.AccentGreen}>●</Text>

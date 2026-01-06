@@ -198,15 +198,15 @@ export const translations = {
     // Input Prompt
     'input.placeholder.base': 'Type your message or @filepath',
     'input.placeholder.help_ask': 'Ask how to use this program? Press esc to exit help mode',
-    'input.hint.newline.win32': 'Ctrl+Enter for newline',
-    'input.hint.newline.win32.vscode': 'Shift+Enter for newline (VSCode)',
-    'input.hint.newline.win32.idea': 'Ctrl+J for newline (IDEA)',
-    'input.hint.newline.darwin': 'Ctrl+J for newline',
-    'input.hint.newline.darwin.vscode': 'Ctrl+J for newline (VSCode)',
-    'input.hint.newline.darwin.idea': 'Ctrl+J for newline (IDEA)',
-    'input.hint.newline.linux': 'Ctrl+J for newline',
-    'input.hint.newline.linux.idea': 'Ctrl+J for newline (IDEA)',
-    'input.hint.newline.default': 'Ctrl+J for newline',
+    'input.hint.newline.win32': 'Ctrl+Enter: newline, Ctrl+X: editor, Esc: cancel',
+    'input.hint.newline.win32.vscode': 'Shift+Enter: newline, Ctrl+X: editor, Esc: cancel',
+    'input.hint.newline.win32.idea': 'Ctrl+J: newline, Ctrl+X: editor, Esc: cancel',
+    'input.hint.newline.darwin': 'Ctrl+J: newline, Ctrl+X: editor, Esc: cancel',
+    'input.hint.newline.darwin.vscode': 'Ctrl+J: newline, Ctrl+X: editor, Esc: cancel',
+    'input.hint.newline.darwin.idea': 'Ctrl+J: newline, Ctrl+X: editor, Esc: cancel',
+    'input.hint.newline.linux': 'Ctrl+J: newline, Ctrl+X: editor, Esc: cancel',
+    'input.hint.newline.linux.idea': 'Ctrl+J: newline, Ctrl+X: editor, Esc: cancel',
+    'input.hint.newline.default': 'Ctrl+J: newline, Ctrl+X: editor, Esc: cancel',
 
     // Cancel hints
     'input.hint.cancel.default': 'esc: cancel',
@@ -373,6 +373,8 @@ export const translations = {
     'background.task.status.failed': 'Failed',
     'background.task.kill.confirm': 'Kill task {taskId}?',
     'background.task.hint.multiple': '{count} background tasks',
+    'background.task.output': 'Background Task Output',
+    'background.task.running.hint': 'Running in the background (↓ to manage)',
 
     // Text Truncator
     'text_truncator.omitted_lines': '[ ... {count} lines omitted ... ]',
@@ -1323,15 +1325,15 @@ export const translations = {
     // Input Prompt
     'input.placeholder.base': '输入您的消息或 @文件路径',
     'input.placeholder.help_ask': '可以问问本程序如何使用？按 esc 退出帮助模式',
-    'input.hint.newline.win32': 'Ctrl+Enter换行',
-    'input.hint.newline.win32.vscode': 'Shift+Enter换行 (VSCode)',
-    'input.hint.newline.win32.idea': 'Ctrl+J换行 (IDEA)',
-    'input.hint.newline.darwin': 'Ctrl+J换行',
-    'input.hint.newline.darwin.vscode': 'Ctrl+J换行 (VSCode)',
-    'input.hint.newline.darwin.idea': 'Ctrl+J换行 (IDEA)',
-    'input.hint.newline.linux': 'Ctrl+J换行',
-    'input.hint.newline.linux.idea': 'Ctrl+J换行 (IDEA)',
-    'input.hint.newline.default': 'Ctrl+J换行',
+    'input.hint.newline.win32': 'Ctrl+Enter换行, Ctrl+X编辑器, Esc取消',
+    'input.hint.newline.win32.vscode': 'Shift+Enter换行, Ctrl+X编辑器, Esc取消',
+    'input.hint.newline.win32.idea': 'Ctrl+J换行, Ctrl+X编辑器, Esc取消',
+    'input.hint.newline.darwin': 'Ctrl+J换行, Ctrl+X编辑器, Esc取消',
+    'input.hint.newline.darwin.vscode': 'Ctrl+J换行, Ctrl+X编辑器, Esc取消',
+    'input.hint.newline.darwin.idea': 'Ctrl+J换行, Ctrl+X编辑器, Esc取消',
+    'input.hint.newline.linux': 'Ctrl+J换行, Ctrl+X编辑器, Esc取消',
+    'input.hint.newline.linux.idea': 'Ctrl+J换行, Ctrl+X编辑器, Esc取消',
+    'input.hint.newline.default': 'Ctrl+J换行, Ctrl+X编辑器, Esc取消',
 
     // Cancel hints
     'input.hint.cancel.default': 'esc: 取消',
@@ -1498,6 +1500,8 @@ export const translations = {
     'background.task.status.failed': '失败',
     'background.task.kill.confirm': '确认终止任务 {taskId}?',
     'background.task.hint.multiple': '{count} 个后台任务',
+    'background.task.output': '后台任务输出',
+    'background.task.running.hint': '在后台运行中 (↓ 管理)',
 
     // Text Truncator
     'text_truncator.omitted_lines': '[ ... 已省略显示 {count} 行 ... ]',

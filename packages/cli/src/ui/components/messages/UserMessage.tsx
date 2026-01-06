@@ -17,7 +17,7 @@ interface UserMessageProps {
 }
 
 export const UserMessage: React.FC<UserMessageProps> = ({ text, terminalWidth }) => {
-  const prefix = '> ';
+  const prefix = '› ';
   const prefixWidth = prefix.length;
   const userIndicator = '🧑💬'; // 小人 + 聊天emoji
 

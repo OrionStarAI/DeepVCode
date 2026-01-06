@@ -639,44 +639,53 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
     // 🔥 Set up background mode detection (Ctrl+B)
     const backgroundSignal = getBackgroundModeSignal();
     let backgroundModeTriggered = false;
-
-    const backgroundModeHandler = () => {
-      console.log('[ShellTool] 🎯 Background mode signal received during execution!');
-      backgroundModeTriggered = true;
-    };
-    backgroundSignal.on('background-requested', backgroundModeHandler);
+    let backgroundTaskId: string | undefined;
 
     // wait for the shell to exit OR background mode to be triggered
     try {
       await new Promise<void>((resolve) => {
-        shell.on('exit', () => resolve());
+        // Normal exit handler
+        shell.on('exit', () => {
+          if (!backgroundModeTriggered) {
+            resolve();
+          }
+        });
 
-        // Also check periodically if background mode was requested
+        // Background mode handler - check periodically
         const checkInterval = setInterval(() => {
-          if (backgroundSignal.isBackgroundModeRequested()) {
-            console.log('[ShellTool] 🔥 Background mode detected! Detaching process...');
+          if (backgroundSignal.isBackgroundModeRequested() && !exited) {
+            console.log('[ShellTool] 🔥 Background mode detected! Moving to background...');
             backgroundModeTriggered = true;
             clearInterval(checkInterval);
 
             // Create a background task to track this process
             const taskManager = getBackgroundTaskManager();
-            const task = taskManager.createTask(params.command);
+            const task = taskManager.createTask(params.command, params.directory);
+            backgroundTaskId = task.id;
+
             if (shell.pid) {
               taskManager.setTaskPid(task.id, shell.pid);
             }
 
-            // 🎯 监听进程的输出和退出事件
-            shell.stdout.on('data', (data: Buffer) => {
-              const str = sanitizeShellOutput(data.toString());
+            // Forward existing output to task manager
+            taskManager.appendOutput(task.id, stdout);
+            if (stderr) {
+              taskManager.appendStderr(task.id, stderr);
+            }
+
+            // Set up listeners for future output (these add to existing listeners, not replace)
+            const originalStdoutHandler = (data: Buffer) => {
+              const str = sanitizeShellOutput(decodeWindowsCommandOutput(data, strippedCommand));
               taskManager.appendOutput(task.id, str);
-            });
-
-            shell.stderr.on('data', (data: Buffer) => {
-              const str = sanitizeShellOutput(data.toString());
+            };
+            const originalStderrHandler = (data: Buffer) => {
+              const str = sanitizeShellOutput(decodeWindowsCommandOutput(data, strippedCommand));
               taskManager.appendStderr(task.id, str);
-            });
+            };
+            shell.stdout.on('data', originalStdoutHandler);
+            shell.stderr.on('data', originalStderrHandler);
 
-            // 🎯 监听进程退出，更新任务状态
+            // Set up exit handler for background task
             shell.on('exit', (exitCode: number | null, sig: NodeJS.Signals | null) => {
               console.log('[ShellTool] Background task completed:', task.id, 'exit code:', exitCode);
               taskManager.completeTask(task.id, {
@@ -685,40 +694,29 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
               });
             });
 
-            // Update output with notification
-            if (updateOutput) {
-              updateOutput(`\n🔄 Task moved to background (Task ID: ${task.id})\nYou can continue working while this runs.`);
-            }
-
             // Clear the signal
             backgroundSignal.clearBackgroundMode();
 
             // Resolve immediately to return control to user
             resolve();
           }
-        }, 100); // Check every 100ms
+        }, 100);
 
-        // Clean up interval when process exits
+        // Clean up interval when process exits normally
         shell.on('exit', () => clearInterval(checkInterval));
       });
     } finally {
       clearTimeout(timeoutId);
       abortedSignal.removeEventListener('abort', abortHandler);
-      backgroundSignal.removeListener('background-requested', backgroundModeHandler);
     }
 
     // If background mode was triggered, return early with a special message
     if (backgroundModeTriggered) {
-      // Get the task ID from the task manager
-      const taskManager = getBackgroundTaskManager();
-      const runningTasks = taskManager.getRunningTasks();
-      const latestTask = runningTasks[runningTasks.length - 1];
-
       return {
-        llmContent: `Command "${params.command}" has been moved to the background (Task ID: ${latestTask?.id || 'unknown'}). The user can continue working while it runs. The task will complete in the background and results can be checked later. DO NOT report this as completed - it is still running.`,
-        returnDisplay: `🔄 Running in background...`,
-        isBackgroundTask: true,  // 🎯 Tell UI this is a background task
-        backgroundTaskId: latestTask?.id,
+        llmContent: `Command "${params.command}" has been moved to the background (Task ID: ${backgroundTaskId}). The user can continue working while it runs. The task will complete in the background and results can be checked later. DO NOT report this as completed - it is still running.`,
+        returnDisplay: `Running in background...`,
+        isBackgroundTask: true,
+        backgroundTaskId,
       };
     }
 

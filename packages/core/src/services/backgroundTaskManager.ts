@@ -7,6 +7,31 @@
 import { EventEmitter } from 'events';
 import { spawn } from 'child_process';
 
+/**
+ * 简单的 CRC32 实现，用于生成任务ID哈希
+ */
+function crc32(str: string): number {
+  let crc = 0xFFFFFFFF;
+  for (let i = 0; i < str.length; i++) {
+    crc ^= str.charCodeAt(i);
+    for (let j = 0; j < 8; j++) {
+      crc = (crc >>> 1) ^ (crc & 1 ? 0xEDB88320 : 0);
+    }
+  }
+  return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+
+/**
+ * 生成基于内容的短哈希 ID
+ */
+function generateTaskId(command: string, directory?: string): string {
+  const timestamp = Date.now();
+  const content = `${command}|${directory || ''}|${timestamp}`;
+  const hash = crc32(content);
+  // 返回 7 位十六进制哈希，类似 git 短哈希
+  return hash.toString(16).padStart(8, '0').slice(0, 7);
+}
+
 export interface BackgroundTask {
   id: string;
   command: string;
@@ -32,13 +57,12 @@ export type BackgroundTaskEvent =
 
 export class BackgroundTaskManager extends EventEmitter {
   private tasks: Map<string, BackgroundTask> = new Map();
-  private nextTaskId = 1;
 
   /**
    * 创建一个新的后台任务
    */
   createTask(command: string, directory?: string): BackgroundTask {
-    const id = `task_${this.nextTaskId++}`;
+    const id = generateTaskId(command, directory);
     const task: BackgroundTask = {
       id,
       command,
@@ -198,7 +222,6 @@ export class BackgroundTaskManager extends EventEmitter {
    */
   clearAllTasks(): void {
     this.tasks.clear();
-    this.nextTaskId = 1;
   }
 
   /**

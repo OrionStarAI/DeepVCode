@@ -61,6 +61,7 @@ export const BackgroundTaskHint: React.FC<BackgroundTaskHintProps> = ({
   if (runningTasks.length > 1) {
     return (
       <Box marginLeft={2}>
+        <Text color={Colors.Gray}>⎿ </Text>
         <Text color={Colors.AccentCyan}>
           {tp('background.task.hint.multiple', { count: runningTasks.length })}
         </Text>
@@ -77,6 +78,7 @@ export const BackgroundTaskHint: React.FC<BackgroundTaskHintProps> = ({
 
   return (
     <Box marginLeft={2}>
+      <Text color={Colors.Gray}>⎿ </Text>
       <Text color={Colors.AccentCyan}>
         {displayCmd}
       </Text>
