@@ -5,7 +5,7 @@
  */
 
 import stripAnsi from 'strip-ansi';
-import { spawnSync } from 'child_process';
+import { spawnSync, spawn } from 'child_process';
 import fs from 'fs';
 import os from 'os';
 import pathMod from 'path';
@@ -1350,7 +1350,7 @@ export function useTextBuffer({
         // 检查单行是否需要换行：计算视觉宽度
         const singleLine = lines[0] || '';
         const visualWidth = Array.from(singleLine).reduce((sum, char) => sum + getCachedCharWidth(char), 0);
-        
+
         // 只有在视觉宽度不超过viewport时才使用简化布局
         if (visualWidth <= state.viewportWidth) {
           return {
@@ -1361,7 +1361,7 @@ export function useTextBuffer({
           };
         }
       }
-      
+
       return calculateVisualLayout(lines, [cursorRow, cursorCol], state.viewportWidth);
     },
     [linesHash, cursorRow, cursorCol, state.viewportWidth], // 🚀 使用hash而不是直接使用lines
@@ -1630,6 +1630,62 @@ export function useTextBuffer({
 
       dispatch({ type: 'create_undo_snapshot' });
 
+      // Check if editor is a GUI editor that doesn't need terminal control (Windows notepad)
+      const editorBasename = pathMod.basename(editor).toLowerCase();
+      const isNonBlockingEditor =
+        process.platform === 'win32' &&
+        (editorBasename === 'notepad' || editorBasename === 'notepad.exe');
+
+      if (isNonBlockingEditor) {
+        // Non-blocking mode for GUI editors like notepad on Windows
+        // CLI continues to run while editor is open
+        const child = spawn(editor, [filePath], {
+          detached: true,
+          stdio: 'ignore',
+        });
+
+        child.on('close', (code) => {
+          try {
+            if (code === 0 || code === null) {
+              let newText = fs.readFileSync(filePath, 'utf8');
+              newText = newText.replace(/\r\n?/g, '\n');
+              dispatch({ type: 'set_text', payload: newText, pushToUndo: false });
+            }
+          } catch (err) {
+            console.error('[useTextBuffer] external editor error', err);
+          } finally {
+            try {
+              fs.unlinkSync(filePath);
+            } catch {
+              /* ignore */
+            }
+            try {
+              fs.rmdirSync(tmpDir);
+            } catch {
+              /* ignore */
+            }
+          }
+        });
+
+        child.on('error', (err) => {
+          console.error('[useTextBuffer] external editor spawn error', err);
+          try {
+            fs.unlinkSync(filePath);
+          } catch {
+            /* ignore */
+          }
+          try {
+            fs.rmdirSync(tmpDir);
+          } catch {
+            /* ignore */
+          }
+        });
+
+        // Don't unref - we want to track when it closes
+        return;
+      }
+
+      // Blocking mode for terminal editors (vim, nano, etc.)
       const wasRaw = stdin?.isRaw ?? false;
       try {
         setRawMode?.(false);

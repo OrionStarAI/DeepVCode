@@ -22,6 +22,7 @@ const atomOneDarkColors: ColorsTheme = {
   DiffRemoved: '#562B2F',
   Comment: '#5c6370',
   Gray: '#5c6370',
+  InfoColor: '#B8A77E', // Muted yellow/amber for info messages
   GradientColors: ['#61aeee', '#98c379'],
 };
 

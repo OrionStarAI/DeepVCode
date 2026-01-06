@@ -713,7 +713,7 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
     // If background mode was triggered, return early with a special message
     if (backgroundModeTriggered) {
       return {
-        llmContent: `Command "${params.command}" has been moved to the background (Task ID: ${backgroundTaskId}). The user can continue working while it runs. The task will complete in the background and results can be checked later. DO NOT report this as completed - it is still running.`,
+        llmContent: `[DeepV Code - SYSTEM NOTIFICATION] Command "${params.command}" has been moved to background by user (Task ID: ${backgroundTaskId}). ⚠️ IMPORTANT: DO NOT report this as completed and DO NOT re-execute this command - it is still running. The system will automatically notify you with the results when it finishes.`,
         returnDisplay: `Running in background...`,
         isBackgroundTask: true,
         backgroundTaskId,

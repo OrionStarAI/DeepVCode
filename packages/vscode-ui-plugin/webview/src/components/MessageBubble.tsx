@@ -365,9 +365,10 @@ interface MessageBubbleProps {
   messages?: ChatMessage[]; // 🎯 新增：所有消息列表（用于回退时截断）
   onUpdateMessages?: (messages: ChatMessage[]) => void; // 🎯 新增：更新消息列表回调
   onRollback?: (messageId: string) => void; // 🎯 新增：回退到此消息回调（保留向后兼容）
+  onMoveToBackground?: (toolCallId: string) => void; // 🎯 新增：将工具移到后台执行
 }
 
-export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolConfirm, onStartEdit, onRegenerate, onRollback, canRevert = false, sessionId, messages, onUpdateMessages}) => {
+export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolConfirm, onStartEdit, onRegenerate, onRollback, canRevert = false, sessionId, messages, onUpdateMessages, onMoveToBackground}) => {
   const { t } = useTranslation();
   const [copySuccess, setCopySuccess] = React.useState(false);
   // 🎯 代码块复制状态管理（使用Map来追踪每个代码块的复制状态）
@@ -520,8 +521,19 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
             )}
           </div>
         ) : message.type === 'tool' ? (
-          // 🎯 工具消息直接显示，不使用Markdown渲染
-          <div className="tool-content">{messageContentToString(message.content)}</div>
+          // 🎯 工具消息：显示关联的工具调用
+          <div className="tool-content">
+            {message.associatedToolCalls && message.associatedToolCalls.length > 0 ? (
+              <ToolCallList
+                toolCalls={message.associatedToolCalls}
+                onConfirm={onToolConfirm}
+                showCompact={false}
+                onMoveToBackground={onMoveToBackground}
+              />
+            ) : (
+              messageContentToString(message.content)
+            )}
+          </div>
         ) : message.type === 'system' ? (
           // 🎯 系统消息显示为带分隔线的 Info 样式
           <div className="system-message-inner">
@@ -704,6 +716,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message, onToolCon
               toolCalls={message.associatedToolCalls}
               onConfirm={onToolConfirm}
               showCompact={!message.isProcessingTools}  // 完成后使用紧凑显示
+              onMoveToBackground={onMoveToBackground}
             />
           </div>
         )}

@@ -142,7 +142,10 @@ export interface MultiSessionMessageToExtension {
        // 🎯 显示通知
        'show_notification' |
        // 🎯 打开 MCP 设置
-       'open_mcp_settings';
+       'open_mcp_settings' |
+       // 🎯 后台任务管理
+       'background_task_request' |
+       'background_task_move_to_background';
   payload: Record<string, unknown> & {
     sessionId?: string; // 大部分消息都包含sessionId
   };

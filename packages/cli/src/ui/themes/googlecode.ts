@@ -22,6 +22,7 @@ const googleCodeColors: ColorsTheme = {
   DiffRemoved: '#FEDEDE',
   Comment: '#5f6368',
   Gray: lightTheme.Gray,
+  InfoColor: '#8B7355', // Muted brown/amber for light theme
   GradientColors: ['#066', '#606'],
 };
 

@@ -425,7 +425,7 @@ export const translations = {
 
     // Checkpoint messages
     'checkpoint.creating': 'Creating auto checkpoint...',
-    'checkpoint.created.success': 'Checkpoint created ({checkpointId})',
+    'checkpoint.created.success': 'Checkpoint created.\n   Use /restore {checkpointId} to restore to this checkpoint\n',
     'checkpoint.created.failed': 'Failed to create checkpoint: {error}',
     'checkpoint.creation.skipped': 'Subsequent auto checkpoint attempts will be skipped for this conversation',
 
@@ -1553,7 +1553,7 @@ export const translations = {
 
     // Checkpoint messages
     'checkpoint.creating': '正在执行自动检查点...',
-    'checkpoint.created.success': '检查点已建立 ({checkpointId})',
+    'checkpoint.created.success': '检查点已建立。\n  使用 /restore {checkpointId} 恢复到此检查点\n',
     'checkpoint.created.failed': '检查点创建失败: {error}',
     'checkpoint.creation.skipped': '本次对话将跳过后续的自动检查点尝试',
 

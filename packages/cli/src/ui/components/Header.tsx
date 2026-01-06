@@ -38,7 +38,7 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <Box flexDirection="row" marginBottom={1} paddingX={1}>
       <Box marginRight={2}>
-        <Text color={Colors.Foreground}>{cuteVLogo}</Text>
+        <Text color={Colors.AccentBlue}>{cuteVLogo}</Text>
       </Box>
       <Box flexDirection="column" justifyContent="center">
         <Text bold>

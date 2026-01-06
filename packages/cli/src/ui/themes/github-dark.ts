@@ -22,6 +22,7 @@ const githubDarkColors: ColorsTheme = {
   DiffRemoved: '#502125',
   Comment: '#6A737D',
   Gray: '#6A737D',
+  InfoColor: '#B8A77E', // Muted yellow/amber for info messages
   GradientColors: ['#79B8FF', '#85E89D'],
 };
 

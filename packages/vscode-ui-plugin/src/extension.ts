@@ -30,6 +30,7 @@ import { ClipboardCacheService } from './services/clipboardCacheService';
 import { SlashCommandService } from './services/slashCommandService';
 import { TerminalOutputService } from './services/terminalOutputService';
 import { McpEnabledStateService } from './services/mcpEnabledStateService';
+import { AIService } from './services/aiService';
 import { getAllMCPServerToolCounts, getAllMCPServerToolNames, MCPServerStatus } from 'deepv-code-core';
 import { SessionType, SessionStatus } from './constants/sessionConstants';
 import { SessionInfo } from './types/sessionTypes';
@@ -1602,6 +1603,246 @@ function setupBasicMessageHandlers() {
 
   // 🎯 处理登录相关消息
   setupLoginHandlers();
+
+  // 🎯 处理后台任务相关消息
+  setupBackgroundTaskHandlers();
+}
+
+// 🎯 后台任务完成通知队列（当 AI 忙时暂存）
+const pendingBackgroundNotifications: Array<{
+  sessionId: string;
+  notification: string;
+}> = [];
+
+/**
+ * 🎯 处理后台任务完成 - 注入历史并触发 AI 继续（参考 CLI 实现）
+ */
+async function handleBackgroundTaskComplete(
+  task: any,
+  status: 'completed' | 'failed' | 'cancelled'
+) {
+  logger.info(`🎯 [Background] handleBackgroundTaskComplete called with status: ${status}, taskId: ${task?.id}`);
+
+  try {
+    // 获取当前活动的 session
+    const currentSession = sessionManager.getCurrentSession();
+    if (!currentSession) {
+      logger.warn('🎯 [Background] No active session for background task notification');
+      return;
+    }
+
+    const sessionId = currentSession.info.id;
+    logger.info(`🎯 [Background] Current session: ${sessionId}`);
+
+    // 构建通知消息（和 CLI 格式一致）
+    let notificationText = '';
+    const shortId = task.id?.substring(0, 7) || 'unknown';
+    const outputPreview = task.output?.substring(0, 1000) || '(no output)';
+
+    if (status === 'completed') {
+      notificationText = `[DeepV Code - SYSTEM NOTIFICATION] Background task completed (Task ID: ${shortId}). Exit code: ${task.exitCode ?? 'unknown'}. Output:\n${outputPreview}`;
+    } else if (status === 'failed') {
+      notificationText = `[DeepV Code - SYSTEM NOTIFICATION] Background task failed (Task ID: ${shortId}). Command: ${task.command}. Error: ${task.error || 'Unknown error'}. Output:\n${outputPreview}`;
+    } else if (status === 'cancelled') {
+      notificationText = `[DeepV Code - SYSTEM NOTIFICATION] Background task killed by user (Task ID: ${shortId}). Command: ${task.command}. Output before kill:\n${outputPreview}`;
+    }
+
+    logger.info(`🎯 [Background] Notification text prepared, length: ${notificationText.length}`);
+
+    // 🎯 发送任务结果到 webview 显示（类似 CLI 的 Background Task Output）
+    await communicationService.sendBackgroundTaskResult(sessionId, {
+      taskId: task.id,
+      command: task.command,
+      status,
+      exitCode: task.exitCode,
+      output: outputPreview,
+    });
+
+    // 获取 AI 服务并检查状态
+    const aiService = sessionManager.getAIService(sessionId);
+    if (!aiService) {
+      logger.warn(`🎯 [Background] AIService not available for session: ${sessionId}`);
+      return;
+    }
+
+    logger.info(`🎯 [Background] AIService found for session: ${sessionId}`);
+
+    const flowState = aiService.getCurrentFlowState();
+    logger.info(`🎯 [Background] Flow state: isProcessing=${flowState.isProcessing}, canAbort=${flowState.canAbort}`);
+
+    if (flowState.isProcessing) {
+      // AI 正忙，加入队列等待
+      logger.info(`🎯 [Background] AI is busy, queuing notification for task: ${shortId}`);
+      pendingBackgroundNotifications.push({ sessionId, notification: notificationText });
+    } else {
+      // AI 空闲，注入历史并触发继续
+      logger.info(`🎯 [Background] AI is idle, injecting notification and triggering continuation for task: ${shortId}`);
+      await aiService.addSystemMessageToHistory(notificationText);
+
+      // 发送静默消息触发 AI 继续（通过模拟用户消息）
+      const triggerMessage = {
+        id: `bg-trigger-${Date.now()}`,
+        sessionId,
+        content: [{ type: 'text' as const, value: '[DeepV Code - SYSTEM NOTIFICATION] Background tasks have completed. Please review the results above and continue.' }],
+        timestamp: Date.now(),
+        type: 'user' as const,
+      };
+
+      // 获取当前上下文
+      const currentContext = contextService.getCurrentContext();
+
+      logger.info(`🎯 [Background] About to call processChatMessage...`);
+      // 使用 AI 服务处理消息
+      await aiService.processChatMessage(triggerMessage, currentContext);
+      logger.info(`🎯 [Background] processChatMessage completed`);
+    }
+  } catch (error) {
+    logger.error('🎯 [Background] Failed to handle background task complete', error instanceof Error ? error : undefined);
+  }
+}
+
+/**
+ * 🎯 当 AI 完成处理时，检查并处理待处理的后台任务通知
+ */
+async function processPendingBackgroundNotifications(sessionId: string) {
+  if (pendingBackgroundNotifications.length === 0) return;
+
+  const aiService = sessionManager.getAIService(sessionId);
+  if (!aiService) return;
+
+  const flowState = aiService.getCurrentFlowState();
+  if (flowState.isProcessing) return; // AI 仍在忙
+
+  // 筛选当前 session 的通知
+  const sessionNotifications = pendingBackgroundNotifications.filter(n => n.sessionId === sessionId);
+  if (sessionNotifications.length === 0) return;
+
+  logger.info(`[Background] Processing ${sessionNotifications.length} pending notifications for session: ${sessionId}`);
+
+  // 注入所有待处理的通知到历史
+  for (const { notification } of sessionNotifications) {
+    await aiService.addSystemMessageToHistory(notification);
+  }
+
+  // 从队列中移除已处理的通知
+  const remaining = pendingBackgroundNotifications.filter(n => n.sessionId !== sessionId);
+  pendingBackgroundNotifications.length = 0;
+  pendingBackgroundNotifications.push(...remaining);
+
+  // 发送静默消息触发 AI 继续
+  const triggerMessage = {
+    id: `bg-trigger-${Date.now()}`,
+    sessionId,
+    content: [{ type: 'text' as const, value: '[DeepV Code - SYSTEM NOTIFICATION] Background tasks have completed while you were busy. Please review the results above if necessary, and continue.' }],
+    timestamp: Date.now(),
+    type: 'user' as const,
+  };
+
+  const currentContext = contextService.getCurrentContext();
+  await aiService.processChatMessage(triggerMessage, currentContext);
+}
+
+/**
+ * 设置后台任务管理相关的消息处理器
+ */
+function setupBackgroundTaskHandlers() {
+  // 延迟导入以避免循环依赖
+  import('deepv-code-core').then(({ getBackgroundTaskManager }) => {
+    const taskManager = getBackgroundTaskManager();
+
+    // 发送当前任务列表到 Webview
+    const sendTasksUpdate = async () => {
+      const tasks = taskManager.getAllTasks();
+      await communicationService.sendBackgroundTasksUpdate(tasks);
+    };
+
+    // 监听任务事件并转发到 Webview
+    taskManager.on('task-started', async () => {
+      await sendTasksUpdate();
+    });
+
+    taskManager.on('task-completed', async (event: { type: string; task: any }) => {
+      await sendTasksUpdate();
+      // 🎯 处理任务完成 - 注入历史并触发 AI 继续
+      await handleBackgroundTaskComplete(event.task, 'completed');
+    });
+
+    taskManager.on('task-failed', async (event: { type: string; task: any }) => {
+      await sendTasksUpdate();
+      // 🎯 处理任务失败
+      await handleBackgroundTaskComplete(event.task, 'failed');
+    });
+
+    taskManager.on('task-cancelled', async (event: { type: string; task: any }) => {
+      await sendTasksUpdate();
+      // 🎯 处理任务取消
+      await handleBackgroundTaskComplete(event.task, 'cancelled');
+    });
+
+    // 🎯 处理用户主动 Kill 任务（core 层发出的是 task-killed 事件）
+    taskManager.on('task-killed', async (event: { type: string; task: any }) => {
+      await sendTasksUpdate();
+      // 🎯 处理任务被用户终止
+      await handleBackgroundTaskComplete(event.task, 'cancelled');
+    });
+
+    // 监听输出更新
+    taskManager.on('task-output', async (event: { taskId: string; output: string }) => {
+      await communicationService.sendBackgroundTaskOutput(event.taskId, event.output, false);
+    });
+
+    taskManager.on('task-stderr', async (event: { taskId: string; stderr: string }) => {
+      await communicationService.sendBackgroundTaskOutput(event.taskId, event.stderr, true);
+    });
+
+    // 处理来自 Webview 的后台任务请求
+    communicationService.onBackgroundTaskRequest(async (data) => {
+      try {
+        if (data.action === 'list') {
+          await sendTasksUpdate();
+        } else if (data.action === 'kill' && data.taskId) {
+          taskManager.killTask(data.taskId);
+          await sendTasksUpdate();
+        }
+      } catch (error) {
+        logger.error('Failed to handle background task request', error instanceof Error ? error : undefined);
+      }
+    });
+
+    // 🎯 处理"移到后台"请求 - 触发后台模式信号（和 CLI 的 Ctrl+B 一样）
+    communicationService.onBackgroundTaskMoveToBackground(async (data) => {
+      try {
+        const { sessionId, toolCallId } = data;
+        logger.info(`🎯 Moving tool call to background: ${toolCallId} in session ${sessionId}`);
+
+        // 使用 core 层的 BackgroundModeSignal，和 CLI 的 Ctrl+B 一样的机制
+        const { getBackgroundModeSignal } = await import('deepv-code-core');
+        const signal = getBackgroundModeSignal();
+        signal.requestBackgroundMode();
+
+        logger.info(`✅ Background mode signal sent for tool call ${toolCallId}`);
+
+        // ShellTool 会检测到这个信号并自动转为后台执行
+        // 稍后会触发 task-started 事件，sendTasksUpdate 会被调用
+      } catch (error) {
+        logger.error('Failed to move tool call to background', error instanceof Error ? error : undefined);
+      }
+    });
+
+    // 初始发送一次任务列表
+    sendTasksUpdate();
+
+    // 🎯 注册 AI 处理完成回调，用于处理待处理的后台任务通知
+    AIService.onProcessingComplete((sessionId) => {
+      processPendingBackgroundNotifications(sessionId).catch(err => {
+        logger.error('Failed to process pending background notifications', err instanceof Error ? err : undefined);
+      });
+    });
+
+    logger.info('✅ Background task handlers initialized');
+  }).catch(error => {
+    logger.error('Failed to setup background task handlers', error instanceof Error ? error : undefined);
+  });
 }
 
 function setupLoginHandlers() {

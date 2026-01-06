@@ -4,7 +4,7 @@ module.exports = {
   entry: './src/index.tsx',
   output: {
     path: path.resolve(__dirname, 'build'),
-    filename: 'bundle.js',
+    filename: '[name].js',
     clean: true,
     devtoolModuleFilenameTemplate: (info) => {
       // 为调试提供更清晰的源文件路径
@@ -47,7 +47,18 @@ module.exports = {
     vscode: 'commonjs vscode'
   },
   target: 'web',
-  devtool: 'inline-source-map',
+  devtool: process.env.NODE_ENV === 'production' ? 'source-map' : 'inline-source-map',
+  optimization: {
+    splitChunks: {
+      cacheGroups: {
+        vendor: {
+          test: /[\\/]node_modules[\\/]/,
+          name: 'vendor',
+          chunks: 'all',
+        },
+      },
+    },
+  },
   infrastructureLogging: {
     level: 'warn', // 🚀 只显示基础架构层的警告和错误，忽略缓存恢复失败等信息
   },

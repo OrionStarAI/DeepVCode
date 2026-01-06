@@ -1071,6 +1071,40 @@ export const MultiSessionApp: React.FC = () => {
       setMemoryFileCount(payload.fileCount);
     });
 
+    // 🎯 监听后台任务结果（在聊天界面显示任务输出）
+    messageService.onExtensionMessage('background_task_result', (payload: any) => {
+      console.log('🎯 [Background] Received task result:', payload);
+      const { sessionId, taskId, command, status, exitCode, output } = payload;
+
+      // 创建一个工具类型的消息来显示任务输出
+      const shortId = taskId?.substring(0, 7) || 'unknown';
+      const isSuccess = status === 'completed' && exitCode === 0;
+      const toolMessage: ChatMessage = {
+        id: `bg-result-${taskId}-${Date.now()}`,
+        type: 'tool',
+        content: [],
+        timestamp: Date.now(),
+        associatedToolCalls: [{
+          id: `bg-${taskId}`,
+          toolName: 'background_task_output',
+          displayName: t('backgroundTasks.outputTitle', {}, 'Background Task Output'),
+          parameters: { command },
+          status: isSuccess ? ToolCallStatus.Success : ToolCallStatus.Error,
+          result: {
+            success: isSuccess,
+            data: output || `Exit code: ${exitCode ?? 'unknown'}`,
+            executionTime: 0,
+            toolName: 'background_task_output',
+          },
+          description: `- ${shortId}`,
+        }],
+      };
+
+      console.log('🎯 [Background] Adding tool message to session:', sessionId, toolMessage);
+      addMessage(sessionId, toolMessage);
+      console.log('🎯 [Background] Tool message added');
+    });
+
     return () => {
     };
 
