@@ -35,7 +35,13 @@ export interface ShellToolParams {
   description?: string;
   directory?: string;
 }
+
 import { spawn } from 'child_process';
+import {
+  BackgroundTaskManager,
+  getBackgroundTaskManager,
+} from '../services/backgroundTaskManager.js';
+import { getBackgroundModeSignal } from '../services/backgroundModeSignal.js';
 import { summarizeToolOutput } from '../utils/summarizer.js';
 
 const OUTPUT_UPDATE_INTERVAL_MS = 1000;
@@ -630,12 +636,90 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
       }
     }, DEFAULT_SHELL_TIMEOUT_MS);
 
-    // wait for the shell to exit
+    // 🔥 Set up background mode detection (Ctrl+B)
+    const backgroundSignal = getBackgroundModeSignal();
+    let backgroundModeTriggered = false;
+
+    const backgroundModeHandler = () => {
+      console.log('[ShellTool] 🎯 Background mode signal received during execution!');
+      backgroundModeTriggered = true;
+    };
+    backgroundSignal.on('background-requested', backgroundModeHandler);
+
+    // wait for the shell to exit OR background mode to be triggered
     try {
-      await new Promise((resolve) => shell.on('exit', resolve));
+      await new Promise<void>((resolve) => {
+        shell.on('exit', () => resolve());
+
+        // Also check periodically if background mode was requested
+        const checkInterval = setInterval(() => {
+          if (backgroundSignal.isBackgroundModeRequested()) {
+            console.log('[ShellTool] 🔥 Background mode detected! Detaching process...');
+            backgroundModeTriggered = true;
+            clearInterval(checkInterval);
+
+            // Create a background task to track this process
+            const taskManager = getBackgroundTaskManager();
+            const task = taskManager.createTask(params.command);
+            if (shell.pid) {
+              taskManager.setTaskPid(task.id, shell.pid);
+            }
+
+            // 🎯 监听进程的输出和退出事件
+            shell.stdout.on('data', (data: Buffer) => {
+              const str = sanitizeShellOutput(data.toString());
+              taskManager.appendOutput(task.id, str);
+            });
+
+            shell.stderr.on('data', (data: Buffer) => {
+              const str = sanitizeShellOutput(data.toString());
+              taskManager.appendStderr(task.id, str);
+            });
+
+            // 🎯 监听进程退出，更新任务状态
+            shell.on('exit', (exitCode: number | null, sig: NodeJS.Signals | null) => {
+              console.log('[ShellTool] Background task completed:', task.id, 'exit code:', exitCode);
+              taskManager.completeTask(task.id, {
+                exitCode: exitCode ?? undefined,
+                signal: sig ?? undefined
+              });
+            });
+
+            // Update output with notification
+            if (updateOutput) {
+              updateOutput(`\n🔄 Task moved to background (Task ID: ${task.id})\nYou can continue working while this runs.`);
+            }
+
+            // Clear the signal
+            backgroundSignal.clearBackgroundMode();
+
+            // Resolve immediately to return control to user
+            resolve();
+          }
+        }, 100); // Check every 100ms
+
+        // Clean up interval when process exits
+        shell.on('exit', () => clearInterval(checkInterval));
+      });
     } finally {
       clearTimeout(timeoutId);
       abortedSignal.removeEventListener('abort', abortHandler);
+      backgroundSignal.removeListener('background-requested', backgroundModeHandler);
+    }
+
+    // If background mode was triggered, return early with a special message
+    if (backgroundModeTriggered) {
+      // Get the task ID from the task manager
+      const taskManager = getBackgroundTaskManager();
+      const runningTasks = taskManager.getRunningTasks();
+      const latestTask = runningTasks[runningTasks.length - 1];
+
+      return {
+        llmContent: `Command "${params.command}" has been moved to the background (Task ID: ${latestTask?.id || 'unknown'}). The user can continue working while it runs. The task will complete in the background and results can be checked later. DO NOT report this as completed - it is still running.`,
+        returnDisplay: `🔄 Running in background...`,
+        isBackgroundTask: true,  // 🎯 Tell UI this is a background task
+        backgroundTaskId: latestTask?.id,
+      };
     }
 
     // parse pids (pgrep output) from temporary file and remove it
@@ -773,6 +857,122 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
     return {
       llmContent: finalLlmContent,
       returnDisplay: returnDisplayMessage,
+    };
+  }
+
+  /**
+   * 在后台执行 shell 命令，立即返回任务ID
+   * 用于支持 Ctrl+B 快捷键让用户取消等待
+   */
+  executeBackground(
+    params: ShellToolParams,
+    signal: AbortSignal,
+  ): ToolResult {
+    const strippedCommand = stripShellWrapper(params.command);
+    const validationError = this.validateToolParams({
+      ...params,
+      command: strippedCommand,
+    });
+    if (validationError) {
+      return {
+        llmContent: validationError,
+        returnDisplay: validationError,
+      };
+    }
+
+    if (signal.aborted) {
+      return {
+        llmContent: 'Command was cancelled by user before it could start.',
+        returnDisplay: 'Command cancelled by user.',
+      };
+    }
+
+    const taskManager = getBackgroundTaskManager();
+    const task = taskManager.createTask(strippedCommand, params.directory);
+
+    const isWindows = os.platform() === 'win32';
+    const tempFileName = `shell_pgrep_${crypto
+      .randomBytes(6)
+      .toString('hex')}.tmp`;
+    const tempFilePath = path.join(os.tmpdir(), tempFileName);
+
+    const commandToExecute = isWindows
+      ? strippedCommand
+      : (() => {
+          let command = strippedCommand.trim();
+          if (!command.endsWith('&')) command += ';';
+          return `{ ${command} }; __code=$?; pgrep -g 0 >${tempFilePath} 2>&1; exit $__code;`;
+        })();
+
+    const shell = isWindows
+      ? spawn('cmd.exe', ['/c', commandToExecute], {
+          stdio: ['ignore', 'pipe', 'pipe'],
+          cwd: path.resolve(this.config.getTargetDir(), params.directory || ''),
+          env: {
+            ...process.env,
+            GEMINI_CLI: '1',
+          },
+          shell: false,
+          windowsVerbatimArguments: true,
+          detached: true, // 后台任务需要 detached
+        })
+      : spawn('bash', ['-c', commandToExecute], {
+          stdio: ['ignore', 'pipe', 'pipe'],
+          detached: true,
+          cwd: path.resolve(this.config.getTargetDir(), params.directory || ''),
+          env: {
+            ...process.env,
+            GEMINI_CLI: '1',
+          },
+        });
+
+    if (shell.pid) {
+      taskManager.setTaskPid(task.id, shell.pid);
+    }
+
+    let code: number | null = null;
+    let processSignal: NodeJS.Signals | null = null;
+
+    shell.stdout.on('data', (data: Buffer) => {
+      const decodedStr = decodeWindowsCommandOutput(data, strippedCommand);
+      const str = sanitizeShellOutput(decodedStr);
+      taskManager.appendOutput(task.id, str);
+    });
+
+    shell.stderr.on('data', (data: Buffer) => {
+      const decodedStr = decodeWindowsCommandOutput(data, strippedCommand);
+      const str = sanitizeShellOutput(decodedStr);
+      taskManager.appendStderr(task.id, str);
+    });
+
+    shell.on('error', (err: Error) => {
+      taskManager.failTask(task.id, err.message);
+    });
+
+    shell.on('exit', (exitCode: number | null, signal: NodeJS.Signals | null) => {
+      code = exitCode;
+      processSignal = signal;
+      taskManager.completeTask(task.id, {
+        exitCode: exitCode ?? undefined,
+        signal: signal ?? undefined,
+      });
+
+      // 清理临时文件
+      if (fs.existsSync(tempFilePath)) {
+        try {
+          fs.unlinkSync(tempFilePath);
+        } catch (e) {
+          // ignore
+        }
+      }
+    });
+
+    // 返回任务ID给 AI 和用户
+    const taskDescription = `${strippedCommand}${params.directory ? ` [in ${params.directory}]` : ''}`;
+    return {
+      llmContent: `Background task started (Task ID: ${task.id}). Command: ${taskDescription}`,
+      returnDisplay: `Running in background (Task ID: ${task.id})`,
+      backgroundTaskId: task.id, // 新增字段，用于 CLI 层感知
     };
   }
 }

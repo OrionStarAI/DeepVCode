@@ -115,6 +115,16 @@ export const HistoryItemDisplay = memo(({
   </Box>
 ), (prev, next) => {
   // 自定义比较逻辑，提高性能
+  // 🔧 修复: 对于 tool_group 类型，需要检查工具状态变化
+  if (prev.item.type === 'tool_group' && next.item.type === 'tool_group') {
+    // 检查工具数量和状态是否变化
+    if (prev.item.tools.length !== next.item.tools.length) return false;
+    for (let i = 0; i < prev.item.tools.length; i++) {
+      if (prev.item.tools[i].status !== next.item.tools[i].status) return false;
+      if (prev.item.tools[i].callId !== next.item.tools[i].callId) return false;
+    }
+  }
+
   return prev.item.id === next.item.id &&
          prev.item.text === next.item.text &&
          prev.isPending === next.isPending &&

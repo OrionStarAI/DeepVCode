@@ -363,6 +363,17 @@ export const translations = {
     // Shell output
     'shell.output.truncated': '... (showing last {maxLines} lines, {totalLines} lines total)',
 
+    // Background task
+    'shell.background.hint': 'ctrl+b to run in background',
+    'background.task.panel.title': 'Background Tasks',
+    'background.task.panel.empty': 'No background tasks',
+    'background.task.panel.hint': '↑↓ select, K kill, Esc close',
+    'background.task.status.running': 'Running',
+    'background.task.status.completed': 'Completed',
+    'background.task.status.failed': 'Failed',
+    'background.task.kill.confirm': 'Kill task {taskId}?',
+    'background.task.hint.multiple': '{count} background tasks',
+
     // Text Truncator
     'text_truncator.omitted_lines': '[ ... {count} lines omitted ... ]',
 
@@ -1476,6 +1487,17 @@ export const translations = {
 
     // Shell output
     'shell.output.truncated': '... (显示最新 {maxLines} 行，共 {totalLines} 行)',
+
+    // Background task
+    'shell.background.hint': 'ctrl+b 后台运行',
+    'background.task.panel.title': '后台任务',
+    'background.task.panel.empty': '暂无后台任务',
+    'background.task.panel.hint': '↑↓选择 K终止 Esc关闭',
+    'background.task.status.running': '运行中',
+    'background.task.status.completed': '已完成',
+    'background.task.status.failed': '失败',
+    'background.task.kill.confirm': '确认终止任务 {taskId}?',
+    'background.task.hint.multiple': '{count} 个后台任务',
 
     // Text Truncator
     'text_truncator.omitted_lines': '[ ... 已省略显示 {count} 行 ... ]',

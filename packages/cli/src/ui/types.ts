@@ -29,6 +29,7 @@ export enum ToolCallStatus {
   Confirming = 'Confirming',
   Executing = 'Executing',
   SubAgentRunning = 'SubAgentRunning', // 🆕 子agent执行中
+  BackgroundRunning = 'BackgroundRunning', // 🆕 后台运行中 (Ctrl+B)
   Success = 'Success',
   Error = 'Error',
 }
@@ -46,6 +47,7 @@ export interface ToolCallEvent {
 export interface IndividualToolCallDisplay {
   callId: string;
   name: string;
+  toolId: string; // 原始 tool 名称，如 'run_shell_command'
   description: string;
   resultDisplay: ToolResultDisplay | undefined;
   status: ToolCallStatus;
@@ -254,6 +256,7 @@ export interface ConsoleMessageItem {
 export interface SubmitPromptResult {
   type: 'submit_prompt';
   content: string;
+  silent?: boolean; // 🎯 静默模式：不在 UI 上显示用户消息
 }
 
 /**

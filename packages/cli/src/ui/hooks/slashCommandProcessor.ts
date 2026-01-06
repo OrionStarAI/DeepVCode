@@ -441,6 +441,7 @@ export const useSlashCommandProcessor = (
                   return {
                     type: 'submit_prompt',
                     content: result.content,
+                    silent: result.silent, // 🎯 传递静默模式
                   };
                 case 'refine_result':
                   setShowHelp(false);
