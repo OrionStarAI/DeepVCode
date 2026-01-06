@@ -534,54 +534,14 @@ export class MarketplaceManager {
       }
 
       if (!sourcePath) {
-        // Plugin directory not found - try to clone/download it
-        let gitUrl: string | null = null;
-        let ref: string | undefined = undefined;
-
-        if (source.source === 'github') {
-          // GitHub source: 转换为 git URL
-          gitUrl = `https://github.com/${source.repo}.git`;
-          ref = source.ref;
-        } else if (source.source === 'git') {
-          // Git source: 直接使用 URL
-          gitUrl = source.url;
-          ref = source.ref;
-        } else if (source.source === 'url') {
-          // URL source: 回退到旧逻辑
-          gitUrl = source.url;
-        }
-
-        if (gitUrl) {
-          const targetPath = path.join(marketplacePath, pluginDef.name);
-          console.log(`Cloning plugin ${pluginDef.name} from ${gitUrl}${ref ? ` (ref: ${ref})` : ''}...`);
-
-          try {
-            await this.cloneRepository(gitUrl, targetPath, ref);
-
-            // 如果指定了 path 字段，更新 sourcePath 指向子目录
-            if ('path' in source && source.path) {
-              sourcePath = path.join(targetPath, source.path);
-            } else {
-              sourcePath = targetPath;
-            }
-
-            console.log(`✓ Successfully cloned ${pluginDef.name}`);
-          } catch (error) {
-            console.warn(
-              `Failed to clone plugin ${pluginDef.name}\n` +
-              `  URL: ${gitUrl}\n` +
-              `  Ref: ${ref || 'default'}\n` +
-              `  Error: ${error instanceof Error ? error.message : String(error)}`
-            );
-          }
-        } else {
-          console.warn(
-            `Remote plugin source path not found: ${pluginDef.name}\n` +
-            `  Source: ${JSON.stringify(pluginDef.source)}\n` +
-            `  Searched paths:\n` +
-            possiblePaths.map(p => `    - ${p}`).join('\n')
-          );
-        }
+        // Plugin directory not found - 不自动克隆远程插件
+        // 远程插件将在用户安装时按需克隆（由 PluginInstaller 处理）
+        console.log(
+          `[MarketplaceManager] Remote plugin ${pluginDef.name} not yet downloaded\n` +
+          `  Will be cloned when user installs this plugin\n` +
+          `  Source: ${JSON.stringify(pluginDef.source)}`
+        );
+        // sourcePath 保持为空，后续逻辑会跳过此插件的详细解析
       }
     } else {
       console.warn(`Unsupported plugin source type: ${pluginDef.name}`);
