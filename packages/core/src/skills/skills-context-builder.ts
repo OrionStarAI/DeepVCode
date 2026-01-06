@@ -85,60 +85,44 @@ export class SkillsContextBuilder {
       const pluginInfo = installed.plugins[pluginId];
       if (!pluginInfo) continue;
 
-      // Get marketplace info
-      const marketplace = settings.marketplaces.find(
-        (m) => m.id === pluginInfo.marketplaceId
-      );
-      if (!marketplace || !marketplace.enabled) continue;
+      // 使用 installPath，如果不存在则 fallback 到 marketplace 目录（向后兼容）
+      let pluginRoot: string | undefined = pluginInfo.installPath;
 
-      // Read marketplace manifest
-      const marketplacePath = path.join(
-        this.marketplaceDir,
-        marketplace.id,
-        '.claude-plugin',
-        'marketplace.json'
-      );
-
-      if (!fs.existsSync(marketplacePath)) continue;
-
-      const manifest: MarketplaceManifest = JSON.parse(
-        fs.readFileSync(marketplacePath, 'utf-8')
-      );
-
-      // Find plugin definition
-      const pluginDef = manifest.plugins.find(
-        (p) => p.name === pluginInfo.name
-      );
-      if (!pluginDef) continue;
-
-      // Process each skill in the plugin
-      let skillsList = pluginDef.skills || [];
-
-      // Auto-discovery fallback if no skills defined
-      if (!Array.isArray(skillsList) || skillsList.length === 0) {
-        const pluginRoot = path.join(
-          this.marketplaceDir,
-          marketplace.id,
-          pluginDef.source || ''
-        );
-        skillsList = this.discoverComponents(pluginRoot);
-      }
-
-      if (!Array.isArray(skillsList)) continue;
-
-      for (const skillRelPath of skillsList) {
-        // Construct skill path, taking plugin source into account
-        let skillPath = path.join(
-          this.marketplaceDir,
-          marketplace.id
+      if (!pluginRoot) {
+        // 旧数据没有 installPath，尝试从 marketplace.json 中查找
+        const foundPath = this.findPluginInMarketplace(
+          pluginInfo.marketplaceId,
+          pluginInfo.name
         );
 
-        // If plugin has a source directory, append it
-        if (pluginDef.source) {
-          skillPath = path.join(skillPath, pluginDef.source);
+        if (!foundPath) {
+          console.warn(`[SkillsContextBuilder] Cannot find plugin ${pluginId} in marketplace`);
+          continue;
         }
 
-        skillPath = path.join(skillPath, skillRelPath);
+        pluginRoot = foundPath;
+        console.log(`[SkillsContextBuilder] No installPath for ${pluginId}, using marketplace path: ${pluginRoot}`);
+      }
+
+      // 检查插件目录是否存在
+      if (!fs.existsSync(pluginRoot)) {
+        console.warn(`[SkillsContextBuilder] Plugin directory not found: ${pluginRoot}`);
+        continue;
+      }
+
+      // 直接扫描本地目录，找所有的 agents/commands/skills
+      const discoveredPaths = this.discoverComponents(pluginRoot);
+
+      if (discoveredPaths.length === 0) {
+        continue;
+      }
+
+      console.log(`[SkillsContextBuilder] Processing plugin ${pluginId}: found ${discoveredPaths.length} component(s)`);
+
+      // 处理每个发现的组件
+      for (const relPath of discoveredPaths) {
+        // relPath 是相对于 pluginRoot 的路径，如 "agents/code-explorer.md"
+        const skillPath = path.join(pluginRoot, relPath);
 
         // Determine MD file path
         let skillMdPath = '';
@@ -156,20 +140,22 @@ export class SkillsContextBuilder {
            }
         }
 
-        if (!fs.existsSync(skillMdPath)) continue;
+        if (!fs.existsSync(skillMdPath)) {
+          continue;
+        }
 
         // Extract skill name from path
-        let skillName = path.basename(skillRelPath);
+        let skillName = path.basename(relPath);
         if (isFileComponent) {
-          skillName = path.basename(skillRelPath, '.md');
+          skillName = path.basename(relPath, '.md');
         }
 
         skills.push({
           id: `${pluginId}:${skillName}`,
           name: skillName,
           pluginId: pluginInfo.id,
-          marketplaceId: marketplace.id,
-          description: pluginDef.description,
+          marketplaceId: pluginInfo.marketplaceId,
+          description: pluginInfo.description || `Skill from ${pluginInfo.name}`,
           path: isFileComponent ? path.dirname(skillPath) : skillPath,
           skillMdPath: skillMdPath,
           enabled: true,
@@ -329,6 +315,58 @@ export class SkillsContextBuilder {
   public getSkillDetails(skillId: string): SkillInfo | null {
     const skills = this.getAvailableSkills();
     return skills.find((s) => s.id === skillId) || null;
+  }
+
+  /**
+   * 查找插件在 marketplace 中的路径（用于向后兼容旧数据）
+   * @param marketplaceId Marketplace ID
+   * @param pluginName Plugin name
+   * @returns Plugin root path or null
+   */
+  private findPluginInMarketplace(marketplaceId: string, pluginName: string): string | null {
+    const marketplacePath = path.join(this.marketplaceDir, marketplaceId);
+    const marketplaceJsonPath = path.join(marketplacePath, '.claude-plugin', 'marketplace.json');
+
+    // 检查 marketplace.json 是否存在
+    if (!fs.existsSync(marketplaceJsonPath)) {
+      // Fallback: 尝试常见路径
+      const fallbackPaths = [
+        path.join(marketplacePath, 'plugins', pluginName),
+        path.join(marketplacePath, pluginName),
+      ];
+
+      for (const fallbackPath of fallbackPaths) {
+        if (fs.existsSync(fallbackPath)) {
+          return fallbackPath;
+        }
+      }
+
+      return null;
+    }
+
+    try {
+      const marketplaceJson = JSON.parse(fs.readFileSync(marketplaceJsonPath, 'utf-8')) as MarketplaceManifest;
+      const plugin = marketplaceJson.plugins?.find((p: any) => p.name === pluginName);
+
+      if (!plugin?.source) {
+        return null;
+      }
+
+      // 解析 source 路径
+      if (typeof plugin.source === 'string') {
+        // 相对路径，如 "./plugins/feature-dev"
+        const sourcePath = plugin.source.startsWith('./') || plugin.source.startsWith('../')
+          ? path.join(marketplacePath, plugin.source)
+          : path.join(marketplacePath, plugin.source);
+
+        return fs.existsSync(sourcePath) ? sourcePath : null;
+      }
+
+      return null;
+    } catch (error) {
+      console.warn(`[SkillsContextBuilder] Failed to parse marketplace.json for ${marketplaceId}:`, error);
+      return null;
+    }
   }
 
   /**

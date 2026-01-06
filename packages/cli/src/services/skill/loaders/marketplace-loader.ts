@@ -1,5 +1,6 @@
 import path from 'path';
 import fs from 'fs-extra';
+import { spawnSync } from 'child_process';
 import {
   UnifiedComponent,
   UnifiedPlugin,
@@ -11,6 +12,7 @@ import {
 import { IPluginLoader } from './types.js';
 import { SettingsManager, SkillsPaths } from '../settings-manager.js';
 import { PluginStructureAnalyzer, ComponentParser } from '../parsers/index.js';
+import { PluginSource } from '../types.js';
 
 /**
  * Marketplace 加载器
@@ -26,7 +28,11 @@ export class MarketplaceLoader implements IPluginLoader {
   async loadPlugins(): Promise<UnifiedPlugin[]> {
     const plugins: UnifiedPlugin[] = [];
 
-    // 1. 获取已安装的 Marketplace
+    // 1. 获取已安装的插件列表（仅加载已安装的插件）
+    const installedPlugins = await this.settingsManager.readInstalledPlugins();
+    const installedPluginIds = new Set(Object.keys(installedPlugins.plugins));
+
+    // 2. 获取已安装的 Marketplace
     const marketplaces = await this.settingsManager.getMarketplaces();
 
     for (const mp of marketplaces) {
@@ -35,7 +41,7 @@ export class MarketplaceLoader implements IPluginLoader {
       const mpPath = mp.source === 'local' ? mp.location : path.join(SkillsPaths.MARKETPLACE_ROOT, mp.id);
       if (!(await fs.pathExists(mpPath))) continue;
 
-      // 2. 尝试从 marketplace.json 加载插件定义
+      // 3. 尝试从 marketplace.json 加载插件定义
       const manifestPath = path.join(mpPath, '.claude-plugin', 'marketplace.json');
       const loadedPluginIds = new Set<string>();
 
@@ -45,6 +51,13 @@ export class MarketplaceLoader implements IPluginLoader {
           if (manifest.plugins && Array.isArray(manifest.plugins)) {
             for (const pluginDef of manifest.plugins) {
               try {
+                const pluginId = `${mp.id}:${pluginDef.name}`;
+
+                // 🚀 性能优化：跳过未安装的插件
+                if (!installedPluginIds.has(pluginId)) {
+                  continue;
+                }
+
                 const plugin = await this.loadPluginFromManifest(mp.id, mpPath, pluginDef);
                 if (plugin) {
                   plugins.push(plugin);
@@ -60,14 +73,20 @@ export class MarketplaceLoader implements IPluginLoader {
         }
       }
 
-      // 3. 扫描目录以发现未在 manifest 中定义的插件
+      // 4. 扫描目录以发现未在 manifest 中定义的插件
       const pluginDirs = await this.discoverPluginDirs(mpPath);
 
       for (const pluginDir of pluginDirs) {
         const pluginName = path.basename(pluginDir);
         const pluginId = `${mp.id}:${pluginName}`;
 
+        // 跳过已从 manifest 加载的插件
         if (loadedPluginIds.has(pluginId)) continue;
+
+        // 🚀 性能优化：跳过未安装的插件
+        if (!installedPluginIds.has(pluginId)) {
+          continue;
+        }
 
         try {
           const plugin = await this.loadPluginFromDir(mp.id, pluginDir);
@@ -83,43 +102,134 @@ export class MarketplaceLoader implements IPluginLoader {
     return plugins;
   }
 
+  async loadPlugin(pluginId: string): Promise<UnifiedPlugin | null> {
+    // TODO: Implement single plugin loading
+    return null;
+  }
+
+  // ==========================================================================
+  // Private Helpers
+  // ==========================================================================
+
+  /**
+   * 从 marketplace.json 的 plugin entry 加载插件
+   * 支持官方文档中的所有 source 类型和内联配置
+   */
   private async loadPluginFromManifest(
     marketplaceId: string,
     mpPath: string,
     pluginDef: any
   ): Promise<UnifiedPlugin | null> {
     const id = `${marketplaceId}:${pluginDef.name}`;
-
-    // 确定插件根目录
+    const source = pluginDef.source;
     let pluginDir = mpPath;
-    if (pluginDef.source && pluginDef.source !== './') {
-      pluginDir = path.join(mpPath, pluginDef.source);
+
+    // 1. 判断是否为远程 Git source（需要缓存）
+    if (this.isRemoteGitSource(source)) {
+      // 远程 Git: 使用或创建缓存
+      const version = pluginDef.version || '0.0.0';
+      const cachePath = SkillsPaths.getPluginCachePath(marketplaceId, pluginDef.name, version);
+
+      // 检查缓存是否存在
+      if (await fs.pathExists(cachePath)) {
+        console.log(`[MarketplaceLoader] Using cached plugin: ${cachePath}`);
+        pluginDir = cachePath;
+      } else {
+        // 检查是否有历史安装路径（向后兼容旧数据）
+        const installedInfo = await this.settingsManager.getInstalledPlugin(id);
+        if (installedInfo?.installPath && await fs.pathExists(installedInfo.installPath)) {
+          console.log(`[MarketplaceLoader] Using existing installation: ${installedInfo.installPath}`);
+          pluginDir = installedInfo.installPath;
+        } else {
+          // 克隆到缓存目录
+          const gitUrl = this.extractGitUrl(source);
+          if (gitUrl) {
+            await this.clonePluginToCache(gitUrl, cachePath, source);
+            pluginDir = cachePath;
+          } else {
+            console.warn(`Cannot extract Git URL from source: ${JSON.stringify(source)}`);
+            return null;
+          }
+        }
+      }
+    } else if (typeof source === 'string') {
+      // 字符串类型：相对路径（保持原逻辑）
+      if (source.startsWith('./') || source.startsWith('../')) {
+        pluginDir = path.join(mpPath, source);
+      } else {
+        pluginDir = path.join(mpPath, source);
+      }
+    } else {
+      // 未知类型，回退到插件名
+      pluginDir = path.join(mpPath, pluginDef.name);
     }
 
-    if (!(await fs.pathExists(pluginDir))) return null;
+    if (!(await fs.pathExists(pluginDir))) {
+      console.warn(`Plugin directory not found: ${pluginDir}`);
+      return null;
+    }
 
     const components: UnifiedComponent[] = [];
 
-    // 1. 处理显式定义的 Skills
-    if (pluginDef.skills && Array.isArray(pluginDef.skills)) {
-      for (const skillRelPath of pluginDef.skills) {
-        const skillPath = path.join(pluginDir, skillRelPath);
-        // 尝试解析为 Skill
+    // 2. 处理显式定义的组件
+    // 按照官方文档，可以在 manifest 中定义 commands, agents, hooks 等
+
+    // Commands
+    if (pluginDef.commands && Array.isArray(pluginDef.commands)) {
+      for (const cmdPath of pluginDef.commands) {
+        const fullPath = path.join(pluginDir, cmdPath);
         const component = await this.componentParser.parse(
-           skillPath,
-           ComponentType.SKILL,
-           id,
-           marketplaceId,
-           pluginDir
+          fullPath,
+          ComponentType.COMMAND,
+          id,
+          marketplaceId,
+          pluginDir
         );
         if (component) {
           components.push(component);
         }
       }
-    } else {
-      // 2. 自动发现 (如果 manifest 中未定义 skills)
-      // 这对于 Claude Code 插件 (通常包含 agents/commands 目录) 是必需的
+    }
 
+    // Agents
+    if (pluginDef.agents && Array.isArray(pluginDef.agents)) {
+      for (const agentPath of pluginDef.agents) {
+        const fullPath = path.join(pluginDir, agentPath);
+        const component = await this.componentParser.parse(
+          fullPath,
+          ComponentType.AGENT,
+          id,
+          marketplaceId,
+          pluginDir
+        );
+        if (component) {
+          components.push(component);
+        }
+      }
+    }
+
+    // Skills (如果显式定义了)
+    if (pluginDef.skills && Array.isArray(pluginDef.skills)) {
+      for (const skillPath of pluginDef.skills) {
+        const fullPath = path.join(pluginDir, skillPath);
+        const component = await this.componentParser.parse(
+          fullPath,
+          ComponentType.SKILL,
+          id,
+          marketplaceId,
+          pluginDir
+        );
+        if (component) {
+          components.push(component);
+        }
+      }
+    }
+
+    // 3. 如果没有显式定义组件，且 strict !== false，则自动发现
+    const isStrictMode = pluginDef.strict !== false;
+
+    if (components.length === 0 || !isStrictMode) {
+      // 自动发现标准目录
       // Agents
       components.push(...await this.scanComponents(
         pluginDir, 'agents', ComponentType.AGENT, id, marketplaceId
@@ -136,13 +246,13 @@ export class MarketplaceLoader implements IPluginLoader {
       ));
     }
 
-    // 3. 构建 UnifiedPlugin
+    // 4. 构建 UnifiedPlugin
     return {
       id,
       name: pluginDef.name,
       description: pluginDef.description || '',
-      version: '1.0.0',
-      author: undefined,
+      version: pluginDef.version || '1.0.0',
+      author: pluginDef.author,
       source: ComponentSource.MARKETPLACE,
       location: {
         type: 'directory',
@@ -154,13 +264,13 @@ export class MarketplaceLoader implements IPluginLoader {
         hasPluginJson: false,
         hasClaudePluginDir: false,
         directories: {
-          agents: false,
-          commands: false,
-          skills: true,
-          hooks: false,
+          agents: pluginDef.agents ? true : false,
+          commands: pluginDef.commands ? true : false,
+          skills: pluginDef.skills ? true : false,
+          hooks: pluginDef.hooks ? true : false,
           scripts: false
         },
-        detectedFormat: 'deepv-code'
+        detectedFormat: 'claude-code'
       },
       installed: true,
       enabled: true,
@@ -171,15 +281,6 @@ export class MarketplaceLoader implements IPluginLoader {
       rawConfig: pluginDef
     };
   }
-
-  async loadPlugin(pluginId: string): Promise<UnifiedPlugin | null> {
-    // TODO: Implement single plugin loading
-    return null;
-  }
-
-  // ==========================================================================
-  // Private Helpers
-  // ==========================================================================
 
   private async discoverPluginDirs(mpPath: string): Promise<string[]> {
     const dirs: string[] = [];
@@ -315,5 +416,105 @@ export class MarketplaceLoader implements IPluginLoader {
     }
 
     return components;
+  }
+
+  // ==========================================================================
+  // Plugin Caching Helpers
+  // ==========================================================================
+
+  /**
+   * 判断 plugin source 是否为远程 Git 类型（需要缓存）
+   * @param source Plugin source
+   * @returns true 如果是远程 Git source（需要缓存），false 如果是本地路径（不需要缓存）
+   */
+  private isRemoteGitSource(source: string | PluginSource): boolean {
+    if (typeof source === 'string') {
+      // 字符串类型：相对路径不缓存
+      return false;
+    }
+
+    if (typeof source === 'object' && source !== null) {
+      // GitHub、Git、URL 都需要缓存
+      return source.source === 'github' || source.source === 'git' || source.source === 'url';
+    }
+
+    return false;
+  }
+
+  /**
+   * 从 plugin source 提取 Git URL
+   * @param source Plugin source
+   * @returns Git URL 或 null
+   */
+  private extractGitUrl(source: PluginSource): string | null {
+    if (typeof source === 'object' && source !== null) {
+      if (source.source === 'github') {
+        return `https://github.com/${source.repo}.git`;
+      } else if (source.source === 'git') {
+        return source.url;
+      } else if (source.source === 'url') {
+        return source.url;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * 克隆插件到缓存目录
+   * @param gitUrl Git 仓库 URL
+   * @param cachePath 缓存目录路径
+   * @param source Plugin source 对象
+   */
+  private async clonePluginToCache(
+    gitUrl: string,
+    cachePath: string,
+    source: PluginSource
+  ): Promise<void> {
+    try {
+      console.log(`[MarketplaceLoader] Cloning plugin from ${gitUrl} to ${cachePath}`);
+      await fs.ensureDir(path.dirname(cachePath));
+
+      // 构建 git clone 参数数组（防止命令注入）
+      const args: string[] = ['clone', '--depth', '1'];
+
+      // 添加 ref (分支/tag) 如果指定
+      if (typeof source === 'object' && 'ref' in source && source.ref) {
+        args.push('--branch', source.ref);
+      }
+
+      args.push(gitUrl, cachePath);
+
+      // 执行克隆 - 使用 spawnSync 而不是 execSync 以防止 shell 注入
+      const result = spawnSync('git', args, {
+        stdio: 'pipe',
+        encoding: 'utf-8'
+      });
+
+      if (result.status !== 0) {
+        const errorMsg = result.stderr || result.error?.message || 'Unknown error';
+        throw new Error(`Git clone failed: ${errorMsg}`);
+      }
+
+      // 如果指定了 path，需要进入子目录
+      if (typeof source === 'object' && 'path' in source && source.path) {
+        const subPath = path.join(cachePath, source.path);
+        if (await fs.pathExists(subPath)) {
+          // 将子目录内容移到 cachePath 根目录
+          const tempDir = cachePath + '_temp';
+          await fs.move(subPath, tempDir);
+          await fs.remove(cachePath);
+          await fs.move(tempDir, cachePath);
+        }
+      }
+
+      console.log(`[MarketplaceLoader] Plugin cached successfully: ${cachePath}`);
+    } catch (error) {
+      console.error(`[MarketplaceLoader] Failed to clone plugin to cache:`, error);
+      // 清理失败的缓存
+      if (await fs.pathExists(cachePath)) {
+        await fs.remove(cachePath);
+      }
+      throw error;
+    }
   }
 }
