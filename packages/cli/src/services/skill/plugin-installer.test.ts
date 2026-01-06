@@ -128,6 +128,26 @@ describe('PluginInstaller', () => {
       const isEnabled = await installer.isPluginEnabled('test-mp:test-plugin');
       expect(isEnabled).toBe(true);
     });
+
+    it('should save installPath and isLocal for local plugin', async () => {
+      await createTestMarketplace();
+
+      await installer.installPlugin('test-mp', 'test-plugin');
+
+      const installed = await settingsManager.getInstalledPlugin('test-mp:test-plugin');
+      expect(installed?.installPath).toBeDefined();
+      expect(installed?.installPath).toContain('test-mp'); // Marketplace ID in path
+      expect(installed?.isLocal).toBe(true); // Local marketplace
+    });
+
+    it('should default version to unknown when not specified', async () => {
+      await createTestMarketplace();
+
+      await installer.installPlugin('test-mp', 'test-plugin');
+
+      const installed = await settingsManager.getInstalledPlugin('test-mp:test-plugin');
+      expect(installed?.version).toBe('unknown'); // Default version when not specified in plugin
+    });
   });
 
   describe('uninstallPlugin', () => {
