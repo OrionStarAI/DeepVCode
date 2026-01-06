@@ -124,10 +124,14 @@ export class MarketplaceLoader implements IPluginLoader {
     const source = pluginDef.source;
     let pluginDir = mpPath;
 
-    // 1. 判断是否为远程 Git source（需要缓存）
-    if (this.isRemoteGitSource(source)) {
-      // 远程 Git: 使用或创建缓存
-      const version = pluginDef.version || '0.0.0';
+    // 0. 优先使用 installPath（如果已安装）
+    const installedInfo = await this.settingsManager.getInstalledPlugin(id);
+    if (installedInfo?.installPath && await fs.pathExists(installedInfo.installPath)) {
+      console.log(`[MarketplaceLoader] Using installPath from installed plugin: ${installedInfo.installPath}`);
+      pluginDir = installedInfo.installPath;
+    } else if (this.isRemoteGitSource(source)) {
+      // 1. 远程 Git source（需要缓存）
+      const version = pluginDef.version || 'unknown';
       const cachePath = SkillsPaths.getPluginCachePath(marketplaceId, pluginDef.name, version);
 
       // 检查缓存是否存在
@@ -135,32 +139,25 @@ export class MarketplaceLoader implements IPluginLoader {
         console.log(`[MarketplaceLoader] Using cached plugin: ${cachePath}`);
         pluginDir = cachePath;
       } else {
-        // 检查是否有历史安装路径（向后兼容旧数据）
-        const installedInfo = await this.settingsManager.getInstalledPlugin(id);
-        if (installedInfo?.installPath && await fs.pathExists(installedInfo.installPath)) {
-          console.log(`[MarketplaceLoader] Using existing installation: ${installedInfo.installPath}`);
-          pluginDir = installedInfo.installPath;
+        // 克隆到缓存目录
+        const gitUrl = this.extractGitUrl(source);
+        if (gitUrl) {
+          await this.clonePluginToCache(gitUrl, cachePath, source);
+          pluginDir = cachePath;
         } else {
-          // 克隆到缓存目录
-          const gitUrl = this.extractGitUrl(source);
-          if (gitUrl) {
-            await this.clonePluginToCache(gitUrl, cachePath, source);
-            pluginDir = cachePath;
-          } else {
-            console.warn(`Cannot extract Git URL from source: ${JSON.stringify(source)}`);
-            return null;
-          }
+          console.warn(`Cannot extract Git URL from source: ${JSON.stringify(source)}`);
+          return null;
         }
       }
     } else if (typeof source === 'string') {
-      // 字符串类型：相对路径（保持原逻辑）
+      // 2. 字符串类型：相对路径
       if (source.startsWith('./') || source.startsWith('../')) {
         pluginDir = path.join(mpPath, source);
       } else {
         pluginDir = path.join(mpPath, source);
       }
     } else {
-      // 未知类型，回退到插件名
+      // 3. 未知类型，回退到插件名
       pluginDir = path.join(mpPath, pluginDef.name);
     }
 
@@ -251,7 +248,7 @@ export class MarketplaceLoader implements IPluginLoader {
       id,
       name: pluginDef.name,
       description: pluginDef.description || '',
-      version: pluginDef.version || '1.0.0',
+      version: pluginDef.version || 'unknown',
       author: pluginDef.author,
       source: ComponentSource.MARKETPLACE,
       location: {
@@ -319,7 +316,7 @@ export class MarketplaceLoader implements IPluginLoader {
     const structure = await analyzer.analyze();
 
     // 2. 读取元数据 (plugin.json)
-    let metadata: any = { name: pluginName, description: '', version: '0.0.0' };
+    let metadata: any = { name: pluginName, description: '', version: 'unknown' };
     if (structure.hasPluginJson) {
       metadata = await fs.readJson(path.join(pluginDir, 'plugin.json'));
     } else if (structure.hasClaudePluginDir) {
@@ -364,7 +361,7 @@ export class MarketplaceLoader implements IPluginLoader {
       id,
       name: metadata.name || pluginName,
       description: metadata.description || '',
-      version: metadata.version || '0.0.0',
+      version: metadata.version || 'unknown',
       author: metadata.author,
       source: ComponentSource.MARKETPLACE,
       location: {
