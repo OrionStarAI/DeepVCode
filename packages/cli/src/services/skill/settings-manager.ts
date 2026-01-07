@@ -34,6 +34,9 @@ export class SkillsPaths {
   /** Marketplace 根目录 ~/.deepv/marketplace */
   static readonly MARKETPLACE_ROOT = path.join(SkillsPaths.DEEPV_HOME, 'marketplace');
 
+  /** Plugin 缓存根目录 ~/.deepv/skills/cache */
+  static readonly PLUGIN_CACHE_ROOT = path.join(SkillsPaths.SKILLS_ROOT, 'cache');
+
   /** 配置文件 ~/.deepv/skills/settings.json */
   static readonly SETTINGS_FILE = path.join(SkillsPaths.SKILLS_ROOT, 'settings.json');
 
@@ -45,6 +48,17 @@ export class SkillsPaths {
 
   /** 备份目录 ~/.deepv/skills/backups */
   static readonly BACKUP_DIR = path.join(SkillsPaths.SKILLS_ROOT, 'backups');
+
+  /**
+   * 获取插件的缓存路径
+   * @param marketplaceId Marketplace ID
+   * @param pluginName 插件名称
+   * @param version 版本号
+   * @returns 缓存路径 ~/.deepv/skills/cache/{marketplaceId}/{pluginName}/{version}
+   */
+  static getPluginCachePath(marketplaceId: string, pluginName: string, version: string): string {
+    return path.join(this.PLUGIN_CACHE_ROOT, marketplaceId, pluginName, version);
+  }
 }
 
 /**
@@ -97,6 +111,7 @@ export class SettingsManager {
       SkillsPaths.DEEPV_HOME,
       SkillsPaths.SKILLS_ROOT,
       SkillsPaths.MARKETPLACE_ROOT,
+      SkillsPaths.PLUGIN_CACHE_ROOT,
       SkillsPaths.BACKUP_DIR,
     ];
 

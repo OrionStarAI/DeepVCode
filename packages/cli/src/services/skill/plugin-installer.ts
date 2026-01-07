@@ -18,6 +18,8 @@ import {
   SkillErrorCode,
   ValidationError,
   SkillType,
+  PluginSource,
+  MarketplaceSource,
 } from './types.js';
 import { SettingsManager, SkillsPaths } from './settings-manager.js';
 import { MarketplaceManager } from './marketplace-manager.js';
@@ -69,6 +71,19 @@ export class PluginInstaller {
         );
       }
 
+      // 🔑 关键修复：对于远程插件，先下载到 cache
+      // 这样验证时才能找到 skillPaths
+      if (this.isRemoteGitSource(plugin.source)) {
+        await this.ensureRemotePluginDownloaded(plugin, marketplaceId);
+
+        // 重新获取插件信息（现在应该有 skillPaths 了）
+        const updatedPlugins = await this.marketplaceManager.getPlugins(marketplaceId);
+        const updatedPlugin = updatedPlugins.find((p) => p.name === pluginName);
+        if (updatedPlugin) {
+          Object.assign(plugin, updatedPlugin); // 更新插件信息
+        }
+      }
+
       // 验证 Plugin 结构
       await this.validatePlugin(plugin, marketplaceId);
 
@@ -78,15 +93,48 @@ export class PluginInstaller {
         await this.copyPluginToPersonalDir(plugin, marketplaceId);
       }
 
+      // 确定插件的本地安装路径
+      let installPath: string;
+
+      // 判断是否为远程 Git source（使用缓存路径）
+      if (this.isRemoteGitSource(plugin.source)) {
+        // 远程插件：使用 cache 路径
+        const version = plugin.version || 'unknown';
+        installPath = SkillsPaths.getPluginCachePath(marketplaceId, plugin.name, version);
+      } else if (typeof plugin.source === 'string') {
+        // 字符串：使用 source 作为相对路径
+        const pluginLocalPath = plugin.source;
+        installPath = path.join(
+          SkillsPaths.MARKETPLACE_ROOT,
+          marketplaceId,
+          pluginLocalPath
+        );
+      } else {
+        // 兜底：使用插件名
+        installPath = path.join(
+          SkillsPaths.MARKETPLACE_ROOT,
+          marketplaceId,
+          plugin.name
+        );
+      }
+
+      // 判断是否为本地插件（基于 plugin.source 而非 marketplace.source）
+      // 本地插件：source 为相对路径（如 './' 或 '../'）
+      // 远程插件：source 为 object（github/git/url）
+      const isLocal = this.isLocalPluginSource(plugin.source);
+
       // 记录已安装 Plugin
       const installedInfo: InstalledPluginInfo = {
         id: plugin.id,
         name: plugin.name,
+        description: plugin.description,
         marketplaceId,
+        installPath,
         installedAt: new Date().toISOString(),
         enabled: true, // 默认启用
         skillCount: plugin.skillPaths.length,
-        version: plugin.version,
+        version: plugin.version || 'unknown', // 默认 'unknown'
+        isLocal, // 本地插件标记
       };
       await this.settingsManager.addInstalledPlugin(installedInfo);
 
@@ -290,6 +338,44 @@ export class PluginInstaller {
   }
 
   // ============================================================================
+  // 私有方法 - Plugin Source 判断
+  // ============================================================================
+
+  /**
+   * 判断 plugin source 是否为远程 Git 类型（需要缓存）
+   * @param source Plugin source
+   * @returns true 如果是远程 Git source（需要缓存），false 如果是本地路径（不需要缓存）
+   */
+  private isRemoteGitSource(source: string | PluginSource): boolean {
+    if (typeof source === 'string') {
+      // 字符串类型：相对路径不缓存
+      return false;
+    }
+
+    if (typeof source === 'object' && source !== null) {
+      // GitHub、Git、URL 都需要缓存
+      return source.source === 'github' || source.source === 'git' || source.source === 'url';
+    }
+
+    return false;
+  }
+
+  /**
+   * 判断 plugin source 是否为本地路径
+   * @param source Plugin source
+   * @returns true 如果是本地相对路径（如 './' 或 '../'），false 如果是远程 Git source
+   */
+  private isLocalPluginSource(source: string | PluginSource): boolean {
+    if (typeof source === 'string') {
+      // 字符串类型：相对路径（./ 或 ../）为本地插件
+      return source.startsWith('./') || source.startsWith('../');
+    }
+
+    // object 类型（github/git/url）都是远程插件
+    return false;
+  }
+
+  // ============================================================================
   // 私有方法 - Plugin 验证
   // ============================================================================
 
@@ -462,6 +548,105 @@ export class PluginInstaller {
     } catch (error) {
       console.warn(`Failed to delete plugin from personal directory: ${error}`);
       // 不抛出错误，仅记录警告
+    }
+  }
+
+  // ============================================================================
+  // 私有方法 - 远程插件下载
+  // ============================================================================
+
+  /**
+   * 确保远程插件已下载到 cache
+   * 如果未下载，则克隆到 cache 目录
+   */
+  private async ensureRemotePluginDownloaded(
+    plugin: Plugin,
+    marketplaceId: string
+  ): Promise<void> {
+    try {
+      const version = plugin.version || 'unknown';
+      const cachePath = SkillsPaths.getPluginCachePath(marketplaceId, plugin.name, version);
+
+      // 检查缓存是否已存在
+      if (await fs.pathExists(cachePath)) {
+        console.log(`[PluginInstaller] Plugin already cached: ${cachePath}`);
+        return;
+      }
+
+      // 提取 Git URL
+      const source = plugin.source as any;
+      let gitUrl: string | null = null;
+      let ref: string | undefined = undefined;
+
+      if (source.source === 'github') {
+        gitUrl = `https://github.com/${source.repo}.git`;
+        ref = source.ref;
+      } else if (source.source === 'git') {
+        gitUrl = source.url;
+        ref = source.ref;
+      } else if (source.source === 'url') {
+        gitUrl = source.url;
+      }
+
+      if (!gitUrl) {
+        throw new Error(`Cannot extract Git URL from source: ${JSON.stringify(source)}`);
+      }
+
+      // 克隆到 cache
+      console.log(`[PluginInstaller] Downloading plugin ${plugin.name} from ${gitUrl}...`);
+      await this.clonePluginToCache(gitUrl, cachePath, ref);
+      console.log(`[PluginInstaller] Plugin downloaded successfully: ${cachePath}`);
+    } catch (error) {
+      throw new PluginError(
+        `Failed to download remote plugin: ${error instanceof Error ? error.message : String(error)}`,
+        SkillErrorCode.PLUGIN_INSTALL_FAILED,
+        { pluginId: plugin.id, originalError: error },
+      );
+    }
+  }
+
+  /**
+   * 克隆插件到 cache 目录
+   */
+  private async clonePluginToCache(
+    gitUrl: string,
+    cachePath: string,
+    ref?: string
+  ): Promise<void> {
+    const { spawnSync } = await import('child_process');
+
+    try {
+      await fs.ensureDir(path.dirname(cachePath));
+
+      // 构建 git clone 参数
+      const args: string[] = ['clone', '--depth', '1'];
+
+      if (ref) {
+        args.push('--branch', ref);
+      }
+
+      args.push(gitUrl, cachePath);
+
+      // 执行克隆
+      const result = spawnSync('git', args, {
+        stdio: 'pipe',
+        encoding: 'utf-8',
+        env: {
+          ...process.env,
+          GIT_TERMINAL_PROMPT: '0', // 禁用交互式提示
+        },
+      });
+
+      if (result.status !== 0) {
+        const errorMsg = result.stderr || result.error?.message || 'Unknown error';
+        throw new Error(`Git clone failed: ${errorMsg}`);
+      }
+    } catch (error) {
+      // 清理失败的缓存
+      if (await fs.pathExists(cachePath)) {
+        await fs.remove(cachePath);
+      }
+      throw error;
     }
   }
 }

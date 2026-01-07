@@ -298,4 +298,27 @@ describe('SettingsManager', () => {
       expect(loaded.enabledPlugins['manual:plugin']).toBe(true);
     });
   });
+
+  describe('InstalledPluginInfo schema', () => {
+    it('should include installPath and isLocal fields', async () => {
+      const manager = new SettingsManager();
+      await manager.initialize();
+
+      const pluginInfo: InstalledPluginInfo = {
+        id: 'test:plugin',
+        name: 'plugin',
+        marketplaceId: 'test',
+        installedAt: new Date().toISOString(),
+        enabled: true,
+        skillCount: 1,
+        version: 'unknown',
+        installPath: '/test/path',
+        isLocal: false,
+      };
+
+      expect(pluginInfo.installPath).toBeDefined();
+      expect(pluginInfo.isLocal).toBeDefined();
+      expect(pluginInfo.version).toBe('unknown');
+    });
+  });
 });
