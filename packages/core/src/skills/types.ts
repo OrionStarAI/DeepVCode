@@ -43,11 +43,12 @@ export interface PluginInfo {
   name: string;
   description?: string;
   marketplaceId: string;
-  installPath: string;
+  installPath?: string; // Optional for backward compatibility with old data
   installedAt: string;
   enabled: boolean;
   skillCount: number;
   version?: string;
+  isLocal?: boolean;
 }
 
 export interface MarketplaceManifest {
