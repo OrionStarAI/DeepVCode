@@ -25,6 +25,7 @@ import {
   parseToolOutputMessage,
   isSubAgentUpdateMessage,
   isTextOutputMessage,
+  getBackgroundTaskManager,
 } from 'deepv-code-core';
 import { useCallback, useState, useMemo } from 'react';
 import {
@@ -164,6 +165,7 @@ export function useReactToolScheduler(
   const toolCallsUpdateHandler: ToolCallsUpdateHandler = useCallback(
     (updatedCoreToolCalls: ToolCall[]) => {
       console.log('[useReactToolScheduler] tool calls updated: prev=%d new=%d', toolCallsForDisplay.length, updatedCoreToolCalls.length);
+      console.log('[useReactToolScheduler] Updated statuses:', updatedCoreToolCalls.map(tc => ({ id: tc.request.callId.slice(-8), status: tc.status })));
 
       setToolCallsForDisplay((prevTrackedCalls) =>
         updatedCoreToolCalls.map((coreTc) => {
@@ -212,10 +214,14 @@ export function useReactToolScheduler(
       request: ToolCallRequestInfo | ToolCallRequestInfo[],
       signal: AbortSignal,
     ) => {
+      const requests = Array.isArray(request) ? request : [request];
+
+      // 🔥 注意：后台模式 (Ctrl+B) 现在由 ShellTool 内部处理
+      // ShellTool 会检测 BackgroundModeSignal 并自动转为后台执行
+      // 这里不需要特殊处理，正常调度即可
+
       // Plan模式检查 - 只允许只读工具执行
       if (config.getPlanModeActive()) {
-        const requests = Array.isArray(request) ? request : [request];
-
         // 定义只读工具列表（Plan模式下允许执行）
         const readOnlyTools = new Set([
           // 文件系统读取
@@ -372,6 +378,7 @@ function extractBaseDisplayProperties(trackedCall: TrackedToolCall): {
   const baseDisplayProperties: Omit<IndividualToolCallDisplay, 'status' | 'resultDisplay' | 'confirmationDetails'> = {
     callId: trackedCall.request.callId,
     name: displayName,
+    toolId: trackedCall.request.name, // 原始 tool 名称
     description,
     renderOutputAsMarkdown,
     forceMarkdown,
@@ -418,13 +425,26 @@ function mapSingleToolCallToDisplay(
   switch (trackedCall.status) {
     case 'success':
     case 'error':
-    case 'cancelled':
+    case 'cancelled': {
+      // 🎯 Check if this is a background task (Ctrl+B was pressed)
+      let finalStatus = status;
+      if (trackedCall.status === 'success') {
+        // Check if the response indicates a background task
+        const response = trackedCall.response;
+        // The llmContent might contain background task info, or check resultDisplay
+        const resultDisplay = response.resultDisplay;
+        if (typeof resultDisplay === 'string' && resultDisplay.includes('Running in background')) {
+          finalStatus = ToolCallStatus.BackgroundRunning;
+        }
+      }
+
       return {
         ...baseDisplayProperties,
-        status,
+        status: finalStatus,
         resultDisplay: trackedCall.response.resultDisplay,
         confirmationDetails: undefined,
       };
+    }
 
     case 'awaiting_approval':
       const isHighestPriority = highestPriorityConfirmingTool?.request.callId === trackedCall.request.callId;
@@ -457,6 +477,7 @@ function mapSingleToolCallToDisplay(
       return {
         callId: (exhaustiveCheck as TrackedToolCall).request.callId,
         name: 'Unknown Tool',
+        toolId: (exhaustiveCheck as TrackedToolCall).request.name,
         description: 'Encountered an unknown tool call state.',
         status: ToolCallStatus.Error,
         resultDisplay: 'Unknown tool call state',

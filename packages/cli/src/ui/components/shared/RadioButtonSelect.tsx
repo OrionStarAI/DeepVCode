@@ -104,6 +104,12 @@ export function RadioButtonSelect<T>({
         console.log('[RadioButtonSelect] Input:', input, 'key:', JSON.stringify(key), 'isFocused:', isFocusedRef.current);
       }
 
+      // 🔧 菜单焦点管理修复: 当未获焦时，完全忽略所有输入
+      // 这防止了当多个 useInput hooks 同时激活时的竞争条件
+      if (!isFocusedRef.current) {
+        return;
+      }
+
       const isNumeric = showNumbers && /^[0-9]$/.test(input);
 
       // Any key press that is not a digit should clear the number input buffer.

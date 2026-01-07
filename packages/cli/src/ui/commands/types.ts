@@ -123,6 +123,7 @@ export interface LoadHistoryActionReturn {
 export interface SubmitPromptActionReturn {
   type: 'submit_prompt';
   content: string;
+  silent?: boolean; // 🎯 静默模式：不在 UI 上显示用户消息
 }
 
 /**

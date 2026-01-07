@@ -79,6 +79,8 @@ export * from './services/gitService.js';
 export * from './services/sessionManager.js';
 export * from './services/mcpResponseGuard.js';
 export * from './services/fileOperationQueue.js';
+export * from './services/backgroundTaskManager.js';
+export * from './services/backgroundModeSignal.js';
 
 // Export IDE specific logic
 export * from './ide/ide-client.js';

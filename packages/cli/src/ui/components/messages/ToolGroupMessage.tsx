@@ -5,13 +5,14 @@
  */
 
 import React, { useMemo } from 'react';
-import { Box } from 'ink';
+import { Box, Text } from 'ink';
 import { IndividualToolCallDisplay, ToolCallStatus } from '../../types.js';
 import { ToolMessage } from './ToolMessage.js';
 import { ToolConfirmationMessage } from './ToolConfirmationMessage.js';
 import { Colors } from '../../colors.js';
 import { Config } from 'deepv-code-core';
 import { SHELL_COMMAND_NAME } from '../../constants.js';
+import { t } from '../../utils/i18n.js';
 
 interface ToolGroupMessageProps {
   groupId: number;
@@ -35,13 +36,19 @@ export const ToolGroupMessage: React.FC<ToolGroupMessageProps> = ({
   );
   const isShellCommand = toolCalls.some((t) => t.name === SHELL_COMMAND_NAME);
 
+  // 🎯 检查是否有 Shell 命令正在执行或等待执行
+  const isShellExecuting = toolCalls.some(
+    (t) => t.name === SHELL_COMMAND_NAME &&
+           (t.status === ToolCallStatus.Executing || t.status === ToolCallStatus.Pending)
+  );
+
   // 🔧 修复闪屏问题：Shell命令完全禁用边框
   // 原因：即使在执行完成后，长输出也会导致边框与终端滚动冲突，引发闪烁
   // 解决方案：Shell命令始终不显示边框，保持简洁且避免闪烁
   const shouldShowBorder = !isShellCommand;
 
-  const borderColor =
-    hasPending || isShellCommand ? Colors.AccentYellow : Colors.Gray;
+  // 🎨 边框颜色更暗淡，减少视觉干扰
+  const borderColor = Colors.Gray;
 
   // 根据是否显示边框调整静态高度和内部宽度
   const staticHeight = shouldShowBorder ? (/* border */ 2 + /* marginBottom */ 1) : (/* marginBottom */ 1);
@@ -102,7 +109,7 @@ export const ToolGroupMessage: React.FC<ToolGroupMessageProps> = ({
   return (
     <Box
       flexDirection="column"
-      borderStyle={shouldShowBorder ? "round" : undefined}
+      borderStyle={shouldShowBorder ? "single" : undefined}
       /*
         🔧 修复闪屏问题：
         1. 执行中的shell命令禁用边框，避免滚动输出时与终端边界冲突
@@ -111,7 +118,7 @@ export const ToolGroupMessage: React.FC<ToolGroupMessageProps> = ({
       */
       width={boxWidth}
       marginLeft={1}
-      borderDimColor={shouldShowBorder ? hasPending : undefined}
+      borderDimColor={shouldShowBorder ? true : undefined}
       borderColor={shouldShowBorder ? borderColor : undefined}
     >
       {toolCalls.map((tool, index) => {
@@ -122,6 +129,7 @@ export const ToolGroupMessage: React.FC<ToolGroupMessageProps> = ({
               <ToolMessage
                 callId={tool.callId}
                 name={tool.name}
+                toolId={tool.toolId}
                 description={tool.description}
                 resultDisplay={tool.resultDisplay}
                 status={tool.status}
@@ -149,7 +157,7 @@ export const ToolGroupMessage: React.FC<ToolGroupMessageProps> = ({
           <ToolConfirmationMessage
             confirmationDetails={toolAwaitingApproval.confirmationDetails}
             config={config}
-            isFocused={isFocused}
+            isFocused={true}
             availableTerminalHeight={availableTerminalHeightPerToolMessage}
             terminalWidth={innerWidth}
             showTitle={

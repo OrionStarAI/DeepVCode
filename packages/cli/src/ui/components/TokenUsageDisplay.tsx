@@ -58,8 +58,9 @@ export const TokenUsageDisplay: React.FC<TokenUsageDisplayProps> = ({
 
   return (
     <Box
-      borderStyle="round"
+      borderStyle="single"
       borderColor={Colors.Gray}
+      borderDimColor={true}
       paddingX={2}
       paddingY={0}
       marginBottom={1}
@@ -72,24 +73,24 @@ export const TokenUsageDisplay: React.FC<TokenUsageDisplayProps> = ({
 
       <Box justifyContent="space-between">
         <Box flexDirection="row">
-          <Text color={Colors.AccentYellow}>{t('token.input')}</Text>
-          <Text>{input_tokens.toLocaleString()}</Text>
+          <Text color={Colors.AccentYellow} dimColor>{t('token.input')}</Text>
+          <Text dimColor>{input_tokens.toLocaleString()}</Text>
         </Box>
 
         <Box flexDirection="row">
-          <Text color={Colors.AccentBlue}>{t('token.output')}</Text>
-          <Text>{output_tokens.toLocaleString()}</Text>
+          <Text color={Colors.AccentBlue} dimColor>{t('token.output')}</Text>
+          <Text dimColor>{output_tokens.toLocaleString()}</Text>
         </Box>
 
         <Box flexDirection="row">
           <Text color={Colors.Gray}>{t('token.total')}</Text>
-          <Text>{totalTokens.toLocaleString()}</Text>
+          <Text color={Colors.Gray}>{totalTokens.toLocaleString()}</Text>
         </Box>
 
         {credits_usage > 0 || (cumulativeCredits && cumulativeCredits > 0) ? (
           <Box flexDirection="row">
-            <Text color={Colors.AccentPurple}>{t('token.credits')}</Text>
-            <Text>{(cumulativeCredits || credits_usage || 0).toLocaleString()}</Text>
+            <Text color={Colors.AccentPurple} dimColor>{t('token.credits')}</Text>
+            <Text dimColor>{(cumulativeCredits || credits_usage || 0).toLocaleString()}</Text>
           </Box>
         ) : null}
       </Box>
@@ -97,21 +98,21 @@ export const TokenUsageDisplay: React.FC<TokenUsageDisplayProps> = ({
       {hasCacheActivity && (
         <Box justifyContent="space-between" marginTop={0}>
           <Box flexDirection="row">
-            <Text color={Colors.AccentGreen}>{t('token.cache.read')}</Text>
-            <Text>{cache_read_input_tokens.toLocaleString()}</Text>
+            <Text color={Colors.AccentGreen} dimColor>{t('token.cache.read')}</Text>
+            <Text dimColor>{cache_read_input_tokens.toLocaleString()}</Text>
           </Box>
 
           {cache_creation_input_tokens > 0 && (
             <Box flexDirection="row">
-              <Text color={Colors.AccentPurple}>{t('token.cache.create')}</Text>
-              <Text>{cache_creation_input_tokens.toLocaleString()}</Text>
+              <Text color={Colors.AccentPurple} dimColor>{t('token.cache.create')}</Text>
+              <Text dimColor>{cache_creation_input_tokens.toLocaleString()}</Text>
             </Box>
           )}
 
           {cacheEfficiency > 0 && (
             <Box flexDirection="row">
-              <Text color={Colors.AccentGreen}>{t('token.efficiency')}</Text>
-              <Text>{cacheEfficiency.toFixed(1)}%</Text>
+              <Text color={Colors.AccentGreen} dimColor>{t('token.efficiency')}</Text>
+              <Text dimColor>{cacheEfficiency.toFixed(1)}%</Text>
             </Box>
           )}
         </Box>

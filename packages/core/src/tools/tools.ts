@@ -236,6 +236,19 @@ export interface ToolResult {
    * For now, we keep it as the core logic in ReadFileTool currently produces it.
    */
   returnDisplay: ToolResultDisplay;
+
+  /**
+   * Optional: ID of a background task if this tool starts a background process.
+   * Used for CLI to track and manage background tasks.
+   */
+  backgroundTaskId?: string;
+
+  /**
+   * Optional: Indicates that this tool is now running in the background.
+   * When true, the UI should show "BackgroundRunning" status instead of "Success".
+   * This is set when user presses Ctrl+B to move a shell command to background.
+   */
+  isBackgroundTask?: boolean;
 }
 
 /**

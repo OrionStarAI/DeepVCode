@@ -103,7 +103,7 @@ export function getFooterDisplayConfig(terminalWidth: number): FooterDisplayConf
   // Level 1: 完整显示 (宽度 >= 80列)
   if (terminalWidth >= 80) {
     return {
-      showNodeVersion: true,
+      showNodeVersion: false, // 不再显示 Node 版本
       simplifyContext: false,
       simplifyModel: false,
       level: 'full',

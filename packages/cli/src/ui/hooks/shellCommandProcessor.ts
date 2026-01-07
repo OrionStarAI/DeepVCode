@@ -302,6 +302,7 @@ export const useShellCommandProcessor = (
         const initialToolDisplay: IndividualToolCallDisplay = {
           callId,
           name: SHELL_COMMAND_NAME,
+          toolId: 'run_shell_command',
           description: rawQuery,
           status: ToolCallStatus.Executing,
           resultDisplay: '',

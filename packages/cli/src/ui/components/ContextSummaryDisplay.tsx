@@ -5,7 +5,7 @@
  */
 
 import React, { useEffect, useRef } from 'react';
-import { Text } from 'ink';
+import { Text, Box } from 'ink';
 import { Colors } from '../colors.js';
 import {
   type OpenFiles,
@@ -174,5 +174,9 @@ export const ContextSummaryDisplay: React.FC<ContextSummaryDisplayProps> = ({
     }
   }
 
-  return <Text color={Colors.Gray}>{summaryText}</Text>;
+  return (
+    <Box marginLeft={2}>
+      <Text color={Colors.Gray}>{summaryText}</Text>
+    </Box>
+  );
 };

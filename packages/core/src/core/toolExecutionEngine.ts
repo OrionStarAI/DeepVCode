@@ -714,9 +714,17 @@ export class ToolExecutionEngine {
     payload?: ToolConfirmationPayload,
     signal?: AbortSignal,
   ): Promise<void> {
+    console.log('[ToolExecutionEngine] handleConfirmationResponse called:', { callId, outcome });
+
     const toolCall = this.toolCalls.find(
       (c) => c.request.callId === callId && c.status === 'awaiting_approval',
     );
+
+    console.log('[ToolExecutionEngine] Found toolCall:', {
+      found: !!toolCall,
+      status: toolCall?.status,
+      allCallIds: this.toolCalls.map(c => ({ id: c.request.callId, status: c.status }))
+    });
 
     if (!toolCall || toolCall.status !== 'awaiting_approval') return;
 
@@ -744,7 +752,10 @@ export class ToolExecutionEngine {
       agentType: 'main' as const,
     };
 
+    console.log('[ToolExecutionEngine] Processing outcome:', outcome);
+
     if (outcome === ToolConfirmationOutcome.Cancel || signal?.aborted) {
+      console.log('[ToolExecutionEngine] Setting status to cancelled');
       this.setStatusInternal(callId, 'cancelled', 'User cancelled', execContext);
     } else if (outcome === ToolConfirmationOutcome.ProceedAlwaysProject) {
       // 处理"本项目始终允许"选项：启用YOLO模式并保存到项目配置
