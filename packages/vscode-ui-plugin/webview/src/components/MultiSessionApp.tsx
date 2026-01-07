@@ -28,7 +28,7 @@ import { NanoBananaDialog } from './NanoBananaDialog';
 import { NanoBananaIcon } from './NanoBananaIcon';
 import { CompressionConfirmationDialog } from './CompressionConfirmationDialog';
 import { CompressionConfirmationRequest } from '../services/webViewModelService';
-import { SessionType } from '../../../src/constants/sessionConstants';
+import { SessionType, SessionStatus } from '../../../src/constants/sessionConstants';
 import { SessionInfo } from '../../../src/types/sessionTypes';
 import { MessageContent } from '../types/index';
 import { createTextMessageContent, messageContentToString } from '../utils/messageContentUtils';
@@ -138,6 +138,7 @@ export const MultiSessionApp: React.FC = () => {
     removeMessageFromQueue,
     updateMessageQueue,
     updateRollbackableIds, // 🎯 添加可回滚ID更新函数
+    updateSessionStatus, // 🎯 添加更新Session状态的函数
     restoreSessionMessages, // 🎯 添加恢复消息的函数
     forceUpdateSessionMessages, // 🎯 添加强制更新消息的函数
     setLastAcceptedMessageId, // 🎯 文件变更跟踪
@@ -820,6 +821,9 @@ export const MultiSessionApp: React.FC = () => {
         return; // 不显示错误消息，直接跳转到登录页
       }
 
+      // 🎯 设置Session状态为错误
+      updateSessionStatus(sessionId, SessionStatus.ERROR);
+
       const errorMessage: ChatMessage = {
         id: `error-${Date.now()}`,
         type: 'system',
@@ -948,6 +952,9 @@ export const MultiSessionApp: React.FC = () => {
         startTime: Date.now(),
         result: undefined
       };
+
+      // 🎯 将 Session 状态设置为 CONFIRMING，页签显示红色问号闪烁
+      updateSessionStatus(sessionId, SessionStatus.CONFIRMING);
 
       showConfirmationFor(sessionId, confirmationTool);
     });
@@ -1521,6 +1528,9 @@ User question: ${contentStr}`;
 
     // 🎯 工具状态更新现在通过updateMessageToolCalls处理
     // 这里只需要发送响应，状态更新会通过onToolCallsUpdate事件处理
+
+    // 🎯 确认完成后，将 Session 状态改回 PROCESSING（绿色闪烁）
+    updateSessionStatus(currentSession.info.id, SessionStatus.PROCESSING);
 
     hideConfirmationDialog();
   };

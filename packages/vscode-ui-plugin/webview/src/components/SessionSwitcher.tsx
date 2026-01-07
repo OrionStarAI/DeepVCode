@@ -322,6 +322,21 @@ export const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
               disabled={disabled}
               title={session.description || getSessionDisplayTitle(session)}
             >
+              {/* 状态指示器 - 问号或圆点 */}
+              {session.status === 'confirming' ? (
+                <span
+                  className="session-switcher__status-icon session-switcher__status-icon--confirming"
+                  title="等待确认"
+                >
+                  ❓
+                </span>
+              ) : (
+                <div
+                  className={`session-switcher__status-dot session-switcher__status-dot--${session.status}`}
+                  title={`Status: ${session.status}`}
+                />
+              )}
+
               <span className="session-switcher__tab-title">
                 {getSessionDisplayTitle(session)}
               </span>

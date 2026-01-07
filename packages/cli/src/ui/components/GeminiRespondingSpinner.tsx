@@ -18,17 +18,22 @@ interface GeminiRespondingSpinnerProps {
    * If not provided and not Responding, renders null.
    */
   nonRespondingDisplay?: string;
+  /**
+   * Optional: Show as waiting for confirmation mode (red question mark)
+   */
+  isWaitingForConfirmation?: boolean;
 }
 
 export const GeminiRespondingSpinner: React.FC<
   GeminiRespondingSpinnerProps
-> = ({ nonRespondingDisplay }) => {
+> = ({ nonRespondingDisplay, isWaitingForConfirmation = false }) => {
   const streamingState = useStreamingContext();
   const smallWindowConfig = useSmallWindowOptimization();
   const [isFilled, setIsFilled] = useState(true); // true=实心●, false=空心○
+  const [isVisible, setIsVisible] = useState(true); // true=显示, false=隐藏（用于问号闪烁）
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  // 简单的圆点动画：每秒在实心和空心之间切换
+  // 动画效果：圆点填充切换 或 问号闪烁
   useEffect(() => {
     // 清理之前的定时器
     if (intervalRef.current) {
@@ -36,7 +41,17 @@ export const GeminiRespondingSpinner: React.FC<
       intervalRef.current = null;
     }
 
-    // 只在 Responding 状态且未禁用动画时启动
+    // 🎯 等待确认状态：问号闪烁动画
+    if (isWaitingForConfirmation && !shouldSkipAnimation(smallWindowConfig, 'spinner')) {
+      intervalRef.current = setInterval(() => {
+        setIsVisible(prev => !prev);
+      }, 500); // 500ms闪烁
+      return () => {
+        if (intervalRef.current) clearInterval(intervalRef.current);
+      };
+    }
+
+    // 进行中状态：圆点动画
     const shouldAnimate = streamingState === StreamingState.Responding &&
                          !shouldSkipAnimation(smallWindowConfig, 'spinner');
 
@@ -57,7 +72,7 @@ export const GeminiRespondingSpinner: React.FC<
         intervalRef.current = null;
       }
     };
-  }, [streamingState, smallWindowConfig]);
+  }, [streamingState, smallWindowConfig, isWaitingForConfirmation]);
 
   // 根据主题选择颜色
   const activeTheme = themeManager.getActiveTheme();

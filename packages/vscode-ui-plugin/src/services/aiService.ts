@@ -38,6 +38,8 @@ import {
   LintFixTool,
   tokenLimit,
   TokenUsageInfo,
+  // 🎯 导入 WaitingToolCall 类型用于工具确认状态检测
+  WaitingToolCall,
   // 🔌 MCP 相关导入
   addMCPStatusChangeListener,
   removeMCPStatusChangeListener,
@@ -662,15 +664,27 @@ export class AIService {
         updatedCoreToolCalls.forEach(coreTool => {
           const existingTool = this.currentToolCalls.get(coreTool.request.callId);
           if (existingTool) {
+            const previousStatus = existingTool.status;
             existingTool.status = this.mapCoreStatusToVSCodeStatus(coreTool.status);
 
-            // 🎯 工具确认逻辑已移至新的确认机制中处理
-            //     riskLevel: this.assessRiskLevel(existingTool.toolName, existingTool.parameters),
-            //     affectedFiles: this.extractAffectedFiles(existingTool.parameters)
-            //   };
+            // 🎯 检测工具进入等待确认状态，发送确认请求到 webview
+            // 当工具状态从非确认状态变为确认状态时，发送 tool_confirmation_request
+            if (coreTool.status === 'awaiting_approval' && previousStatus !== ToolCallStatus.WaitingForConfirmation) {
+              const waitingTool = coreTool as WaitingToolCall;
+              if (waitingTool.confirmationDetails && this.sessionId && this.communicationService) {
+                this.logger.info(`🔔 Tool awaiting confirmation: ${existingTool.toolName} (${coreTool.request.callId})`);
 
-            //   this.handleConfirmationRequired(existingTool.id, existingTool.confirmationDetails);
-            // }
+                // 发送确认请求到 webview，触发红色问号显示
+                this.communicationService.sendToolConfirmationRequest(
+                  this.sessionId,
+                  coreTool.request.callId,
+                  existingTool.toolName,
+                  existingTool.displayName,
+                  existingTool.parameters || {},
+                  waitingTool.confirmationDetails
+                );
+              }
+            }
 
             this.currentToolCalls.set(coreTool.request.callId, existingTool);
           }
