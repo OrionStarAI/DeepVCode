@@ -190,7 +190,8 @@ export class GeminiClient {
     // 创建简化的生成配置
     const userMemory = this.config.getUserMemory();
     const promptRegistry = this.config.getPromptRegistry();
-    const systemInstruction = getCoreSystemPrompt(userMemory, false, promptRegistry);
+    const agentStyle = this.config.getAgentStyle();
+    const systemInstruction = getCoreSystemPrompt(userMemory, false, promptRegistry, agentStyle);
 
     const isThinking = isThinkingSupported(modelToUse);
     const generateContentConfig = isThinking
@@ -319,7 +320,8 @@ export class GeminiClient {
     const promptRegistry = this.config.getPromptRegistry();
     const userMemory = this.config.getUserMemory();
     const isVSCode = this.config.getVsCodePluginMode();
-    const updatedSystemPrompt = getCoreSystemPrompt(userMemory, isVSCode, promptRegistry);
+    const agentStyle = this.config.getAgentStyle();
+    const updatedSystemPrompt = getCoreSystemPrompt(userMemory, isVSCode, promptRegistry, agentStyle);
 
     if (this.chat) {
       this.chat.setSystemInstruction(updatedSystemPrompt);
@@ -526,7 +528,8 @@ Use Glob and ReadFile tools to explore specific files during our conversation.
 
       // 使用统一的 getCoreSystemPrompt，根据环境调整内容
       const promptRegistry = this.config.getPromptRegistry();
-      const systemInstruction = getCoreSystemPrompt(userMemory, isVSCode, promptRegistry);
+      const agentStyle = this.config.getAgentStyle();
+      const systemInstruction = getCoreSystemPrompt(userMemory, isVSCode, promptRegistry, agentStyle);
 
       const generateContentConfigWithThinking = isThinkingSupported(
         this.config.getModel(),
