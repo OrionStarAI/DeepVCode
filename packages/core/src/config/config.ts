@@ -718,6 +718,22 @@ export class Config {
     this.planModeActive = active;
   }
 
+  /**
+   * 获取当前 Agent 风格
+   * @returns 'default' (Claude-style) 或 'codex' (Codex-style)
+   */
+  getAgentStyle(): import('./projectSettings.js').AgentStyle {
+    return this.projectSettingsManager.getAgentStyle();
+  }
+
+  /**
+   * 设置 Agent 风格并持久化
+   * @param style - 'default' 或 'codex'
+   */
+  setAgentStyle(style: import('./projectSettings.js').AgentStyle): void {
+    this.projectSettingsManager.setAgentStyle(style);
+  }
+
   getShowMemoryUsage(): boolean {
     return this.showMemoryUsage;
   }
