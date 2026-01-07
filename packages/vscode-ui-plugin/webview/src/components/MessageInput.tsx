@@ -29,6 +29,7 @@ import { ClipboardPlugin } from './MessageInput/plugins/ClipboardPlugin';
 import { FileAutocompletePlugin } from './MessageInput/plugins/FileAutocompletePlugin';
 import { SlashCommandPlugin } from './MessageInput/plugins/SlashCommandPlugin';
 import { EditorRefPlugin } from './MessageInput/plugins/EditorRefPlugin';
+import { HistoryNavigationPlugin } from './MessageInput/plugins/HistoryNavigationPlugin';
 import { slashCommandHandler } from '../services/slashCommandHandler';
 import { UnifiedFileUploadButton } from './MessageInput/components/UnifiedFileUploadButton';
 import { RefineButton } from './MessageInput/components/RefineButton';
@@ -36,6 +37,7 @@ import { ImageReference, resetImageCounter } from './MessageInput/utils/imagePro
 import { FileUploadResult, FileType } from './MessageInput/utils/fileTypes';
 import { PlanModeToggle } from './PlanModeToggle';
 import { useRefineCommand } from '../hooks/useRefineCommand';
+import { useMessageHistory } from '../hooks/useMessageHistory';
 import { atSymbolHandler } from '../services/atSymbolHandler';
 import { DISALLOWED_BINARY_EXTENSIONS } from './MessageInput/utils/fileTypes';
 import { BinaryFileWarningNotification } from './BinaryFileWarningNotification';
@@ -195,6 +197,95 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
       window.removeEventListener('message', handleMessage);
     };
   }, []);
+
+  // 🎯 获取当前编辑器内容的辅助函数（用于历史导航）
+  const getCurrentEditorContent = React.useCallback((): MessageContent => {
+    if (!editorRef.current) return [];
+
+    const rawContent: any[] = [];
+
+    editorRef.current.getEditorState().read(() => {
+      const root = $getRoot();
+
+      // 收集当前编辑器中的所有内容（与 handleSend 逻辑一致）
+      const collectRawStructure = (node: any) => {
+        if ($isFileReferenceNode(node)) {
+          if (node.__fileContent) {
+            rawContent.push({
+              type: 'text_file_content',
+              value: {
+                fileName: node.__fileName,
+                content: node.__fileContent,
+                language: node.__language,
+                size: node.__fileContent.length
+              }
+            });
+          } else {
+            rawContent.push({
+              type: 'file_reference',
+              value: {
+                fileName: node.__fileName,
+                filePath: node.__filePath
+              }
+            });
+          }
+        } else if ($isImageReferenceNode(node)) {
+          rawContent.push({
+            type: 'image_reference',
+            value: node.__imageData
+          });
+        } else if ($isCodeReferenceNode(node)) {
+          rawContent.push({
+            type: 'code_reference',
+            value: {
+              fileName: node.__fileName,
+              filePath: node.__filePath,
+              startLine: node.__startLine,
+              endLine: node.__endLine,
+              code: node.__code
+            }
+          });
+        } else if ($isTerminalReferenceNode(node)) {
+          rawContent.push({
+            type: 'terminal_reference',
+            value: {
+              terminalId: node.getTerminalId(),
+              terminalName: node.getTerminalName(),
+              output: '',
+              _needsFetch: true
+            }
+          });
+        } else {
+          const children = node.getChildren?.() || [];
+          if (children.length > 0) {
+            children.forEach(collectRawStructure);
+          } else {
+            const textContent = node.getTextContent();
+            if (textContent) {
+              rawContent.push({
+                type: 'text',
+                value: textContent
+              });
+            }
+          }
+        }
+      };
+
+      root.getChildren().forEach(collectRawStructure);
+    });
+
+    return rawContent;
+  }, []);
+
+  // 🎯 初始化历史导航 Hook
+  const messageHistory = useMessageHistory({
+    messages,
+    getCurrentInput: getCurrentEditorContent,
+    onHistoryNavigate: (content: MessageContent) => {
+      console.log('[MessageInput] Navigating to history:', content);
+      populateEditorWithContent(content);
+    }
+  });
 
   // 🎯 自动扩展配置
   const MIN_HEIGHT = 140;
@@ -885,6 +976,9 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
     // 🎯 FIX：发送后重置为自动高度
     setContainerHeight(undefined);
     setIsAutoExpanded(false);
+
+    // 🎯 重置历史导航状态
+    messageHistory.resetHistory();
   };
 
   // 🎯 处理取消编辑
@@ -1022,6 +1116,11 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
             <FileAutocompletePlugin onFileSelect={handleFileAutoComplete} />
             <SlashCommandPlugin />
             <EditorRefPlugin editorRef={editorRef} onEditorReady={handleEditorReady} />
+            {/* 🎯 历史导航插件 */}
+            <HistoryNavigationPlugin
+              onNavigateUp={messageHistory.navigateUp}
+              onNavigateDown={messageHistory.navigateDown}
+            />
 
             {/* 🎯 Refine 按钮 - 浮动在编辑框右下角内部 */}
             <div className="editor-floating-actions">
