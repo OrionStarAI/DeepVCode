@@ -87,21 +87,24 @@ export class SkillsContextBuilder {
 
       // 使用 installPath，如果不存在则 fallback 到 marketplace 目录（向后兼容）
       let pluginRoot: string | undefined = pluginInfo.installPath;
+      let skillsList: string[] = [];
 
       if (!pluginRoot) {
         // 旧数据没有 installPath，尝试从 marketplace.json 中查找
-        const foundPath = this.findPluginInMarketplace(
+        const found = this.findPluginInMarketplace(
           pluginInfo.marketplaceId,
           pluginInfo.name
         );
 
-        if (!foundPath) {
+        if (!found) {
           console.warn(`[SkillsContextBuilder] Cannot find plugin ${pluginId} in marketplace`);
           continue;
         }
 
-        pluginRoot = foundPath;
+        pluginRoot = found.pluginRoot;
+        skillsList = found.skillsList;
         console.log(`[SkillsContextBuilder] No installPath for ${pluginId}, using marketplace path: ${pluginRoot}`);
+        console.log(`[SkillsContextBuilder]   - skills from marketplace.json: ${skillsList.length > 0 ? skillsList.join(', ') : '(none, will auto-discover)'}`);
       }
 
       // 检查插件目录是否存在
@@ -110,8 +113,17 @@ export class SkillsContextBuilder {
         continue;
       }
 
-      // 直接扫描本地目录，找所有的 agents/commands/skills
-      const discoveredPaths = this.discoverComponents(pluginRoot);
+      // 优先使用 marketplace.json 的 skills 数组，如果为空则自动发现
+      let discoveredPaths: string[];
+      if (skillsList.length > 0) {
+        // 使用 marketplace.json 提供的 skills 列表（相对于 pluginRoot）
+        discoveredPaths = skillsList;
+        console.log(`[SkillsContextBuilder] Using skills from marketplace.json: ${discoveredPaths.length} skill(s)`);
+      } else {
+        // 自动发现（fallback）
+        discoveredPaths = this.discoverComponents(pluginRoot);
+        console.log(`[SkillsContextBuilder] Auto-discovered: ${discoveredPaths.length} component(s)`);
+      }
 
       if (discoveredPaths.length === 0) {
         continue;
@@ -168,6 +180,16 @@ export class SkillsContextBuilder {
 
   /**
    * Discover components in plugin directory
+   *
+   * 支持两种目录结构（向后兼容）：
+   *
+   * 新结构（推荐）：
+   *   pluginRoot/skills/skill-name/SKILL.md
+   *   pluginRoot/agents/agent-name.md
+   *   pluginRoot/commands/command-name.md
+   *
+   * 旧结构（兼容）：
+   *   pluginRoot/skill-name/SKILL.md (直接在 pluginRoot 下)
    */
   private discoverComponents(pluginRoot: string): string[] {
     const components: string[] = [];
@@ -196,9 +218,34 @@ export class SkillsContextBuilder {
       }
     };
 
+    // 优先扫描标准目录（新结构）
     scanDir('skills');
     scanDir('agents');
     scanDir('commands');
+
+    // 兼容旧结构：如果没有找到任何组件，扫描 pluginRoot 的直接子目录
+    // 这种情况对应旧版 marketplace.json: "skills": ["./codex-mcp", "./git-commit"]
+    if (components.length === 0) {
+      console.log(`[SkillsContextBuilder] No components found in standard directories, trying legacy structure...`);
+
+      const files = fs.readdirSync(pluginRoot);
+      for (const file of files) {
+        if (file.startsWith('.')) continue;
+        // 跳过标准目录名（避免重复扫描）
+        if (file === 'skills' || file === 'agents' || file === 'commands') continue;
+        // 跳过常见的非 skill 目录
+        if (file === 'src' || file === 'node_modules' || file === 'dist') continue;
+
+        const fullPath = path.join(pluginRoot, file);
+        if (fs.statSync(fullPath).isDirectory()) {
+          // 检查是否是 skill (包含 SKILL.md 或 skill.md)
+          if (fs.existsSync(path.join(fullPath, 'SKILL.md')) || fs.existsSync(path.join(fullPath, 'skill.md'))) {
+            components.push(file); // 旧结构：直接用目录名
+            console.log(`[SkillsContextBuilder] ✓ Found legacy skill: ${file}`);
+          }
+        }
+      }
+    }
 
     return components;
   }
@@ -321,15 +368,18 @@ export class SkillsContextBuilder {
    * 查找插件在 marketplace 中的路径（用于向后兼容旧数据）
    * @param marketplaceId Marketplace ID
    * @param pluginName Plugin name
-   * @returns Plugin root path or null
+   * @returns Plugin info with root path and skills list, or null
    */
-  private findPluginInMarketplace(marketplaceId: string, pluginName: string): string | null {
+  private findPluginInMarketplace(
+    marketplaceId: string,
+    pluginName: string
+  ): { pluginRoot: string; skillsList: string[] } | null {
     const marketplacePath = path.join(this.marketplaceDir, marketplaceId);
     const marketplaceJsonPath = path.join(marketplacePath, '.claude-plugin', 'marketplace.json');
 
     // 检查 marketplace.json 是否存在
     if (!fs.existsSync(marketplaceJsonPath)) {
-      // Fallback: 尝试常见路径
+      // Fallback: 尝试常见路径（没有 marketplace.json，只能用自动发现）
       const fallbackPaths = [
         path.join(marketplacePath, 'plugins', pluginName),
         path.join(marketplacePath, pluginName),
@@ -337,7 +387,8 @@ export class SkillsContextBuilder {
 
       for (const fallbackPath of fallbackPaths) {
         if (fs.existsSync(fallbackPath)) {
-          return fallbackPath;
+          // 返回路径和空的 skills 列表（触发自动发现）
+          return { pluginRoot: fallbackPath, skillsList: [] };
         }
       }
 
@@ -354,12 +405,22 @@ export class SkillsContextBuilder {
 
       // 解析 source 路径
       if (typeof plugin.source === 'string') {
-        // 相对路径，如 "./plugins/feature-dev"
+        // 相对路径，如 "./plugins/ccode-skills"
         const sourcePath = plugin.source.startsWith('./') || plugin.source.startsWith('../')
           ? path.join(marketplacePath, plugin.source)
           : path.join(marketplacePath, plugin.source);
 
-        return fs.existsSync(sourcePath) ? sourcePath : null;
+        if (!fs.existsSync(sourcePath)) {
+          return null;
+        }
+
+        // 获取 skills 列表（如果有）
+        const skillsList = Array.isArray(plugin.skills) ? plugin.skills : [];
+
+        return {
+          pluginRoot: sourcePath,
+          skillsList: skillsList  // 可能是空数组，会触发自动发现
+        };
       }
 
       return null;
