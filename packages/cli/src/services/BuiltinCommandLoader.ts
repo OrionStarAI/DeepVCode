@@ -36,6 +36,7 @@ import { themeCommand } from '../ui/commands/themeCommand.js';
 import { toolsCommand } from '../ui/commands/toolsCommand.js';
 import { vimCommand } from '../ui/commands/vimCommand.js';
 import { yoloCommand } from '../ui/commands/yoloCommand.js';
+import { agentStyleCommand } from '../ui/commands/agentStyleCommand.js';
 import { trimSpacesCommand } from '../ui/commands/trimSpacesCommand.js';
 import { sessionCommand } from '../ui/commands/sessionCommand.js';
 import { mcpCommand } from '../ui/commands/mcpCommand.js';
@@ -101,6 +102,7 @@ export class BuiltinCommandLoader implements ICommandLoader {
       trimSpacesCommand,
       vimCommand,
       yoloCommand,
+      agentStyleCommand,
       accountCommand,
       pptCommand,
     ];
