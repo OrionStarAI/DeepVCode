@@ -61,8 +61,11 @@ export class WebViewService {
     // In development, we might want to load from a dev server
     // In production, we load the built React app
 
-    const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.context.extensionUri, 'webview', 'build', 'bundle.js')
+    const vendorUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.context.extensionUri, 'webview', 'build', 'vendor.js')
+    );
+    const mainUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.context.extensionUri, 'webview', 'build', 'main.js')
     );
 
     const nonce = this.generateNonce();
@@ -129,7 +132,8 @@ export class WebViewService {
 </head>
 <body>
     <div id="root"></div>
-    <script nonce="${nonce}" src="${scriptUri}"></script>
+    <script nonce="${nonce}" src="${vendorUri}"></script>
+    <script nonce="${nonce}" src="${mainUri}"></script>
     <script nonce="${nonce}">
       console.log('🎯 WebView initialized');
     </script>
@@ -189,8 +193,11 @@ class DeepVWebviewViewProvider implements vscode.WebviewViewProvider {
   }
 
   private getWebviewContent(webview: vscode.Webview): string {
-    const scriptUri = webview.asWebviewUri(
-      vscode.Uri.joinPath(this.context.extensionUri, 'webview', 'build', 'bundle.js')
+    const vendorUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.context.extensionUri, 'webview', 'build', 'vendor.js')
+    );
+    const mainUri = webview.asWebviewUri(
+      vscode.Uri.joinPath(this.context.extensionUri, 'webview', 'build', 'main.js')
     );
 
     const nonce = this.generateNonce();
@@ -385,7 +392,8 @@ class DeepVWebviewViewProvider implements vscode.WebviewViewProvider {
         setTimeout(checkReactReady, 200);
       });
     </script>
-    <script nonce="${nonce}" src="${scriptUri}"></script>
+    <script nonce="${nonce}" src="${vendorUri}"></script>
+    <script nonce="${nonce}" src="${mainUri}"></script>
 </body>
 </html>`;
   }

@@ -519,6 +519,26 @@ export interface Translations {
     retry: string;
     noPointsData: string;
   };
+
+  // 🎯 后台任务相关
+  backgroundTasks: {
+    title: string;
+    running: string;
+    completed: string;
+    failed: string;
+    statusRunning: string;
+    statusCompleted: string;
+    statusFailed: string;
+    statusCancelled: string;
+    killTask: string;
+    clearCompleted: string;
+    closeTasksBar: string;
+    viewTasks: string;
+    moveToBackground: string;
+    runningInBackground: string;
+    noTasks: string;
+    outputTitle: string;
+  };
 }
 
 export type SupportedLocale = 'zh-CN' | 'en-US';

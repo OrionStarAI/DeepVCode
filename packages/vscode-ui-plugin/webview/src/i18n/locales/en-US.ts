@@ -527,4 +527,24 @@ export const enUS: Translations = {
     retry: 'Retry',
     noPointsData: 'No points data available',
   },
+
+  // 🎯 后台任务相关
+  backgroundTasks: {
+    title: 'BACKGROUND TASKS',
+    running: 'running',
+    completed: 'done',
+    failed: 'failed',
+    statusRunning: 'Running',
+    statusCompleted: 'Completed',
+    statusFailed: 'Failed',
+    statusCancelled: 'Cancelled',
+    killTask: 'Stop this task',
+    clearCompleted: 'Clear completed tasks',
+    closeTasksBar: 'Close tasks bar',
+    viewTasks: 'Click to view background tasks',
+    moveToBackground: 'Move to background',
+    runningInBackground: 'Running in background',
+    noTasks: 'No background tasks',
+    outputTitle: 'Background Task Output',
+  },
 };

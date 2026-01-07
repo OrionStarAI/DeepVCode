@@ -18,6 +18,7 @@ import { useShellHistory } from '../hooks/useShellHistory.js';
 import { useCompletion } from '../hooks/useCompletion.js';
 import { useKeypress, Key } from '../hooks/useKeypress.js';
 import { CommandContext, SlashCommand } from '../commands/types.js';
+import { fuzzyMatch } from '../utils/fuzzyMatch.js';
 import { Config } from 'deepv-code-core';
 import {
   clipboardHasImage,
@@ -910,15 +911,17 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
         const parts = trimmed.substring(1).split(/\s+/).filter(p => p);
         const currentArg = parts.length > 0 ? parts[parts.length - 1] : '';
 
-        // 如果当前输入与某个建议匹配，不要抑制，而是让自动补全系统自动选中它
-        const hasExactMatch = completion.suggestions.some(s =>
-          s.value === currentArg || s.label === currentArg
+        // 🚀 核心修复：使用 fuzzyMatch 替代 exactMatch。
+        // 只要当前输入还“像”建议列表中的某一项（模糊匹配成功），就不抑制补全。
+        // 这解决了“输入 l 来匹配 list 时补全消失”的问题。
+        const hasFuzzyMatch = completion.suggestions.some(s =>
+          fuzzyMatch(s.value, currentArg).matched || fuzzyMatch(s.label, currentArg).matched
         );
 
-        if (!hasExactMatch) {
+        if (!hasFuzzyMatch) {
           completion.suppressCompletion();
         }
-        // 如果有精确匹配，让 useCompletion 的智能匹配逻辑自动处理
+        // 如果有匹配，让 useCompletion 的智能匹配逻辑自动处理
       }
 
       // Fall back to the text buffer's default input handling for all other keys
@@ -1011,7 +1014,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
                 relativeVisualColForHighlight,
                 relativeVisualColForHighlight + 1,
               ) || ' ';
-            const highlighted = chalk.bgWhite.black(charToHighlight);
+            const highlighted = chalk.inverse(charToHighlight);
             display =
               cpSlice(display, 0, relativeVisualColForHighlight) +
               highlighted +
@@ -1020,7 +1023,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
             relativeVisualColForHighlight === cpLen(display) &&
             cpLen(display) === inputWidth
           ) {
-            display = display + chalk.bgWhite(' ');
+            display = display + chalk.inverse(' ');
           }
         }
       }

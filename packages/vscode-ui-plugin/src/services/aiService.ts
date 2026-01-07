@@ -80,6 +80,22 @@ export class AIService {
   private loginService: LoginService;
   private isInitialized = false;
 
+  // 🎯 静态回调：当 AI 处理完成时调用（用于后台任务通知等）
+  private static processingCompleteCallbacks: Array<(sessionId: string) => void> = [];
+
+  /**
+   * 🎯 注册处理完成回调
+   */
+  static onProcessingComplete(callback: (sessionId: string) => void): () => void {
+    AIService.processingCompleteCallbacks.push(callback);
+    return () => {
+      const index = AIService.processingCompleteCallbacks.indexOf(callback);
+      if (index > -1) {
+        AIService.processingCompleteCallbacks.splice(index, 1);
+      }
+    };
+  }
+
   // 🎯 状态管理
   private isCurrentlyResponding: boolean = false;
   private isProcessing: boolean = false;
@@ -600,7 +616,13 @@ export class AIService {
         completedToolCalls.forEach(coreTool => {
           const tool = this.currentToolCalls.get(coreTool.request.callId);
           if (tool) {
-            tool.status = coreTool.status === 'success' ? ToolCallStatus.Success :
+            // 🎯 检测是否是后台运行状态
+            const resultDisplay = coreTool.response?.resultDisplay;
+            const isBackgroundRunning = typeof resultDisplay === 'string' &&
+                                         resultDisplay.includes('Running in background');
+
+            tool.status = isBackgroundRunning ? ToolCallStatus.BackgroundRunning :
+                          coreTool.status === 'success' ? ToolCallStatus.Success :
                           coreTool.status === 'error' ? ToolCallStatus.Error :
                           ToolCallStatus.Canceled;
 
@@ -617,7 +639,7 @@ export class AIService {
               tool.responseParts = coreTool.response.responseParts;
 
               // 🎯 Debug: 记录工具完成信息
-              this.logger.debug(`Tool completed: ${tool.toolName} (${tool.id}), params:`, tool.parameters);
+              this.logger.debug(`Tool completed: ${tool.toolName} (${tool.id}), status: ${tool.status}, params:`, tool.parameters);
             } else if (coreTool.status === 'error') {
               tool.result = {
                 success: false,
@@ -1117,7 +1139,8 @@ export class AIService {
     const toolsToSubmit = completedTools.filter(tool =>
       (tool.status === ToolCallStatus.Success ||
       tool.status === ToolCallStatus.Error ||
-       tool.status === ToolCallStatus.Canceled) &&
+      tool.status === ToolCallStatus.Canceled ||
+      tool.status === ToolCallStatus.BackgroundRunning) &&
       !tool.responseSubmittedToGemini
     );
 
@@ -2074,6 +2097,7 @@ export class AIService {
   }
 
   private setProcessingState(isProcessing: boolean, messageId: string | null = null, canAbort = false): void {
+    const wasProcessing = this.isProcessing;
     this.isProcessing = isProcessing;
     this.currentProcessingMessageId = messageId;
     this.canAbortFlow = canAbort;
@@ -2085,6 +2109,17 @@ export class AIService {
       if (!isProcessing) {
         const rollbackableIds = this.getRollbackableMessageIds();
         this.communicationService.sendRollbackableIdsUpdate(this.sessionId, rollbackableIds);
+
+        // 🎯 触发处理完成回调（用于后台任务通知等）
+        if (wasProcessing) {
+          for (const callback of AIService.processingCompleteCallbacks) {
+            try {
+              callback(this.sessionId);
+            } catch (e) {
+              this.logger.error('Error in processing complete callback', e instanceof Error ? e : undefined);
+            }
+          }
+        }
       }
     }
   }

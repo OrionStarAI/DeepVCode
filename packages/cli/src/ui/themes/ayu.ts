@@ -22,6 +22,7 @@ const ayuDarkColors: ColorsTheme = {
   DiffRemoved: '#3D1215',
   Comment: '#646A71',
   Gray: '#3D4149',
+  InfoColor: '#B8A77E', // Muted yellow/amber for info messages
   GradientColors: ['#FFB454', '#F26D78'],
 };
 
