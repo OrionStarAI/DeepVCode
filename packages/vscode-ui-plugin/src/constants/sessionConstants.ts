@@ -1,7 +1,7 @@
 /**
  * Session Management Constants and Enums
  * 会话管理相关的常量和枚举定义
- * 
+ *
  * @license Apache-2.0
  * Copyright 2025 DeepV Code
  */
@@ -19,6 +19,8 @@ export enum SessionStatus {
   IDLE = 'idle',
   /** 会话正在处理请求 */
   PROCESSING = 'processing',
+  /** 会话等待用户确认 */
+  CONFIRMING = 'confirming',
   /** 会话出现错误 */
   ERROR = 'error',
   /** 会话已关闭 */
@@ -70,28 +72,28 @@ export enum SessionAction {
 export const SESSION_CONSTANTS = {
   /** 默认会话ID前缀 */
   DEFAULT_SESSION_PREFIX: 'session',
-  
+
   /** 默认会话名称 */
   DEFAULT_SESSION_NAME: '新建会话',
-  
+
   /** 最大会话数量 */
   MAX_SESSIONS: 10,
-  
+
   /** 最大会话名称长度 */
   MAX_SESSION_NAME_LENGTH: 50,
-  
+
   /** 会话ID最大长度 */
   MAX_SESSION_ID_LENGTH: 36,
-  
+
   /** 会话空闲超时时间（毫秒） */
   IDLE_TIMEOUT_MS: 30 * 60 * 1000, // 30分钟
-  
+
   /** 会话自动保存间隔（毫秒） */
   AUTO_SAVE_INTERVAL_MS: 5 * 1000, // 5秒
-  
+
   /** 单个会话最大消息数 */
   MAX_MESSAGES_PER_SESSION: 1000,
-  
+
   /** 会话历史保留天数 */
   SESSION_HISTORY_DAYS: 30
 } as const;
@@ -99,19 +101,19 @@ export const SESSION_CONSTANTS = {
 export const SESSION_UI_CONSTANTS = {
   /** Session选择器最小宽度 */
   SELECTOR_MIN_WIDTH: 120,
-  
+
   /** Session选择器最大宽度 */
   SELECTOR_MAX_WIDTH: 200,
-  
+
   /** Session标签页高度 */
   TAB_HEIGHT: 32,
-  
+
   /** Session图标大小 */
   ICON_SIZE: 16,
-  
+
   /** 动画持续时间（毫秒） */
   ANIMATION_DURATION_MS: 200,
-  
+
   /** Toast消息显示时间（毫秒） */
   TOAST_DURATION_MS: 3000
 } as const;
@@ -203,22 +205,22 @@ export const SESSION_SUCCESS_MESSAGES = {
 export const SESSION_SHORTCUTS = {
   /** 新建会话 */
   NEW_SESSION: 'Ctrl+T',
-  
+
   /** 关闭当前会话 */
   CLOSE_SESSION: 'Ctrl+W',
-  
+
   /** 切换到下一个会话 */
   NEXT_SESSION: 'Ctrl+Tab',
-  
+
   /** 切换到上一个会话 */
   PREV_SESSION: 'Ctrl+Shift+Tab',
-  
+
   /** 重命名会话 */
   RENAME_SESSION: 'F2',
-  
+
   /** 复制会话 */
   DUPLICATE_SESSION: 'Ctrl+D',
-  
+
   /** 清空会话 */
   CLEAR_SESSION: 'Ctrl+L'
 } as const;
