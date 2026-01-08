@@ -156,9 +156,7 @@ jobs:
           body_path: release_notes.md
           draft: ${{ inputs.draft || false }}
           prerelease: ${{ inputs.prerelease || false }}
-          files: |
-            ${{ steps.find_artifacts.outputs.TGZ_FILE }}
-            bundle/**/*
+          files: ${{ steps.find_artifacts.outputs.TGZ_FILE }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -167,7 +165,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: deepv-code-v${{ steps.get_version.outputs.VERSION }}
-          path: |
-            ${{ steps.find_artifacts.outputs.TGZ_FILE }}
-            bundle/
+          path: ${{ steps.find_artifacts.outputs.TGZ_FILE }}
           retention-days: 90
