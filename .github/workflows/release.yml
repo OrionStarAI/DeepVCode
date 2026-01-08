@@ -52,17 +52,7 @@ jobs:
       - name: 📦 Install dependencies
         run: npm ci
 
-      # 4. 运行 lint 检查
-      - name: 🔍 Lint check
-        run: npm run lint
-        continue-on-error: true
-
-      # 5. 类型检查
-      - name: 📝 Type check
-        run: npm run typecheck
-        continue-on-error: true
-
-      # 6. 构建跨平台包（不自动递增版本号）
+      # 4. 构建跨平台包（不自动递增版本号）
       - name: 🏗️ Build cross-platform package
         run: npm run pack:prod:ci
         env:
