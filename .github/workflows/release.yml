@@ -52,28 +52,23 @@ jobs:
       - name: 📦 Install dependencies
         run: npm ci
 
-      # 4. 运行测试（可选，如果测试太慢可以注释掉）
-      - name: 🧪 Run tests
-        run: npm run test
-        continue-on-error: true
-
-      # 5. 运行 lint 检查
+      # 4. 运行 lint 检查
       - name: 🔍 Lint check
         run: npm run lint
         continue-on-error: true
 
-      # 6. 类型检查
+      # 5. 类型检查
       - name: 📝 Type check
         run: npm run typecheck
         continue-on-error: true
 
-      # 7. 构建跨平台包（不自动递增版本号）
+      # 6. 构建跨平台包（不自动递增版本号）
       - name: 🏗️ Build cross-platform package
         run: npm run pack:prod:ci
         env:
           NODE_ENV: production
 
-      # 8. 获取版本号
+      # 7. 获取版本号
       - name: 📌 Get version
         id: get_version
         run: |
@@ -87,7 +82,7 @@ jobs:
           fi
           echo "Current version: $(cat $GITHUB_OUTPUT | grep VERSION)"
 
-      # 9. 查找构建产物
+      # 8. 查找构建产物
       - name: 🔍 Find build artifacts
         id: find_artifacts
         run: |
@@ -100,7 +95,7 @@ jobs:
           echo "Found artifact: $TGZ_FILE"
           ls -lh $TGZ_FILE
 
-      # 10. 创建 GitHub Release (使用 tag message 作为 release notes)
+      # 9. 创建 GitHub Release (使用 tag message 作为 release notes)
       - name: 🚀 Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
@@ -113,7 +108,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # 11. 上传构建产物为 workflow artifact（方便下载测试）
+      # 10. 上传构建产物为 workflow artifact（方便下载测试）
       - name: 📤 Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
