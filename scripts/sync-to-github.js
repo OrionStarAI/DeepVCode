@@ -60,9 +60,33 @@ function checkGitRepo() {
 function checkGithubMainExists() {
   const branchExists = exec('git rev-parse --verify github_main', { silent: true, allowFail: true });
   if (!branchExists) {
-    log('❌ github_main 分支不存在，请先创建该分支', colors.red);
+    log('❌ github_main 分支不存在', colors.red);
+    log('\n📋 使用前提条件:', colors.yellow);
+    log('  1. 本地已创建 github_main 分支', colors.yellow);
+    log('  2. 已从内部 GitLab 仓库同步 github_main 分支', colors.yellow);
+    log('     git fetch origin github_main', colors.cyan);
+    log('     git checkout -b github_main origin/github_main', colors.cyan);
+    log('  3. 已添加 GitHub 远程仓库（名为 github）', colors.yellow);
+    log('     git remote add github https://github.com/OrionStarAI/DeepVCode.git', colors.cyan);
     process.exit(1);
   }
+}
+
+// 检查 github 远程仓库是否存在
+function checkGithubRemoteExists() {
+  const remoteExists = exec('git remote get-url github', { silent: true, allowFail: true });
+  if (!remoteExists) {
+    log('❌ 未找到名为 "github" 的远程仓库', colors.red);
+    log('\n📋 请先添加 GitHub 远程仓库:', colors.yellow);
+    log('   git remote add github https://github.com/OrionStarAI/DeepVCode.git', colors.cyan);
+    log('\n💡 或者检查现有远程仓库:', colors.yellow);
+    log('   git remote -v', colors.cyan);
+    process.exit(1);
+  }
+
+  // 显示 github 远程仓库 URL
+  const githubUrl = execQuiet('git remote get-url github');
+  log(`🔗 GitHub 远程仓库: ${githubUrl}`, colors.blue);
 }
 
 // 获取当前分支名
@@ -139,6 +163,7 @@ async function main() {
   // 检查环境
   checkGitRepo();
   checkGithubMainExists();
+  checkGithubRemoteExists();
 
   const currentBranch = getCurrentBranch();
   log(`📍 当前分支: ${currentBranch}`, colors.cyan);
