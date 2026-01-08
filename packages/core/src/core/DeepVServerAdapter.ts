@@ -24,6 +24,7 @@ import { getDefaultAuthHandler } from '../auth/authNavigator.js';
 import { UnauthorizedError } from '../utils/errors.js';
 import { SceneType, SceneManager } from './sceneManager.js';
 import { retryWithBackoff, getErrorStatus } from '../utils/retry.js';
+import { isDeepXQuotaError } from '../utils/quotaErrorDetection.js';
 
 import { realTimeTokenEventManager } from '../events/realTimeTokenEvents.js';
 import { MESSAGE_ROLES } from '../config/messageRoles.js';
@@ -223,6 +224,10 @@ export class DeepVServerAdapter implements ContentGenerator {
         // 使用标准退避配置，适合大多数场景
         // 对于大量工具调用场景，可以在调用处设置 aggressiveBackoff: true
         shouldRetry: (error: Error) => {
+          // 🚫 DeepX配额错误(402) - 不重试，立即显示友好提示
+          if (isDeepXQuotaError(error)) {
+            return false;
+          }
           // 🚫 用户取消 - 不重试
           if (error.message.includes('cancelled by user') || error.name === 'AbortError') {
             return false;
@@ -576,6 +581,10 @@ export class DeepVServerAdapter implements ContentGenerator {
       () => this.executeStreamAPICall(endpoint, requestBody, abortSignal),
       {
         shouldRetry: (error: Error) => {
+          // 🚫 DeepX配额错误(402) - 不重试，立即显示友好提示
+          if (isDeepXQuotaError(error)) {
+            return false;
+          }
           // 🚫 用户取消 - 不重试
           if (error.message.includes('cancelled by user') || error.name === 'AbortError') {
             return false;
