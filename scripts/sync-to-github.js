@@ -231,36 +231,8 @@ async function main() {
 
   if (successCount > 0) {
     log('\n🎉 同步成功！', colors.green);
-
-    // 询问是否立即推送到 GitHub
-    const readline = await import('readline');
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout
-    });
-
-    const answer = await new Promise(resolve => {
-      rl.question('\n📤 是否现在就将 github_main 分支推送到 GitHub 仓库的 main 分支？(y/n): ', resolve);
-    });
-    rl.close();
-
-    if (answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes') {
-      log('\n🚀 开始推送到 GitHub...', colors.blue);
-      try {
-        exec('git checkout github_main');
-        exec('git push -f github github_main:main');
-        exec(`git checkout ${currentBranch}`);
-        log('\n✅ 推送成功！', colors.green);
-        log(`🔗 访问 GitHub 查看: https://github.com/OrionStarAI/DeepVCode`, colors.cyan);
-      } catch (error) {
-        log(`\n❌ 推送失败: ${error.message}`, colors.red);
-        log('💡 你可以手动推送:', colors.cyan);
-        log('   git push -f github github_main:main', colors.cyan);
-      }
-    } else {
-      log('\n💡 稍后可以使用以下命令手动推送到 GitHub:', colors.cyan);
-      log('   git push -f github github_main:main', colors.cyan);
-    }
+    log('\n💡 提示: 使用以下命令推送到 GitHub:', colors.cyan);
+    log('   git push -f github github_main:main', colors.cyan);
   }
 }
 
