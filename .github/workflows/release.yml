@@ -1,0 +1,173 @@
+name: Build and Release
+
+# 触发条件
+on:
+  # 手动触发
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号 (留空则使用 package.json 中的版本)'
+        required: false
+        type: string
+      prerelease:
+        description: '是否为预发布版本'
+        required: false
+        type: boolean
+        default: false
+      draft:
+        description: '是否创建草稿 Release'
+        required: false
+        type: boolean
+        default: false
+
+  # 当推送 tag 时自动触发
+  push:
+    tags:
+      - 'v*.*.*'
+
+# 设置权限
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. 检出代码
+      - name: 📥 Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 2. 设置 Node.js 环境
+      - name: 🔧 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # 3. 安装依赖
+      - name: 📦 Install dependencies
+        run: npm ci
+
+      # 4. 运行测试（可选，如果测试太慢可以注释掉）
+      - name: 🧪 Run tests
+        run: npm run test
+        continue-on-error: true
+
+      # 5. 运行 lint 检查
+      - name: 🔍 Lint check
+        run: npm run lint
+        continue-on-error: true
+
+      # 6. 类型检查
+      - name: 📝 Type check
+        run: npm run typecheck
+        continue-on-error: true
+
+      # 7. 构建跨平台包
+      - name: 🏗️ Build cross-platform package
+        run: npm run pack:prod
+        env:
+          NODE_ENV: production
+
+      # 8. 获取版本号
+      - name: 📌 Get version
+        id: get_version
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            echo "VERSION=${{ inputs.version }}" >> $GITHUB_OUTPUT
+          elif [[ $GITHUB_REF == refs/tags/* ]]; then
+            echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          else
+            VERSION=$(node -p "require('./package.json').version")
+            echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          fi
+          echo "Current version: $(cat $GITHUB_OUTPUT | grep VERSION)"
+
+      # 9. 查找构建产物
+      - name: 🔍 Find build artifacts
+        id: find_artifacts
+        run: |
+          TGZ_FILE=$(ls deepv-code-*.tgz | head -n 1)
+          if [ -z "$TGZ_FILE" ]; then
+            echo "❌ No .tgz file found!"
+            exit 1
+          fi
+          echo "TGZ_FILE=$TGZ_FILE" >> $GITHUB_OUTPUT
+          echo "Found artifact: $TGZ_FILE"
+          ls -lh $TGZ_FILE
+
+      # 10. 生成 Release Notes
+      - name: 📝 Generate Release Notes
+        id: release_notes
+        run: |
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          TGZ_FILE="${{ steps.find_artifacts.outputs.TGZ_FILE }}"
+
+          cat > release_notes.md << EOF
+          ## 📦 DeepV Code v${VERSION}
+
+          ### 📥 安装方式
+
+          **方式 1: 从 npm 安装 (推荐)**
+          \`\`\`bash
+          npm install -g deepv-code@${VERSION}
+          \`\`\`
+
+          **方式 2: 从本 Release 下载**
+          \`\`\`bash
+          # 下载 .tgz 文件
+          npm install -g ${TGZ_FILE}
+          \`\`\`
+
+          **方式 3: 直接从 GitHub 运行**
+          \`\`\`bash
+          npx https://github.com/OrionStarAI/DeepVCode
+          \`\`\`
+
+          ### ✨ 更新内容
+
+          - 详细变更请查看提交历史
+
+          ### 📋 构建信息
+
+          - **构建时间**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+          - **Node.js**: $(node --version)
+          - **npm**: $(npm --version)
+          - **文件大小**: $(ls -lh $TGZ_FILE | awk '{print $5}')
+
+          ### 📚 文档
+
+          - [使用文档](https://github.com/OrionStarAI/DeepVCode#readme)
+          - [问题反馈](https://github.com/OrionStarAI/DeepVCode/issues)
+          EOF
+
+          cat release_notes.md
+
+      # 11. 创建 GitHub Release
+      - name: 🚀 Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.get_version.outputs.VERSION }}
+          name: DeepV Code v${{ steps.get_version.outputs.VERSION }}
+          body_path: release_notes.md
+          draft: ${{ inputs.draft || false }}
+          prerelease: ${{ inputs.prerelease || false }}
+          files: |
+            ${{ steps.find_artifacts.outputs.TGZ_FILE }}
+            bundle/**/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # 12. 上传构建产物为 workflow artifact（方便下载测试）
+      - name: 📤 Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: deepv-code-v${{ steps.get_version.outputs.VERSION }}
+          path: |
+            ${{ steps.find_artifacts.outputs.TGZ_FILE }}
+            bundle/
+          retention-days: 90
