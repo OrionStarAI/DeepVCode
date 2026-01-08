@@ -67,9 +67,9 @@ jobs:
         run: npm run typecheck
         continue-on-error: true
 
-      # 7. 构建跨平台包
+      # 7. 构建跨平台包（不自动递增版本号）
       - name: 🏗️ Build cross-platform package
-        run: npm run pack:prod
+        run: npm run pack:prod:ci
         env:
           NODE_ENV: production
 
@@ -100,54 +100,87 @@ jobs:
           echo "Found artifact: $TGZ_FILE"
           ls -lh $TGZ_FILE
 
-      # 10. 生成 Release Notes
+      # 10. 提取 Git Tag 注释信息
+      - name: 📝 Extract tag message
+        id: tag_message
+        run: |
+          if [[ $GITHUB_REF == refs/tags/* ]]; then
+            TAG_NAME=${GITHUB_REF#refs/tags/}
+            # 获取 annotated tag 的完整消息（去除第一行标题后的内容）
+            TAG_MESSAGE=$(git tag -l --format='%(contents)' "$TAG_NAME")
+
+            if [ -z "$TAG_MESSAGE" ]; then
+              echo "TAG_MESSAGE=No release notes provided in tag message." >> $GITHUB_OUTPUT
+            else
+              # 使用多行输出格式
+              echo "TAG_MESSAGE<<EOF" >> $GITHUB_OUTPUT
+              echo "$TAG_MESSAGE" >> $GITHUB_OUTPUT
+              echo "EOF" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "TAG_MESSAGE=Manually triggered release. No tag message available." >> $GITHUB_OUTPUT
+          fi
+
+      # 11. 生成 Release Notes
       - name: 📝 Generate Release Notes
         id: release_notes
         run: |
           VERSION="${{ steps.get_version.outputs.VERSION }}"
           TGZ_FILE="${{ steps.find_artifacts.outputs.TGZ_FILE }}"
+          TAG_MESSAGE="${{ steps.tag_message.outputs.TAG_MESSAGE }}"
 
-          cat > release_notes.md << EOF
-          ## 📦 DeepV Code v${VERSION}
+          cat > release_notes.md << 'EOF'
+          ## 📦 DeepV Code v$VERSION
 
-          ### 📥 安装方式
+          ### ✨ What's Changed
 
-          **方式 1: 从 npm 安装 (推荐)**
-          \`\`\`bash
-          npm install -g deepv-code@${VERSION}
-          \`\`\`
+          $TAG_MESSAGE
 
-          **方式 2: 从本 Release 下载**
-          \`\`\`bash
-          # 下载 .tgz 文件
-          npm install -g ${TGZ_FILE}
-          \`\`\`
+          ---
 
-          **方式 3: 直接从 GitHub 运行**
-          \`\`\`bash
-          npx https://github.com/OrionStarAI/DeepVCode
-          \`\`\`
+          ### 📥 Installation
 
-          ### ✨ 更新内容
+          **Option 1: Install from npm (Recommended)**
+          ```bash
+          npm install -g deepv-code@$VERSION
+          ```
 
-          - 详细变更请查看提交历史
+          **Option 2: Install from this Release**
+          ```bash
+          # Download the .tgz file, then:
+          npm install -g $TGZ_FILE
+          ```
 
-          ### 📋 构建信息
+          **Option 3: Run directly from GitHub**
+          ```bash
+          npx deepv-code
+          ```
 
-          - **构建时间**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
-          - **Node.js**: $(node --version)
-          - **npm**: $(npm --version)
-          - **文件大小**: $(ls -lh $TGZ_FILE | awk '{print $5}')
+          ### 📋 Build Information
 
-          ### 📚 文档
+          - **Built at**: BUILD_TIME
+          - **Node.js**: NODE_VERSION
+          - **npm**: NPM_VERSION
+          - **Package size**: FILE_SIZE
 
-          - [使用文档](https://github.com/OrionStarAI/DeepVCode#readme)
-          - [问题反馈](https://github.com/OrionStarAI/DeepVCode/issues)
+          ### 📚 Documentation
+
+          - [Documentation](https://github.com/OrionStarAI/DeepVCode#readme)
+          - [Report Issues](https://github.com/OrionStarAI/DeepVCode/issues)
           EOF
+
+          # 替换变量
+          sed -i "s/\$VERSION/${VERSION}/g" release_notes.md
+          sed -i "s/\$TGZ_FILE/${TGZ_FILE}/g" release_notes.md
+          sed -i "s|\$TAG_MESSAGE|${TAG_MESSAGE}|g" release_notes.md
+          sed -i "s/BUILD_TIME/$(date -u +"%Y-%m-%d %H:%M:%S UTC")/g" release_notes.md
+          sed -i "s/NODE_VERSION/$(node --version)/g" release_notes.md
+          sed -i "s/NPM_VERSION/$(npm --version)/g" release_notes.md
+          sed -i "s/FILE_SIZE/$(ls -lh $TGZ_FILE | awk '{print $5}')/g" release_notes.md
 
           cat release_notes.md
 
-      # 11. 创建 GitHub Release
+      # 12. 创建 GitHub Release
       - name: 🚀 Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
@@ -160,7 +193,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # 12. 上传构建产物为 workflow artifact（方便下载测试）
+      # 13. 上传构建产物为 workflow artifact（方便下载测试）
       - name: 📤 Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
