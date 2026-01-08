@@ -74,9 +74,9 @@ npm run sync-to-github
    - 访问 [Releases 页面](https://github.com/OrionStarAI/DeepVCode/releases) 查看新发布的版本
    - 或在 workflow 运行页面的 Artifacts 区域下载构建产物
 
-### 方式 2: 推送 Git Tag 自动触发
+### 方式 2: 推送 Git Tag 自动触发（推荐）
 
-**适用场景**：版本发布流程规范化，自动触发构建
+**适用场景**：版本发布流程规范化，自动触发构建，并通过 tag 消息生成 Release Notes
 
 **步骤**：
 
@@ -85,33 +85,73 @@ npm run sync-to-github
 npm version 1.0.262
 # 或手动修改 package.json 中的 version
 
-# 2. 创建 tag（如果 npm version 已自动创建则跳过）
-git tag v1.0.262
+# 2. 创建带注释的 tag（tag 消息将作为 Release Notes）
+git tag -a v1.0.262 -m "Release v1.0.262
 
-# 3. 推送代码
-git push
+## ✨ New Features
+- Add new authentication flow with enhanced security
+- Support for custom proxy configurations
 
-# 4. 推送 tag（触发工作流）
-git push --tags
+## 🐛 Bug Fixes
+- Fix memory leak in file watcher
+- Resolve issue with clipboard on Ubuntu
 
-# 工作流会自动运行并创建 Release
+## 📚 Documentation
+- Update installation guide
+- Add troubleshooting section for Windows users
+"
+
+# 或者使用编辑器编写详细的 tag 消息
+git tag -a v1.0.262
+# 这会打开编辑器，让你编写多行 Release Notes
+
+# 3. 推送代码和 tag
+git push && git push --tags
+
+# 工作流会自动运行，使用 tag 消息生成 Release Notes
+```
+
+**💡 Tag 消息格式建议**：
+
+```markdown
+Release v1.0.262
+
+## ✨ New Features
+- Feature 1 description
+- Feature 2 description
+
+## 🐛 Bug Fixes
+- Bug fix 1
+- Bug fix 2
+
+## 🔧 Improvements
+- Improvement 1
+- Improvement 2
+
+## 📚 Documentation
+- Documentation updates
+
+## ⚠️ Breaking Changes
+- Breaking change description (if any)
 ```
 
 ## 📦 工作流执行内容
 
 当你触发工作流后，GitHub Actions 会自动执行以下步骤：
 
-1. ✅ **检出代码** - 获取最新代码
+1. ✅ **检出代码** - 获取最新代码（包含完整 tag 信息）
 2. ✅ **设置环境** - 安装 Node.js 20
 3. ✅ **安装依赖** - `npm ci`
 4. ✅ **运行测试** - `npm run test`（失败不会中断）
 5. ✅ **代码检查** - `npm run lint`（失败不会中断）
 6. ✅ **类型检查** - `npm run typecheck`（失败不会中断）
-7. ✅ **构建跨平台包** - `npm run pack:prod`
+7. ✅ **构建跨平台包** - `npm run pack:prod:ci`（不自动递增版本号）
 8. ✅ **获取版本号** - 从输入参数、tag 或 package.json
-9. ✅ **生成 Release Notes** - 自动生成发布说明
-10. ✅ **创建 GitHub Release** - 上传 `.tgz` 文件
-11. ✅ **上传构建产物** - 作为 workflow artifact（保留 90 天）
+9. ✅ **查找构建产物** - 找到生成的 `.tgz` 文件
+10. ✅ **提取 tag 注释** - 从 annotated tag 中提取 Release Notes
+11. ✅ **生成 Release Notes** - 使用 tag 消息 + 安装说明模板
+12. ✅ **创建 GitHub Release** - 上传 `.tgz` 文件并发布
+13. ✅ **上传构建产物** - 作为 workflow artifact（保留 90 天）
 
 ## 📥 下载和使用构建产物
 
@@ -146,18 +186,20 @@ npm install -g deepv-code@1.0.262
 # 1. 确保代码已提交
 git status
 
-# 2. 更新版本号
+# 2. 更新版本号（手动或使用 npm version）
 npm version patch   # 1.0.261 → 1.0.262
 # 或
 npm version minor   # 1.0.261 → 1.1.0
 # 或
 npm version major   # 1.0.261 → 2.0.0
 
-# 3. 推送
+# 3. 推送代码和 tags
 git push && git push --tags
 
-# 4. GitHub Actions 自动构建并创建 Release
+# 4. GitHub Actions 自动构建并创建 Release（使用 package.json 中的版本号）
 ```
+
+> 💡 **注意**：GitHub Actions 使用 `pack:prod:ci` 命令，**不会自动递增版本号**，而是使用 `package.json` 中的当前版本。请确保在触发 workflow 前手动更新版本号。
 
 ### 场景 2: 发布测试版本
 
@@ -170,15 +212,27 @@ git push && git push --tags
    - prerelease: ✅
 4. 运行
 
-**方法 B: 使用 tag**
+**方法 B: 使用 tag（推荐）**
 
 ```bash
 # 1. 修改 package.json 版本为 1.0.262-beta.1
 
-# 2. 创建并推送 tag
-git tag v1.0.262-beta.1
+# 2. 创建带注释的 tag 并标记为预发布
+git tag -a v1.0.262-beta.1 -m "Beta Release v1.0.262-beta.1
+
+## 🧪 Testing Features
+- New feature A (needs testing)
+- Experimental feature B
+
+## ⚠️ Known Issues
+- Issue X is being investigated
+"
+
+# 3. 推送 tag
 git push origin v1.0.262-beta.1
 ```
+
+> 💡 **提示**：包含 `-alpha`, `-beta`, `-rc` 的版本号会自动被标记为 prerelease。
 
 ### 场景 3: 创建草稿 Release（需人工审核）
 
@@ -310,7 +364,62 @@ files: |
 ## 💡 提示
 
 - 首次使用前，务必配置仓库权限（见"第一次设置"）
-- 推荐使用手动触发方式，更灵活可控
+- **推荐使用 annotated tag 触发**，Release Notes 更有意义
+- 使用 `git tag -a` 创建带注释的 tag，消息会成为 Release Notes
 - 可以先用 `draft: true` 创建草稿测试
 - Workflow artifacts 保留 90 天，适合临时测试
 - 正式 Release 永久保存
+- Tag 消息支持 Markdown 格式，可以包含链接、代码块等
+
+## 📝 Tag 消息最佳实践
+
+### 简单版本（快速发布）
+```bash
+git tag -a v1.0.262 -m "Fix critical authentication bug"
+```
+
+### 详细版本（正式发布）
+```bash
+git tag -a v1.0.262
+# 在编辑器中写入：
+```
+
+```markdown
+Release v1.0.262
+
+## ✨ New Features
+- **Authentication**: Add OAuth2 support for enterprise users
+- **Performance**: Implement intelligent caching for 50% faster startup
+- **UI**: New dark theme with customizable color schemes
+
+## 🐛 Bug Fixes
+- Fix memory leak in file watcher (#123)
+- Resolve clipboard issue on Ubuntu 22.04 (#145)
+- Correct Windows path handling for spaces (#156)
+
+## 🔧 Improvements
+- Reduce bundle size by 30% through tree-shaking
+- Improve error messages for network failures
+- Add progress indicators for long-running operations
+
+## 📚 Documentation
+- Add comprehensive authentication guide
+- Update installation instructions for ARM64
+- Include troubleshooting section for common issues
+
+## 🙏 Contributors
+Thanks to @user1, @user2, and @user3 for their contributions!
+```
+
+### 使用 Conventional Commits
+```bash
+git tag -a v1.0.262 -m "Release v1.0.262
+
+feat: add OAuth2 authentication support
+feat: implement intelligent caching system
+fix: resolve memory leak in file watcher (#123)
+fix: correct Windows path handling (#156)
+perf: reduce bundle size by 30%
+docs: add authentication guide
+"
+```
