@@ -1,0 +1,222 @@
+/**
+ * Compression Confirmation Dialog Styles
+ */
+
+.compression-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  backdrop-filter: blur(2px);
+}
+
+.compression-dialog {
+  background: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-widget-border, var(--vscode-editorWidget-border));
+  border-radius: 8px;
+  width: 90%;
+  max-width: 420px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  animation: dialog-appear 0.15s ease-out;
+}
+
+@keyframes dialog-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.compression-dialog__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 16px 12px;
+  border-bottom: 1px solid var(--vscode-widget-border, var(--vscode-editorWidget-border));
+}
+
+.compression-dialog__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--vscode-editorWarning-foreground, #cca700);
+}
+
+.compression-dialog__title {
+  flex: 1;
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.compression-dialog__close {
+  background: transparent;
+  border: none;
+  color: var(--vscode-foreground);
+  opacity: 0.6;
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: opacity 0.15s, background 0.15s;
+}
+
+.compression-dialog__close:hover {
+  opacity: 1;
+  background: var(--vscode-toolbar-hoverBackground);
+}
+
+.compression-dialog__content {
+  padding: 16px;
+}
+
+.compression-dialog__message {
+  margin: 0 0 16px;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--vscode-foreground);
+}
+
+.compression-dialog__stats {
+  background: var(--vscode-textBlockQuote-background, rgba(127, 127, 127, 0.1));
+  border-radius: 6px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.compression-dialog__stat {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+}
+
+.compression-dialog__stat:not(:last-child) {
+  border-bottom: 1px solid var(--vscode-widget-border, rgba(127, 127, 127, 0.2));
+}
+
+.compression-dialog__stat-label {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.compression-dialog__stat-value {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--vscode-foreground);
+  font-family: var(--vscode-editor-font-family, monospace);
+}
+
+.compression-dialog__stat-value--model {
+  color: var(--vscode-textLink-foreground);
+}
+
+.compression-dialog__hint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--vscode-descriptionForeground);
+  font-style: italic;
+}
+
+.compression-dialog__actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 12px 16px 16px;
+}
+
+.compression-dialog__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s, opacity 0.15s;
+}
+
+.compression-dialog__btn--cancel {
+  background: transparent;
+  color: var(--vscode-foreground);
+  border: 1px solid var(--vscode-widget-border, var(--vscode-button-border));
+}
+
+.compression-dialog__btn--cancel:hover {
+  background: var(--vscode-toolbar-hoverBackground);
+}
+
+.compression-dialog__btn--confirm {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+.compression-dialog__btn--confirm:hover {
+  background: var(--vscode-button-hoverBackground);
+}
+
+/* 🎯 压缩进行中提示（底部提示条，不遮挡操作） */
+.compression-progress-bar {
+  position: fixed;
+  bottom: 80px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--vscode-editor-background);
+  border: 1px solid var(--vscode-widget-border, var(--vscode-editorWidget-border));
+  border-radius: 20px;
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  z-index: 1000;
+  animation: compression-bar-appear 0.2s ease-out;
+}
+
+@keyframes compression-bar-appear {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.compression-progress-bar span {
+  font-size: 13px;
+  color: var(--vscode-foreground);
+  white-space: nowrap;
+}
+
+.compression-progress-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--vscode-widget-border);
+  border-top-color: var(--vscode-button-background);
+  border-radius: 50%;
+  animation: compression-spin 0.8s linear infinite;
+}
+
+@keyframes compression-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

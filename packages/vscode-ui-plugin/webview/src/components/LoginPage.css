@@ -1,0 +1,347 @@
+/**
+ * Login Page Styles
+ * 登录页面样式 - 现代化设计，适配VSCode主题
+ */
+
+.login-page {
+  width: 100%;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: var(--vscode-editor-background, #181818);
+  color: var(--vscode-foreground, #cccccc);
+  font-family: var(--vscode-font-family, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif);
+  overflow: auto;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.login-page__container {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
+}
+
+/* Logo区域 */
+.login-page__logo {
+  text-align: center;
+}
+
+.login-page__logo-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+  animation: loginBounce 2s ease-in-out infinite;
+}
+
+.login-page__title {
+  font-size: 32px;
+  font-weight: 600;
+  margin: 0 0 8px 0;
+  color: var(--vscode-foreground, #cccccc);
+  background: linear-gradient(135deg, var(--vscode-button-background, #0078d4), var(--vscode-textLink-foreground, #00bcf2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.login-page__subtitle {
+  font-size: 16px;
+  margin: 0;
+  opacity: 0.8;
+  color: var(--vscode-descriptionForeground, #999999);
+}
+
+/* 登录卡片 */
+.login-page__card {
+  width: 100%;
+  background: var(--vscode-panel-background, #252526);
+  border: 1px solid var(--vscode-panel-border, #3c3c3c);
+  border-radius: 12px;
+  padding: 32px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.login-page__card-title {
+  font-size: 24px;
+  font-weight: 600;
+  margin: 0;
+  text-align: center;
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.login-page__description {
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0;
+  text-align: center;
+  color: var(--vscode-descriptionForeground, #999999);
+}
+
+/* 错误信息 */
+.login-page__error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  background: var(--vscode-inputValidation-errorBackground, rgba(244, 67, 54, 0.1));
+  border: 1px solid var(--vscode-inputValidation-errorBorder, #f44336);
+  border-radius: 6px;
+  color: var(--vscode-inputValidation-errorForeground, #f44336);
+  font-size: 14px;
+}
+
+.login-page__error-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.login-page__error-text {
+  flex: 1;
+}
+
+/* 登录按钮 */
+.login-page__login-btn {
+  width: 100%;
+  padding: 16px 24px;
+  background: var(--vscode-button-background, #0078d4);
+  color: var(--vscode-button-foreground, #ffffff);
+  border: none;
+  border-radius: 6px;
+  font-size: 16px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.login-page__login-btn:hover:not(:disabled) {
+  background: var(--vscode-button-hoverBackground, #0088f4);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 120, 212, 0.3);
+}
+
+.login-page__login-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.login-page__login-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.login-page__login-icon {
+  font-size: 18px;
+}
+
+.login-page__spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--vscode-widget-border, rgba(255, 255, 255, 0.2));
+  border-top: 2px solid var(--vscode-focusBorder, #0078d4);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+/* 取消登录按钮容器 */
+.login-page__cancel-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  margin-top: -8px;
+  animation: fadeInSlideDown 0.3s ease-out;
+}
+
+.login-page__cancel-btn {
+  background: transparent;
+  border: none;
+  color: var(--vscode-textLink-foreground, #4daafc);
+  font-size: 14px;
+  cursor: pointer;
+  padding: 8px 16px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+  font-family: inherit;
+  text-decoration: underline;
+}
+
+.login-page__cancel-btn:hover {
+  color: var(--vscode-textLink-activeForeground, #6db9ff);
+  background: var(--vscode-button-secondaryHoverBackground, rgba(77, 170, 252, 0.1));
+  text-decoration: none;
+}
+
+.login-page__cancel-btn:active {
+  transform: scale(0.98);
+}
+
+.login-page__cancel-hint {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground, #999999);
+  margin: 0;
+  text-align: center;
+  opacity: 0.8;
+}
+
+/* 帮助信息 */
+.login-page__help {
+  background: var(--vscode-editor-background, rgba(255, 255, 255, 0.03));
+  border-radius: 8px;
+  padding: 20px;
+  border: 1px solid var(--vscode-widget-border, rgba(255, 255, 255, 0.1));
+}
+
+.login-page__help-text {
+  font-size: 14px;
+  font-weight: 500;
+  margin: 0 0 12px 0;
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.login-page__feature-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.login-page__feature-list li {
+  font-size: 14px;
+  color: var(--vscode-descriptionForeground, #999999);
+  position: relative;
+  padding-left: 20px;
+}
+
+.login-page__feature-list li::before {
+  content: '✨';
+  position: absolute;
+  left: 0;
+  font-size: 12px;
+}
+
+/* 状态指示 */
+.login-page__status {
+  background: var(--vscode-editor-background, rgba(255, 255, 255, 0.03));
+  border-radius: 8px;
+  padding: 20px;
+  border: 1px solid var(--vscode-inputOption-activeBorder, #0078d4);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.login-page__status-line {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.login-page__status-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+/* 底部信息 */
+.login-page__footer {
+  text-align: center;
+  opacity: 0.7;
+}
+
+.login-page__footer-text {
+  font-size: 12px;
+  margin: 0 0 4px 0;
+  color: var(--vscode-descriptionForeground, #999999);
+}
+
+.login-page__footer-subtext {
+  font-size: 11px;
+  margin: 0;
+  color: var(--vscode-descriptionForeground, #999999);
+  opacity: 0.8;
+}
+
+/* 动画 */
+@keyframes loginBounce {
+  0%, 20%, 50%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-8px);
+  }
+  60% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes fadeInSlideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 响应式设计 */
+@media (max-width: 480px) {
+  .login-page {
+    padding: 16px;
+  }
+
+  .login-page__container {
+    gap: 24px;
+  }
+
+  .login-page__card {
+    padding: 24px;
+  }
+
+  .login-page__logo-icon {
+    font-size: 48px;
+  }
+
+  .login-page__title {
+    font-size: 24px;
+  }
+}
+
+/* 高对比度主题支持 */
+@media (prefers-contrast: high) {
+  .login-page__card {
+    border-width: 2px;
+  }
+
+  .login-page__login-btn {
+    border: 2px solid var(--vscode-button-background, #0078d4);
+  }
+}

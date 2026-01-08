@@ -1,0 +1,361 @@
+/**
+ * UpdatePrompt Styles - Modern Dark-Themed Update Dialog
+ * Apple/VS Code inspired design with subtle shadows and rounded corners
+ *
+ * @license Apache-2.0
+ * Copyright 2025 DeepV Code
+ */
+
+/* Main container */
+.update-prompt {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'SF Pro Display', sans-serif;
+  letter-spacing: -0.005em;
+}
+
+/* Backdrop overlay */
+.update-prompt__backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* Dialog container */
+.update-prompt__container {
+  position: relative;
+  width: 480px;
+  max-width: 90vw;
+  background: #1e1e1e;
+  border: 1px solid #3c3c3c;
+  border-radius: 12px;
+  box-shadow:
+    0 20px 40px rgba(0, 0, 0, 0.4),
+    0 8px 20px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  overflow: hidden;
+  transform: scale(0.95);
+  animation: updatePromptFadeIn 0.2s ease-out forwards;
+}
+
+@keyframes updatePromptFadeIn {
+  to {
+    transform: scale(1);
+  }
+}
+
+/* Header section */
+.update-prompt__header {
+  display: flex;
+  align-items: center;
+  padding: 24px 24px 16px;
+  background: linear-gradient(135deg, #1e1e1e 0%, #252525 100%);
+  border-bottom: 1px solid #3c3c3c;
+}
+
+.update-prompt__icon {
+  margin-right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  background: rgba(255, 149, 0, 0.15);
+  border-radius: 8px;
+}
+
+.update-prompt__warning-icon {
+  color: #ff9500;
+}
+
+.update-prompt__title {
+  flex: 1;
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #ffffff;
+  letter-spacing: -0.01em;
+}
+
+.update-prompt__close {
+  background: none;
+  border: none;
+  padding: 6px;
+  cursor: pointer;
+  color: #999999;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.update-prompt__close:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #ffffff;
+}
+
+/* Version information section */
+.update-prompt__version-section {
+  padding: 20px 24px;
+  background: #252525;
+  border-bottom: 1px solid #3c3c3c;
+}
+
+.update-prompt__version-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.update-prompt__version-row:last-child {
+  margin-bottom: 0;
+}
+
+.update-prompt__version-label {
+  font-size: 14px;
+  color: #cccccc;
+  font-weight: 500;
+}
+
+.update-prompt__version-current {
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid #3c3c3c;
+}
+
+.update-prompt__version-latest {
+  font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+  font-size: 13px;
+  font-weight: 600;
+  color: #ffffff;
+  background: linear-gradient(135deg, #007acc 0%, #0098ff 100%);
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid #0078d4;
+  box-shadow: 0 2px 4px rgba(0, 120, 212, 0.2);
+}
+
+/* Support message */
+.update-prompt__message {
+  padding: 20px 24px;
+}
+
+.update-prompt__support-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #cccccc;
+  text-align: center;
+}
+
+/* Action buttons */
+.update-prompt__actions {
+  padding: 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.update-prompt__button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none;
+  white-space: nowrap;
+  outline: none;
+  position: relative;
+  overflow: hidden;
+}
+
+.update-prompt__button:focus-visible {
+  box-shadow: 0 0 0 2px rgba(0, 120, 212, 0.5);
+}
+
+/* Primary button (Update on Marketplace) */
+.update-prompt__button--primary {
+  background: linear-gradient(135deg, #007acc 0%, #0098ff 100%);
+  color: #ffffff;
+  border: 1px solid #0078d4;
+  box-shadow:
+    0 4px 12px rgba(0, 120, 212, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.update-prompt__button--primary:hover {
+  background: linear-gradient(135deg, #0066b3 0%, #0088e6 100%);
+  transform: translateY(-1px);
+  box-shadow:
+    0 6px 16px rgba(0, 120, 212, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.update-prompt__button--primary:active {
+  transform: translateY(0);
+  box-shadow:
+    0 2px 8px rgba(0, 120, 212, 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+/* Secondary button (Download VSIX) */
+.update-prompt__button--secondary {
+  background: #3c3c3c;
+  color: #ffffff;
+  border: 1px solid #555555;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.2),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.update-prompt__button--secondary:hover {
+  background: #464646;
+  border-color: #666666;
+  transform: translateY(-1px);
+  box-shadow:
+    0 4px 12px rgba(0, 0, 0, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.update-prompt__button--secondary:active {
+  transform: translateY(0);
+  background: #333333;
+}
+
+/* Text button (Remind Me Later) */
+.update-prompt__button--text {
+  background: none;
+  color: #999999;
+  border: 1px solid transparent;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.update-prompt__button--text:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: #cccccc;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.update-prompt__button--text:active {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* Footer instructions */
+.update-prompt__footer {
+  padding: 16px 24px 24px;
+  border-top: 1px solid #3c3c3c;
+  background: #1a1a1a;
+}
+
+.update-prompt__instructions {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #888888;
+  text-align: center;
+}
+
+/* Responsive design */
+@media (max-width: 540px) {
+  .update-prompt__container {
+    width: 95vw;
+    max-width: none;
+    margin: 20px;
+    border-radius: 10px;
+  }
+
+  .update-prompt__header {
+    padding: 20px 20px 16px;
+  }
+
+  .update-prompt__version-section {
+    padding: 16px 20px;
+  }
+
+  .update-prompt__message {
+    padding: 16px 20px;
+  }
+
+  .update-prompt__actions {
+    padding: 16px 20px;
+  }
+
+  .update-prompt__footer {
+    padding: 12px 20px 20px;
+  }
+
+  .update-prompt__button {
+    padding: 14px 20px;
+    font-size: 15px;
+  }
+}
+
+/* Dark theme enhancements */
+.vscode-dark .update-prompt__container {
+  background: #1e1e1e;
+  border-color: #3c3c3c;
+}
+
+/* High contrast theme support */
+.vscode-high-contrast .update-prompt__container {
+  border: 2px solid #ffffff;
+  background: #000000;
+}
+
+.vscode-high-contrast .update-prompt__button {
+  border: 1px solid #ffffff;
+}
+
+.vscode-high-contrast .update-prompt__button--primary {
+  background: #ffffff;
+  color: #000000;
+}
+
+/* Focus management for accessibility */
+.update-prompt__container:focus {
+  outline: none;
+}
+
+/* Smooth transitions */
+* {
+  box-sizing: border-box;
+}
+
+.update-prompt__button svg {
+  transition: transform 0.15s ease;
+}
+
+.update-prompt__button:hover svg {
+  transform: scale(1.05);
+}
+
+.update-prompt__button--primary:hover svg {
+  transform: scale(1.1);
+}

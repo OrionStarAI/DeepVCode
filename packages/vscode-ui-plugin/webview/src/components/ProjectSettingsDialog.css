@@ -1,0 +1,599 @@
+/**
+ * YOLO Mode Settings Dialog Styles
+ * YOLO模式设置对话框样式
+ *
+ * @license Apache-2.0
+ * Copyright 2025 DeepV Code
+ */
+
+/* =============================================================================
+   对话框背景和主容器
+   ============================================================================= */
+
+.project-settings-dialog__backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.project-settings-dialog {
+  background-color: var(--vscode-editor-background, #181818);
+  border: 1px solid var(--vscode-widget-border, #454545);
+  border-radius: 8px;
+  width: 90%;
+  max-width: 650px;
+  height: auto;
+  min-height: 60vh;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  color: var(--vscode-foreground, #cccccc);
+  outline: none;
+}
+
+/* YOLO模式专用样式 */
+.yolo-mode-dialog {
+  min-height: 60vh;
+  max-height: 80vh; /* 使用视口高度的80% */
+}
+
+/* =============================================================================
+   对话框头部
+   ============================================================================= */
+
+.project-settings-dialog__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--vscode-widget-border, #454545);
+  background-color: var(--vscode-editor-background, #181818);
+  border-radius: 8px 8px 0 0;
+}
+
+.project-settings-dialog__title {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.project-settings-dialog__title-icon {
+  /* Removed - no emoji icons */
+}
+
+.project-settings-dialog__close-btn {
+  background: none;
+  border: none;
+  color: var(--vscode-icon-foreground, #c5c5c5);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 3px;
+  transition: background-color 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.project-settings-dialog__close-btn:hover {
+  background-color: var(--vscode-toolbar-hoverBackground, #2a2d2e);
+}
+
+/* =============================================================================
+   标签页导航 - 纵向侧边栏布局
+   ============================================================================= */
+
+.project-settings-dialog__tabs {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--vscode-editor-background, #1e1e1e);
+  border-right: 1px solid var(--vscode-panel-border, #454545);
+  padding: 0;
+  gap: 0;
+  min-width: 120px;
+  max-width: 120px;
+  order: -1; /* 让 tabs 显示在左边 */
+}
+
+.project-settings-dialog__tab {
+  background: none;
+  border: none;
+  color: var(--vscode-tab-inactiveForeground, #858585);
+  font-size: 13px;
+  font-weight: 400;
+  cursor: pointer;
+  padding: 10px 16px;
+  border-right: 2px solid transparent;
+  border-bottom: 1px solid var(--vscode-panel-border, #454545);
+  transition: all 0.15s ease;
+  position: relative;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.project-settings-dialog__tab:hover {
+  color: var(--vscode-foreground, #cccccc);
+  background-color: var(--vscode-list-hoverBackground, rgba(255, 255, 255, 0.05));
+}
+
+.project-settings-dialog__tab--active {
+  color: var(--vscode-tab-activeForeground, #ffffff);
+  background-color: var(--vscode-tab-activeBackground, #1e1e1e);
+  border-right-color: var(--vscode-focusBorder, #007acc);
+}
+
+/* =============================================================================
+   对话框包装器 - 左右布局
+   ============================================================================= */
+
+.project-settings-dialog__wrapper {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* =============================================================================
+   对话框主体
+   ============================================================================= */
+
+.project-settings-dialog__body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* YOLO模式专用主体样式 */
+.yolo-mode-body {
+  padding: 0; /* 去掉额外的内边距 */
+}
+
+.project-settings-dialog__error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background-color: var(--vscode-inputValidation-errorBackground, #5a1d1d);
+  border-bottom: 1px solid var(--vscode-inputValidation-errorBorder, #be1100);
+  color: var(--vscode-inputValidation-errorForeground, #f8f8f8);
+}
+
+.project-settings-dialog__error-icon {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.project-settings-dialog__panel {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+}
+
+/* YOLO模式专用面板样式 */
+.yolo-mode-panel {
+  padding: 16px 20px; /* 减少内边距 */
+}
+
+/* =============================================================================
+   对话框底部
+   ============================================================================= */
+
+.project-settings-dialog__footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-top: 1px solid var(--vscode-widget-border, #454545);
+  background-color: var(--vscode-editor-background, #181818);
+  border-radius: 0 0 8px 8px;
+}
+
+.project-settings-dialog__footer-left {
+  display: flex;
+  gap: 12px;
+}
+
+.project-settings-dialog__footer-right {
+  display: flex;
+  gap: 12px;
+}
+
+.project-settings-dialog__reset-btn {
+  background-color: var(--vscode-button-secondaryBackground, #3c3c3c);
+  color: var(--vscode-button-secondaryForeground, #cccccc);
+  border: 1px solid var(--vscode-button-border, #454545);
+  border-radius: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background-color 0.2s;
+}
+
+.project-settings-dialog__reset-btn:hover:not(:disabled) {
+  background-color: var(--vscode-button-secondaryHoverBackground, #464647);
+}
+
+.project-settings-dialog__reset-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.project-settings-dialog__cancel-btn {
+  background-color: var(--vscode-button-secondaryBackground, #3c3c3c);
+  color: var(--vscode-button-secondaryForeground, #cccccc);
+  border: 1px solid var(--vscode-button-border, #454545);
+  border-radius: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background-color 0.2s;
+}
+
+.project-settings-dialog__cancel-btn:hover:not(:disabled) {
+  background-color: var(--vscode-button-secondaryHoverBackground, #464647);
+}
+
+.project-settings-dialog__save-btn {
+  background-color: var(--vscode-button-background, #0e639c);
+  color: var(--vscode-button-foreground, #ffffff);
+  border: 1px solid var(--vscode-button-border, #0e639c);
+  border-radius: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background-color 0.2s;
+}
+
+.project-settings-dialog__save-btn:hover:not(:disabled) {
+  background-color: var(--vscode-button-hoverBackground, #1177bb);
+}
+
+.project-settings-dialog__save-btn--highlight {
+  background-color: var(--vscode-button-background, #0e639c);
+  box-shadow: 0 0 0 2px var(--vscode-focusBorder, #007acc);
+}
+
+.project-settings-dialog__save-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* =============================================================================
+   确认对话框
+   ============================================================================= */
+
+.project-settings-dialog__confirm-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10;
+}
+
+.project-settings-dialog__confirm {
+  background-color: var(--vscode-editor-background, #181818);
+  border: 1px solid var(--vscode-widget-border, #454545);
+  border-radius: 8px;
+  padding: 20px;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.project-settings-dialog__confirm-title {
+  margin: 0 0 12px 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.project-settings-dialog__confirm-message {
+  margin: 0 0 20px 0;
+  color: var(--vscode-foreground, #cccccc);
+  line-height: 1.4;
+}
+
+.project-settings-dialog__confirm-message small {
+  color: var(--vscode-descriptionForeground, #999999);
+}
+
+.project-settings-dialog__confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+.project-settings-dialog__confirm-cancel {
+  background-color: var(--vscode-button-secondaryBackground, #3c3c3c);
+  color: var(--vscode-button-secondaryForeground, #cccccc);
+  border: 1px solid var(--vscode-button-border, #454545);
+  border-radius: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background-color 0.2s;
+}
+
+.project-settings-dialog__confirm-cancel:hover {
+  background-color: var(--vscode-button-secondaryHoverBackground, #464647);
+}
+
+.project-settings-dialog__confirm-confirm {
+  background-color: var(--vscode-inputValidation-errorBackground, #5a1d1d);
+  color: var(--vscode-inputValidation-errorForeground, #f8f8f8);
+  border: 1px solid var(--vscode-inputValidation-errorBorder, #be1100);
+  border-radius: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: background-color 0.2s;
+}
+
+.project-settings-dialog__confirm-confirm:hover {
+  background-color: #7a2525;
+}
+
+/* =============================================================================
+   响应式设计
+   ============================================================================= */
+
+@media (max-width: 768px) {
+  .project-settings-dialog {
+    width: 95%;
+    max-width: 500px;
+  }
+
+  .yolo-mode-panel {
+    padding: 12px 16px;
+  }
+}
+
+/* =============================================================================
+   Memory Panel 样式
+   ============================================================================= */
+
+.memory-panel {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.memory-panel__header {
+  margin: 0;
+}
+
+.memory-panel__title {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.memory-panel__description {
+  margin: 0;
+  font-size: 13px;
+  color: var(--vscode-descriptionForeground, #858585);
+  line-height: 1.4;
+}
+
+.memory-panel__list-container {
+  background-color: var(--vscode-input-background, #3c3c3c);
+  border: 1px solid var(--vscode-input-border, #555555);
+  border-radius: 4px;
+  padding: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.memory-panel__list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+}
+
+.memory-panel__list-item {
+  padding: 0;
+  margin: 0;
+}
+
+.memory-panel__list-item:not(:last-child) {
+  border-bottom: 1px solid var(--vscode-input-border, #555555);
+}
+
+.memory-panel__file-button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  background: none;
+  border: none;
+  color: var(--vscode-textLink-foreground, #4da6ff);
+  cursor: pointer;
+  text-align: left;
+  font-size: inherit;
+  font-family: inherit;
+  transition: background-color 0.15s ease;
+  border-radius: 2px;
+}
+
+.memory-panel__file-button:hover {
+  background-color: var(--vscode-list-hoverBackground, rgba(255, 255, 255, 0.05));
+  color: var(--vscode-textLink-activeForeground, #7fb3ff);
+  text-decoration: underline;
+}
+
+.memory-panel__file-icon {
+  flex-shrink: 0;
+  color: var(--vscode-icon-foreground, #c5c5c5);
+}
+
+.memory-panel__refresh-button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background-color: var(--vscode-button-background, #0e639c);
+  color: var(--vscode-button-foreground, #ffffff);
+  border: 1px solid var(--vscode-button-border, transparent);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: background-color 0.15s ease;
+}
+
+.memory-panel__refresh-button:hover:not(:disabled) {
+  background-color: var(--vscode-button-hoverBackground, #1177bb);
+}
+
+.memory-panel__refresh-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.memory-panel__refresh-icon {
+  flex-shrink: 0;
+  transition: transform 0.3s ease;
+}
+
+/* 刷新中的动画 */
+.memory-panel__refresh-button:disabled .memory-panel__refresh-icon {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Scrollbar 样式 */
+.memory-panel__list-container::-webkit-scrollbar {
+  width: 8px;
+}
+
+.memory-panel__list-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.memory-panel__list-container::-webkit-scrollbar-thumb {
+  background: var(--vscode-scrollbarSlider-background, #797979);
+  border-radius: 4px;
+}
+
+.memory-panel__list-container::-webkit-scrollbar-thumb:hover {
+  background: var(--vscode-scrollbarSlider-hoverBackground, #bfbfbf);
+}
+
+/* =============================================================================
+   More 面板样式
+   ============================================================================= */
+
+.more-panel {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.more-panel__section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.more-panel__title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.more-panel__description {
+  margin: 0;
+  font-size: 13px;
+  color: var(--vscode-descriptionForeground, #858585);
+  line-height: 1.4;
+}
+
+.more-panel__button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background-color: var(--vscode-button-background, #0e639c);
+  color: var(--vscode-button-foreground, #ffffff);
+  border: 1px solid var(--vscode-button-border, transparent);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: background-color 0.15s ease;
+  align-self: flex-start;
+}
+
+.more-panel__button:hover {
+  background-color: var(--vscode-button-hoverBackground, #1177bb);
+}
+
+.more-panel__button:active {
+  background-color: var(--vscode-button-activeBackground, #0d5a8f);
+}
+
+.more-panel__button svg {
+  flex-shrink: 0;
+}
+
+@media (max-width: 480px) {
+  .project-settings-dialog {
+    width: 95%;
+    margin: 10px;
+  }
+
+  .project-settings-dialog__header {
+    padding: 12px 16px;
+  }
+
+  .project-settings-dialog__title {
+    font-size: 16px;
+  }
+
+  .yolo-mode-panel {
+    padding: 12px;
+  }
+
+  .project-settings-dialog__footer {
+    padding: 12px 16px;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .project-settings-dialog__footer-left,
+  .project-settings-dialog__footer-right {
+    width: 100%;
+    justify-content: center;
+  }
+}

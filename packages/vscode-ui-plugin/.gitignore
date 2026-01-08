@@ -1,0 +1,50 @@
+# Build outputs
+dist/
+*.vsix
+README.md.backup
+
+# Compiled files in src (should never exist)
+src/**/*.js
+src/**/*.d.ts
+src/**/*.js.map
+
+# Node modules
+node_modules/
+
+# IDE files
+.vscode/settings.json
+
+# Logs
+*.log
+npm-debug.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# Dependency directories
+node_modules/
+jspm_packages/
+
+# Optional npm cache directory
+.npm
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variables file
+.env
+
+# VS Code workspace files
+*.code-workspace
