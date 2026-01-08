@@ -9,11 +9,13 @@ const { execSync } = require('child_process');
 function prePackage() {
     const distDir = path.join(__dirname, '..', 'dist');
     const extensionBundlePath = path.join(distDir, 'extension.bundle.js');
-    const webviewBuildPath = path.join(__dirname, '..', 'webview', 'build', 'bundle.js');
+    const webviewMainPath = path.join(__dirname, '..', 'webview', 'build', 'main.js');
+    const webviewVendorPath = path.join(__dirname, '..', 'webview', 'build', 'vendor.js');
 
     const requiredFiles = [
         { path: extensionBundlePath, name: 'Extension Bundle' },
-        { path: webviewBuildPath, name: 'Webview Bundle' }
+        { path: webviewMainPath, name: 'Webview Main Bundle' },
+        { path: webviewVendorPath, name: 'Webview Vendor Bundle' }
     ];
 
     const missingFiles = requiredFiles.filter(file => !fs.existsSync(file.path));

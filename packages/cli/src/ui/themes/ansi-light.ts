@@ -22,6 +22,7 @@ const ansiLightColors: ColorsTheme = {
   DiffRemoved: '#FFE5E5',
   Comment: 'gray',
   Gray: 'gray',
+  InfoColor: 'yellow', // ANSI yellow for info messages
   GradientColors: ['blue', 'green'],
 };
 

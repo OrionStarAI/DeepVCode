@@ -271,55 +271,71 @@ Possible causes:
   }
 }
 
-// 429配额限制错误检测函数
+// 402 Payment Required 配额限制错误检测函数
 function isQuotaLimitExceededError(error: unknown): boolean {
-  // 只检测非Pro/Generic配额限制的429错误
-  // Pro和Generic配额限制由isProQuotaExceededError和isGenericQuotaExceededError处理
+  // 检测 DeepX 服务端的 402 配额错误
+  // 包括 "Quota limit exceeded" 和 "No quota configuration"
 
   // 检查字符串错误消息
   if (typeof error === 'string') {
-    // 排除Pro和Generic配额限制的情况
+    // 排除 Google API 的配额限制（这些由其他函数处理）
     if (error.includes("Quota exceeded for quota metric 'Gemini") ||
         error.includes("Quota exceeded for quota metric 'GenerationRequests") ||
         error.includes("Quota exceeded for quota metric 'EmbeddingRequests")) {
       return false;
     }
 
-    return error.includes('429') &&
-           (error.toLowerCase().includes('insufficient credits') ||
+    return error.includes('402') &&
+           (error.includes('Quota limit exceeded') ||
+            error.includes('No quota configuration') ||
+            error.toLowerCase().includes('insufficient credits') ||
             error.toLowerCase().includes('insufficient balance'));
   }
 
   // 检查结构化错误
   if (isStructuredError(error)) {
-    // 排除Pro和Generic配额限制
+    // 排除 Google API 配额限制
     if (error.message.includes("Quota exceeded for quota metric 'Gemini") ||
         error.message.includes("Quota exceeded for quota metric 'GenerationRequests")) {
       return false;
     }
 
-    return error.status === 429 &&
-           error.message.toLowerCase().includes('insufficient');
+    return error.status === 402 &&
+           (error.message.includes('Quota limit exceeded') ||
+            error.message.includes('No quota configuration') ||
+            error.message.toLowerCase().includes('insufficient'));
   }
 
   // 检查API错误格式
   if (isApiError(error)) {
-    // 排除Pro和Generic配额限制
+    // 排除 Google API 配额限制
     if (error.error.message.includes("Quota exceeded for quota metric 'Gemini") ||
         error.error.message.includes("Quota exceeded for quota metric 'GenerationRequests")) {
       return false;
     }
 
-    return error.error.code === 429 &&
-           error.error.message.toLowerCase().includes('insufficient');
+    return error.error.code === 402 &&
+           (error.error.message.includes('Quota limit exceeded') ||
+            error.error.message.includes('No quota configuration') ||
+            error.error.message.toLowerCase().includes('insufficient'));
   }
 
   return false;
 }
 
-// 生成429配额限制友好错误消息
+// 生成 402 Payment Required 配额限制友好错误消息
 function getQuotaLimitExceededFriendlyMessage(error: unknown): string {
   const isChinese = isChineseEnvironment();
+
+  // 检测是"无配额配置"还是"配额耗尽"
+  let isNoQuotaConfig = false;
+  if (typeof error === 'string') {
+    isNoQuotaConfig = error.includes('No quota configuration');
+  } else if (isStructuredError(error)) {
+    isNoQuotaConfig = error.message.includes('No quota configuration');
+  } else if (isApiError(error)) {
+    isNoQuotaConfig = error.error.message.includes('No quota configuration');
+  }
 
   // 尝试从错误中提取配额限制的详细信息
   let quotaDetails = '';
@@ -342,9 +358,34 @@ function getQuotaLimitExceededFriendlyMessage(error: unknown): string {
     // 解析失败，使用默认消息
   }
 
-  if (isChinese) {
-    return `─────────────────────────────────────────────────────
-⚡ 服务配额已达上限 (429)
+  if (isNoQuotaConfig) {
+    // 无配额配置的情况
+    if (isChinese) {
+      return `─────────────────────────────────────────────────────
+🚫 当前账户可用的 Credit（积分）不足以继续使用本服务 (402)
+
+💡 请考虑订阅更多额度的套餐。
+
+🔗 详情请访问官网：https://dvcode.deepvlab.ai/
+
+🎁 如果希望获得免费体验机会，请联系我们的Boss：https://x.com/fusheng_0306
+─────────────────────────────────────────────────────`;
+    } else {
+      return `─────────────────────────────────────────────────────
+🚫 Your account's available Credits are insufficient (402)
+
+💡 Please consider subscribing to a higher quota plan.
+
+🔗 Details: https://dvcode.deepvlab.ai/
+
+🎁 For free trial opportunities, contact our Boss: https://x.com/fusheng_0306
+─────────────────────────────────────────────────────`;
+    }
+  } else {
+    // 配额耗尽的情况
+    if (isChinese) {
+      return `─────────────────────────────────────────────────────
+⚡ 服务配额已达上限 (402)
 
 ${quotaDetails ? quotaDetails : '您账户的可用额度已用尽。'}
 
@@ -355,9 +396,9 @@ ${quotaDetails ? quotaDetails : '您账户的可用额度已用尽。'}
 
 🔗 升级套餐：https://dvcode.deepvlab.ai/
 ─────────────────────────────────────────────────────`;
-  } else {
-    return `─────────────────────────────────────────────────────
-⚡ Service Quota Limit Exceeded (429)
+    } else {
+      return `─────────────────────────────────────────────────────
+⚡ Service Quota Limit Exceeded (402)
 
 ${quotaDetails ? quotaDetails : 'Your account has reached its usage quota.'}
 
@@ -368,6 +409,7 @@ ${quotaDetails ? quotaDetails : 'Your account has reached its usage quota.'}
 
 🔗 Upgrade your plan: https://dvcode.deepvlab.ai/
 ─────────────────────────────────────────────────────`;
+    }
   }
 }
 
@@ -448,6 +490,11 @@ export function parseAndFormatApiError(
       return get403FriendlyMessage();
     }
 
+    // 检查 402 配额错误 - DeepX 服务端统一使用 402 表示配额问题
+    if (error.status === 402) {
+      return getQuotaLimitExceededFriendlyMessage(error);
+    }
+
     // 检查429错误 - Pro/Generic已在上面处理过，这里处理其他429错误
     if (error.status === 429) {
       // 先检查是否是Pro/Generic（虽然应该已经在上面被处理了，这里是保险起见）
@@ -491,6 +538,11 @@ export function parseAndFormatApiError(
       return get403FriendlyMessage();
     }
 
+    // 检查字符串中的 402 配额错误 - DeepX 服务端配额错误
+    if (error.includes('402') && isQuotaLimitExceededError(error)) {
+      return getQuotaLimitExceededFriendlyMessage(error);
+    }
+
     // 检查字符串中的429错误 - 但首先要排除Pro/Generic
     if (error.includes('429') && !isProQuotaExceededError(error) && !isGenericQuotaExceededError(error)) {
       if (isQuotaLimitExceededError(error)) {
@@ -516,6 +568,11 @@ export function parseAndFormatApiError(
         // 检查解析后的API错误是否为403
         if (parsedError.error.code === 403 || parsedError.error.status === 'PERMISSION_DENIED') {
           return get403FriendlyMessage();
+        }
+
+        // 检查解析后的API错误是否为 402 - DeepX 服务端配额错误
+        if (parsedError.error.code === 402) {
+          return getQuotaLimitExceededFriendlyMessage(parsedError);
         }
 
         // 检查解析后的API错误是否为429

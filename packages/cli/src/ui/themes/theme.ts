@@ -25,6 +25,7 @@ export interface ColorsTheme {
   DiffRemoved: string;
   Comment: string;
   Gray: string;
+  InfoColor: string; // Muted yellow for log/info messages
   GradientColors?: string[];
 }
 
@@ -48,7 +49,8 @@ export const lightTheme: ColorsTheme = {
   DiffAdded: '#C6EAD8',
   DiffRemoved: '#FFCCCC',
   Comment: '#008000',
-  Gray: '#97a0b0',
+  Gray: '#6B7280',
+  InfoColor: '#8B7355', // Muted brown/amber for light theme
   GradientColors: ['#FF6B35', '#FF8C42', '#FFFFFF'],
 };
 
@@ -68,6 +70,7 @@ export const darkTheme: ColorsTheme = {
   DiffRemoved: '#430000',
   Comment: '#6C7086',
   Gray: '#6C7086',
+  InfoColor: '#B8A77E', // Muted yellow/amber for dark theme
   GradientColors: ['#FF6B35', '#FF8C42', '#FFFFFF'],
 };
 
@@ -87,6 +90,7 @@ export const ansiTheme: ColorsTheme = {
   DiffRemoved: 'red',
   Comment: 'gray',
   Gray: 'gray',
+  InfoColor: 'yellow', // ANSI yellow for info messages
 };
 
 export class Theme {

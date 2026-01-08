@@ -30,12 +30,116 @@ import { LSPImplementationTool } from '../tools/lsp/lsp-implementation.js';
 import { TaskPrompts } from './taskPrompts.js';
 import { SkillsContextBuilder } from '../skills/skills-context-builder.js';
 import { PromptRegistry } from '../prompts/prompt-registry.js';
+import type { AgentStyle } from '../config/projectSettings.js';
+
+/**
+ * Codex-style 完整系统提示词
+ * 当用户选择 Codex 风格时，使用完全独立的提示词
+ * 设计原则：从头到尾保持一致的极简风格，无冲突指令
+ */
+function getCodexSystemPrompt(): string {
+  return `
+# CODEX MODE - Autonomous Coding Agent
+
+You are a long-running autonomous coding agent. Execute silently until done or blocked.
+
+## CORE BEHAVIOR
+
+1. **NO NARRATION.** Never explain what you're about to do. Never summarize steps. No filler phrases.
+2. **EXECUTE FIRST.** Read request → Execute all tools → Verify → Report only when 100% done or blocked.
+3. **BATCH AGGRESSIVELY.** Multiple independent operations in ONE function_calls block.
+4. **OUTPUT BUDGET:** 1-2 sentences max unless user asks for explanation.
+
+## COMPLETION FORMAT (mandatory)
+
+Done: [one line]
+Files: [list or "none"]
+
+Or:
+
+Blocked: [what's needed]
+
+## TOOL USAGE
+
+- **File paths:** Always absolute paths.
+- **Editing:** Use '${EditTool.Name}' for existing files, '${WriteFileTool.Name}' only for new files.
+- **Shell:** Use '${ShellTool.Name}'. Background processes with '&'.
+- **Search:** '${GlobTool.Name}' for file discovery, '${GrepTool.Name}' for content search.
+- **Analysis:** '${TaskTool.Name}' for deep codebase exploration. Launch multiple concurrently.
+- **LSP:** Use LSP tools for type queries and definitions (1-based coordinates).
+- **Memory:** '${MemoryTool.Name}' for user-specific facts to persist across sessions.
+
+## CODE QUALITY
+
+- No placeholders, no TODOs, no stubs. Every function fully implemented.
+- Production-ready: proper error handling, edge cases covered.
+- Trust source code over docs/comments. Verify before modifying.
+
+## SAFETY
+
+- Explain destructive shell commands briefly before execution.
+- Never expose secrets, API keys, or sensitive data.
+- Decline political/social topics.
+
+## CONVENTIONS
+
+- Match existing project style, structure, and patterns.
+- Verify library usage before employing.
+- Respond in user's language.
+
+## EXAMPLES
+
+<example>
+user: 1 + 2
+model: 3
+</example>
+
+<example>
+user: list files
+model: [tool_call: ${LSTool.Name}]
+</example>
+
+<example>
+user: refactor auth.py to use requests
+model: [tool_call: ${ReadFileTool.Name} for auth.py]
+[tool_call: ${ReadFileTool.Name} for requirements.txt]
+[tool_call: ${EditTool.Name} to refactor]
+[tool_call: ${ShellTool.Name} for tests]
+Done: Refactored auth.py from urllib to requests.
+Files: src/auth.py
+</example>
+
+<example>
+user: fix login bug and add tests
+model: [tool_call: ${GrepTool.Name} for login logic]
+[tool_call: ${ReadFileTool.Name} for relevant files]
+[tool_call: ${EditTool.Name} to fix bug]
+[tool_call: ${WriteFileTool.Name} to create tests]
+[tool_call: ${ShellTool.Name} to run tests]
+Done: Fixed null check in validateCredentials(), added 5 unit tests.
+Files: src/auth.ts, tests/auth.test.ts
+</example>
+
+<example>
+user: where is getUserProfile defined?
+model: [tool_call: ${LSPGotoDefinitionTool.Name}]
+\`getUserProfile\` is defined in \`src/services/user.ts:42\`.
+</example>
+`.trim();
+}
 
 /**
  * 获取静态系统提示词（所有用户相同，适合缓存）
  * 遵循 Google Gemini CLI 的设计理念：简洁、统一，无需大量文本示例
+ * @param agentStyle - Agent 风格：'default' (Claude-style) 或 'codex' (Codex-style)
  */
-export function getStaticSystemPrompt(): string {
+export function getStaticSystemPrompt(agentStyle: AgentStyle = 'default'): string {
+  // Codex 模式使用完全独立的提示词，避免与 default 模式的详细指令冲突
+  if (agentStyle === 'codex') {
+    return getCodexSystemPrompt();
+  }
+
+  // Default (Claude-style) 模式：详细的指令和示例
   return `
 You are an interactive CLI agent specializing in software engineering tasks. Your primary goal is to help users safely and efficiently, adhering strictly to the following instructions and utilizing your available tools.
 
@@ -658,7 +762,7 @@ function getMcpPromptsContext(promptRegistry?: PromptRegistry): string {
   }
 }
 
-export function getCoreSystemPrompt(userMemory?: string, isVSCode?: boolean, promptRegistry?: PromptRegistry): string {
+export function getCoreSystemPrompt(userMemory?: string, isVSCode?: boolean, promptRegistry?: PromptRegistry, agentStyle: AgentStyle = 'default'): string {
   // if GEMINI_SYSTEM_MD is set (and not 0|false), override system prompt from file
   // default path is .deepv/system.md but can be modified via custom path in GEMINI_SYSTEM_MD
   let systemMdEnabled = false;
@@ -685,11 +789,12 @@ export function getCoreSystemPrompt(userMemory?: string, isVSCode?: boolean, pro
   }
 
   // Select base prompt: override > VSCode > static (unified for all models)
+  // Note: agentStyle only affects CLI mode (getStaticSystemPrompt), not VSCode or custom override
   const basePrompt = systemMdEnabled
     ? fs.readFileSync(systemMdPath, 'utf8')
     : isVSCode
       ? getVSCodeSystemPrompt()
-      : getStaticSystemPrompt();
+      : getStaticSystemPrompt(agentStyle);
 
   const dynamicPrompt = getDynamicSystemPrompt(userMemory);
 

@@ -6,12 +6,13 @@
 // 工具状态常量 - 与types/index.ts中的ToolCallStatus枚举保持一致
 export const TOOL_CALL_STATUS = {
   SCHEDULED: 'scheduled',
-  VALIDATING: 'validating', 
+  VALIDATING: 'validating',
   EXECUTING: 'executing',
   WAITING_FOR_CONFIRMATION: 'awaiting_approval',
   SUCCESS: 'success',
   ERROR: 'error',
-  CANCELED: 'cancelled'
+  CANCELED: 'cancelled',
+  BACKGROUND_RUNNING: 'background_running'  // 🎯 后台运行中
 } as const;
 
 // 工具名称常量
@@ -82,12 +83,13 @@ export const PARAM_PRIORITY_ORDER = [
 // 工具状态颜色映射
 export const STATUS_COLORS = {
   [TOOL_CALL_STATUS.SCHEDULED]: '#fbbf24',
-  [TOOL_CALL_STATUS.VALIDATING]: '#f59e0b', 
+  [TOOL_CALL_STATUS.VALIDATING]: '#f59e0b',
   [TOOL_CALL_STATUS.EXECUTING]: '#3b82f6',
   [TOOL_CALL_STATUS.WAITING_FOR_CONFIRMATION]: '#f59e0b',
   [TOOL_CALL_STATUS.SUCCESS]: '#10b981',
   [TOOL_CALL_STATUS.ERROR]: '#ef4444',
-  [TOOL_CALL_STATUS.CANCELED]: '#6b7280'
+  [TOOL_CALL_STATUS.CANCELED]: '#6b7280',
+  [TOOL_CALL_STATUS.BACKGROUND_RUNNING]: '#f59e0b'  // 🎯 黄色 - 后台运行中
 } as const;
 
 // 类型定义
