@@ -285,7 +285,7 @@ If you find bugs or have feature suggestions, please [create an Issue](https://g
 
 ## ⭐ Star History
 
-[![Star History Chart](https://api.star-history.com/svg?repos=OrionStarAI/DeepVCode&type=Date)](https://star-history.com/#OrionStarAI/DeepVCode&Date)
+[![Star History Chart](https://api.star-history.com/svg?repos=OrionStarAI/DeepVCode&type=date&legend=top-left)](https://www.star-history.com/#OrionStarAI/DeepVCode&type=date&legend=top-left)
 
 ---
 
