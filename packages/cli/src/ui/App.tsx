@@ -124,13 +124,12 @@ import { AudioNotification } from '../utils/audioNotification.js';
 
 const CTRL_EXIT_PROMPT_DURATION_MS = 1000;
 
-// 🎯 后台任务输出截断配置（沿用 shell 命令处理器的做法）
-const MAX_BACKGROUND_TASK_OUTPUT_LINES = 20; // CLI 显示的最大行数
-const MAX_BACKGROUND_TASK_OUTPUT_CHARS = 2000; // CLI 显示的最大字符数
+// 🎯 后台任务输出截断配置（防止 token 爆炸）
+const MAX_BACKGROUND_TASK_OUTPUT_LINES = 100; // 超过此行数则截断
 
 /**
- * 截断后台任务输出，防止 CLI 界面压力过大
- * 策略：保留头部和尾部各一半，中间显示省略提示
+ * 截断后台任务输出，防止 token 消耗过大
+ * 策略：< 100 行完整显示，≥ 100 行保留头 50 行 + 尾 50 行
  */
 function truncateBackgroundTaskOutput(output: string | undefined): string {
   if (!output) return '';
@@ -138,14 +137,14 @@ function truncateBackgroundTaskOutput(output: string | undefined): string {
   const lines = output.split('\n');
   const totalLines = lines.length;
 
-  // 行数在限制内且字符数也在限制内，直接返回
-  if (totalLines <= MAX_BACKGROUND_TASK_OUTPUT_LINES && output.length <= MAX_BACKGROUND_TASK_OUTPUT_CHARS) {
+  // 小于 100 行，直接返回完整输出
+  if (totalLines < MAX_BACKGROUND_TASK_OUTPUT_LINES) {
     return output;
   }
 
-  // 超出限制，采用头尾保留策略
-  const headLines = Math.floor(MAX_BACKGROUND_TASK_OUTPUT_LINES / 2);
-  const tailLines = MAX_BACKGROUND_TASK_OUTPUT_LINES - headLines - 1; // 预留 1 行给省略提示
+  // 超过 100 行，采用头尾保留策略（各 50 行）
+  const headLines = 50;
+  const tailLines = 50;
   const omittedCount = totalLines - headLines - tailLines;
 
   const head = lines.slice(0, headLines).join('\n');

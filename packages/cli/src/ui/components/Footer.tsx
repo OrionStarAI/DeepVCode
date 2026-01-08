@@ -66,6 +66,9 @@ export const Footer: React.FC<FooterProps> = ({
   const modelDisplay = getModelDisplayName(model, config);
   const modelShortDisplay = getShortModelName(modelDisplay, displayConfig.simplifyModel);
 
+  // 获取 Agent Style
+  const agentStyle = config?.getAgentStyle() ?? 'default';
+
   return (
     <Box justifyContent="space-between" width="100%" marginTop={1}>
       <Box>
@@ -111,6 +114,14 @@ export const Footer: React.FC<FooterProps> = ({
 
       {/* Right Section: Version, Context Info and Console Summary */}
       <Box alignItems="center">
+        {/* Codex Style Indicator */}
+        {agentStyle === 'codex' ? (
+          <Box>
+            <Text color={Colors.AccentYellow}>⚡</Text>
+            <Text color={Colors.Gray}> | </Text>
+          </Box>
+        ) : null}
+
         {versionDisplay ? (
           <Box>
             <Text color={Colors.Gray}>{versionDisplay}</Text>
