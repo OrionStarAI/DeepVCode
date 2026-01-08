@@ -135,6 +135,75 @@
   text-align: center;
 }
 
+/* Status Dot - 状态显示点 */
+.session-switcher__status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  margin-right: 6px;
+  flex-shrink: 0;
+  background-color: transparent;
+  transition: background-color 0.3s ease;
+}
+
+/* 🎯 进行中状态 - 闪烁的绿色 */
+.session-switcher__status-dot--processing,
+.session-switcher__status-dot--initializing {
+  background-color: #48c74e;
+  animation: status-dot-blink-green 1s ease-in-out infinite;
+}
+
+/* 🎯 等待确认状态 - 红色问号闪烁 */
+.session-switcher__status-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  margin-right: 6px;
+  flex-shrink: 0;
+  font-size: 12px;
+  line-height: 1;
+}
+
+.session-switcher__status-icon--confirming {
+  color: #f14c4c;
+  animation: status-icon-blink-red 1s ease-in-out infinite;
+}
+
+/* 绿色闪烁动画 */
+@keyframes status-dot-blink-green {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
+
+/* 红色问号闪烁动画 */
+@keyframes status-icon-blink-red {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.2;
+  }
+}
+
+.session-switcher__status-dot--error {
+  background-color: var(--vscode-notificationsErrorIcon-foreground, #f14c4c);
+}
+
+.session-switcher__status-dot--idle,
+.session-switcher__status-dot--active {
+  background-color: #48c74e; /* 更加明显的绿色表示完成 */
+}
+
+.session-switcher__status-dot--closed {
+  background-color: var(--vscode-descriptionForeground, #a9a9a9); /* 灰色表示已关闭 */
+}
+
 /* 未使用session的特殊样式 */
 .session-switcher__tab--unused {
   border-style: dashed;

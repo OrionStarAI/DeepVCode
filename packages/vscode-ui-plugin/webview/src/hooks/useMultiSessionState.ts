@@ -215,11 +215,16 @@ export const useMultiSessionState = () => {
       }
 
       const newSessions = new Map(prev.sessions);
-      newSessions.set(sessionId, {
+      const updatedSessionData = {
         ...session,
         isContentLoaded: true,
-        isLoading: true // 设置加载状态，等待后端返回实际消息
-      });
+        isLoading: true,
+        info: {
+          ...session.info,
+          status: SessionStatus.INITIALIZING // 🎯 初始化加载时显示为初始化中（黄色）
+        }
+      };
+      newSessions.set(sessionId, updatedSessionData);
 
       return {
         ...prev,
@@ -337,12 +342,21 @@ export const useMultiSessionState = () => {
       }
 
       // 更新当前Session状态为active，其他为idle
+      // 忙碌状态（处理中/加载中）的Session保持 PROCESSING 或 INITIALIZING 状态
       newSessions.forEach((sessionData, id) => {
+        const isBusy = sessionData.isProcessing || sessionData.isLoading;
+
         if (id === sessionId) {
-          sessionData.info.status = SessionStatus.ACTIVE;
+          // 🎯 只有在不忙的时候才设置为 ACTIVE，忙碌时保持当前状态
+          if (!isBusy) {
+            sessionData.info.status = SessionStatus.ACTIVE;
+          }
           sessionData.info.lastActivity = Date.now();
-        } else if (sessionData.info.status === SessionStatus.ACTIVE) {
-          sessionData.info.status = SessionStatus.IDLE;
+        } else {
+          // 🎯 对于非当前会话，只在不忙时才设置为 IDLE
+          if (!isBusy) {
+            sessionData.info.status = SessionStatus.IDLE;
+          }
         }
       });
 
@@ -363,12 +377,24 @@ export const useMultiSessionState = () => {
       if (!sessionData) return prev;
 
       const newSessions = new Map(prev.sessions);
+
+      // 🎯 保护逻辑：如果前端知道该会话正在工作（isProcessing/isLoading），则忽略外部发来的“空闲”状态更新
+      // 这能防止后端同步数据时意外将黄点刷成绿点
+      const isBusy = sessionData.isProcessing || sessionData.isLoading;
+      const finalUpdates = { ...updates };
+      if (isBusy && updates.status) {
+        // 只允许外部更新 ERROR 和 CLOSED 状态（这些是重要的)
+        // 其他状态（ACTIVE、IDLE、INITIALIZING、PROCESSING）被忽略
+        if (updates.status !== SessionStatus.ERROR && updates.status !== SessionStatus.CLOSED) {
+          delete finalUpdates.status;
+        }
+      }
+
       const updatedSessionData = {
         ...sessionData,
-        // 🎯 只在非 name 更新时才更新 lastActivity（与后端逻辑一致）
         info: {
           ...sessionData.info,
-          ...updates,
+          ...finalUpdates,
           lastActivity: updates.name !== undefined ? sessionData.info.lastActivity : Date.now()
         }
       };
@@ -609,12 +635,50 @@ export const useMultiSessionState = () => {
       if (!sessionData) return prev;
 
       const newSessions = new Map(prev.sessions);
+
+      // 🎯 更新Session状态以反映处理中
+      // 注：只更新状态，不使用 updateSessionStatus 以避免重复调用
+      let newStatus = sessionData.info.status;
+      if (isProcessing) {
+        newStatus = SessionStatus.PROCESSING;
+      } else if (newStatus === SessionStatus.PROCESSING && !sessionData.isLoading) {
+        // 如果处理正常结束且不在加载中，恢复为 ACTIVE 或 IDLE
+        newStatus = (sessionId === prev.currentSessionId) ? SessionStatus.ACTIVE : SessionStatus.IDLE;
+      }
+
       const updatedSessionData = {
         ...sessionData,
         isProcessing,
         currentProcessingMessageId: messageId,
         canAbort,
-        info: { ...sessionData.info, lastActivity: Date.now() }
+        info: {
+          ...sessionData.info,
+          status: newStatus,
+          lastActivity: Date.now()
+        }
+      };
+      newSessions.set(sessionId, updatedSessionData);
+
+      return { ...prev, sessions: newSessions };
+    });
+  }, [updateState]);
+
+  /**
+   * 🎯 更新Session状态
+   */
+  const updateSessionStatus = useCallback((sessionId: string, status: SessionStatus) => {
+    updateState(prev => {
+      const sessionData = prev.sessions.get(sessionId);
+      if (!sessionData) return prev;
+
+      const newSessions = new Map(prev.sessions);
+      const updatedSessionData = {
+        ...sessionData,
+        info: {
+          ...sessionData.info,
+          status,
+          lastActivity: Date.now()
+        }
       };
       newSessions.set(sessionId, updatedSessionData);
 
@@ -861,10 +925,24 @@ export const useMultiSessionState = () => {
       if (!sessionData) return prev;
 
       const newSessions = new Map(prev.sessions);
+
+      // 🎯 增强：根据加载状态决定显示颜色
+      let newStatus = sessionData.info.status;
+      if (isLoading) {
+        newStatus = SessionStatus.PROCESSING; // 正在加载/等待AI时显示黄色
+      } else if (newStatus === SessionStatus.PROCESSING && !sessionData.isProcessing) {
+        // 如果加载结束且不在处理中，恢复状态
+        newStatus = (sessionId === prev.currentSessionId) ? SessionStatus.ACTIVE : SessionStatus.IDLE;
+      }
+
       const updatedSessionData = {
         ...sessionData,
         isLoading,
-        info: { ...sessionData.info, lastActivity: Date.now() }
+        info: {
+          ...sessionData.info,
+          status: newStatus,
+          lastActivity: Date.now()
+        }
       };
       newSessions.set(sessionId, updatedSessionData);
 
@@ -1151,6 +1229,7 @@ export const useMultiSessionState = () => {
 
     // 🎯 简化的流程状态管理
     setProcessingState,
+    updateSessionStatus,
     updateMessageToolCalls,
     updateToolLiveOutput,
     abortCurrentProcess,

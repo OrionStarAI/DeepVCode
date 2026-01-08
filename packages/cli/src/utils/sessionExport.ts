@@ -98,23 +98,76 @@ export async function exportSessionToMarkdown(
   markdown += '- **Model:** ' + (sessionData.metadata.model || 'Unknown') + n + n;
   markdown += '---' + n + n;
 
+  // Create a map of callId -> args from clientHistory to avoid cluttering UI history
+  const toolArgsMap = new Map<string, any>();
+  if (sessionData.clientHistory && Array.isArray(sessionData.clientHistory)) {
+    for (const message of sessionData.clientHistory) {
+      if (message.parts && Array.isArray(message.parts)) {
+        for (const part of message.parts) {
+          if (part.functionCall && part.functionCall.id) {
+            toolArgsMap.set(part.functionCall.id, part.functionCall.args);
+          }
+        }
+      }
+    }
+  }
+
+  function exportToolCalls(tools: any[], indent = 0): string {
+    let result = '';
+    const prefix = ' '.repeat(indent);
+    for (const tool of tools) {
+      // 🎯 修复 1：参数提取逻辑。优先从 clientHistory 映射中获取，旧会话 fallback 到 confirmationDetails
+      const toolArgs = toolArgsMap.get(tool.callId) || tool.confirmationDetails?.args || {};
+      const toolPath = toolArgs.absolute_path || toolArgs.file_path || toolArgs.path || toolArgs.filePath;
+      const displayName = toolPath ? `${tool.name}: ${toolPath}` : tool.name;
+
+      result += prefix + '<details>' + n;
+      result += prefix + '<summary>' + displayName + ' (' + (tool.status || 'Success') + ')</summary>' + n + n;
+
+      // 🎯 修复 2：缩进逻辑。使用统一的换行符 n，并确保代码块内部正确缩进
+      const jsonContent = JSON.stringify(toolArgs, null, 2);
+      const indentedJson = jsonContent.split('\n').map(line => prefix + line).join(n);
+
+      result += prefix + '**Arguments:**' + n + prefix + '```json' + n + indentedJson + n + prefix + '```' + n + n;
+
+      if (tool.resultDisplay) {
+        // 对结果内容也进行必要的换行处理
+        const resultContent = (tool.resultDisplay.content || '').split('\n').map((line: string) => prefix + line).join(n);
+        result += prefix + '**Result:**' + n + resultContent + n + n;
+      }
+
+      if (tool.subToolCalls && Array.isArray(tool.subToolCalls) && tool.subToolCalls.length > 0) {
+        result += prefix + '#### ↳ Sub-tool Calls' + n + n;
+        result += exportToolCalls(tool.subToolCalls, indent + 2);
+      }
+
+      result += prefix + '</details>' + n + n;
+    }
+    return result;
+  }
+
   for (const item of sessionData.history) {
     if (item.type === 'user') {
-      markdown += '### 👤 User' + n + n + (item.text || '') + n + n;
+      const text = (item.text || '').trim();
+      if (text) {
+        markdown += '### 👤 User' + n + n + text + n + n;
+      }
     } else if (item.type === 'gemini' || item.type === 'gemini_content') {
-      markdown += '### 🤖 Assistant' + n + n + (item.text || '') + n + n;
+      const text = (item.text || '').trim();
+      if (text) {
+        markdown += '### 🤖 Assistant' + n + n + text + n + n;
+      }
     } else if (item.type === 'deepv') {
-      markdown += '### 🤖 Assistant (System)' + n + n + (item.content || '') + n + n;
+      const content = (item.content || '').trim();
+      if (content) {
+        markdown += '### 🤖 Assistant (System)' + n + n + content + n + n;
+      }
     } else if (item.type === 'tool_group') {
-      markdown += '#### 🛠️ Tool Calls' + n + n;
-      if (item.tools && Array.isArray(item.tools)) {
-        for (const tool of item.tools) {
-          markdown += '<details>' + n + '<summary>' + tool.name + ' (' + (tool.status || 'Success') + ')</summary>' + n + n;
-          markdown += '**Arguments:**' + n + '```json' + n + JSON.stringify(tool.confirmationDetails?.args || {}, null, 2) + n + '```' + n + n;
-          if (tool.resultDisplay) {
-            markdown += '**Result:**' + n + (tool.resultDisplay.content || '') + n + n;
-          }
-          markdown += '</details>' + n + n;
+      if (item.tools && Array.isArray(item.tools) && item.tools.length > 0) {
+        const toolsMarkdown = exportToolCalls(item.tools, 0);
+        if (toolsMarkdown.trim()) {
+          markdown += '#### 🛠️ Tool Calls' + n + n;
+          markdown += toolsMarkdown;
         }
       }
     }
