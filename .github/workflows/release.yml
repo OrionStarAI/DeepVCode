@@ -76,13 +76,18 @@ jobs:
       - name: 🔍 Find build artifacts
         id: find_artifacts
         run: |
-          TGZ_FILE=$(ls deepv-code-*.tgz | head -n 1)
-          if [ -z "$TGZ_FILE" ]; then
-            echo "❌ No .tgz file found!"
+          VERSION="${{ steps.get_version.outputs.VERSION }}"
+          TGZ_FILE="deepv-code-${VERSION}.tgz"
+
+          if [ ! -f "$TGZ_FILE" ]; then
+            echo "❌ Expected artifact not found: $TGZ_FILE"
+            echo "📁 Available .tgz files:"
+            ls -lh deepv-code-*.tgz 2>/dev/null || echo "  (none)"
             exit 1
           fi
+
           echo "TGZ_FILE=$TGZ_FILE" >> $GITHUB_OUTPUT
-          echo "Found artifact: $TGZ_FILE"
+          echo "✅ Found artifact: $TGZ_FILE"
           ls -lh $TGZ_FILE
 
       # 9. 创建 GitHub Release (使用 tag message 作为 release notes)
