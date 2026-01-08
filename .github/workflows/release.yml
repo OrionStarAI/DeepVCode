@@ -50,7 +50,7 @@ jobs:
 
       # 3. 安装依赖
       - name: 📦 Install dependencies
-        run: npm ci
+        run: npm install
 
       # 4. 构建跨平台包（不自动递增版本号）
       - name: 🏗️ Build cross-platform package
