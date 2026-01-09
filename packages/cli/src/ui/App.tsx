@@ -124,6 +124,35 @@ import { AudioNotification } from '../utils/audioNotification.js';
 
 const CTRL_EXIT_PROMPT_DURATION_MS = 1000;
 
+// 🎯 后台任务输出截断配置（防止 token 爆炸）
+const MAX_BACKGROUND_TASK_OUTPUT_LINES = 100; // 超过此行数则截断
+
+/**
+ * 截断后台任务输出，防止 token 消耗过大
+ * 策略：< 100 行完整显示，≥ 100 行保留头 50 行 + 尾 50 行
+ */
+function truncateBackgroundTaskOutput(output: string | undefined): string {
+  if (!output) return '';
+
+  const lines = output.split('\n');
+  const totalLines = lines.length;
+
+  // 小于 100 行，直接返回完整输出
+  if (totalLines < MAX_BACKGROUND_TASK_OUTPUT_LINES) {
+    return output;
+  }
+
+  // 超过 100 行，采用头尾保留策略（各 50 行）
+  const headLines = 50;
+  const tailLines = 50;
+  const omittedCount = totalLines - headLines - tailLines;
+
+  const head = lines.slice(0, headLines).join('\n');
+  const tail = lines.slice(-tailLines).join('\n');
+
+  return `${head}\n... (${omittedCount} lines omitted) ...\n${tail}`;
+}
+
 /**
  * 检测是否是IDEA/IntelliJ环境
  */
@@ -964,13 +993,15 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
       const result = formatBackgroundTaskResult(task);
 
       // 🎯 使用 tool_group 格式显示任务输出（仿 Claude Code 风格）
+      // 🔧 截断大型输出，防止 CLI 界面压力过大
       const shortId = task.id;
+      const truncatedOutput = truncateBackgroundTaskOutput(task.output);
       const toolGroupItem: IndividualToolCallDisplay = {
         callId: `bg-${task.id}`,
         name: t('background.task.output'),
         toolId: 'background_task_output',
         description: `${shortId} ${task.command}`,
-        resultDisplay: task.output || `Exit code: ${task.exitCode ?? 'unknown'}`,
+        resultDisplay: truncatedOutput || `Exit code: ${task.exitCode ?? 'unknown'}`,
         status: task.exitCode === 0 ? ToolCallStatus.Success : ToolCallStatus.Error,
         confirmationDetails: undefined,
       };
@@ -980,7 +1011,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
       );
 
       // 🎯 构建通知消息（包含完整的任务信息，供 AI 理解）
-      const notificationText = `[System] Background task completed (Task ID: ${task.id}). Exit code: ${task.exitCode ?? 'unknown'}. Output:\n${task.output?.substring(0, 1000) || '(no output)'}`;
+      const notificationText = `[DeepV Code - SYSTEM NOTIFICATION] Background task completed (Task ID: ${task.id}). Exit code: ${task.exitCode ?? 'unknown'}. Output:\n${task.output?.substring(0, 1000) || '(no output)'}`;
 
       // 🎯 如果 AI 当前空闲，自动触发 AI 继续处理（静默模式，不显示用户消息）
       if (streamingState === StreamingState.Idle) {
@@ -996,13 +1027,15 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     onTaskFailed: useCallback((task: BackgroundTask) => {
       console.log('[App] Background task failed:', task.id);
       // 🎯 使用 tool_group 格式显示任务失败
+      // 🔧 截断大型输出，防止 CLI 界面压力过大
       const shortId = task.id;
+      const truncatedOutput = truncateBackgroundTaskOutput(task.error || task.output);
       const toolGroupItem: IndividualToolCallDisplay = {
         callId: `bg-${task.id}`,
         name: t('background.task.output'),
         toolId: 'background_task_output',
         description: `${shortId} ${task.command}`,
-        resultDisplay: task.error || task.output || 'Unknown error',
+        resultDisplay: truncatedOutput || 'Unknown error',
         status: ToolCallStatus.Error,
         confirmationDetails: undefined,
       };
@@ -1028,13 +1061,15 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     onTaskKilled: useCallback((task: BackgroundTask) => {
       console.log('[App] Background task killed by user:', task.id);
       // 🎯 使用 tool_group 格式显示任务被终止
+      // 🔧 截断大型输出，防止 CLI 界面压力过大
       const shortId = task.id;
+      const truncatedOutput = truncateBackgroundTaskOutput(task.output);
       const toolGroupItem: IndividualToolCallDisplay = {
         callId: `bg-${task.id}`,
         name: t('background.task.output'),
         toolId: 'background_task_output',
         description: `${shortId} ${task.command}`,
-        resultDisplay: task.output || 'Killed by user',
+        resultDisplay: truncatedOutput || 'Killed by user',
         status: ToolCallStatus.Canceled,
         confirmationDetails: undefined,
       };
@@ -1079,7 +1114,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
         setPendingBackgroundNotifications([]);
 
         // 自动触发 AI 继续处理（静默模式，不显示用户消息）
-        submitQuery('[System] Background tasks have completed while you were busy. Please review the results above and continue.', { silent: true });
+        submitQuery('[DeepV Code - SYSTEM NOTIFICATION] Background tasks have completed while you were busy. Please review the results above if necessary, and continue.', { silent: true });
       } catch (e) {
         console.error('[App] Failed to process pending background notifications:', e);
       }
@@ -1482,11 +1517,12 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
         return;
       }
 
-      // 🎯 ↓ 键打开后台任务面板（仅当有后台任务时）
+      // 🎯 ↓ 键打开后台任务面板（仅当有正在运行的后台任务时）
       if (key.downArrow && !key.ctrl && !key.shift && !key.meta) {
         const taskManager = getBackgroundTaskManager();
         const tasks = taskManager.getAllTasks();
-        if (tasks.length > 0) {
+        const runningTasks = tasks.filter(t => t.status === 'running');
+        if (runningTasks.length > 0) {
           setShowBackgroundTaskPanel(true);
           return;
         }

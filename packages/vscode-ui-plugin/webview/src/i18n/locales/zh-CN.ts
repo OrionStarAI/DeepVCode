@@ -527,4 +527,24 @@ export const zhCN: Translations = {
     retry: '重试',
     noPointsData: '暂无积分数据',
   },
+
+  // 🎯 后台任务相关
+  backgroundTasks: {
+    title: '后台任务',
+    running: '运行中',
+    completed: '已完成',
+    failed: '失败',
+    statusRunning: '运行中',
+    statusCompleted: '已完成',
+    statusFailed: '失败',
+    statusCancelled: '已取消',
+    killTask: '终止此任务',
+    clearCompleted: '清除已完成任务',
+    closeTasksBar: '关闭任务栏',
+    viewTasks: '点击查看后台任务',
+    moveToBackground: '转到后台',
+    runningInBackground: '正在后台运行中',
+    noTasks: '无后台任务',
+    outputTitle: '后台任务输出',
+  },
 };

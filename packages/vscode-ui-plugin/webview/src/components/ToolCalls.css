@@ -203,6 +203,39 @@
   color: var(--vscode-descriptionForeground);
 }
 
+.status-icon.background-running {
+  color: var(--vscode-charts-yellow);
+}
+
+/* 🎯 后台运行提示样式 - INFO 分割线风格 */
+.tool-background-running-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin-top: 8px;
+  gap: 12px;
+}
+
+.tool-background-running-hint::before,
+.tool-background-running-hint::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--vscode-panel-border);
+  max-width: 100px;
+}
+
+.background-hint-text {
+  color: var(--vscode-descriptionForeground);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  opacity: 0.7;
+  white-space: nowrap;
+}
+
 .status-icon.unknown {
   color: var(--vscode-descriptionForeground);
 }
@@ -442,8 +475,8 @@
 .tool-expanded-params {
   border-top: 1px solid var(--vscode-panel-border);
   background: var(--vscode-textBlockQuote-background);
-  padding: 4px 6px; /* 进一步减小内边距 */
-  display: block; /* 改为块级布局 */
+  padding: 6px 8px; /* 🎯 这里的 padding 决定了内部框的宽度感 */
+  display: block;
 }
 
 /* 参数/结果通用卡片容器，限制高度并滚动 */
@@ -451,26 +484,28 @@
   background: var(--vscode-editor-background);
   border: 1px solid var(--vscode-input-border);
   border-radius: 4px;
-  padding: 6px; /* 减少padding */
-  max-height: 180px; /* 减少最大高度 */
-  overflow: auto;    /* 超出滚动 */
-  max-width: 100%;
+  padding: 8px 10px; /* 🎯 增加内边距，使其不那么拥挤 */
+  max-height: 250px; /* 🎯 稍微提高最大高度 */
+  overflow: auto;
+  width: 100%;       /* 🎯 强制撑开 */
+  box-sizing: border-box; /* 🎯 确保 padding 不撑大宽度 */
 }
 
 .params-json > div:first-child {
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--vscode-descriptionForeground);
-  margin-bottom: 4px; /* 减少下边距 */
+  margin-bottom: 4px;
 }
 
 .params-json pre {
   margin: 0;
   font-size: 11px;
-  line-height: 1.3; /* 减少行高 */
+  line-height: 1.4; /* 🎯 增加到 1.4，看起来更精致不拥挤 */
   color: var(--vscode-editor-foreground);
-  white-space: pre-wrap;
-  word-break: break-word;
+  white-space: pre;
+  word-break: normal;
+  font-family: var(--vscode-editor-font-family, 'Cascadia Code', 'Consolas', monospace);
 }
 
 /* 移除响应式布局，保持单列紧凑显示 */
@@ -706,6 +741,36 @@
   padding: 6px 12px;
   background: var(--vscode-tab-inactiveBackground);
   border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+/* 🎯 转到后台按钮样式 */
+.move-to-background-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--vscode-button-foreground, #ffffff);
+  background: var(--vscode-button-secondaryBackground, #3a3d41);
+  border: none;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.move-to-background-btn:hover {
+  background: var(--vscode-button-secondaryHoverBackground, #45494e);
+  color: var(--vscode-button-foreground, #ffffff);
+}
+
+.move-to-background-btn:active {
+  transform: scale(0.97);
+}
+
+.move-to-background-btn svg {
+  flex-shrink: 0;
 }
 
 .live-output-label {

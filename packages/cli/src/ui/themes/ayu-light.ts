@@ -22,6 +22,7 @@ const ayuLightColors: ColorsTheme = {
   DiffRemoved: '#FFCCCC',
   Comment: '#ABADB1',
   Gray: '#a6aaaf',
+  InfoColor: '#8B7355', // Muted brown/amber for light theme
   GradientColors: ['#399ee6', '#86b300'],
 };
 

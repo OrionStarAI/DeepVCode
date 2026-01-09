@@ -437,6 +437,39 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
     updateOutput?: (output: string) => void,
   ): Promise<ToolResult> {
     const strippedCommand = stripShellWrapper(params.command);
+
+    // 🚨 保护措施：防止在CLI环境下杀死所有node.exe进程
+    // 检测危险的批量结束nodejs进程的命令（仅在非Bun运行时环境下）
+    const isBunRuntime = typeof (globalThis as any).Bun !== 'undefined';
+    const isVSCode = process.env.VSCODE_PLUGIN === '1';
+
+    if (!isBunRuntime && !isVSCode) {
+      const isWindows = os.platform() === 'win32';
+      const dangerousPatterns = isWindows
+        ? [
+            /taskkill.*\/IM\s+node\.exe/i,
+            /taskkill.*\/F.*\/IM\s+node\.exe/i,
+          ]
+        : [
+            /killall\s+node/i,
+            /pkill\s+node/i,
+            /kill\s+-9.*\$\(pgrep\s+node\)/i,
+          ];
+
+      const isDangerous = dangerousPatterns.some(pattern => pattern.test(strippedCommand));
+
+      if (isDangerous) {
+        const errorMsg = isWindows
+          ? t('shell.error.dangerous_node_kill_windows')
+          : t('shell.error.dangerous_node_kill_unix');
+
+        return {
+          llmContent: errorMsg,
+          returnDisplay: errorMsg,
+        };
+      }
+    }
+
     const validationError = this.validateToolParams({
       ...params,
       command: strippedCommand,
@@ -713,7 +746,7 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
     // If background mode was triggered, return early with a special message
     if (backgroundModeTriggered) {
       return {
-        llmContent: `Command "${params.command}" has been moved to the background (Task ID: ${backgroundTaskId}). The user can continue working while it runs. The task will complete in the background and results can be checked later. DO NOT report this as completed - it is still running.`,
+        llmContent: `[DeepV Code - SYSTEM NOTIFICATION] Command "${params.command}" has been moved to background by user (Task ID: ${backgroundTaskId}). ⚠️ IMPORTANT: DO NOT report this as completed and DO NOT re-execute this command - it is still running. The system will automatically notify you with the results when it finishes.`,
         returnDisplay: `Running in background...`,
         isBackgroundTask: true,
         backgroundTaskId,

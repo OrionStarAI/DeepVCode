@@ -28,7 +28,7 @@ import { NanoBananaDialog } from './NanoBananaDialog';
 import { NanoBananaIcon } from './NanoBananaIcon';
 import { CompressionConfirmationDialog } from './CompressionConfirmationDialog';
 import { CompressionConfirmationRequest } from '../services/webViewModelService';
-import { SessionType } from '../../../src/constants/sessionConstants';
+import { SessionType, SessionStatus } from '../../../src/constants/sessionConstants';
 import { SessionInfo } from '../../../src/types/sessionTypes';
 import { MessageContent } from '../types/index';
 import { createTextMessageContent, messageContentToString } from '../utils/messageContentUtils';
@@ -138,6 +138,7 @@ export const MultiSessionApp: React.FC = () => {
     removeMessageFromQueue,
     updateMessageQueue,
     updateRollbackableIds, // 🎯 添加可回滚ID更新函数
+    updateSessionStatus, // 🎯 添加更新Session状态的函数
     restoreSessionMessages, // 🎯 添加恢复消息的函数
     forceUpdateSessionMessages, // 🎯 添加强制更新消息的函数
     setLastAcceptedMessageId, // 🎯 文件变更跟踪
@@ -820,6 +821,9 @@ export const MultiSessionApp: React.FC = () => {
         return; // 不显示错误消息，直接跳转到登录页
       }
 
+      // 🎯 设置Session状态为错误
+      updateSessionStatus(sessionId, SessionStatus.ERROR);
+
       const errorMessage: ChatMessage = {
         id: `error-${Date.now()}`,
         type: 'system',
@@ -949,6 +953,9 @@ export const MultiSessionApp: React.FC = () => {
         result: undefined
       };
 
+      // 🎯 将 Session 状态设置为 CONFIRMING，页签显示红色问号闪烁
+      updateSessionStatus(sessionId, SessionStatus.CONFIRMING);
+
       showConfirmationFor(sessionId, confirmationTool);
     });
 
@@ -1069,6 +1076,40 @@ export const MultiSessionApp: React.FC = () => {
       console.log('📝 [Memory] Received memory files update:', payload);
       setMemoryFilePaths(payload.filePaths);
       setMemoryFileCount(payload.fileCount);
+    });
+
+    // 🎯 监听后台任务结果（在聊天界面显示任务输出）
+    messageService.onExtensionMessage('background_task_result', (payload: any) => {
+      console.log('🎯 [Background] Received task result:', payload);
+      const { sessionId, taskId, command, status, exitCode, output } = payload;
+
+      // 创建一个工具类型的消息来显示任务输出
+      const shortId = taskId?.substring(0, 7) || 'unknown';
+      const isSuccess = status === 'completed' && exitCode === 0;
+      const toolMessage: ChatMessage = {
+        id: `bg-result-${taskId}-${Date.now()}`,
+        type: 'tool',
+        content: [],
+        timestamp: Date.now(),
+        associatedToolCalls: [{
+          id: `bg-${taskId}`,
+          toolName: 'background_task_output',
+          displayName: t('backgroundTasks.outputTitle', {}, 'Background Task Output'),
+          parameters: { command },
+          status: isSuccess ? ToolCallStatus.Success : ToolCallStatus.Error,
+          result: {
+            success: isSuccess,
+            data: output || `Exit code: ${exitCode ?? 'unknown'}`,
+            executionTime: 0,
+            toolName: 'background_task_output',
+          },
+          description: `- ${shortId}`,
+        }],
+      };
+
+      console.log('🎯 [Background] Adding tool message to session:', sessionId, toolMessage);
+      addMessage(sessionId, toolMessage);
+      console.log('🎯 [Background] Tool message added');
     });
 
     return () => {
@@ -1521,6 +1562,9 @@ User question: ${contentStr}`;
 
     // 🎯 工具状态更新现在通过updateMessageToolCalls处理
     // 这里只需要发送响应，状态更新会通过onToolCallsUpdate事件处理
+
+    // 🎯 确认完成后，将 Session 状态改回 PROCESSING（绿色闪烁）
+    updateSessionStatus(currentSession.info.id, SessionStatus.PROCESSING);
 
     hideConfirmationDialog();
   };
@@ -2182,7 +2226,7 @@ User question: ${contentStr}`;
 
       {/* 🎯 重命名对话框 */}
       {renameDialog.isOpen && (
-        <div className="rename-dialog-overlay" style={{
+        <div className="rename-dialog-overlay" onClick={() => setRenameDialog({ ...renameDialog, isOpen: false })} style={{
           position: 'fixed',
           top: 0,
           left: 0,
@@ -2194,7 +2238,7 @@ User question: ${contentStr}`;
           alignItems: 'center',
           zIndex: 1000
         }}>
-          <div className="rename-dialog" style={{
+          <div className="rename-dialog" onClick={(e) => e.stopPropagation()} style={{
             backgroundColor: 'var(--vscode-editor-background)',
             border: '1px solid var(--vscode-widget-border)',
             padding: '20px',

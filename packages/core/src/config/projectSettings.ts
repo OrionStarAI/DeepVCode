@@ -10,12 +10,20 @@ import { ApprovalMode } from './config.js';
 import { HookEventName, HookDefinition } from '../hooks/types.js';
 
 /**
+ * Agent 风格类型
+ * - default: Claude-style，强调计划、解释、todo 管理（默认）
+ * - codex: Codex-style，快速确认后静默执行，减少过程输出
+ */
+export type AgentStyle = 'default' | 'codex';
+
+/**
  * 项目级配置接口
  */
 export interface ProjectSettings {
   yolo?: boolean;  // YOLO模式开关
   autoTrimTrailingSpaces?: boolean;  // 自动删除行末空格（适用于C++、Python等源代码）
   hooks?: { [K in HookEventName]?: HookDefinition[] };  // Hook配置
+  agentStyle?: AgentStyle;  // Agent 风格：default（Claude）或 codex
 }
 
 
@@ -78,6 +86,7 @@ export class ProjectSettingsManager {
         yolo: typeof parsed.yolo === 'boolean' ? parsed.yolo : undefined,
         autoTrimTrailingSpaces: typeof parsed.autoTrimTrailingSpaces === 'boolean' ? parsed.autoTrimTrailingSpaces : undefined,
         hooks: parsed.hooks ? JSON.parse(JSON.stringify(parsed.hooks)) : undefined,
+        agentStyle: (parsed.agentStyle === 'default' || parsed.agentStyle === 'codex') ? parsed.agentStyle : undefined,
       };
 
       return this.settings;
@@ -163,5 +172,23 @@ export class ProjectSettingsManager {
    */
   hasYoloOverride(): boolean {
     return typeof this.settings.yolo === 'boolean';
+  }
+
+  /**
+   * 获取当前 Agent 风格
+   */
+  getAgentStyle(): AgentStyle {
+    return this.settings.agentStyle ?? 'default';
+  }
+
+  /**
+   * 设置 Agent 风格
+   */
+  setAgentStyle(style: AgentStyle): void {
+    const newSettings = {
+      ...this.settings,
+      agentStyle: style,
+    };
+    this.save(newSettings);
   }
 }

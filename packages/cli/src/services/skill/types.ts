@@ -131,16 +131,25 @@ export interface Plugin {
 
 /**
  * Plugin 来源定义
+ * 支持官方文档中的所有 source 格式
  */
 export type PluginSource =
-  | string
+  | string  // 相对路径: "./plugin" 或简写: "github:owner/repo"
   | {
       source: 'github';
-      repo: string;
+      repo: string;       // owner/repo
+      ref?: string;       // 分支、tag 或 commit hash
+      path?: string;      // 仓库内的子目录路径
+    }
+  | {
+      source: 'git';
+      url: string;        // Git 仓库 URL
+      ref?: string;       // 分支、tag 或 commit hash
+      path?: string;      // 仓库内的子目录路径
     }
   | {
       source: 'url';
-      url: string;
+      url: string;        // 直接 URL (保留用于未来支持 tarball)
     };
 
 /**
@@ -344,14 +353,18 @@ export interface InstalledPluginInfo {
   description?: string;
   /** Marketplace ID */
   marketplaceId: string;
+  /** 本地安装路径（绝对路径） */
+  installPath?: string;
   /** 安装时间 */
   installedAt: string;
   /** 启用状态 */
   enabled: boolean;
-  /** 版本 */
+  /** 版本（默认 "unknown"） */
   version?: string;
   /** Skills 数量 */
   skillCount: number;
+  /** 是否为本地插件（true = 本地路径，false = Git 克隆） */
+  isLocal?: boolean;
 }
 
 // ============================================================================

@@ -29,6 +29,7 @@ describe('validateCustomTheme', () => {
     DiffRemoved: '#FF0000',
     Comment: '#808080',
     Gray: '#808080',
+    InfoColor: '#B8A77E',
   };
 
   it('should return isValid: true for a valid theme', () => {
@@ -130,6 +131,7 @@ describe('themeManager.loadCustomThemes', () => {
     AccentRed: '#F00',
     Comment: '#888',
     Gray: '#888',
+    InfoColor: '#B8A77E',
   };
 
   it('should use values from DEFAULT_THEME when DiffAdded and DiffRemoved are not provided', () => {

@@ -3,13 +3,14 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { ChevronDown, ChevronRight, Circle, Disc, RotateCcw, CheckCircle, XCircle, AlertTriangle, Square, HelpCircle, Info, Check, X, Zap, ShieldAlert, Repeat } from 'lucide-react';
+import { ChevronDown, ChevronRight, Circle, Disc, RotateCcw, CheckCircle, XCircle, AlertTriangle, Square, HelpCircle, Info, Check, X, Zap, ShieldAlert, Repeat, PlayCircle } from 'lucide-react';
 import { ToolCall } from '../types';
 import { useTranslation } from '../hooks/useTranslation';
 import { TOOL_CALL_STATUS } from '../constants/toolConstants';
 import { TodoDisplayRenderer } from './renderers/TodoDisplayRenderer';
 import { SubAgentDisplayRenderer } from './renderers/SubAgentDisplayRenderer';
 import { DiffRenderer } from './renderers/DiffRenderer';
+import { BackgroundTaskOutputRenderer } from './renderers/BackgroundTaskOutputRenderer';
 import './renderers/Renderers.css';
 
 // 结果类型检测函数
@@ -22,6 +23,7 @@ const getResultType = (result: any): string | null => {
   if (dataType === 'todo_display') return 'todo_display';
   if (dataType === 'subagent_display' || dataType === 'subagent_update') return 'subagent_display';
   if (result?.fileDiff || result?.data?.fileDiff) return 'diff_display';
+  if (result?.toolName === 'background_task_output' || result?.data?.toolName === 'background_task_output') return 'background_task_output';
 
   return null;
 };
@@ -100,6 +102,13 @@ const renderResult = (result: any): React.ReactNode => {
     return <DiffRenderer data={diffData} simplified={false} />;
   }
 
+  // 🎯 后台任务输出显示
+  if (result?.toolName === 'background_task_output' || result?.data?.toolName === 'background_task_output') {
+    console.log('🎯 [renderResult] Background task output detected');
+    // 直接传递 result，渲染器内部会处理 data 字段
+    return <BackgroundTaskOutputRenderer data={result} />;
+  }
+
   // 其他对象结果 - 只显示data字段，使用横向滚动
   console.log('🎯 [renderResult] Fallback to JSON display');
   const dataToShow = result?.data || result;
@@ -145,7 +154,8 @@ const ToolCallItem: React.FC<{
   isExpanded: boolean;
   onToggleExpand: () => void;
   onConfirm: (confirmed: boolean, userInput?: string) => void;
-}> = ({ toolCall, isExpanded, onToggleExpand, onConfirm }) => {
+  onMoveToBackground?: (toolCallId: string) => void;
+}> = ({ toolCall, isExpanded, onToggleExpand, onConfirm, onMoveToBackground }) => {
   const { t } = useTranslation();
   const [userInput, setUserInput] = useState('');
   const liveOutputRef = useRef<HTMLDivElement>(null);
@@ -478,6 +488,10 @@ const ToolCallItem: React.FC<{
 
   const hasMultipleParams = Object.keys(toolCall.parameters).length > 2;
 
+  // 🎯 检查是否是特殊渲染结果（用于样式定制）
+  const resultType = getResultType(toolCall.result);
+  const isSpecialResult = resultType !== null;
+
   // 🎯 如果是已完成的todo结果，在流式历史中隐藏它（因为现在有了全局悬挂的Todo面板）
   if (isTodoResultCompleted()) {
     return null;
@@ -591,6 +605,15 @@ const ToolCallItem: React.FC<{
         </div>
       )}
 
+      {/* 🎯 后台运行状态提示 - 参考 CLI 实现 */}
+      {toolCall.status === TOOL_CALL_STATUS.BACKGROUND_RUNNING && (
+        <div className="tool-background-running-hint">
+          <span className="background-hint-text">
+            {t('backgroundTasks.runningInBackground', {}, '↓ Running in background')}
+          </span>
+        </div>
+      )}
+
       {/* 🎯 实时输出区域 - 只在工具执行中且有实时输出时显示 */}
       {toolCall.status === TOOL_CALL_STATUS.EXECUTING && toolCall.liveOutput && (
         <div className="tool-live-output">
@@ -598,6 +621,20 @@ const ToolCallItem: React.FC<{
             <span className="live-output-label">
               {toolCall.status === TOOL_CALL_STATUS.EXECUTING ? t('tools.status.executing', {}, '🔄 Executing...') : t('tools.output', {}, '📄 Output')}
             </span>
+            {/* 🎯 转到后台按钮 - 仅对 shell 命令类工具显示 */}
+            {onMoveToBackground && (toolCall.toolName === 'run_shell_command' || toolCall.toolName === 'bash' || toolCall.toolName === 'terminal') && (
+              <button
+                className="move-to-background-btn"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onMoveToBackground(toolCall.id);
+                }}
+                title={t('backgroundTasks.moveToBackground', {}, 'Move to background')}
+              >
+                <PlayCircle size={12} />
+                <span>{t('backgroundTasks.moveToBackground', {}, 'Move to background')}</span>
+              </button>
+            )}
           </div>
           <div className="live-output-content" ref={liveOutputRef}>
             {(() => {
@@ -635,7 +672,7 @@ const ToolCallItem: React.FC<{
         if (isSpecialResult) {
           return (
             <div className="tool-expanded-params">
-              <div className="params-json">
+              <div className="params-json compact-result">
                 {toolCall.result ? (
                   renderResult(toolCall.result)
                 ) : (
@@ -688,6 +725,9 @@ const getStatusIcon = (status: string) => {
     case TOOL_CALL_STATUS.EXECUTING:
       // 🎯 闪烁的橙黄色实心小圆点
       return <span className="status-icon executing flashing" style={dotStyle}>●</span>;
+    case TOOL_CALL_STATUS.BACKGROUND_RUNNING:
+      // 🎯 黄色三角形 - 后台运行中（参考 CLI 的 ▸）
+      return <span className="status-icon background-running" style={dotStyle}>▸</span>;
     case TOOL_CALL_STATUS.SUCCESS:
       // 🎯 绿色实心小圆点
       return <span className="status-icon success" style={dotStyle}>●</span>;
@@ -708,10 +748,35 @@ interface ToolCallListProps {
   toolCalls: ToolCall[];
   onConfirm?: (toolCallId: string, confirmed: boolean, userInput?: string, outcome?: string) => void;
   showCompact?: boolean;
+  onMoveToBackground?: (toolCallId: string) => void;
 }
 
-export const ToolCallList: React.FC<ToolCallListProps> = ({ toolCalls, onConfirm, showCompact = false }) => {
-  const [expandedTools, setExpandedTools] = useState<Set<string>>(new Set());
+export const ToolCallList: React.FC<ToolCallListProps> = ({ toolCalls, onConfirm, showCompact = false, onMoveToBackground }) => {
+  // 🎯 初始化时，background_task_output 类型的工具默认展开
+  const getDefaultExpandedTools = () => {
+    const expanded = new Set<string>();
+    toolCalls?.forEach(tc => {
+      if (tc.toolName === 'background_task_output') {
+        expanded.add(tc.id);
+      }
+    });
+    return expanded;
+  };
+
+  const [expandedTools, setExpandedTools] = useState<Set<string>>(getDefaultExpandedTools);
+
+  // 🎯 当有新的 background_task_output 工具时，自动展开
+  React.useEffect(() => {
+    if (!toolCalls) return;
+    const bgTools = toolCalls.filter(tc => tc.toolName === 'background_task_output');
+    if (bgTools.length > 0) {
+      setExpandedTools(prev => {
+        const newSet = new Set(prev);
+        bgTools.forEach(tc => newSet.add(tc.id));
+        return newSet;
+      });
+    }
+  }, [toolCalls]);
 
   if (!toolCalls || toolCalls.length === 0) {
     console.log('🔨 [ToolCallList] No tool calls to render');
@@ -736,15 +801,21 @@ export const ToolCallList: React.FC<ToolCallListProps> = ({ toolCalls, onConfirm
 
   return (
     <div className="tool-call-list">
-      {toolCalls.map((toolCall) => (
-        <ToolCallItem
-          key={toolCall.id}
-          toolCall={toolCall}
-          isExpanded={expandedTools.has(toolCall.id)}
-          onToggleExpand={() => toggleExpand(toolCall.id)}
-          onConfirm={handleConfirm(toolCall.id)}
-        />
-      ))}
+      {toolCalls.map((toolCall) => {
+        const resultType = getResultType(toolCall.result);
+        const isSpecialResult = resultType !== null;
+
+        return (
+          <ToolCallItem
+            key={toolCall.id}
+            toolCall={toolCall}
+            isExpanded={expandedTools.has(toolCall.id)}
+            onToggleExpand={() => toggleExpand(toolCall.id)}
+            onConfirm={handleConfirm(toolCall.id)}
+            onMoveToBackground={onMoveToBackground}
+          />
+        );
+      })}
     </div>
   );
 };

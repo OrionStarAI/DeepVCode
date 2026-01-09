@@ -394,65 +394,92 @@ describe('parseAndFormatApiError', () => {
     });
   });
 
-  describe('Quota Limit Exceeded (429) Error Handling', () => {
-    it('should format a 429 API error with friendly message in English', () => {
+  describe('Quota Limit Exceeded (402) Error Handling', () => {
+    it('should format a 402 API error with friendly message in English', () => {
       const errorMessage =
-        'got status: 429 Too Many Requests. {"error":{"code":429,"message":"Insufficient credits in all available quotas","status":"RESOURCE_EXHAUSTED"}}';
+        'got status: 402 Payment Required. {"error":{"code":402,"message":"Quota limit exceeded","status":"PAYMENT_REQUIRED"}}';
 
       const result = parseAndFormatApiError(errorMessage);
 
-      expect(result).toContain('⚡ Service Quota Limit Exceeded (429)');
+      expect(result).toContain('⚡ Service Quota Limit Exceeded (402)');
       expect(result).toContain('Your account has reached its usage quota');
       expect(result).toContain('Upgrade your plan');
       expect(result).toContain('https://dvcode.deepvlab.ai/');
     });
 
-    it('should format a 429 API error with friendly message in Chinese', () => {
+    it('should format a 402 API error with friendly message in Chinese', () => {
       // 模拟中文环境
       vi.mocked(isChineseLocale).mockReturnValueOnce(true);
 
       const errorMessage =
-        'got status: 429 Too Many Requests. {"error":{"code":429,"message":"Insufficient credits in all available quotas","status":"RESOURCE_EXHAUSTED"}}';
+        'got status: 402 Payment Required. {"error":{"code":402,"message":"Quota limit exceeded","status":"PAYMENT_REQUIRED"}}';
 
       const result = parseAndFormatApiError(errorMessage);
 
-      expect(result).toContain('⚡ 服务配额已达上限 (429)');
+      expect(result).toContain('⚡ 服务配额已达上限 (402)');
       expect(result).toContain('您账户的可用额度已用尽');
       expect(result).toContain('升级您的套餐');
       expect(result).toContain('https://dvcode.deepvlab.ai/');
     });
 
-    it('should format a 429 StructuredError with friendly message', () => {
+    it('should format a 402 StructuredError with friendly message', () => {
       const error: StructuredError = {
-        message: 'Insufficient balance. Available: 0, Needed: 5',
-        status: 429,
+        message: 'Quota limit exceeded. Available: 0, Needed: 5',
+        status: 402,
       };
 
       const result = parseAndFormatApiError(error);
 
-      expect(result).toContain('⚡ Service Quota Limit Exceeded (429)');
+      expect(result).toContain('⚡ Service Quota Limit Exceeded (402)');
       expect(result).toContain('Upgrade your plan');
       expect(result).toContain('https://dvcode.deepvlab.ai/');
     });
 
-    it('should extract and display quota details when available in 429 error', () => {
+    it('should extract and display quota details when available in 402 error', () => {
       const errorMessage =
-        'got status: 429 Too Many Requests. {"error":{"code":429,"message":"Insufficient credits. Available: 0.00, Needed: 8.5","status":"RESOURCE_EXHAUSTED"}}';
+        'got status: 402 Payment Required. {"error":{"code":402,"message":"Quota limit exceeded. Available: 0.00, Needed: 8.5","status":"PAYMENT_REQUIRED"}}';
 
       const result = parseAndFormatApiError(errorMessage);
 
-      expect(result).toContain('⚡ Service Quota Limit Exceeded (429)');
+      expect(result).toContain('⚡ Service Quota Limit Exceeded (402)');
       expect(result).toContain('Available: 0.00');
       expect(result).toContain('Needed: 8.5');
     });
 
-    it('should handle 429 error in string format with insufficient credits message', () => {
-      const errorMessage = 'API Error 429: Insufficient credits in all available quotas. Available: 0, Needed: 8.5';
+    it('should handle 402 error in string format with quota limit exceeded message', () => {
+      const errorMessage = 'API Error 402: Quota limit exceeded. Available: 0, Needed: 8.5';
 
       const result = parseAndFormatApiError(errorMessage);
 
-      expect(result).toContain('⚡ Service Quota Limit Exceeded (429)');
+      expect(result).toContain('⚡ Service Quota Limit Exceeded (402)');
       expect(result).toContain('Upgrade your plan');
+    });
+
+    it('should format a 402 No quota configuration error in English', () => {
+      const errorMessage =
+        'got status: 402 Payment Required. {"error":{"code":402,"message":"No quota configuration","status":"PAYMENT_REQUIRED"}}';
+
+      const result = parseAndFormatApiError(errorMessage);
+
+      expect(result).toContain('🚫');
+      expect(result).toContain('402');
+      expect(result).toContain('Credits');
+      expect(result).toContain('https://dvcode.deepvlab.ai/');
+    });
+
+    it('should format a 402 No quota configuration error in Chinese', () => {
+      // 模拟中文环境
+      vi.mocked(isChineseLocale).mockReturnValueOnce(true);
+
+      const errorMessage =
+        'got status: 402 Payment Required. {"error":{"code":402,"message":"No quota configuration","status":"PAYMENT_REQUIRED"}}';
+
+      const result = parseAndFormatApiError(errorMessage);
+
+      expect(result).toContain('🚫');
+      expect(result).toContain('402');
+      expect(result).toContain('Credit');
+      expect(result).toContain('https://dvcode.deepvlab.ai/');
     });
   });
 

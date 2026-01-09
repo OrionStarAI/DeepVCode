@@ -22,6 +22,7 @@ const noColorColorsTheme: ColorsTheme = {
   DiffRemoved: '',
   Comment: '',
   Gray: '',
+  InfoColor: '', // No color for info messages
 };
 
 export const NoColorTheme: Theme = new Theme(

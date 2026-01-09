@@ -254,20 +254,34 @@ export class AuthServer {
 
       console.log('🔍 [Auth Server] 调用后台接口:', apiUrl);
 
-      const response = await fetch(apiUrl, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'DeepCode-CLI/1.0.0'
-        }
-      });
+      let response;
+      try {
+        response = await fetch(apiUrl, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'DeepCode-CLI/1.0.0'
+          }
+        });
+      } catch (fetchError: any) {
+        // 网络层错误处理
+        console.error('❌ [Auth Server] 网络请求失败:', fetchError.message);
+        throw new Error(this.formatNetworkError(fetchError, 'Checking Feishu login permission'));
+      }
 
       if (!response.ok) {
         console.error('❌ [Auth Server] 后台接口调用失败:', response.status, response.statusText);
         throw new Error(`后台接口调用失败: ${response.status}`);
       }
 
-      const data = await response.json();
+      let data;
+      try {
+        data = await response.json();
+      } catch (jsonError: any) {
+        console.error('❌ [Auth Server] 响应解析失败:', jsonError.message);
+        throw new Error('Server returned an invalid response format. Please try again later.');
+      }
+
       console.log('📋 [Auth Server] 后台接口返回:', data);
 
       // 返回完整的后台数据，包含所有字段
@@ -450,31 +464,32 @@ export class AuthServer {
 
           // 调用后端接口验证猎豹OA
           const proxyServerUrl = process.env.DEEPX_SERVER_URL || 'https://api-code.deepvlab.ai';
-          const jwtResponse = await fetch(`${proxyServerUrl}/auth/jwt/cheetah-login`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'User-Agent': 'DeepCode-CLI/1.0.0'
-            },
-            body: JSON.stringify({
-              email: email,
-              password: password,
-              clientInfo: {
-                platform: process.platform,
-                version: process.version,
-                timestamp: Date.now(),
-                userAgent: 'DeepCode-CLI/1.0.0'
-              }
-            })
-          });
 
-          if (!jwtResponse.ok) {
-            const errorText = await jwtResponse.text();
-            console.error('❌ [Auth Server] 猎豹OA验证失败:', jwtResponse.status, errorText);
+          let jwtResponse;
+          try {
+            jwtResponse = await fetch(`${proxyServerUrl}/auth/jwt/cheetah-login`, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'User-Agent': 'DeepCode-CLI/1.0.0'
+              },
+              body: JSON.stringify({
+                email: email,
+                password: password,
+                clientInfo: {
+                  platform: process.platform,
+                  version: process.version,
+                  timestamp: Date.now(),
+                  userAgent: 'DeepCode-CLI/1.0.0'
+                }
+              })
+            });
+          } catch (fetchError: any) {
+            console.error('❌ [Auth Server] 网络请求失败:', fetchError.message);
 
             const response = {
               success: false,
-              message: '登录失败，请检查您的凭据'
+              message: this.formatNetworkError(fetchError, 'Connecting to authentication server')
             };
 
             res.writeHead(200, {
@@ -485,7 +500,42 @@ export class AuthServer {
             return;
           }
 
-          const jwtData = await jwtResponse.json();
+          if (!jwtResponse.ok) {
+            const errorText = await jwtResponse.text();
+            console.error('❌ [Auth Server] 猎豹OA验证失败:', jwtResponse.status, errorText);
+
+            const response = {
+              success: false,
+              message: 'Login failed. Please check your credentials.'
+            };
+
+            res.writeHead(200, {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*'
+            });
+            res.end(JSON.stringify(response));
+            return;
+          }
+
+          let jwtData;
+          try {
+            jwtData = await jwtResponse.json();
+          } catch (jsonError: any) {
+            console.error('❌ [Auth Server] 响应解析失败:', jsonError.message);
+
+            const response = {
+              success: false,
+              message: 'Server returned an invalid response format. Please try again later.'
+            };
+
+            res.writeHead(200, {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*'
+            });
+            res.end(JSON.stringify(response));
+            return;
+          }
+
           console.log('✅ [Auth Server] 猎豹OA验证成功');
 
           // 保存JWT令牌和用户信息到~/.deepv/目录
@@ -653,13 +703,13 @@ export class AuthServer {
 
       if (!result.success) {
         console.error('❌ [Auth Server] DeepVlab认证失败:', result.error);
-        this.sendErrorResponse(res, result.error || 'DeepVlab认证失败');
+        this.sendErrorResponse(res, result.error || 'DeepVlab authentication failed');
         return;
       }
 
       if (!result.token || !result.user_id) {
         console.error('❌ [Auth Server] DeepVlab认证回调缺少必要参数');
-        this.sendErrorResponse(res, 'DeepVlab认证回调缺少token或user_id参数');
+        this.sendErrorResponse(res, 'Missing token or user_id in DeepVlab authentication callback');
         return;
       }
 
@@ -679,33 +729,48 @@ export class AuthServer {
       const proxyServerUrl = process.env.DEEPX_SERVER_URL || 'https://api-code.deepvlab.ai';
       console.log ('deepvlab交换JWT，proxyServerUrl:', `${proxyServerUrl}/auth/jwt/deepvlab-login`);
 
-      const jwtResponse = await fetch(`${proxyServerUrl}/auth/jwt/deepvlab-login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'DeepCode-CLI/1.0.0'
-        },
-        body: JSON.stringify({
-          plat: 'deepvlab',
-          token: result.token,
-          user_id: result.user_id,
-          clientInfo: {
-            platform: process.platform,
-            version: process.version,
-            timestamp: Date.now(),
-            userAgent: 'DeepCode-CLI/1.0.0'
-          }
-        })
-      });
+      let jwtResponse;
+      try {
+        jwtResponse = await fetch(`${proxyServerUrl}/auth/jwt/deepvlab-login`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'DeepCode-CLI/1.0.0'
+          },
+          body: JSON.stringify({
+            plat: 'deepvlab',
+            token: result.token,
+            user_id: result.user_id,
+            clientInfo: {
+              platform: process.platform,
+              version: process.version,
+              timestamp: Date.now(),
+              userAgent: 'DeepCode-CLI/1.0.0'
+            }
+          })
+        });
+      } catch (fetchError: any) {
+        console.error('❌ [Auth Server] 网络请求失败:', fetchError.message);
+        this.sendErrorResponse(res, this.formatNetworkError(fetchError, 'Connecting to authentication server'));
+        return;
+      }
 
       if (!jwtResponse.ok) {
         const errorText = await jwtResponse.text();
         console.error('❌ [Auth Server] JWT交换失败:', jwtResponse.status, errorText);
-        this.sendErrorResponse(res, `JWT交换失败: ${jwtResponse.status}`);
+        this.sendErrorResponse(res, `Authentication failed (HTTP ${jwtResponse.status}). Please try again later.`);
         return;
       }
 
-      const jwtData = await jwtResponse.json();
+      let jwtData;
+      try {
+        jwtData = await jwtResponse.json();
+      } catch (jsonError: any) {
+        console.error('❌ [Auth Server] JWT响应解析失败:', jsonError.message);
+        this.sendErrorResponse(res, 'Server returned an invalid response format. Please try again later.');
+        return;
+      }
+
       console.log('📋 [Auth Server] JWT交换响应数据:', jwtData);
 
       console.log('✅ [Auth Server] JWT交换成功:', {
@@ -762,13 +827,13 @@ export class AuthServer {
 
       if (error) {
         console.error('❌ [Auth Server] 飞书认证错误:', error);
-        this.sendErrorResponse(res, `飞书认证失败: ${error}`);
+        this.sendErrorResponse(res, `Feishu authentication failed: ${error}`);
         return;
       }
 
       if (!code) {
         console.error('❌ [Auth Server] 缺少授权码');
-        this.sendErrorResponse(res, '飞书认证回调中缺少授权码');
+        this.sendErrorResponse(res, 'Missing authorization code in Feishu authentication callback');
         return;
       }
 
@@ -781,26 +846,38 @@ export class AuthServer {
       const proxyServerUrl = process.env.DEEPX_SERVER_URL || 'https://api-code.deepvlab.ai';
       console.log('飞书token交换，proxyServerUrl:', `${proxyServerUrl}/api/auth/feishu/exchange`);
 
-      const exchangeResponse = await fetch(`${proxyServerUrl}/api/auth/feishu/exchange`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'DeepCode-CLI/1.0.0'
-        },
-        body: JSON.stringify({
-          code: code,
-          redirect_uri: `http://localhost:${this.actualCallbackPort}/callback`
-        })
-      });
-
-      if (!exchangeResponse.ok) {
-        throw new Error(`飞书token交换失败: ${exchangeResponse.status}`);
+      let exchangeResponse;
+      try {
+        exchangeResponse = await fetch(`${proxyServerUrl}/api/auth/feishu/exchange`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'DeepCode-CLI/1.0.0'
+          },
+          body: JSON.stringify({
+            code: code,
+            redirect_uri: `http://localhost:${this.actualCallbackPort}/callback`
+          })
+        });
+      } catch (fetchError: any) {
+        console.error('❌ [Auth Server] 网络请求失败:', fetchError.message);
+        throw new Error(this.formatNetworkError(fetchError, 'Connecting to authentication server'));
       }
 
-      const exchangeData = await exchangeResponse.json();
+      if (!exchangeResponse.ok) {
+        throw new Error(`Feishu token exchange failed (HTTP ${exchangeResponse.status}). Please try again later.`);
+      }
+
+      let exchangeData;
+      try {
+        exchangeData = await exchangeResponse.json();
+      } catch (jsonError: any) {
+        console.error('❌ [Auth Server] 响应解析失败:', jsonError.message);
+        throw new Error('Server returned an invalid response format. Please try again later.');
+      }
 
       if (!exchangeData.success) {
-        throw new Error(`飞书token交换失败: ${exchangeData.error}`);
+        throw new Error(`飞书token交换失败: ${exchangeData.error || '未知错误'}`);
       }
 
       const accessToken = exchangeData.data.accessToken;
@@ -809,31 +886,47 @@ export class AuthServer {
 
       // 调用后端接口交换JWT令牌
       console.log ('飞书交换JWT，proxyServerUrl:', `${proxyServerUrl}/auth/jwt/feishu-login`);
-      const jwtResponse = await fetch(`${proxyServerUrl}/auth/jwt/feishu-login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'DeepCode-CLI/1.0.0'
-        },
-        body: JSON.stringify({
-          feishuAccessToken: accessToken,
-          clientInfo: {
-            platform: process.platform,
-            version: process.version,
-            timestamp: Date.now(),
-            userAgent: 'DeepCode-CLI/1.0.0'
-          }
-        })
-      });
+
+      let jwtResponse;
+      try {
+        jwtResponse = await fetch(`${proxyServerUrl}/auth/jwt/feishu-login`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'DeepCode-CLI/1.0.0'
+          },
+          body: JSON.stringify({
+            feishuAccessToken: accessToken,
+            clientInfo: {
+              platform: process.platform,
+              version: process.version,
+              timestamp: Date.now(),
+              userAgent: 'DeepCode-CLI/1.0.0'
+            }
+          })
+        });
+      } catch (fetchError: any) {
+        console.error('❌ [Auth Server] 网络请求失败:', fetchError.message);
+        this.sendErrorResponse(res, this.formatNetworkError(fetchError, 'Connecting to authentication server'));
+        return;
+      }
 
       if (!jwtResponse.ok) {
         const errorText = await jwtResponse.text();
         console.error('❌ [Auth Server] JWT交换失败:', jwtResponse.status, errorText);
-        this.sendErrorResponse(res, `JWT交换失败: ${jwtResponse.status}`);
+        this.sendErrorResponse(res, `Authentication failed (HTTP ${jwtResponse.status}). Please try again later.`);
         return;
       }
 
-      const jwtData = await jwtResponse.json();
+      let jwtData;
+      try {
+        jwtData = await jwtResponse.json();
+      } catch (jsonError: any) {
+        console.error('❌ [Auth Server] JWT响应解析失败:', jsonError.message);
+        this.sendErrorResponse(res, 'Server returned an invalid response format. Please try again later.');
+        return;
+      }
+
       console.log('📋 [Auth Server] JWT交换响应数据:', jwtData);
 
       console.log('✅ [Auth Server] JWT交换成功33:', {
@@ -950,6 +1043,48 @@ export class AuthServer {
 
     // VSCode终端特殊处理：确保终端状态正确恢复
     this.restoreVSCodeTerminalState();
+  }
+
+  /**
+   * 格式化网络错误为用户友好的提示
+   */
+  private formatNetworkError(error: any, operation: string): string {
+    // TypeError: Invalid URL
+    if (error instanceof TypeError && error.message.includes('Invalid URL')) {
+      return `服务器配置错误，请联系管理员 (错误: ${error.message})`;
+    }
+
+    // TypeError: Only HTTP(S) protocols are supported
+    if (error instanceof TypeError && error.message.includes('Only HTTP(S)')) {
+      return '服务器地址配置错误，请检查环境变量 DEEPX_SERVER_URL';
+    }
+
+    // FetchError with error codes
+    const errorCode = error.code || error.errno;
+
+    if (errorCode === 'ENOTFOUND') {
+      return `无法连接到服务器 (DNS解析失败)，请检查网络连接`;
+    }
+
+    if (errorCode === 'ECONNREFUSED') {
+      return '服务器暂时不可用，请稍后重试';
+    }
+
+    if (errorCode === 'ETIMEDOUT') {
+      return `${operation}超时，请检查网络连接`;
+    }
+
+    if (errorCode === 'ECONNRESET') {
+      return '网络连接中断，请重试';
+    }
+
+    // AbortError (timeout)
+    if (error.name === 'AbortError') {
+      return `${operation}超时，请检查网络连接`;
+    }
+
+    // 默认错误
+    return `${operation}失败: ${error.message || '未知错误'}，请稍后重试`;
   }
 
   /**

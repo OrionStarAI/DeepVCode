@@ -106,11 +106,15 @@ function main() {
   const allArgs = [...args, ...(npmConfigArgv?.original || [])];
 
   const shouldInstall = allArgs.includes('--install');
+  const noVersionBump = allArgs.includes('--no-version-bump');
 
   if (shouldInstall) {
     console.log(chalk.green('🔧 Mode: Full workflow (build + install + test)'));
   } else {
     console.log(chalk.blue('🔧 Mode: Build only (no installation)'));
+  }
+  if (noVersionBump) {
+    console.log(chalk.yellow('⚠️  Version bump: Disabled (using current version)'));
   }
   console.log('');
 
@@ -130,14 +134,24 @@ function main() {
     console.log(chalk.blue(`\n   Current version: ${currentVersion}`));
     progressBar.increment({ step: 'Version check complete' });
 
-    progressBar.update(1, { step: '📈 Step 2: Auto-incrementing version number' });
-    console.log(chalk.blue('\n   Description: Updating root directory and all sub-project version numbers (patch +1)'));
-    const newVersion = incrementPatchVersion(currentVersion);
-    updateRootPackageVersion(newVersion);
-    console.log(chalk.green(`   ✅ Root directory version updated: ${currentVersion} → ${newVersion}`));
-    updateAllPackageVersions(newVersion);
-    console.log(chalk.blue(`   📦 Will generate file: deepv-code-${newVersion}.tgz`));
-    progressBar.increment({ step: 'Version increment complete' });
+    let newVersion;
+    if (noVersionBump) {
+      progressBar.update(1, { step: '📌 Step 2: Using current version (no bump)' });
+      console.log(chalk.yellow('\n   Description: Skipping version increment (--no-version-bump flag set)'));
+      newVersion = currentVersion;
+      console.log(chalk.blue(`   📦 Will generate file: deepv-code-${newVersion}.tgz`));
+      console.log(chalk.cyan('   ℹ️  Version remains: ${newVersion}'));
+      progressBar.increment({ step: 'Version check complete (no bump)' });
+    } else {
+      progressBar.update(1, { step: '📈 Step 2: Auto-incrementing version number' });
+      console.log(chalk.blue('\n   Description: Updating root directory and all sub-project version numbers (patch +1)'));
+      newVersion = incrementPatchVersion(currentVersion);
+      updateRootPackageVersion(newVersion);
+      console.log(chalk.green(`   ✅ Root directory version updated: ${currentVersion} → ${newVersion}`));
+      updateAllPackageVersions(newVersion);
+      console.log(chalk.blue(`   📦 Will generate file: deepv-code-${newVersion}.tgz`));
+      progressBar.increment({ step: 'Version increment complete' });
+    }
 
     progressBar.update(2, { step: '🔨 Step 3: Building and packaging' });
     console.log(chalk.blue('\n   Description: npm pack will auto-execute all build steps via prepare hook'));
@@ -145,16 +159,16 @@ function main() {
 
     const tgzFileName = `deepv-code-${newVersion}.tgz`;
 
-    // Prepare for packaging: replace README with whitepaper
+    // Prepare for packaging: validate README exists
     const prepareSpinner = ora({
-      text: chalk.cyan('📝 Preparing README for packaging...'),
+      text: chalk.cyan('📝 Checking README for packaging...'),
       spinner: 'dots'
     }).start();
     try {
       run('node scripts/prepare-publish.js', { stdio: 'pipe' });
-      prepareSpinner.succeed(chalk.green('✅ README prepared for packaging'));
+      prepareSpinner.succeed(chalk.green('✅ README check passed'));
     } catch (error) {
-      prepareSpinner.fail(chalk.red('💥 Failed to prepare README!'));
+      prepareSpinner.fail(chalk.red('💥 README check failed!'));
       throw error;
     }
 
@@ -173,16 +187,16 @@ function main() {
       throw error;
     }
 
-    // Restore original README after packaging
+    // Post-packaging cleanup
     const restoreSpinner = ora({
-      text: chalk.cyan('🔄 Restoring original README...'),
+      text: chalk.cyan('🔄 Post-packaging cleanup...'),
       spinner: 'dots'
     }).start();
     try {
       run('node scripts/restore-after-publish.js', { stdio: 'pipe' });
-      restoreSpinner.succeed(chalk.green('✅ Original README restored'));
+      restoreSpinner.succeed(chalk.green('✅ Cleanup completed'));
     } catch (error) {
-      restoreSpinner.warn(chalk.yellow('⚠️  Failed to restore README (will restore manually)'));
+      restoreSpinner.warn(chalk.yellow('⚠️  Cleanup warning (non-critical)'));
     }
 
     // Optional: Global installation
@@ -271,8 +285,9 @@ Usage:
   npm run newpack [options]
 
 Options:
-  --install     Auto global install after packaging
-  --help, -h    Show help information
+  --install          Auto global install after packaging
+  --no-version-bump  Skip version increment (use current version)
+  --help, -h         Show help information
 
 Features:
   ✅ Auto-increment patch version (modify root package.json only)
@@ -281,20 +296,22 @@ Features:
   ✅ Optional global install + auth reset + startup test
 
 Examples:
-  npm run newpack              # Package only, no install
-  npm run newpack:install      # Package and global install (recommended)
-  npm run newpack --install    # Package and global install (compatible)
+  npm run newpack                        # Package only, no install
+  npm run newpack:install                # Package and global install (recommended)
+  npm run newpack --install              # Package and global install (compatible)
+  npm run newpack -- --no-version-bump   # Package without version increment (for CI)
 
 Build Workflow:
-  1. Version auto-increment (patch +1)
+  1. Version auto-increment (patch +1) - can be skipped with --no-version-bump
   2. npm pack (auto-executes all build steps via prepare hook)
      - prepare hook auto-executes: npm run bundle
      - bundle includes: generate + build + esbuild + resource copying
 
 Notes:
-  - Version number auto-increments every run
+  - Version number auto-increments by default (unless --no-version-bump is used)
   - npm pack auto-executes build via prepare hook, avoiding duplicate builds
   - Using --install will auto-uninstall old version and install new one
+  - Use --no-version-bump for CI/CD environments where version is managed externally
   - Generated tgz file can be used for manual installation or publishing
 `));
   process.exit(0);

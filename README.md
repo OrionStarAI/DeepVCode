@@ -1,400 +1,1060 @@
-# DeepV Code 白皮书
+<div align="center">
 
-## 📦 快速安装 (Quick Installation)
+# 🚀 DeepV Code
 
-使用全局安装 DeepV Code CLI，获得 `dvcode` 命令：
+### **AI 驱动的智能编程助手**
 
-**推荐：npm 全局安装**
+*赋能开发者，加速创新*
+
+<br>
+
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![Node.js](https://img.shields.io/badge/Node.js-20%2B-43853D.svg?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0%2B-3178C6.svg?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![npm](https://img.shields.io/badge/npm-deepv--code-CB3837.svg?logo=npm)](https://www.npmjs.com/package/deepv-code)
+[![VS Code](https://img.shields.io/badge/VS%20Code-Extension-007ACC.svg?logo=visual-studio-code)](https://code.visualstudio.com/)
+
+<br>
+
+[English](./README_EN.md) | **简体中文**
+
+<br>
+
+<!-- 如果有演示 GIF，取消下面这行注释 -->
+<!-- <img src="docs/assets/demo.gif" alt="DeepV Code Demo" width="800"> -->
+
+</div>
+
+---
+
+## 📖 目录
+
+- [项目简介](#-项目简介)
+- [为什么选择 DeepV Code](#-为什么选择-deepv-code)
+- [核心特性](#-核心特性)
+- [快速安装](#-快速安装)
+- [快速开始](#-快速开始)
+- [CLI 命令参考](#-cli-命令参考)
+- [交互式斜杠命令](#-交互式斜杠命令)
+- [项目架构](#️-项目架构)
+- [VS Code 扩展](#-vs-code-扩展)
+- [内置工具系统](#️-内置工具系统)
+- [MCP 协议支持](#-mcp-协议支持)
+- [Hooks 钩子机制](#-hooks-钩子机制)
+- [配置文件](#️-配置文件)
+- [开发指南](#-开发指南)
+- [常见问题](#-常见问题)
+- [贡献指南](#-贡献指南)
+- [路线图](#️-路线图)
+- [许可证](#-许可证)
+- [相关链接](#-相关链接)
+
+---
+
+## ✨ 项目简介
+
+**DeepV Code** 是一款革命性的 AI 驱动智能编程助手，通过深度整合人工智能技术，全面提升软件开发的效率、质量和创新能力。
+
+不同于传统的代码补全工具，DeepV Code 是一个能够**理解整个项目上下文**、**自主编排工具完成复杂任务**的智能代理（Agent）。它将开发者从繁琐重复的工作中解放出来，让你专注于更高层次的创新和问题解决。
+
+### 💡 DeepV Code 能做什么？
+
+```
+👤 你：帮我分析这个项目的架构，找出性能瓶颈，并给出优化方案
+
+🤖 DeepV Code：
+   ├── 📂 扫描项目结构，理解模块依赖
+   ├── 🔍 分析代码热点和复杂度
+   ├── 📊 识别潜在的性能问题
+   ├── 💡 生成优化建议和重构方案
+   └── ✏️ 自动应用修改（经你确认后）
+```
+
+---
+
+## 🌟 为什么选择 DeepV Code
+
+<table>
+<tr>
+<td width="50%">
+
+### 🎯 与传统 AI 编码助手的区别
+
+| 特性 | 传统工具 | DeepV Code |
+|:---:|:---:|:---:|
+| 上下文范围 | 单文件 | **整个项目** |
+| 交互方式 | 被动补全 | **主动代理** |
+| 任务复杂度 | 简单补全 | **复杂工作流** |
+| 工具调用 | 无 | **Shell/文件/Web** |
+| 会话管理 | 无 | **持久化会话** |
+| 可扩展性 | 受限 | **MCP/Hooks/Skills** |
+
+</td>
+<td width="50%">
+
+### 🚀 核心优势
+
+- **🧠 深度理解** - 通过 MCP 协议构建完整项目认知
+- **🛠️ 自主执行** - AI 可调用工具完成实际操作
+- **🔄 持续对话** - 会话保存/恢复，上下文不丢失
+- **🎨 多端支持** - CLI + VS Code 插件
+- **🔌 高度可扩展** - Hooks、Skills、MCP 服务器
+- **🔒 安全可控** - 敏感操作需用户确认
+
+</td>
+</tr>
+</table>
+
+---
+
+## 🎯 核心特性
+
+### 🧠 AI 驱动的代码生成与重构
+
+- **智能代码生成** - 根据自然语言描述生成完整的函数、类、模块甚至整个应用
+- **代码重构建议** - 识别代码异味，提供优化方案，自动统一代码风格
+- **Bug 智能修复** - 分析错误堆栈，定位问题根源，生成修复代码
+- **多语言支持** - TypeScript、JavaScript、Python、Go、Rust、Java 等主流语言
+
+### 🔍 智能调试与问题解决
+
+- **错误日志分析** - 深入解析错误信息，快速定位问题
+- **堆栈追踪诊断** - 理解调用链路，找出异常根因
+- **自动修复执行** - 生成修复方案，一键应用（需确认）
+
+### 📦 高级上下文管理 (MCP)
+
+Model Context Protocol (MCP) 是 DeepV Code 的核心创新：
+
+- **全局项目视图** - 理解文件结构、模块依赖、代码语义
+- **跨文件分析** - 追踪函数调用链、类型引用、导入导出
+- **智能上下文选择** - 自动识别与任务相关的文件和代码段
+- **第三方 MCP 服务器** - 接入外部数据源和工具
+
+### 🛠️ 可扩展工具系统
+
+AI 通过工具与外部环境交互，内置丰富工具集：
+
+```
+📁 文件操作    → read_file, write_file, replace, delete_file, glob
+🔍 代码搜索    → grep (ripgrep), read_many_files
+💻 命令执行    → shell (bash/powershell)
+🌐 网络访问    → web_fetch, web_search (Google)
+🧩 MCP 工具    → 调用任意 MCP 服务器提供的工具
+📊 代码分析    → task (启动分析子 Agent)
+📝 任务管理    → todo_write
+💾 记忆系统    → memory (长期记忆)
+```
+
+### 🪝 Hooks 钩子机制
+
+在关键工作流节点注入自定义逻辑：
+
+- **PreToolExecution** - 工具执行前触发
+- **PostToolExecution** - 工具执行后触发
+- **OnSessionStart** - 会话开始时触发
+- **OnSessionEnd** - 会话结束时触发
+
+支持自动化代码检查、格式化、提交前验证等场景。
+
+### 🔄 会话管理
+
+- **会话持久化** - 自动保存对话历史和上下文
+- **会话恢复** - 随时继续之前的工作
+- **历史压缩** - 智能压缩对话历史，节省 Token
+- **检查点恢复** - 文件修改可回滚到之前状态
+
+---
+
+## 📦 快速安装
+
+### 系统要求
+
+- **Node.js** 20.0.0 或更高版本
+- **操作系统** Windows / macOS / Linux
+- **终端** 支持 ANSI 颜色的终端模拟器
+
+### 方式一：npm 全局安装（推荐）
+
 ```bash
+# 使用 npm
 npm install -g deepv-code
-```
 
-或使用 yarn：
-```bash
+# 使用 yarn
 yarn global add deepv-code
-```
 
-或使用 pnpm：
-```bash
+# 使用 pnpm
 pnpm add -g deepv-code
 ```
 
-安装完成后，即可在任何项目目录中使用 `dvcode` 命令启动 AI 助手：
+安装完成后，验证安装：
+
+```bash
+dvcode --version
+```
+
+### 方式二：从源码构建
+
+```bash
+# 1. 克隆仓库
+git clone https://github.com/OrionStarAI/DeepVCode.git
+cd DeepVCode
+
+# 2. 安装依赖
+npm install
+
+# 3. 构建项目
+npm run build
+
+# 4. 本地开发运行
+npm run dev
+
+# 5. (可选) 生产环境打包
+npm run pack:prod
+```
+
+---
+
+## 🚀 快速开始
+
+### 第一步：启动 DeepV Code
+
+在任意项目目录中运行：
+
 ```bash
 dvcode
 ```
 
----
+首次启动会引导你完成身份认证。
 
-### 1. 标题页 (Title Page)
+### 第二步：开始对话
 
-**DeepV Code: AI 驱动的智能软件工程助手**
+```
+┌─────────────────────────────────────────────────────────────┐
+│  🚀 DeepV Code - AI 驱动的智能编程助手                    │
+│─────────────────────────────────────────────────────────────│
+│                                                             │
+│  👋 你好！我是 DeepV Code，你的 AI 编程助手。                  │
+│                                                             │
+│  💡 试试这些命令开始：                                        │
+│     • "分析这个项目的架构"                                    │
+│     • "帮我写一个用户登录的 API"                              │
+│     • "这段代码有什么问题？"                                  │
+│     • /help 查看帮助                                         │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
 
-**副标题:** 赋能开发者，加速创新
+> 你想做什么？
+```
 
-**发布日期:** 2025年10月28日
+### 第三步：与 AI 协作
 
----
+```bash
+# 示例对话
+> 帮我创建一个 Express REST API，包含用户的 CRUD 操作
 
-### 2. 执行摘要 (Executive Summary)
+🤖 好的，我来帮你创建。首先让我了解一下项目结构...
 
-DeepV Code 是一款革命性的 AI 驱动智能软件工程助手，旨在通过深度整合人工智能技术，全面提升软件开发的效率、质量和创新能力。面对现代软件开发日益增长的复杂性、技术栈多样性以及传统工具的局限性，DeepV Code 提供了一套创新解决方案。它通过智能代码生成、高级上下文管理（MCP）、可扩展工具系统和无缝 IDE 集成，解决了开发效率瓶颈、代码质量管理难度高、知识传递成本大等核心痛点。DeepV Code 的主要优势在于其能够理解整个项目上下文，自主编排工具完成复杂任务，并提供直观的用户体验。本白皮书将深入探讨 DeepV Code 的核心能力、技术架构、关键用例及其为开发者和企业带来的深远价值，展望其在未来软件工程中的领导地位。
+[调用工具: glob] 扫描项目文件...
+[调用工具: read_file] 读取 package.json...
+[调用工具: write_file] 创建 src/routes/users.js...
+[调用工具: write_file] 创建 src/controllers/userController.js...
+[调用工具: shell] 安装依赖 express...
 
----
+✅ 已创建用户 CRUD API，包含以下文件：
+   - src/routes/users.js
+   - src/controllers/userController.js
+   - src/models/User.js
 
-### 3. 引言 (Introduction)
-
-**现代软件开发的挑战:**
-
-当今软件开发领域正经历前所未有的变革，但也面临着诸多挑战。技术栈的爆炸式增长、微服务架构的普及以及持续交付的压力，使得软件系统变得空前复杂。开发者不仅需要掌握多种编程语言和框架，还要应对快速迭代的需求，同时确保代码质量和系统稳定性。传统的开发工具往往局限于单一任务，难以提供跨文件、跨模块的全局视角，导致开发效率瓶颈、代码质量管理难度加大，以及新成员入职和知识传递成本居高不下。这些挑战共同构成了阻碍创新和加速产品上市的巨大障碍。
-
-**DeepV Code 的诞生:**
-
-DeepV Code 正是在这样的背景下应运而生，作为应对这些挑战的创新解决方案。它不仅仅是一个代码助手，更是一个能够理解、学习和自主行动的智能软件工程伙伴。DeepV Code 旨在通过深度融合最前沿的 AI 技术，重新定义软件开发范式，将开发者从繁琐重复的工作中解放出来，使其能够专注于更高层次的创新和问题解决。
-
----
-
-### 4. DeepV Code: 核心能力与创新 (Core Capabilities & Innovation)
-
-#### 4.1 AI 驱动的代码生成与重构:
-
-DeepV Code 能够提供超越传统智能感知的代码生成能力。它不仅能进行智能代码补全，还能根据自然语言描述或现有代码上下文，生成完整的函数、类或模块。在代码重构方面，DeepV Code 能识别代码异味，提供优化建议，自动统一代码风格，并协助定位和修复潜在 Bug，显著提升代码质量和可维护性。它支持主流的编程语言和框架，确保在多样化的开发环境中都能发挥作用。
-
-#### 4.2 智能调试与问题解决:
-
-DeepV Code 具备强大的智能调试能力。它能深入分析错误日志、堆栈跟踪和运行时行为，快速诊断问题根源。更进一步，DeepV Code 不仅提供详细的修复方案，甚至能在用户确认后自动执行操作，大幅减少开发者在调试上花费的时间，显著提升问题解决效率。
-
-#### 4.3 高级上下文管理 (MCP - Model Context Protocol):
-
-DeepV Code 的核心创新之一是其高级上下文管理能力，通过 Model Context Protocol (MCP) 实现。MCP 使 AI 能够超越单文件或单函数的理解范畴，构建对整个项目结构、文件依赖关系、代码语义和业务逻辑的全面认知。这种深度理解使得 AI 能够处理跨文件、跨模块的复杂任务，例如理解一个功能模块的完整实现、分析系统级性能瓶颈或进行大规模架构重构。MCP 确保了 AI 决策的准确性和一致性，使其能够像经验丰富的工程师一样思考和行动。
-
-#### 4.4 可扩展的工具系统 (Extensible Tool System):
-
-DeepV Code 的 AI 并非孤立存在，它通过一个高度可扩展的工具系统与外部环境交互。这些工具是 AI 的"手脚"，包括内置的 shell 命令执行器、文件系统操作工具、web 内容抓取器（web_fetch）等。AI 能够根据任务需求，自主选择、调用并编排这些工具，实现复杂的自动化工作流。例如，AI 可以通过 shell 工具执行测试、通过文件系统工具修改代码、通过 web_fetch 获取最新文档。此外，该系统支持自定义工具集成，为 DeepV Code 带来了无限的扩展可能，使其能够适应任何特定的开发环境和需求。
-
-#### 4.5 无缝的 IDE 集成 (VS Code):
-
-DeepV Code 提供了与主流 IDE（特别是 VS Code）的无缝集成。它通过 CLI 命令行界面与 VS Code 扩展（包括轻量级的 `vscode-ide-companion` 和功能更丰富的 `vscode-ui-plugin`）协同工作。这种双重集成策略确保了开发者无论是在命令行还是在图形界面中，都能获得一致且强大的 AI 辅助体验。直观的用户界面和交互体验，使得开发者能够在熟悉的环境中高效利用 DeepV Code 的各项功能，最大化工作效率。
+启动服务器：npm run dev
+```
 
 ---
 
-### 5. DeepV Code CLI 命令详解 (DeepV Code CLI Command Reference)
+## 📋 CLI 命令参考
 
-DeepV Code 的命令行界面（CLI）是开发者与 AI 助手交互的主要方式之一，提供了丰富的功能来初始化项目、管理配置、执行 AI 任务等。以下是一些核心命令及其详细说明：
+### 全局选项
 
-#### 5.1 全局选项 (Global Options)
+```bash
+dvcode [options]
+```
 
-以下选项可以在启动 DeepV Code 时使用，以修改其行为：
+| 选项 | 简写 | 说明 |
+|:---|:---:|:---|
+| `--model <name>` | `-m` | 指定 AI 模型 |
+| `--prompt <text>` | `-p` | 非交互模式，执行单次提示 |
+| `--prompt-interactive <text>` | `-i` | 执行提示后进入交互模式 |
+| `--sandbox` | `-s` | 在沙箱环境中运行（增强安全性） |
+| `--debug` | `-d` | 启用调试模式，输出详细日志 |
+| `--all-files` | `-a` | 在上下文中包含所有项目文件 |
+| `--yolo` | `-y` | YOLO 模式：自动执行所有操作，无需确认 |
+| `--continue` | `-c` | 继续上次会话 |
+| `--session <id>` | | 恢复指定 ID 的会话 |
+| `--list-sessions` | | 列出所有可用会话 |
+| `--workdir <path>` | | 指定工作目录 |
+| `--version` | `-v` | 显示版本号 |
+| `--help` | `-h` | 显示帮助信息 |
 
-*   `-m, --model <model-name>`: 指定要使用的 AI 模型。如果不指定，将使用环境变量 `GEMINI_MODEL` 中配置的模型或默认模型。
-*   `-p, --prompt <text>`: 在非交互模式下，直接向 AI 提供一个文本提示。AI 将处理此提示并输出结果，然后退出。
-*   `-i, --prompt-interactive <text>`: 执行提供的提示并继续进入交互模式，允许进一步的交互和对话。
-*   `-s, --sandbox`: 在沙箱环境中运行 DeepV Code。沙箱提供了隔离的执行环境，增强了安全性。
-*   `-d, --debug`: 启用调试模式，输出更详细的日志信息，有助于诊断问题。
-*   `-a, --all-files`: 在上下文中包含项目的所有文件，而不仅仅是相关文件。
-*   `-y, --yolo`: 启用"YOLO 模式"，自动接受所有 AI 提议的操作，无需用户确认。
-*   `-c, --continue`: 加载并继续上次活跃的 DeepV Code 会话。
-*   `--session <session-id>`: 加载并继续指定 ID 的 DeepV Code 会话。
-*   `--list-sessions`: 列出所有可用的 DeepV Code 会话。
-*   `--workdir <path>`: 指定 DeepV Code 运行的工作目录。
-*   `-v, --version`: 显示 DeepV Code CLI 的当前版本号并退出。
-*   `-h, --help`: 显示命令行帮助信息。
+### 使用示例
 
-#### 5.2 交互式命令 (Slash Commands)
+```bash
+# 基本启动
+dvcode
 
-DeepV Code 在交互模式下支持一系列以斜杠（`/`）开头的命令，用于快速执行常见任务。
+# 使用 Gemini 2.0 Flash 模型
+dvcode -m gemini-2.0-flash
 
-**共计 25 个实际注册的命令**（来自 `packages/cli/src/services/BuiltinCommandLoader.ts`）
+# 执行单次任务（非交互）
+dvcode -p "为 src/utils.ts 添加单元测试"
 
-##### 5.2.1 `/auth` - 身份认证管理
+# 继续上次会话
+dvcode -c
 
-*   **介绍**: 打开身份认证对话框，允许用户选择和配置不同的身份认证方法。
-*   **使用**: `/auth`
-*   **说明**: 此命令会打开一个交互式对话框，引导用户完成认证流程。
+# YOLO 模式（危险：自动执行所有操作）
+dvcode -y
 
-##### 5.2.2 `/mcp` - Model Context Protocol 管理命令
+# 调试模式
+dvcode -d
 
-*   **介绍**: 管理 MCP 服务器，显示已配置服务器的状态、可用工具和提示。支持添加新服务器、进行 OAuth 认证和刷新连接。
-*   **使用**: `/mcp [subcommand] [args]`
-*   **子命令**:
-    *   (无参数): 查看所有 MCP 服务器的状态
-    *   `add [server-name]`: 添加新的 MCP 服务器
-    *   `auth [server-name]`: 进行 OAuth 身份认证
-    *   `refresh [server-name]`: 刷新服务器连接
-    *   `help [topic]`: 获取 MCP 帮助信息
+# 指定工作目录
+dvcode --workdir /path/to/project
 
-##### 5.2.3 `/plan` - 计划模式管理
+# 列出所有会话
+dvcode --list-sessions
 
-*   **介绍**: 切换计划模式，用于专注需求讨论而禁用代码修改。
-*   **使用**: `/plan [on|off|status]`
-*   **说明**:
-    *   `on`: 启用计划模式，允许读取代码但禁用修改
-    *   `off`: 关闭计划模式
-    *   `status`: 显示当前模式状态
-    *   不提供参数: 显示当前状态
-
-##### 5.2.4 `/refine` - 文本润色命令
-
-*   **介绍**: 对输入的文本进行智能润色，改进语言表达、风格一致性和可读性。
-*   **使用**: `/refine <text> [options]`
-*   **选项**:
-    *   `--tone <tone>`: 设置输出的语调 (neutral/friendly/formal/concise/marketing/tech)
-    *   `--lang <language>`: 指定目标语言 (auto/zh/en 或其他 ISO 639-1 代码)
-    *   `--level <level>`: 润色强度 (light/medium/deep)
-    *   `--file <path>`: 从指定文件读取文本并直接写回
-    *   `--stdin`: 从标准输入读取文本
-
-##### 5.2.5 `/model` - AI 模型切换和管理
-
-*   **介绍**: 查看可用的 AI 模型、切换使用的 AI 模型。
-*   **使用**: `/model [model-name]`
-*   **说明**: 如果不提供模型名称，将显示模型选择对话框。支持 `auto` 模式由服务端自动选择最优模型。
-
-##### 5.2.6 `/clear` - 清空终端屏幕
-
-*   **介绍**: 清空终端屏幕显示，但不会重置对话上下文。
-*   **使用**: `/clear`
-*   **说明**: 仅清空视觉显示，不影响对话历史和上下文。
-
-##### 5.2.7 `/session` - 会话管理
-
-*   **介绍**: 管理 DeepV Code 会话，包括列出、创建、选择和恢复会话。
-*   **使用**: `/session <subcommand> [args]`
-*   **子命令**:
-    *   `list`: 列出所有可用的会话
-    *   `select <number|id>`: 选择并加载指定的会话
-    *   `new`: 创建一个新的会话
-    *   `rebuild`: 重建会话索引
-    *   `help`: 显示会话管理的帮助信息
-
-##### 5.2.8 `/memory` - 长期记忆管理
-
-*   **介绍**: 管理 AI 的长期记忆，用于在会话间保持重要信息。
-*   **使用**: `/memory <subcommand> [args]`
-*   **子命令**:
-    *   `show`: 显示当前存储在长期记忆中的所有信息
-    *   `add <text>`: 将重要信息添加到长期记忆
-    *   `refresh`: 重新加载项目文件中的内存内容
-
-##### 5.2.9 `/tools` - 查看可用工具
-
-*   **介绍**: 列出 DeepV Code 当前可用的所有工具和 MCP 服务。
-*   **使用**: `/tools [nodesc]`
-*   **参数**: `[nodesc]` 不显示工具描述，仅列出工具名称
-
-##### 5.2.10 `/stats` - 会话统计信息
-
-*   **介绍**: 显示当前会话的统计信息，包括会话持续时间、模型使用统计等。
-*   **使用**: `/stats [subcommand]`
-*   **子命令**:
-    *   (无参数): 显示基本统计信息
-    *   `model [model-name]`: 显示模型使用统计
-    *   `tools`: 显示工具调用统计
-
-##### 5.2.11 `/theme` - 主题设置
-
-*   **介绍**: 打开主题选择对话框，允许用户选择和自定义 DeepV Code 的外观主题。
-*   **使用**: `/theme`
-*   **说明**: 此命令会打开一个交互式对话框，展示可用的主题选项。
-
-##### 5.2.12 `/yolo` - YOLO 模式切换
-
-*   **介绍**: 控制 YOLO 模式。启用后，AI 的所有工具调用都会自动执行，无需用户确认。
-*   **使用**: `/yolo [on|off]`
-*   **参数**:
-    *   `on/enable`: 启用 YOLO 模式
-    *   `off/disable`: 关闭 YOLO 模式
-    *   不提供参数: 显示当前状态
-*   **说明**: ⚠️ 谨慎使用，可能导致未预期的文件修改。可使用 `Ctrl+Y` 快速切换。
-
-##### 5.2.13 `/vim` - 启用/禁用 Vim 模式
-
-*   **介绍**: 切换 Vim 编辑模式。启用后，支持 Vim 快捷键进行文本编辑。
-*   **使用**: `/vim`
-*   **说明**: 首次使用启用，再次使用禁用。消息会提示当前状态变化。
-
-##### 5.2.14 `/help` - 帮助和快速入门
-
-*   **介绍**: 打开 DeepV Code 的帮助对话框，包含快速入门指南、常用命令等。
-*   **使用**: `/help` 或 `/?`
-*   **说明**: 提供交互式的帮助指南，展示常用功能和命令。
-
-##### 5.2.15 `/help-ask` - AI 智能帮助助手
-
-*   **介绍**: AI 智能帮助助手，用于提问关于 CLI 功能的问题。
-*   **使用**: `/help-ask`
-*   **说明**: 在此模式下，AI 会专注于解答用户的问题和提供帮助。使用 1 积分/每问。
-
-##### 5.2.16 `/copy` - 复制最后一条 AI 回复到剪贴板
-
-*   **介绍**: 将 AI 的最后一条回复复制到系统剪贴板。
-*   **使用**: `/copy`
-*   **说明**: 获取对话历史中最后一条 AI 输出的文本，复制到剪贴板。
-
-##### 5.2.17 `/about` - 显示系统和应用信息
-
-*   **介绍**: 显示关于 DeepV Code 的系统信息，包括版本、操作系统、使用的 AI 模型等。
-*   **使用**: `/about`
-*   **显示的信息**: CLI 版本号、操作系统信息、沙箱环境状态、当前 AI 模型、身份认证方式、GCP 项目信息（如适用）
-
-##### 5.2.18 `/compress` - 压缩对话历史
-
-*   **介绍**: 压缩当前对话的历史记录，减少上下文令牌消耗。
-*   **使用**: `/compress`
-*   **说明**: 显示压缩前后的令牌数量对比，自动处理并发压缩请求。
-
-##### 5.2.19 `/editor` - 编辑器配置
-
-*   **介绍**: 打开编辑器配置对话框，用于配置 DeepV Code 中代码编辑器的相关设置。
-*   **使用**: `/editor`
-*   **说明**: 显示编辑器配置对话，允许设置缩进、换行符、主题等。
-
-##### 5.2.20 `/init` - 初始化项目配置
-
-*   **介绍**: 在项目目录中初始化 DeepV Code 的配置文件 `DEEPV.md`。
-*   **使用**: `/init`
-*   **说明**: 如果文件已存在，则不进行任何操作。初始化后会自动分析项目结构并填充配置内容。
-
-##### 5.2.21 `/restore` - 恢复文件检查点
-
-*   **介绍**: 恢复项目文件到之前保存的检查点状态。
-*   **使用**: `/restore [checkpoint-id]`
-*   **参数**: `[checkpoint-id]` 可选，不提供则列出所有可用检查点
-*   **说明**: 支持 Git 快照恢复项目文件状态。
-
-##### 5.2.22 `/trim-spaces` - 行末空格自动删除配置
-
-*   **介绍**: 配置是否在编辑源代码时自动删除行末空格。
-*   **使用**: `/trim-spaces [on|off|default]`
-*   **参数**:
-    *   `on/enable`: 启用自动删除行末空格
-    *   `off/disable`: 禁用自动删除行末空格
-    *   `default/reset`: 恢复使用语言默认设置
-*   **说明**: 配置保存在 `.deepvcode/settings.json`。
-
-##### 5.2.23 `/quit` 或 `/exit` - 退出应用
-
-*   **介绍**: 优雅地退出 DeepV Code 应用，显示会话统计信息。
-*   **使用**: `/quit` 或 `/exit`
-*   **说明**: 不会丢失当前会话信息，下次启动时可以继续或恢复。
-
-##### 5.2.24 `/account` - 账户管理
-
-*   **介绍**: 打开账户信息页面，显示当前登录的账户信息、余额、使用统计等。
-*   **使用**: `/account`
-*   **说明**: 生成临时登录代码并在浏览器中打开账户管理页面。
-
-##### 5.2.25 `/ide` - IDE 集成管理（条件命令）
-
-*   **介绍**: 管理 VS Code IDE 集成，仅在 IDE 模式启用时可用。
-*   **使用**: `/ide <subcommand>`
-*   **子命令**:
-    *   `status`: 检查 IDE 集成连接状态（🟢 Connected / 🟡 Connecting / 🔴 Disconnected）
-    *   `install`: 安装必要的 VS Code IDE 伴侣扩展
-*   **说明**: 仅在使用 `--ide-mode` 启动时可用，要求系统中已安装 VS Code 命令行工具。
-
-##### 5.2.26 `/hooks` - Hooks 钩子机制帮助
-
-*   **介绍**: 查看关于 Hooks 钩子机制的帮助和文档。Hooks 是 DeepV Code 提供的强大扩展机制，允许开发者在关键工作流节点注入自定义逻辑，从而实现自动化任务编排和工作流增强。
-*   **使用**: `/hooks`
-*   **说明**: 显示 Hooks 钩子机制的概览、配置方法和使用文档。通过配置合适的 Hooks，开发者可以实现自动化的代码检查、自动格式化、自动提交前验证、自动化测试触发等功能，减少重复操作，显著提升工作效率。
+# 恢复特定会话
+dvcode --session abc123
+```
 
 ---
 
-**注意**: 以下命令在源代码中存在但已被禁用或替代，不在上述列表中：
-- `chatCommand` - 已被 `/session` 替代
-- `corgiCommand` - 已禁用
-- `docsCommand` - 已禁用
-- `extensionsCommand` - 已删除
-- `privacyCommand` - 已删除
-- `loginCommand` - 已禁用
+## ⚡ 交互式斜杠命令
+
+在交互模式下，使用以 `/` 开头的命令快速执行操作：
+
+### 核心命令
+
+| 命令 | 说明 |
+|:---|:---|
+| `/help` | 显示帮助信息和快速入门指南 |
+| `/help-ask` | AI 智能帮助助手，解答使用问题 |
+| `/quit` 或 `/exit` | 退出应用，显示会话统计 |
+
+### 会话与模型
+
+| 命令 | 说明 |
+|:---|:---|
+| `/session` | 会话管理：`list` / `new` / `select <id>` / `rebuild` |
+| `/model [name]` | 切换 AI 模型，不带参数显示选择对话框 |
+| `/compress` | 压缩对话历史，减少 Token 消耗 |
+| `/stats` | 显示会话统计信息 |
+
+### 工具与扩展
+
+| 命令 | 说明 |
+|:---|:---|
+| `/tools [nodesc]` | 查看可用工具列表 |
+| `/mcp [subcommand]` | MCP 服务器管理：`add` / `auth` / `refresh` |
+| `/memory` | 长期记忆管理：`show` / `add` / `refresh` |
+
+### 工作模式
+
+| 命令 | 说明 |
+|:---|:---|
+| `/plan [on\|off]` | 计划模式：只讨论不修改代码 |
+| `/yolo [on\|off]` | YOLO 模式：自动执行所有操作 |
+| `/vim` | 切换 Vim 编辑模式 |
+
+### 文件与编辑
+
+| 命令 | 说明 |
+|:---|:---|
+| `/restore [id]` | 恢复文件到检查点状态 |
+| `/refine <text>` | 文本润色，支持 `--tone` / `--lang` / `--level` |
+| `/trim-spaces [on\|off]` | 配置是否自动删除行末空格 |
+| `/copy` | 复制最后一条 AI 回复到剪贴板 |
+
+### 界面与设置
+
+| 命令 | 说明 |
+|:---|:---|
+| `/clear` | 清空终端屏幕 |
+| `/theme` | 主题选择对话框 |
+| `/editor` | 编辑器配置对话框 |
+| `/about` | 显示系统和应用信息 |
+
+### 账户与认证
+
+| 命令 | 说明 |
+|:---|:---|
+| `/auth` | 身份认证管理 |
+| `/account` | 账户信息和余额查看 |
+
+### 项目配置
+
+| 命令 | 说明 |
+|:---|:---|
+| `/init` | 初始化项目配置文件 `DEEPV.md` |
+| `/hooks` | 查看 Hooks 钩子机制帮助文档 |
+| `/ide` | IDE 集成管理（VS Code 模式下可用） |
 
 ---
 
-### 6. 技术架构概述 (Technical Architecture Overview)
+## 🏗️ 项目架构
 
-DeepV Code 采用现代化的 Monorepo 架构，确保了代码的一致性、可维护性和高效协作。
+DeepV Code 采用现代化的 **Monorepo** 架构，确保代码一致性和高效协作。
 
-#### 6.1 Monorepo 结构:
+### 目录结构
 
-*   **`packages/cli`**: 命令行界面，是用户与 DeepV Code 交互的主要入口。它负责解析用户指令，并与核心功能库进行通信。
-*   **`packages/core`**: 核心功能库，是 DeepV Code 的大脑。它包含了 AI 客户端（负责与 AI 模型交互）、Prompt 管理（优化与 AI 的沟通）、工具系统（提供 AI 执行任务的能力）和 MCP 引擎（构建和管理项目上下文）。
-*   **`packages/vscode-ide-companion`**: 轻量级的 VS Code 集成伴侣，提供基础的 IDE 工作区访问能力，确保 AI 能够感知和操作文件。
-*   **`packages/vscode-ui-plugin`**: 完整的 VS Code UI 插件，提供丰富的可视化 AI 编码辅助功能，为开发者带来直观的交互体验。
+```
+DeepVCode/
+│
+├── 📁 packages/                     # 核心包目录
+│   │
+│   ├── 📁 cli/                      # 命令行界面包
+│   │   ├── src/
+│   │   │   ├── commands/            # 斜杠命令实现
+│   │   │   ├── ui/                  # 终端 UI 组件 (React Ink)
+│   │   │   │   ├── components/      # 可复用 UI 组件
+│   │   │   │   ├── dialogs/         # 对话框组件
+│   │   │   │   └── themes/          # 主题配置
+│   │   │   ├── services/            # 服务层
+│   │   │   ├── auth/                # 客户端认证
+│   │   │   └── utils/               # 工具函数
+│   │   └── package.json
+│   │
+│   ├── 📁 core/                     # 核心功能库
+│   │   ├── src/
+│   │   │   ├── tools/               # AI 工具集
+│   │   │   │   ├── shell.ts         # Shell 命令执行
+│   │   │   │   ├── read-file.ts     # 文件读取
+│   │   │   │   ├── write-file.ts    # 文件写入
+│   │   │   │   ├── edit.ts          # 文件编辑 (replace)
+│   │   │   │   ├── glob.ts          # 文件搜索
+│   │   │   │   ├── grep.ts          # 内容搜索
+│   │   │   │   ├── web-fetch.ts     # 网页抓取
+│   │   │   │   ├── web-search.ts    # Google 搜索
+│   │   │   │   ├── task.ts          # 子 Agent 任务
+│   │   │   │   └── ...
+│   │   │   ├── mcp/                 # MCP 引擎
+│   │   │   ├── prompts/             # Prompt 模板
+│   │   │   ├── auth/                # 认证模块
+│   │   │   ├── hooks/               # Hooks 系统
+│   │   │   ├── skills/              # Skills 扩展
+│   │   │   ├── services/            # 核心服务
+│   │   │   ├── config/              # 配置管理
+│   │   │   └── utils/               # 工具函数
+│   │   └── package.json
+│   │
+│   ├── 📁 vscode-ide-companion/     # VS Code CLI 伴侣扩展
+│   │   ├── src/
+│   │   │   └── extension.ts         # 扩展入口
+│   │   └── package.json
+│   │
+│   └── 📁 vscode-ui-plugin/         # VS Code 完整 UI 插件
+│       ├── src/                     # 扩展源码
+│       ├── webview/                 # React Webview 前端
+│       └── package.json
+│
+├── 📁 docs/                         # 文档目录
+│   ├── architecture.md              # 架构设计
+│   ├── hooks-user-guide.md          # Hooks 使用指南
+│   ├── mcp-improvements-summary.md  # MCP 集成说明
+│   └── ...
+│
+├── 📁 scripts/                      # 构建和工具脚本
+│   ├── build.js                     # 主构建脚本
+│   ├── build_package.js             # 包构建
+│   ├── clean.js                     # 清理脚本
+│   └── ...
+│
+├── 📄 package.json                  # 根配置 (Workspaces)
+├── 📄 tsconfig.json                 # TypeScript 配置
+├── 📄 eslint.config.js              # ESLint 配置
+├── 📄 esbuild.config.js             # esbuild 打包配置
+├── 📄 DeepV_Code_Whitepaper.md      # 产品白皮书
+├── 📄 DEEPV.md                      # 项目 AI 开发规范
+└── 📄 LICENSE                       # Apache 2.0 许可证
+```
 
-#### 6.2 关键组件:
+### 技术栈详解
 
-*   **AI 客户端与模型交互层**: 负责与各种 AI 模型（如 Gemini、GPT 等）进行高效、安全的通信，处理请求和响应。
-*   **Prompt 管理与优化**: 专注于构建和优化发送给 AI 模型的 Prompt，确保 AI 能够准确理解任务意图并生成高质量的输出。
-*   **工具系统与执行引擎**: 管理和执行 AI 所需的各种工具（shell、file_system、web_fetch 等），并提供一个强大的执行引擎来编排复杂的工作流。
-*   **MCP 引擎 (上下文构建与管理)**: 负责收集、分析和维护整个项目的上下文信息，包括文件内容、依赖关系、代码结构等，为 AI 提供全面的项目视图。
+| 类别 | 技术 | 说明 |
+|:---:|:---|:---|
+| **语言** | TypeScript 5.x | 强类型，提升代码质量 |
+| **运行时** | Node.js 20+ | 现代 JavaScript 运行时 |
+| **CLI UI** | React + Ink | 声明式终端 UI 框架 |
+| **构建** | esbuild | 极速打包，毫秒级构建 |
+| **测试** | Vitest | 现代化单元测试框架 |
+| **代码规范** | ESLint + Prettier | 统一代码风格 |
+| **包管理** | npm Workspaces | Monorepo 管理 |
+| **AI SDK** | @google/genai | Google Gemini API |
+| **MCP** | @modelcontextprotocol/sdk | MCP 协议实现 |
 
-#### 6.3 技术栈:
+### 交互流程
 
-DeepV Code 的技术栈基于现代 Web 开发生态系统，确保了高性能、可维护性和可扩展性：
-
-*   **TypeScript**: 提供强类型支持，提升代码质量和开发效率。
-*   **Node.js**: 作为后端运行时环境，支持高性能的并发处理。
-*   **React (Ink)**: 用于构建 CLI 的交互式终端 UI，提供丰富的用户体验。
-*   **esbuild**: 高速打包工具，优化构建流程，提升开发效率。
-*   **Vitest**: 现代化的单元测试框架，确保代码质量和稳定性。
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│   用户输入   │────▶│  CLI 包     │────▶│  Core 包    │
+│  (终端)     │     │  (UI/交互)   │     │  (业务逻辑)  │
+└─────────────┘     └─────────────┘     └──────┬──────┘
+                                               │
+                    ┌──────────────────────────┼──────────────────────────┐
+                    │                          │                          │
+                    ▼                          ▼                          ▼
+            ┌─────────────┐           ┌─────────────┐            ┌─────────────┐
+            │  AI Model   │           │   Tools     │            │    MCP      │
+            │  (Gemini)   │           │ (Shell/File)│            │  Servers    │
+            └─────────────┘           └─────────────┘            └─────────────┘
+```
 
 ---
 
-### 7. 关键用例与业务价值 (Key Use Cases & Business Value)
+## 🔌 VS Code 扩展
 
-#### 7.1 加速功能开发:
+DeepV Code 提供两个 VS Code 扩展，满足不同使用场景：
 
-DeepV Code 能够显著加速从需求到代码的转换过程。通过 AI 驱动的代码生成，开发者可以快速搭建功能骨架，减少重复性编码工作，从而将更多精力投入到业务逻辑和创新设计上，大幅提高开发速度和产品上市时间。
+### 📡 IDE Companion（CLI 伴侣）
 
-#### 7.2 提升代码质量与可维护性:
+**轻量级扩展**，让 VS Code 与终端中运行的 CLI 无缝连接。
 
-DeepV Code 提供的自动化代码审查和重构建议，有助于团队统一编码规范，消除代码异味，降低技术债务。它能识别潜在的 Bug 和安全漏洞，并提供修复方案，从而提升整体代码质量和系统的可维护性。
+**功能：**
+- 感知当前打开的文件
+- 获取选中的代码片段
+- 与 CLI 实时同步工作区状态
 
-#### 7.3 快速上手与知识转移:
+**构建方法：**
 
-对于新加入的团队成员，DeepV Code 可以作为智能导师，帮助他们快速理解复杂项目结构、代码库和业务逻辑。它还能加速学习新编程语言和框架的过程，降低新员工的入职门槛和培训成本。
+```bash
+cd packages/vscode-ide-companion
 
-#### 7.4 自动化日常任务:
+# 安装依赖
+npm install
 
-DeepV Code 能够自动化执行各种繁琐的日常开发任务，例如环境配置、依赖管理、自动化测试脚本生成和执行等。这将开发者从重复性工作中解放出来，使其能够专注于更具创造性和战略性的任务，提升整体团队的生产力。
+# 构建
+npm run build
+
+# 打包为 .vsix
+npm run package
+```
+
+### 🎨 UI Plugin（图形化插件）
+
+**完整功能的图形化 AI 编码助手**。
+
+**功能：**
+- 📱 侧边栏 AI 对话窗口
+- 🖱️ 右键菜单代码操作
+  - 解释选中代码
+  - 优化代码
+  - 生成单元测试
+  - 添加到当前对话
+- ✨ 代码内联补全建议
+- 🔌 MCP 服务器状态管理
+- 📜 自定义规则管理
+- ⏪ 版本历史和回滚
+
+**构建方法：**
+
+```bash
+cd packages/vscode-ui-plugin
+
+# 安装扩展依赖
+npm install
+
+# 构建 Webview 前端（首次需要）
+cd webview
+npm install
+npm run build
+cd ..
+
+# 构建扩展
+npm run build
+
+# 打包为 .vsix
+npm run package
+```
+
+**安装扩展：**
+
+1. 打开 VS Code
+2. 按 `Ctrl+Shift+P` (Windows/Linux) 或 `Cmd+Shift+P` (macOS)
+3. 输入 "Install from VSIX"
+4. 选择生成的 `.vsix` 文件
 
 ---
 
-### 8. 安全、隐私与合规性考量 (Security, Privacy, and Compliance Considerations)
+## 🛠️ 内置工具系统
 
-DeepV Code 在设计之初就将安全、隐私和合规性置于核心地位。
+DeepV Code 的 AI 通过工具系统与外部环境交互。所有工具都经过精心设计，确保安全性和可控性。
 
-*   **数据处理策略**: DeepV Code 支持灵活的数据处理策略，允许用户选择在本地环境或云端安全地处理代码和数据。对于敏感项目，可配置为仅在本地进行处理，确保数据不出内网。
-*   **代码隐私保护机制**: 严格的代码隐私保护机制，确保用户的代码和知识产权得到充分保护。所有与 AI 模型交互的代码片段都经过匿名化和脱敏处理，或在本地安全沙箱中运行。
-*   **合规性标准**: DeepV Code 致力于遵守相关的行业合规性标准，如 GDPR、CCPA 等（如果适用），确保数据处理活动符合全球法规要求。
-*   **用户控制与透明度**: DeepV Code 提供高度的用户控制权，允许用户精确配置 AI 的行为和数据访问权限。所有 AI 决策和操作都保持透明，用户可以随时审查和干预。
+### 文件操作工具
+
+| 工具 | 说明 | 安全级别 |
+|:---|:---|:---:|
+| `read_file` | 读取文件内容，支持文本、图片、PDF、Excel、Word | 🟢 只读 |
+| `read_many_files` | 批量读取多个文件，支持 glob 模式 | 🟢 只读 |
+| `write_file` | 创建新文件或覆盖写入 | 🟡 需确认 |
+| `replace` | 精准替换文件中的特定内容 | 🟡 需确认 |
+| `delete_file` | 删除文件（会保存备份以便恢复） | 🔴 需确认 |
+
+### 搜索工具
+
+| 工具 | 说明 | 安全级别 |
+|:---|:---|:---:|
+| `glob` | 按模式搜索文件名，支持 `**/*.ts` 等模式 | 🟢 只读 |
+| `grep` | 在文件内容中搜索正则表达式 (ripgrep) | 🟢 只读 |
+| `ls` | 列出目录内容 | 🟢 只读 |
+
+### 命令执行
+
+| 工具 | 说明 | 安全级别 |
+|:---|:---|:---:|
+| `shell` | 执行 Shell 命令 (bash/powershell) | 🔴 需确认 |
+
+### 网络工具
+
+| 工具 | 说明 | 安全级别 |
+|:---|:---|:---:|
+| `web_fetch` | 抓取网页内容，支持本地和远程 URL | 🟢 只读 |
+| `web_search` | Google 搜索 | 🟢 只读 |
+
+### 高级工具
+
+| 工具 | 说明 | 安全级别 |
+|:---|:---|:---:|
+| `task` | 启动代码分析子 Agent | 🟢 只读 |
+| `mcp_tool` | 调用 MCP 服务器提供的工具 | 🟡 视工具而定 |
+| `todo_write` | 管理任务列表 | 🟢 只读 |
+| `memory` | 保存/读取长期记忆 | 🟢 只读 |
+
+### 代码质量工具
+
+| 工具 | 说明 | 安全级别 |
+|:---|:---|:---:|
+| `read_lints` | 读取代码 Linter 错误 | 🟢 只读 |
+| `lint_fix` | 自动修复 Linter 错误 | 🟡 需确认 |
 
 ---
 
-### 9. 路线图与未来愿景 (Roadmap and Future Vision)
+## 🔗 MCP 协议支持
 
-DeepV Code 的发展将是一个持续迭代和进化的过程，我们制定了清晰的短期、中期和长期发展目标。
+**Model Context Protocol (MCP)** 是 DeepV Code 实现深度上下文理解的核心协议。
 
-*   **短期目标**: 进一步优化 MCP 引擎的上下文理解能力，提升 AI 在复杂项目中的表现；扩展工具系统，集成更多主流开发工具和服务；增强 VS Code 插件的用户体验和交互流畅性。
-*   **中期目标**: 引入多模态 AI 能力，支持通过图表、设计稿等非代码形式进行交互；实现更深层次的架构分析和设计辅助；构建一个开放的插件生态系统，允许社区贡献自定义工具和 AI 技能。
-*   **长期愿景**: DeepV Code 将成为一个能够自主学习、自我进化的智能软件工程平台，能够预测开发需求，主动发现并解决潜在问题，最终实现软件开发的完全自动化和智能化，赋能全球开发者共同构建更智能、更高效的未来。
+### 什么是 MCP？
+
+MCP 允许 AI 模型：
+- 连接外部数据源和工具
+- 获取实时信息
+- 与第三方服务交互
+
+### 配置 MCP 服务器
+
+在项目根目录创建 `.deepvcode/settings.json`：
+
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@anthropic/mcp-server-filesystem", "/path/to/allowed/dir"]
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@anthropic/mcp-server-github"],
+      "env": {
+        "GITHUB_TOKEN": "your-token"
+      }
+    }
+  }
+}
+```
+
+### 管理 MCP 服务器
+
+```bash
+# 查看所有 MCP 服务器状态
+/mcp
+
+# 添加新服务器
+/mcp add github
+
+# 刷新服务器连接
+/mcp refresh github
+
+# 进行 OAuth 认证
+/mcp auth github
+```
 
 ---
 
-### 10. 结论 (Conclusion)
+## 🪝 Hooks 钩子机制
 
-DeepV Code 不仅仅是一个工具，它代表了软件开发领域的一次范式转变。通过将最先进的 AI 技术与深度工程实践相结合，DeepV Code 正在重新定义开发者与代码、与项目、与整个软件工程流程的交互方式。它将开发者从繁琐、重复的任务中解放出来，使其能够专注于创新和解决更具挑战性的问题。DeepV Code 的核心价值在于其赋能开发者，加速创新，提升代码质量，并最终推动整个软件行业向前发展。我们坚信，DeepV Code 将成为未来软件工程不可或缺的一部分，与开发者携手，共同构建一个更智能、更高效的未来。
+Hooks 允许你在关键工作流节点注入自定义逻辑。
+
+### 配置 Hooks
+
+在 `.deepvcode/settings.json` 中添加：
+
+```json
+{
+  "hooks": {
+    "preToolExecution": [
+      {
+        "matcher": { "toolName": "write_file" },
+        "action": {
+          "type": "shell",
+          "command": "echo 'About to write file: $TOOL_ARGS'"
+        }
+      }
+    ],
+    "postToolExecution": [
+      {
+        "matcher": { "toolName": "write_file", "exitCode": 0 },
+        "action": {
+          "type": "shell",
+          "command": "npm run lint -- --fix $FILE_PATH"
+        }
+      }
+    ]
+  }
+}
+```
+
+### 使用场景
+
+- **自动格式化** - 文件写入后自动运行 Prettier
+- **代码检查** - 修改代码后自动运行 ESLint
+- **提交验证** - 执行 Shell 命令前检查分支
+- **日志记录** - 记录所有工具调用
+
+### 相关文档
+
+- 📖 [Hooks 使用指南](./docs/hooks-user-guide.md)
+- 📖 [Hooks 架构设计](./docs/HOOKS_ARCHITECTURE.md)
+- 📖 [Hooks 示例](./docs/hooks-examples.md)
 
 ---
 
-### 11. 号召行动 (Call to Action)
+## ⚙️ 配置文件
 
-立即体验 DeepV Code，开启您的智能软件工程之旅！
+### 项目配置 `DEEPV.md`
 
-*   **获取 DeepV Code**: 访问我们的官方网站 [[DvCode](https://dvcode.deepvlab.ai/zh/install)] 下载并安装 DeepV Code CLI 和 VS Code 扩展。
+在项目根目录创建 `DEEPV.md`，为 AI 提供项目特定的上下文和规范：
+
+```markdown
+# 项目概述
+这是一个基于 React + TypeScript 的前端项目...
+
+# 技术栈
+- React 18
+- TypeScript 5
+- Vite
+- TailwindCSS
+
+# 代码规范
+- 使用函数组件和 Hooks
+- 命名使用 camelCase
+- 组件文件使用 PascalCase
+
+# 目录结构说明
+- src/components/ - 可复用组件
+- src/pages/ - 页面组件
+- src/hooks/ - 自定义 Hooks
+- src/utils/ - 工具函数
+```
+
+使用 `/init` 命令可以自动生成初始配置。
+
+### 用户配置 `.deepvcode/settings.json`
+
+```json
+{
+  "preferredModel": "gemini-2.0-flash",
+  "theme": "dark",
+  "trimSpaces": true,
+  "mcpServers": {},
+  "hooks": {}
+}
+```
 
 ---
 
-**文档版本**: 1.0（已校正）
-**最后更新**: 2025 年 10 月 28 日
+## 🧑‍💻 开发指南
+
+### 环境准备
+
+```bash
+# 确保 Node.js 版本 >= 20
+node --version
+
+# 克隆仓库
+git clone https://github.com/OrionStarAI/DeepVCode.git
+cd DeepVCode
+
+# 安装依赖
+npm install
+```
+
+### 常用命令
+
+| 命令 | 说明 |
+|:---|:---|
+| `npm install` | 安装所有依赖 |
+| `npm run build` | 构建所有包 |
+| `npm run dev` | 开发模式运行（带调试） |
+| `npm run test` | 运行所有测试 |
+| `npm run lint` | 代码风格检查 |
+| `npm run lint:fix` | 自动修复代码风格 |
+| `npm run format` | 格式化代码 (Prettier) |
+| `npm run typecheck` | TypeScript 类型检查 |
+| `npm run clean` | 清理构建产物和缓存 |
+| `npm run pack:prod` | 生产环境打包 |
+| `npm run pack:vscode` | 打包 VS Code 插件 |
+
+### 开发流程
+
+1. **修改代码** - 在相应的 `packages/*/src` 目录下修改
+2. **构建** - 运行 `npm run build`
+3. **测试** - 运行 `npm run dev` 本地测试
+4. **检查** - 运行 `npm run lint && npm run typecheck`
+5. **提交** - 确保测试通过后提交代码
+
+### 调试技巧
+
+```bash
+# 启用调试模式
+npm run debug
+
+# 启用文件日志
+LOG_TO_FILE=true npm run dev
+
+# 查看详细日志
+FILE_DEBUG=1 npm run dev
+```
+
+### 添加新工具
+
+1. 在 `packages/core/src/tools/` 创建工具文件
+2. 实现工具接口
+3. 在 `tool-registry.ts` 注册工具
+4. 添加单元测试
+
+---
+
+## ❓ 常见问题
+
+### 安装问题
+
+<details>
+<summary><b>Q: npm install 失败，提示权限错误</b></summary>
+
+**A:** 尝试以下方法：
+
+```bash
+# 方法 1: 使用 --unsafe-perm
+npm install -g deepv-code --unsafe-perm
+
+# 方法 2: 修改 npm 全局目录权限
+mkdir ~/.npm-global
+npm config set prefix '~/.npm-global'
+export PATH=~/.npm-global/bin:$PATH
+```
+
+</details>
+
+<details>
+<summary><b>Q: 提示 Node.js 版本过低</b></summary>
+
+**A:** DeepV Code 需要 Node.js 20+。使用 nvm 管理版本：
+
+```bash
+nvm install 20
+nvm use 20
+```
+
+</details>
+
+### 使用问题
+
+<details>
+<summary><b>Q: 如何切换 AI 模型？</b></summary>
+
+**A:** 使用 `/model` 命令或启动时指定：
+
+```bash
+# 交互模式
+/model gemini-2.0-flash
+
+# 启动时指定
+dvcode -m gemini-2.0-flash
+```
+
+</details>
+
+<details>
+<summary><b>Q: 如何继续之前的会话？</b></summary>
+
+**A:** 使用 `-c` 参数或 `/session` 命令：
+
+```bash
+# 继续最近会话
+dvcode -c
+
+# 列出所有会话
+/session list
+
+# 选择特定会话
+/session select 1
+```
+
+</details>
+
+<details>
+<summary><b>Q: YOLO 模式是什么？</b></summary>
+
+**A:** YOLO 模式下，AI 的所有操作会自动执行，无需用户确认。⚠️ 谨慎使用！
+
+```bash
+# 启用
+dvcode -y
+# 或
+/yolo on
+```
+
+</details>
+
+---
+
+## 🤝 贡献指南
+
+我们欢迎社区贡献！无论是 Bug 修复、新功能还是文档改进。
+
+### 贡献流程
+
+1. **Fork** 本仓库
+2. 创建特性分支
+   ```bash
+   git checkout -b feature/AmazingFeature
+   ```
+3. 提交改动
+   ```bash
+   git commit -m 'feat: add some amazing feature'
+   ```
+4. 推送分支
+   ```bash
+   git push origin feature/AmazingFeature
+   ```
+5. 提交 **Pull Request**
+
+### 提交规范
+
+使用 [Conventional Commits](https://www.conventionalcommits.org/) 规范：
+
+- `feat:` 新功能
+- `fix:` Bug 修复
+- `docs:` 文档更新
+- `style:` 代码格式
+- `refactor:` 重构
+- `test:` 测试相关
+- `chore:` 构建/工具
+
+### 报告问题
+
+发现 Bug 或有功能建议？请 [创建 Issue](https://github.com/OrionStarAI/DeepVCode/issues)，包含：
+
+- 问题描述
+- 复现步骤
+- 期望行为
+- 环境信息（OS、Node 版本等）
+
+---
+
+## ⭐ Star History
+
+[![Star History Chart](https://api.star-history.com/svg?repos=OrionStarAI/DeepVCode&type=date&legend=top-left)](https://www.star-history.com/#OrionStarAI/DeepVCode&type=date&legend=top-left)
+
+---
+
+## 🗺️ 路线图
+
+### 短期目标 (v1.x)
+
+- [ ] 优化 MCP 上下文理解能力
+- [ ] 扩展工具系统，支持更多场景
+- [ ] 增强 VS Code 插件体验
+- [ ] 支持更多 AI 模型
+
+### 中期目标 (v2.x)
+
+- [ ] 多模态支持（图表、设计稿）
+- [ ] 深度架构分析和设计辅助
+- [ ] 开放插件生态系统
+- [ ] 团队协作功能
+
+### 长期愿景
+
+- [ ] 自主学习和进化
+- [ ] 预测开发需求
+- [ ] 全自动化软件工程
+
+---
+
+## 📄 许可证与法律信息
+
+本项目基于 [Apache License 2.0](LICENSE) 开源。
+
+| 📄 Legal | |
+|:---|:---|
+| **License** | [Apache License 2.0](LICENSE) |
+| **Terms of Service** | [Terms & Privacy](https://dvcode.deepvlab.ai/terms) |
+| **Privacy Policy** | [Privacy Policy](https://dvcode.deepvlab.ai/privacy) |
+| **Security** | [Security Policy](SECURITY.md) |
+
+```
+Copyright 2025 DeepV Code Team
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+```
+
+---
+
+## 🔗 相关链接
+
+<div align="center">
+
+| 资源 | 链接 |
+|:---:|:---|
+| 🌐 **官方网站** | [https://dvcode.deepvlab.ai](https://dvcode.deepvlab.ai) |
+| 📦 **npm 包** | [https://www.npmjs.com/package/deepv-code](https://www.npmjs.com/package/deepv-code) |
+| 📖 **白皮书** | [DeepV_Code_Whitepaper.md](./DeepV_Code_Whitepaper.md) |
+| 🐛 **问题反馈** | [GitHub Issues](https://github.com/OrionStarAI/DeepVCode/issues) |
+| 💬 **讨论区** | [GitHub Discussions](https://github.com/OrionStarAI/DeepVCode/discussions) |
+
+</div>
+
+---
+
+<div align="center">
+
+### 💬 "AI 不只是工具，更是每位开发者的伙伴。"
+
+<br>
+
+**⭐ 如果这个项目对你有帮助，请给我们一个 Star！⭐**
+
+<br>
+
+🪄 **Happy Coding with DeepV Code!** 💻✨
+
+<br>
+
+---
+
+Made with ❤️ by [DeepV Code Team](https://github.com/OrionStarAI)
+
+</div>

@@ -157,7 +157,7 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
       {/* 顶部标题行 - 包含像素机器人 logo */}
       <Box flexDirection="row" marginBottom={1}>
         <Box marginRight={2}>
-          <Text color={Colors.Foreground}>{cuteVLogo}</Text>
+          <Text color={Colors.AccentBlue}>{cuteVLogo}</Text>
         </Box>
         <Box flexDirection="column" justifyContent="center">
           <Text>DeepV Code </Text>

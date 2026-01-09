@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { glob } from 'glob';
@@ -65,6 +65,7 @@ export function useCompletion(
     useState<boolean>(false);
   const [isPerfectMatch, setIsPerfectMatch] = useState<boolean>(false);
   const [suppressUntilNextChange, setSuppressUntilNextChange] = useState<boolean>(false);
+  const prevTextRef = useRef<string>(buffer.text);
 
   const resetCompletionState = useCallback(() => {
     setSuggestions([]);
@@ -201,14 +202,25 @@ export function useCompletion(
   }, [buffer.text, buffer.cursor, buffer.lines, shellModeActive]);
 
   useEffect(() => {
+    // 🚀 恢复机制：如果用户删除了字符（退格），自动重置抑制状态，重新显示补全
+    const isDeletion = buffer.text.length < prevTextRef.current.length;
+    prevTextRef.current = buffer.text;
+
+    if (isDeletion && suppressUntilNextChange) {
+      setSuppressUntilNextChange(false);
+      // 注意：这里的 suppressUntilNextChange 状态更新是异步的，
+      // 所以我们不能在同一个 effect 运行中依赖它的新值。
+      // 但没关系，下一行代码会处理。
+    }
+
     if (!isActive) {
       resetCompletionState();
       setSuppressUntilNextChange(false); // 重置抑制状态
       return;
     }
 
-    // 🔧 如果当前被抑制，则不触发自动补全
-    if (suppressUntilNextChange) {
+    // 🔧 如果当前被抑制（且不是退格操作），则不触发自动补全
+    if (suppressUntilNextChange && !isDeletion) {
       return;
     }
 
@@ -270,8 +282,11 @@ export function useCompletion(
           // No more subcommands to search, remaining parts are arguments
           break;
         }
+        const lowerPart = part.toLowerCase();
         const found: SlashCommand | undefined = currentLevel.find(
-          (cmd) => cmd.name === part || cmd.altNames?.includes(part),
+          (cmd) =>
+            cmd.name.toLowerCase() === lowerPart ||
+            cmd.altNames?.some((alt) => alt.toLowerCase() === lowerPart),
         );
         if (found) {
           leafCommand = found;
@@ -289,9 +304,11 @@ export function useCompletion(
 
       // Handle the Ambiguous Case
       if (!hasTrailingSpace && currentLevel) {
+        const lowerPartial = partial.toLowerCase();
         const exactMatchAsParent = currentLevel.find(
           (cmd) =>
-            (cmd.name === partial || cmd.altNames?.includes(partial)) &&
+            (cmd.name.toLowerCase() === lowerPartial ||
+              cmd.altNames?.some((alt) => alt.toLowerCase() === lowerPartial)) &&
             cmd.subCommands,
         );
 
@@ -311,9 +328,13 @@ export function useCompletion(
           setIsPerfectMatch(true);
         } else if (currentLevel) {
           // Case: /command subcommand<enter>
+          const lowerPartial = partial.toLowerCase();
           const perfectMatch = currentLevel.find(
             (cmd) =>
-              (cmd.name === partial || cmd.altNames?.includes(partial)) &&
+              (cmd.name.toLowerCase() === lowerPartial ||
+                cmd.altNames?.some(
+                  (alt) => alt.toLowerCase() === lowerPartial,
+                )) &&
               cmd.action,
           );
           if (perfectMatch) {
@@ -359,6 +380,7 @@ export function useCompletion(
           setSuggestions(finalSuggestions);
           setShowSuggestions(finalSuggestions.length > 0);
           setActiveSuggestionIndex(finalSuggestions.length > 0 ? bestMatchIndex : -1);
+          setVisibleStartIndex(0); // 🔧 重置滚动位置，防止列表更新后由于偏移过大导致显示空白
           setIsLoadingSuggestions(false);
         };
         fetchAndSetSuggestions();
@@ -402,10 +424,15 @@ export function useCompletion(
         // If a user's input is an exact match and it is a leaf command,
         // enter should submit immediately.
         if (potentialSuggestions.length > 0 && !hasTrailingSpace) {
+          const lowerPartial = partial.toLowerCase();
           const perfectMatch = potentialSuggestions.find(
-            (s) => s.name === partial || s.altNames?.includes(partial),
+            (s) =>
+              (s.name.toLowerCase() === lowerPartial ||
+                s.altNames?.some((alt) => alt.toLowerCase() === lowerPartial)) &&
+              s.action &&
+              !s.subCommands, // 🔧 如果有子命令，即使名字匹配也不应清除补全，方便用户继续输入
           );
-          if (perfectMatch && perfectMatch.action) {
+          if (perfectMatch) {
             potentialSuggestions = [];
             potentialSuggestionsWithScore.length = 0;
           }
@@ -461,6 +488,7 @@ export function useCompletion(
         setSuggestions(finalSuggestions);
         setShowSuggestions(finalSuggestions.length > 0);
         setActiveSuggestionIndex(finalSuggestions.length > 0 ? bestMatchIndex : -1);
+        setVisibleStartIndex(0); // 🔧 重置滚动位置，防止列表更新后由于偏移过大导致显示空白
         setIsLoadingSuggestions(false);
         return;
       }
@@ -773,7 +801,7 @@ export function useCompletion(
       }
     };
 
-    const debounceTimeout = setTimeout(fetchSuggestions, 250); // 🚀 优化：从100ms增加到250ms
+    const debounceTimeout = setTimeout(fetchSuggestions, 150); // 🚀 优化：从 250ms 恢复到更灵敏的 150ms
 
     return () => {
       isMounted = false;
@@ -855,8 +883,11 @@ export function useCompletion(
           let currentLevel: readonly SlashCommand[] | undefined = slashCommands;
           for (let i = 0; i < parts.length; i++) {
             const part = parts[i];
+            const lowerPart = part.toLowerCase();
             const found: SlashCommand | undefined = currentLevel?.find(
-              (cmd) => cmd.name === part || cmd.altNames?.includes(part),
+              (cmd) =>
+                cmd.name.toLowerCase() === lowerPart ||
+                cmd.altNames?.some((alt) => alt.toLowerCase() === lowerPart),
             );
 
             if (found) {

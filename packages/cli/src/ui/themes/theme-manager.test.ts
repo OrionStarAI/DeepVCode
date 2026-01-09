@@ -30,6 +30,7 @@ const validCustomTheme: CustomTheme = {
   DiffRemoved: '#FF0000',
   Comment: '#808080',
   Gray: '#808080',
+  InfoColor: '#B8A77E',
 };
 
 describe('ThemeManager', () => {

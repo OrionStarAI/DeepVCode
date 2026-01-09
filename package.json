@@ -1,6 +1,6 @@
 {
   "name": "deepv-code",
-  "version": "1.0.258",
+  "version": "1.0.263",
   "engines": {
     "node": ">=20.0.0"
   },
@@ -38,6 +38,7 @@
     "start": "node scripts/start.js",
     "dev": "cross-env FILE_DEBUG=1 LOG_TO_FILE=true DEEPX_SERVER_URL=https://api-code.deepvlab.ai DEEPX_WEB_URL=https://dvcode.deepvlab.ai node scripts/start.js",
     "debug": "cross-env DEBUG=1  DEEPX_SERVER_URL=https://api-code.deepvlab.ai DEEPX_WEB_URL=https://dvcode.deepvlab.ai node --inspect-brk scripts/start.js",
+    "sync-to-github": "node scripts/sync-to-github.js",
     "auth:npm": "npx google-artifactregistry-auth",
     "auth:docker": "gcloud auth configure-docker us-west1-docker.pkg.dev",
     "auth": "npm run auth:npm && npm run auth:docker",
@@ -57,6 +58,7 @@
     "bundle:cross-platform:full": "cross-env DOWNLOAD_ALL_PLATFORMS=true INCLUDE_VSCODE_PLUGIN=true npm run generate && npm run build:full && node esbuild.config.js && cross-env DOWNLOAD_ALL_PLATFORMS=true node scripts/copy_bundle_assets.js",
     "pack:dev": "cross-env ENABLE_CHECKPOINTING=true npm run bundle:cross-platform:dev && cross-env BUILD_ENV=development ENABLE_CHECKPOINTING=true node scripts/newpack.js",
     "pack:prod": "cross-env ENABLE_CHECKPOINTING=true npm run bundle:cross-platform:prod && cross-env BUILD_ENV=production ENABLE_CHECKPOINTING=true node scripts/newpack.js",
+    "pack:prod:ci": "cross-env ENABLE_CHECKPOINTING=true npm run bundle:cross-platform:prod && cross-env BUILD_ENV=production ENABLE_CHECKPOINTING=true node scripts/newpack.js -- --no-version-bump",
     "pack:full": "cross-env ENABLE_CHECKPOINTING=true npm run bundle:cross-platform:full && cross-env ENABLE_CHECKPOINTING=true node scripts/newpack.js",
     "pack:vscode": "npm run package --workspace=packages/vscode-ui-plugin && copy packages\\vscode-ui-plugin\\*.vsix .",
     "vsix-remote": "node vsix_remote_build/remote_build.js",

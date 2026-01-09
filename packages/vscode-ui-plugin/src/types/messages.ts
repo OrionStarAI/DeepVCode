@@ -67,7 +67,8 @@ export enum ToolCallStatus {
   WaitingForConfirmation = 'awaiting_approval',
   Success = 'success',
   Error = 'error',
-  Canceled = 'cancelled'
+  Canceled = 'cancelled',
+  BackgroundRunning = 'background_running'  // 🎯 后台运行中
 }
 
 // 🎯 工具调用确认详情
@@ -271,7 +272,10 @@ export type WebViewToExtensionMessage =
   | { type: 'get_slash_commands'; payload: {} }
   | { type: 'execute_custom_slash_command'; payload: { commandName: string; args: string } }
   // 🎯 用户积分统计请求
-  | { type: 'request_user_stats'; payload: {} };
+  | { type: 'request_user_stats'; payload: {} }
+  // 🎯 后台任务管理
+  | { type: 'background_task_request'; payload: { action: 'list' | 'kill'; taskId?: string } }
+  | { type: 'background_task_move_to_background'; payload: { sessionId: string; toolCallId: string } };
 
 // Message types from Extension to WebView
 export type ExtensionToWebViewMessage =
@@ -368,7 +372,14 @@ export type ExtensionToWebViewMessage =
   // 🎯 模型切换完成（压缩成功后通知前端更新模型选择器）
   | { type: 'model_switch_complete'; payload: { sessionId: string; modelName: string } }
   // 🎯 用户积分统计响应
-  | { type: 'user_stats_response'; payload: { stats?: { totalQuota: number; usedCredits: number; remainingCredits: number; usagePercentage: number }; error?: string } };
+  | { type: 'user_stats_response'; payload: { stats?: { totalQuota: number; usedCredits: number; remainingCredits: number; usagePercentage: number }; error?: string } }
+  // 🎯 后台任务管理
+  | { type: 'background_tasks_update'; payload: BackgroundTasksUpdatePayload }
+  | { type: 'background_task_output'; payload: { taskId: string; output: string; isStderr?: boolean } }
+  // 🎯 后台任务完成通知（用于触发 AI 继续）
+  | { type: 'background_task_completed_notification'; payload: BackgroundTaskCompletedPayload }
+  // 🎯 后台任务结果显示（在聊天界面显示任务输出）
+  | { type: 'background_task_result'; payload: BackgroundTaskResultPayload };
 
 /**
  * 🔌 MCP 状态消息负载
@@ -377,6 +388,55 @@ export interface MCPStatusPayload {
   sessionId: string;
   discoveryState: 'not_started' | 'in_progress' | 'completed';
   servers: MCPServerStatusInfo[];
+}
+
+/**
+ * 🎯 后台任务信息（Webview 使用的简化版本）
+ */
+export interface BackgroundTaskInfo {
+  id: string;
+  command: string;
+  directory?: string;
+  status: 'running' | 'completed' | 'failed' | 'cancelled';
+  pid?: number;
+  startTime: number;
+  endTime?: number;
+  output: string;
+  stderr: string;
+  exitCode?: number;
+  error?: string;
+}
+
+/**
+ * 🎯 后台任务更新负载
+ */
+export interface BackgroundTasksUpdatePayload {
+  tasks: BackgroundTaskInfo[];
+  runningCount: number;
+}
+
+/**
+ * 🎯 后台任务完成通知负载（用于触发 AI 继续）
+ */
+export interface BackgroundTaskCompletedPayload {
+  taskId: string;
+  command: string;
+  status: 'completed' | 'failed' | 'cancelled';
+  exitCode?: number;
+  output?: string;
+  error?: string;
+}
+
+/**
+ * 🎯 后台任务结果显示负载（用于在聊天界面显示任务输出）
+ */
+export interface BackgroundTaskResultPayload {
+  sessionId: string;
+  taskId: string;
+  command: string;
+  status: 'completed' | 'failed' | 'cancelled';
+  exitCode?: number;
+  output: string;
 }
 
 /**

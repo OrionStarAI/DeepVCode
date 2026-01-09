@@ -425,7 +425,7 @@ export const translations = {
 
     // Checkpoint messages
     'checkpoint.creating': 'Creating auto checkpoint...',
-    'checkpoint.created.success': 'Checkpoint created ({checkpointId})',
+    'checkpoint.created.success': 'Checkpoint created.\n   Use /restore {checkpointId} to restore to this checkpoint\n',
     'checkpoint.created.failed': 'Failed to create checkpoint: {error}',
     'checkpoint.creation.skipped': 'Subsequent auto checkpoint attempts will be skipped for this conversation',
 
@@ -1149,6 +1149,24 @@ export const translations = {
     'plan.mode.available.tools': '✅ Available tools: file reading, search analysis, task planning, network fetch',
     'plan.mode.exit.instruction': '💡 Use /plan off to exit Plan mode and enable modification operations',
 
+    // Agent Style
+    'command.agentStyle.description': 'Switch Agent style: default (Claude-style) or codex (Codex-style)',
+    'agentStyle.error.config.unavailable': 'Configuration unavailable',
+    'agentStyle.status.current': 'Current Agent style: {style}',
+    'agentStyle.style.default.label': 'default (Claude-style)',
+    'agentStyle.style.default.description': 'Emphasizes planning, explanation, and iterative confirmation before acting.',
+    'agentStyle.style.codex.label': 'codex (Codex-style)',
+    'agentStyle.style.codex.description': 'Quick confirmation, then silent execution. Reports only when blocked or complete.',
+    'agentStyle.usage.title': 'Usage:',
+    'agentStyle.usage.default': 'Switch to default (Claude-style)',
+    'agentStyle.usage.codex': 'Switch to codex (Codex-style)',
+    'agentStyle.usage.status': 'Show current style',
+    'agentStyle.usage.error': 'Usage: /agent-style [default|codex|status]',
+    'agentStyle.already.default': 'Already using default (Claude-style).',
+    'agentStyle.already.codex': 'Already using codex (Codex-style).',
+    'agentStyle.error.switch.failed': 'Failed to switch Agent style',
+    'agentStyle.switched.success': 'Switched to {style}',
+    'agentStyle.codex.yolo.enabled': '🚀 YOLO mode auto-enabled (all tool calls will execute without confirmation)',
 
     // Error messages
     'error.config.not.loaded': 'Configuration not loaded.',
@@ -1553,7 +1571,7 @@ export const translations = {
 
     // Checkpoint messages
     'checkpoint.creating': '正在执行自动检查点...',
-    'checkpoint.created.success': '检查点已建立 ({checkpointId})',
+    'checkpoint.created.success': '检查点已建立。\n  使用 /restore {checkpointId} 恢复到此检查点\n',
     'checkpoint.created.failed': '检查点创建失败: {error}',
     'checkpoint.creation.skipped': '本次对话将跳过后续的自动检查点尝试',
 
@@ -2276,6 +2294,24 @@ export const translations = {
     'plan.mode.available.tools': '✅ 可用工具：文件读取、搜索分析、任务规划、网络获取',
     'plan.mode.exit.instruction': '💡 使用 /plan off 退出Plan模式后可执行修改操作',
 
+    // Agent Style
+    'command.agentStyle.description': '切换 Agent 风格：default（Claude 风格）或 codex（Codex 风格）',
+    'agentStyle.error.config.unavailable': '配置不可用',
+    'agentStyle.status.current': '当前 Agent 风格：{style}',
+    'agentStyle.style.default.label': 'default（Claude 风格）',
+    'agentStyle.style.default.description': '强调计划、解释，行动前进行迭代确认。',
+    'agentStyle.style.codex.label': 'codex（Codex 风格）',
+    'agentStyle.style.codex.description': '快速确认后静默执行，仅在阻塞或完成时汇报。',
+    'agentStyle.usage.title': '用法：',
+    'agentStyle.usage.default': '切换到 default（Claude 风格）',
+    'agentStyle.usage.codex': '切换到 codex（Codex 风格）',
+    'agentStyle.usage.status': '查看当前风格',
+    'agentStyle.usage.error': '用法：/agent-style [default|codex|status]',
+    'agentStyle.already.default': '已经是 default（Claude 风格）。',
+    'agentStyle.already.codex': '已经是 codex（Codex 风格）。',
+    'agentStyle.error.switch.failed': '切换 Agent 风格失败',
+    'agentStyle.switched.success': '已切换到 {style}',
+    'agentStyle.codex.yolo.enabled': '🚀 已自动开启 YOLO 模式（所有工具调用将自动执行）',
 
     // Error messages
     'error.config.not.loaded': '配置未加载。',
