@@ -32,6 +32,7 @@ export const CompressionConfirmationDialog: React.FC<CompressionConfirmationDial
     if (!isOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
+        e.stopPropagation(); // 防止事件冒泡到其他对话框
         onCancel();
       }
     };

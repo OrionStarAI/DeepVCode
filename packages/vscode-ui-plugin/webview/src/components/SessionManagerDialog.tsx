@@ -6,7 +6,7 @@
  * Copyright 2025 DeepV Code
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { SessionInfo } from '../../../src/types/sessionTypes';
 import { SessionType } from '../../../src/constants/sessionConstants';
 import { useTranslation } from '../hooks/useTranslation';
@@ -64,6 +64,25 @@ export const SessionManagerDialog: React.FC<SessionManagerDialogProps> = ({
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
   const [selectedSessions, setSelectedSessions] = useState<Set<string>>(new Set());
 
+  /**
+   * 确认重命名
+   */
+  const handleConfirmRename = useCallback(() => {
+    if (!renameState.sessionId || !renameState.newName.trim()) {
+      return;
+    }
+
+    onSessionAction({ type: 'rename' }, renameState.sessionId, renameState.newName.trim());
+    setRenameState({ sessionId: null, newName: '', isEditing: false });
+  }, [renameState, onSessionAction]);
+
+  /**
+   * 取消重命名
+   */
+  const handleCancelRename = useCallback(() => {
+    setRenameState({ sessionId: null, newName: '', isEditing: false });
+  }, []);
+
   // 重置状态当对话框关闭时
   useEffect(() => {
     if (!isOpen) {
@@ -77,10 +96,11 @@ export const SessionManagerDialog: React.FC<SessionManagerDialogProps> = ({
    * 处理键盘事件
    */
   useEffect(() => {
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (!isOpen) return;
+    if (!isOpen) return;
 
+    const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
+        event.stopPropagation(); // 防止事件冒泡到其他对话框
         if (renameState.isEditing) {
           handleCancelRename();
         } else if (deleteConfirmId) {
@@ -95,7 +115,7 @@ export const SessionManagerDialog: React.FC<SessionManagerDialogProps> = ({
 
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, renameState, deleteConfirmId]);
+  }, [isOpen, renameState, deleteConfirmId, onClose, handleCancelRename, handleConfirmRename]);
 
   /**
    * 开始重命名Session
@@ -106,25 +126,6 @@ export const SessionManagerDialog: React.FC<SessionManagerDialogProps> = ({
       newName: currentName,
       isEditing: true
     });
-  };
-
-  /**
-   * 确认重命名
-   */
-  const handleConfirmRename = () => {
-    if (!renameState.sessionId || !renameState.newName.trim()) {
-      return;
-    }
-
-    onSessionAction({ type: 'rename' }, renameState.sessionId, renameState.newName.trim());
-    setRenameState({ sessionId: null, newName: '', isEditing: false });
-  };
-
-  /**
-   * 取消重命名
-   */
-  const handleCancelRename = () => {
-    setRenameState({ sessionId: null, newName: '', isEditing: false });
   };
 
   /**

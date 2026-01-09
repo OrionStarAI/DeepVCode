@@ -621,6 +621,9 @@ export const modelCommand: SlashCommand = {
               context.ui.addItem(historyItem, Date.now());
             }
 
+            // 🔄 确保Chat已初始化（带重试机制）- 修复启动时立即切换模型导致的错误
+            await geminiClient.waitForChatInitialized();
+
             // 使用 switchModel 进行安全切换（包含自动压缩）
             // 传入已知的 token 数量，避免 Core 重新计算（可能不准确）
             const knownTokenCount = context.session.lastTokenUsage?.input_tokens;

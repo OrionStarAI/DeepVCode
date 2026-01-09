@@ -437,6 +437,39 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
     updateOutput?: (output: string) => void,
   ): Promise<ToolResult> {
     const strippedCommand = stripShellWrapper(params.command);
+
+    // 🚨 保护措施：防止在CLI环境下杀死所有node.exe进程
+    // 检测危险的批量结束nodejs进程的命令（仅在非Bun运行时环境下）
+    const isBunRuntime = typeof (globalThis as any).Bun !== 'undefined';
+    const isVSCode = process.env.VSCODE_PLUGIN === '1';
+
+    if (!isBunRuntime && !isVSCode) {
+      const isWindows = os.platform() === 'win32';
+      const dangerousPatterns = isWindows
+        ? [
+            /taskkill.*\/IM\s+node\.exe/i,
+            /taskkill.*\/F.*\/IM\s+node\.exe/i,
+          ]
+        : [
+            /killall\s+node/i,
+            /pkill\s+node/i,
+            /kill\s+-9.*\$\(pgrep\s+node\)/i,
+          ];
+
+      const isDangerous = dangerousPatterns.some(pattern => pattern.test(strippedCommand));
+
+      if (isDangerous) {
+        const errorMsg = isWindows
+          ? t('shell.error.dangerous_node_kill_windows')
+          : t('shell.error.dangerous_node_kill_unix');
+
+        return {
+          llmContent: errorMsg,
+          returnDisplay: errorMsg,
+        };
+      }
+    }
+
     const validationError = this.validateToolParams({
       ...params,
       command: strippedCommand,
