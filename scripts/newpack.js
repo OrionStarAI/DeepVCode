@@ -159,16 +159,16 @@ function main() {
 
     const tgzFileName = `deepv-code-${newVersion}.tgz`;
 
-    // Prepare for packaging: replace README with whitepaper
+    // Prepare for packaging: validate README exists
     const prepareSpinner = ora({
-      text: chalk.cyan('📝 Preparing README for packaging...'),
+      text: chalk.cyan('📝 Checking README for packaging...'),
       spinner: 'dots'
     }).start();
     try {
       run('node scripts/prepare-publish.js', { stdio: 'pipe' });
-      prepareSpinner.succeed(chalk.green('✅ README prepared for packaging'));
+      prepareSpinner.succeed(chalk.green('✅ README check passed'));
     } catch (error) {
-      prepareSpinner.fail(chalk.red('💥 Failed to prepare README!'));
+      prepareSpinner.fail(chalk.red('💥 README check failed!'));
       throw error;
     }
 
@@ -187,16 +187,16 @@ function main() {
       throw error;
     }
 
-    // Restore original README after packaging
+    // Post-packaging cleanup
     const restoreSpinner = ora({
-      text: chalk.cyan('🔄 Restoring original README...'),
+      text: chalk.cyan('🔄 Post-packaging cleanup...'),
       spinner: 'dots'
     }).start();
     try {
       run('node scripts/restore-after-publish.js', { stdio: 'pipe' });
-      restoreSpinner.succeed(chalk.green('✅ Original README restored'));
+      restoreSpinner.succeed(chalk.green('✅ Cleanup completed'));
     } catch (error) {
-      restoreSpinner.warn(chalk.yellow('⚠️  Failed to restore README (will restore manually)'));
+      restoreSpinner.warn(chalk.yellow('⚠️  Cleanup warning (non-critical)'));
     }
 
     // Optional: Global installation
