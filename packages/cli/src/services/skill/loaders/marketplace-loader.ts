@@ -176,10 +176,17 @@ export class MarketplaceLoader implements IPluginLoader {
 
     // 2. 处理显式定义的组件
     // 按照官方文档，可以在 manifest 中定义 commands, agents, hooks 等
+    // 支持字符串数组或对象数组（对象包含 path 属性）
 
     // Commands
     if (pluginDef.commands && Array.isArray(pluginDef.commands)) {
-      for (const cmdPath of pluginDef.commands) {
+      for (const cmdItem of pluginDef.commands) {
+        // 支持字符串或对象格式：{ path: "commands/foo.md" }
+        const cmdPath = typeof cmdItem === 'string' ? cmdItem : cmdItem?.path;
+        if (!cmdPath || typeof cmdPath !== 'string') {
+          console.warn(`Invalid command path in plugin ${id}:`, cmdItem);
+          continue;
+        }
         const fullPath = path.join(pluginDir, cmdPath);
         const component = await this.componentParser.parse(
           fullPath,
@@ -196,7 +203,13 @@ export class MarketplaceLoader implements IPluginLoader {
 
     // Agents
     if (pluginDef.agents && Array.isArray(pluginDef.agents)) {
-      for (const agentPath of pluginDef.agents) {
+      for (const agentItem of pluginDef.agents) {
+        // 支持字符串或对象格式：{ path: "agents/foo.md" }
+        const agentPath = typeof agentItem === 'string' ? agentItem : agentItem?.path;
+        if (!agentPath || typeof agentPath !== 'string') {
+          console.warn(`Invalid agent path in plugin ${id}:`, agentItem);
+          continue;
+        }
         const fullPath = path.join(pluginDir, agentPath);
         const component = await this.componentParser.parse(
           fullPath,
@@ -213,7 +226,13 @@ export class MarketplaceLoader implements IPluginLoader {
 
     // Skills (如果显式定义了)
     if (pluginDef.skills && Array.isArray(pluginDef.skills)) {
-      for (const skillPath of pluginDef.skills) {
+      for (const skillItem of pluginDef.skills) {
+        // 支持字符串或对象格式：{ path: "skills/foo.md" }
+        const skillPath = typeof skillItem === 'string' ? skillItem : skillItem?.path;
+        if (!skillPath || typeof skillPath !== 'string') {
+          console.warn(`Invalid skill path in plugin ${id}:`, skillItem);
+          continue;
+        }
         const fullPath = path.join(pluginDir, skillPath);
         const component = await this.componentParser.parse(
           fullPath,
