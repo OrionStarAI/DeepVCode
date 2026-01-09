@@ -27,11 +27,23 @@ export const CompressionConfirmationDialog: React.FC<CompressionConfirmationDial
 }) => {
   const { t } = useTranslation();
 
+  // 🎯 处理 ESC 键关闭
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onCancel();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onCancel]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="compression-dialog-overlay">
-      <div className="compression-dialog">
+    <div className="compression-dialog-overlay" onClick={onCancel}>
+      <div className="compression-dialog" onClick={(e) => e.stopPropagation()}>
         <div className="compression-dialog__header">
           <div className="compression-dialog__icon">
             <AlertTriangle size={24} />

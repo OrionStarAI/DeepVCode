@@ -56,6 +56,21 @@ export const RulesManagementDialog: React.FC<RulesManagementDialogProps> = ({
       loadRules();
     }
 
+    // 🎯 处理 ESC 键关闭
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isOpen && e.key === 'Escape') {
+        if (isEditing) {
+          handleCancelEdit();
+        } else if (deleteConfirm.show) {
+          handleCancelDelete();
+        } else {
+          onClose();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
     // 注册消息处理器
     const unsubscribeList = messageService.onRulesListResponse((data) => {
       setRules(data.rules);
@@ -88,11 +103,12 @@ export const RulesManagementDialog: React.FC<RulesManagementDialogProps> = ({
 
     // 清理函数
     return () => {
+      window.removeEventListener('keydown', handleKeyDown);
       unsubscribeList();
       unsubscribeSave();
       unsubscribeDelete();
     };
-  }, [isOpen, t, messageService]);
+  }, [isOpen, t, messageService, isEditing, deleteConfirm.show]);
 
   const loadRules = () => {
     messageService.requestRulesList();

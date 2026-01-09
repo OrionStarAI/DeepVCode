@@ -1,7 +1,7 @@
 /**
  * Session Manager Dialog Component
  * Session管理对话框组件
- * 
+ *
  * @license Apache-2.0
  * Copyright 2025 DeepV Code
  */
@@ -15,16 +15,16 @@ import './SessionManagerDialog.css';
 interface SessionManagerDialogProps {
   /** 是否显示对话框 */
   isOpen: boolean;
-  
+
   /** 关闭对话框回调 */
   onClose: () => void;
-  
+
   /** 所有Session列表 */
   sessions: SessionInfo[];
-  
+
   /** 当前活跃Session */
   currentSessionId: string | null;
-  
+
   /** Session操作回调 */
   onSessionAction: (action: SessionAction, sessionId?: string, data?: any) => void;
 }
@@ -41,7 +41,7 @@ interface RenameState {
 
 /**
  * SessionManagerDialog - Session管理对话框
- * 
+ *
  * 功能：
  * - 显示所有Session列表
  * - 重命名、删除、复制Session
@@ -79,7 +79,7 @@ export const SessionManagerDialog: React.FC<SessionManagerDialogProps> = ({
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (!isOpen) return;
-      
+
       if (event.key === 'Escape') {
         if (renameState.isEditing) {
           handleCancelRename();
@@ -115,7 +115,7 @@ export const SessionManagerDialog: React.FC<SessionManagerDialogProps> = ({
     if (!renameState.sessionId || !renameState.newName.trim()) {
       return;
     }
-    
+
     onSessionAction({ type: 'rename' }, renameState.sessionId, renameState.newName.trim());
     setRenameState({ sessionId: null, newName: '', isEditing: false });
   };
@@ -201,7 +201,7 @@ export const SessionManagerDialog: React.FC<SessionManagerDialogProps> = ({
   const formatLastActivity = (timestamp: number) => {
     const now = Date.now();
     const diff = now - timestamp;
-    
+
     if (diff < 60 * 1000) {
       return '刚刚';
     } else if (diff < 60 * 60 * 1000) {
@@ -238,8 +238,8 @@ export const SessionManagerDialog: React.FC<SessionManagerDialogProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="session-dialog-overlay">
-      <div className="session-dialog">
+    <div className="session-dialog-overlay" onClick={onClose}>
+      <div className="session-dialog" onClick={(e) => e.stopPropagation()}>
         {/* 对话框头部 */}
         <div className="session-dialog__header">
           <h2 className="session-dialog__title">
@@ -265,14 +265,14 @@ export const SessionManagerDialog: React.FC<SessionManagerDialogProps> = ({
               >
                 ➕ 新建会话
               </button>
-              
+
               <button
                 className="session-dialog__btn"
                 onClick={handleImportSessions}
               >
                 📥 导入
               </button>
-              
+
               <button
                 className="session-dialog__btn"
                 onClick={handleExportSessions}
@@ -281,7 +281,7 @@ export const SessionManagerDialog: React.FC<SessionManagerDialogProps> = ({
                 📤 导出{selectedSessions.size > 0 ? ` (${selectedSessions.size})` : ''}
               </button>
             </div>
-            
+
             <div className="session-dialog__toolbar-right">
               <button
                 className="session-dialog__btn session-dialog__btn--small"
@@ -330,7 +330,7 @@ export const SessionManagerDialog: React.FC<SessionManagerDialogProps> = ({
                       <span className="session-dialog__item-icon">
                         {session.icon || '💬'}
                       </span>
-                      
+
                       {renameState.isEditing && renameState.sessionId === session.id ? (
                         <input
                           type="text"
@@ -352,12 +352,12 @@ export const SessionManagerDialog: React.FC<SessionManagerDialogProps> = ({
                           {session.name}
                         </span>
                       )}
-                      
+
                       {session.id === currentSessionId && (
                         <span className="session-dialog__item-current">当前</span>
                       )}
                     </div>
-                    
+
                     <div className="session-dialog__item-meta">
                       <span className="session-dialog__item-type">
                         {getSessionTypeName(session.type)}
@@ -380,7 +380,7 @@ export const SessionManagerDialog: React.FC<SessionManagerDialogProps> = ({
                     >
                       ✏️
                     </button>
-                    
+
                     <button
                       className="session-dialog__action-btn"
                       onClick={() => handleDuplicateSession(session.id)}
@@ -388,7 +388,7 @@ export const SessionManagerDialog: React.FC<SessionManagerDialogProps> = ({
                     >
                       📄
                     </button>
-                    
+
                     {session.messageCount > 0 && (
                       <button
                         className="session-dialog__action-btn"
@@ -398,7 +398,7 @@ export const SessionManagerDialog: React.FC<SessionManagerDialogProps> = ({
                         🧹
                       </button>
                     )}
-                    
+
                     {sessions.length > 1 && (
                       <button
                         className="session-dialog__action-btn session-dialog__action-btn--danger"
@@ -421,7 +421,7 @@ export const SessionManagerDialog: React.FC<SessionManagerDialogProps> = ({
             总计 {sessions.length} 个会话，
             {sessions.reduce((sum, s) => sum + s.messageCount, 0)} 条消息
           </div>
-          
+
           <button
             className="session-dialog__btn"
             onClick={onClose}
