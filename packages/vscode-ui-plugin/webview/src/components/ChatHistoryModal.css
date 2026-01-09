@@ -4,7 +4,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background-color: transparent;
+  background-color: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: flex-start;
   justify-content: center;
@@ -12,11 +12,13 @@
   padding-top: 40px;
   padding-left: 16px;
   padding-right: 16px;
-  pointer-events: none;
+  backdrop-filter: blur(2px);
+  animation: fadeIn 0.2s ease-out;
 }
 
-.chat-history-modal__overlay > * {
-  pointer-events: auto;
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .chat-history-modal__container {

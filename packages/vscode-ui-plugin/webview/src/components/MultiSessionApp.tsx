@@ -2226,7 +2226,7 @@ User question: ${contentStr}`;
 
       {/* 🎯 重命名对话框 */}
       {renameDialog.isOpen && (
-        <div className="rename-dialog-overlay" style={{
+        <div className="rename-dialog-overlay" onClick={() => setRenameDialog({ ...renameDialog, isOpen: false })} style={{
           position: 'fixed',
           top: 0,
           left: 0,
@@ -2238,7 +2238,7 @@ User question: ${contentStr}`;
           alignItems: 'center',
           zIndex: 1000
         }}>
-          <div className="rename-dialog" style={{
+          <div className="rename-dialog" onClick={(e) => e.stopPropagation()} style={{
             backgroundColor: 'var(--vscode-editor-background)',
             border: '1px solid var(--vscode-widget-border)',
             padding: '20px',
