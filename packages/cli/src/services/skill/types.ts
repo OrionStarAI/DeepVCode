@@ -67,6 +67,15 @@ export enum SkillType {
 }
 
 /**
+ * 技能来源类型
+ */
+export enum SkillSource {
+  MARKETPLACE = 'marketplace',  // 市场技能（现有）
+  USER_GLOBAL = 'user_global',    // 用户全局技能（新增）
+  USER_PROJECT = 'user_project',  // 用户项目技能（新增）
+}
+
+/**
  * Plugin Item - 插件包含的具体项（Skill/Command/Agent）
  */
 export interface PluginItem {
@@ -144,10 +153,25 @@ export type PluginSource =
     };
 
 /**
+ * 技能位置信息
+ */
+export interface SkillLocation {
+  /** 技能来源类型 */
+  type: SkillSource;
+  /** 技能实际文件路径 */
+  path: string;
+  /** 根目录路径 */
+  rootPath: string;
+  /** 相对路径 */
+  relativePath: string;
+}
+
+/**
  * Skill - 最小工作单位 (SKILL.md + 可选资源和脚本)
+ * 支持自定义技能和位置追踪
  */
 export interface Skill {
-  /** Skill 唯一标识符 (marketplace:plugin:skill-name) */
+  /** Skill 唯一标识符 */
   id: string;
   /** Skill 类型 */
   type?: SkillType;
@@ -179,6 +203,12 @@ export interface Skill {
   enabled: boolean;
   /** 加载级别（用于三级加载） */
   loadLevel: SkillLoadLevel;
+  /** 位置信息 */
+  location?: SkillLocation;
+  /** 是否为内置技能 */
+  isBuiltIn: boolean;
+  /** 是否为自定义技能 */
+  isCustom: boolean;
 }
 
 /**
