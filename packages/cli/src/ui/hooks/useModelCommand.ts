@@ -63,6 +63,9 @@ export const useModelCommand = (
           const geminiClient = config.getGeminiClient();
 
           if (geminiClient) {
+            // 🔄 确保Chat已初始化（带重试机制）- 修复启动时立即切换模型导致的错误
+            await geminiClient.waitForChatInitialized();
+
             // 显示正在切换的消息，并提示可能需要压缩
             const modelDisplayName = getModelDisplayName(modelName, config);
             addItem(
