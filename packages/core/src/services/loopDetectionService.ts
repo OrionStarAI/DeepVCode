@@ -42,7 +42,7 @@ const PREVIEW_MONITORED_TOOLS = new Set([
  * When a preview model calls any tool in PREVIEW_MONITORED_TOOLS this many times
  * consecutively (ignoring args), it's considered a loop.
  */
-const PREVIEW_TOOL_LOOP_THRESHOLD = 12;
+const PREVIEW_TOOL_LOOP_THRESHOLD = 30;
 
 /**
  * The number of recent conversation turns to include in the history when asking the LLM to check for a loop.

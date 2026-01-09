@@ -1386,8 +1386,8 @@ User question: ${queryStr}`;
         // 异步获取真实的预估值
         (async () => {
           try {
-            // 获取 GeminiChat 实例以访问完整对话历史和系统指令
-            const chat = geminiClient.getChat();
+            // 等待 GeminiChat 初始化完成（带重试机制）
+            const chat = await geminiClient.waitForChatInitialized();
 
             // 获取完整的对话历史（使用 curated 版本确保格式正确）
             const existingHistory = chat.getHistory(true);
@@ -1460,6 +1460,9 @@ User question: ${queryStr}`;
       // 简化：无需注册主查询任务到中央状态管理器
 
       try {
+        // 🔄 确保Chat已初始化（带重试机制）- 修复启动时立即发送消息导致的错误
+        await geminiClient.waitForChatInitialized();
+
         const stream = geminiClient.sendMessageStream(
           queryToSend,
           abortSignal,
