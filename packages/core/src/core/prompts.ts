@@ -600,25 +600,11 @@ You are running outside of a sandbox container, directly on the user's system. F
     ? `\n\n---\n\n${userMemory.trim()}`
     : '';
 
-  // Skills context (if available)
-  const skillsContent = (function () {
-    try {
-      const { SkillsContextBuilder } = require('../skills/skills-context-builder.js');
-      const builder = new SkillsContextBuilder();
-      const context = builder.buildContext();
+  // Note: Skills context removed - now provided dynamically in tool descriptions
+  // This reduces initial context size by ~2500-3000 tokens
+  // Skills are loaded on-demand via the use_skill tool
 
-      if (context.available && context.summary) {
-        return `\n\n---\n\n${context.summary}`;
-      }
-      return '';
-    } catch (error) {
-      // Skills system not available or failed to load
-      // This is expected in environments where skills are not set up
-      return '';
-    }
-  })();
-
-  return `${sandboxContent}${gitContent}${skillsContent}${memorySuffix}`.trim();
+  return `${sandboxContent}${gitContent}${memorySuffix}`.trim();
 }
 
 /**

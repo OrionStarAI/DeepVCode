@@ -4,6 +4,8 @@
  * Manages AI Skills: Marketplace → Plugin → Skill
  */
 
+import path from 'path';
+import os from 'os';
 import { MessageType } from '../types.js';
 import {
   type CommandContext,
@@ -19,11 +21,13 @@ import {
   PluginInstaller,
   SkillLoader,
   SkillLoadLevel,
+  SkillsPaths,
   type Marketplace,
   type Plugin,
   type Skill,
 } from '../../services/skill/index.js';
 import { clearSkillsContextCache } from '../../services/skill/skills-integration.js';
+import { PROJECT_DIR_PREFIX } from 'deepv-code-core';
 
 /**
  * 初始化 Skills 系统组件
@@ -1025,93 +1029,88 @@ export const skillCommand: SlashCommand = {
         try {
           const { loader } = await initSkillsSystem();
 
-          // Parse options
-          const input = args?.trim() || '';
-          const parts = input.split(/\s+/);
-
-          let marketplaceFilter: string | undefined;
-          let pluginFilter: string | undefined;
-          let searchQuery: string | undefined;
-
-          for (let i = 0; i < parts.length; i++) {
-            if (parts[i] === '--marketplace' && parts[i + 1]) {
-              marketplaceFilter = parts[i + 1];
-              i++;
-            } else if (parts[i] === '--plugin' && parts[i + 1]) {
-              pluginFilter = parts[i + 1];
-              i++;
-            } else if (parts[i] === '--search' && parts[i + 1]) {
-              searchQuery = parts[i + 1];
-              i++;
-            }
-          }
-
-          // Load skills
-          let skills = await loader.loadEnabledSkills(SkillLoadLevel.METADATA);
-
-          // Apply filters
-          if (marketplaceFilter) {
-            skills = skills.filter(s => s.marketplaceId === marketplaceFilter);
-          }
-          if (pluginFilter) {
-            skills = skills.filter(s => s.pluginId === pluginFilter);
-          }
-          if (searchQuery) {
-            skills = await loader.searchSkills(searchQuery);
-          }
+          // Load all skills
+          const skills = await loader.loadEnabledSkills(SkillLoadLevel.METADATA);
 
           if (skills.length === 0) {
             context.ui.addItem(
               {
                 type: MessageType.INFO,
-                text: 'No skills found.\n\nInstall a plugin:\n  /skill plugin list',
+                text: `No skills found.\n\n • User skills: ${SkillsPaths.SKILLS_ROOT.replace(os.homedir(), '~')}/\n • Project skills: {project}/${PROJECT_DIR_PREFIX}/skills/\n • Add skills by creating SKILL.md files in these directories`,
               },
               Date.now(),
             );
             return;
           }
 
-          // Group by marketplace and plugin
-          const grouped = new Map<string, Map<string, Skill[]>>();
-          for (const skill of skills) {
-            let mpGroup = grouped.get(skill.marketplaceId);
-            if (!mpGroup) {
-              mpGroup = new Map();
-              grouped.set(skill.marketplaceId, mpGroup);
+          // Define the display function inline to avoid circular reference
+          const displaySkillsWithCategories = (skillsToDisplay: any[]): string => {
+            // 从实际 skill 对象获取路径，如果没有则使用默认路径
+            let userPath = SkillsPaths.SKILLS_ROOT.replace(os.homedir(), '~');
+            // 项目路径：使用 PROJECT_DIR_PREFIX 常量
+            let projectPathDisplay = `{project}/${PROJECT_DIR_PREFIX}/skills`;
+            
+            // 尝试从第一个 skill 的 location 获取实际路径
+            const userSkill = skillsToDisplay.find(s => s.isCustom && s.location?.type === 'user_global');
+            if (userSkill?.location?.rootPath) {
+              userPath = userSkill.location.rootPath.replace(os.homedir(), '~');
             }
-
-            let pluginGroup = mpGroup.get(skill.pluginId);
-            if (!pluginGroup) {
-              pluginGroup = [];
-              mpGroup.set(skill.pluginId, pluginGroup);
+            
+            const projectSkill = skillsToDisplay.find(s => s.isCustom && s.location?.type === 'user_project');
+            if (projectSkill?.location?.rootPath) {
+              // 从实际路径中提取相对路径部分
+              const rootPath = projectSkill.location.rootPath;
+              const relativePath = path.relative(process.cwd(), rootPath);
+              projectPathDisplay = `{project}/${relativePath}`;
             }
+            
+            const categories = {
+              user: { skills: [] as any[], path: userPath, title: 'User skills' },
+              project: { skills: [] as any[], path: projectPathDisplay, title: 'Project skills' },
+              marketplace: { skills: [] as any[], path: 'plugin', title: 'Plugin skills' }
+            };
 
-            pluginGroup.push(skill);
-          }
-
-          // Display grouped skills
-          const lines = [`Available skills (${skills.length}):\n`];
-
-          for (const [marketplaceId, plugins] of grouped) {
-            lines.push(`📦 ${marketplaceId}`);
-            lines.push('');
-
-            for (const [pluginId, pluginSkills] of plugins) {
-              const pluginName = pluginId.split(':')[1];
-              lines.push(`  🔌 ${pluginName}`);
-              lines.push('');
-
-              for (const skill of pluginSkills) {
-                lines.push(`    ${formatSkill(skill)}`);
-                lines.push('');
+            // 分类
+            skillsToDisplay.forEach(skill => {
+              if (skill.isCustom && skill.location?.type === 'user_global') {
+                categories.user.skills.push(skill);
+              } else if (skill.isCustom && skill.location?.type === 'user_project') {
+                categories.project.skills.push(skill);
+              } else {
+                categories.marketplace.skills.push(skill);
               }
-            }
-          }
+            });
+
+            // 生成输出
+            const lines: string[] = [];
+            let totalSkills = skillsToDisplay.length;
+
+            // 标题和统计
+            lines.push(`Skills (${totalSkills}):\n`);
+
+            // 分类显示
+            Object.entries(categories).forEach(([key, category]: [string, any]) => {
+              if (category.skills.length > 0) {
+                lines.push(`\n ${category.title} (${category.path})`);
+
+                category.skills.forEach((skill: any) => {
+                  const name = skill.name;
+                  const prefix = skill.scripts && skill.scripts.length > 0 ? '⚡' : '•';
+
+                  lines.push(` ${prefix} ${name}`);
+                });
+              }
+            });
+
+            return lines.join('\n');
+          };
+
+          const output = displaySkillsWithCategories(skills);
 
           context.ui.addItem(
             {
               type: MessageType.INFO,
-              text: lines.join('\n'),
+              text: output,
             },
             Date.now(),
           );
@@ -1302,4 +1301,5 @@ export const skillCommand: SlashCommand = {
       },
     },
   ],
-};
+
+  };

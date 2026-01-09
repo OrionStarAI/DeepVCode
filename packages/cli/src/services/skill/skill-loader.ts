@@ -6,7 +6,7 @@
  * - Parse SKILL.md files (YAML frontmatter + Markdown body)
  * - Validate skill structure and metadata
  * - Cache metadata for performance
- * - Support dual-layer storage (personal + marketplace)
+ * - Support multi-layer storage (project + user global + marketplace)
  */
 
 import fs from 'fs-extra';
@@ -22,11 +22,13 @@ import {
   SkillErrorCode,
   ValidationError,
   SkillType,
+  SkillSource,
 } from './types.js';
 import { SettingsManager, SkillsPaths } from './settings-manager.js';
 import { MarketplaceManager } from './marketplace-manager.js';
 import { MarketplaceLoader } from './loaders/marketplace-loader.js';
 import { UnifiedComponent, ComponentType } from './models/unified.js';
+import { getProjectSkillsDir } from 'deepv-code-core';
 
 /**
  * Skill 缓存项
@@ -45,12 +47,13 @@ interface SkillCacheItem {
  * 2. 解析 SKILL.md 文件（YAML frontmatter + Markdown body）
  * 3. 验证 Skill 结构（名称规则、必需字段）
  * 4. 元数据缓存机制
- * 5. 双层存储扫描（个人级 ~/.deepv/skills/ + Marketplace）
+ * 5. 三层存储扫描（项目级 .deepvcode/skills/ + 用户级 ~/.deepv/skills/ + Marketplace）
  */
 export class SkillLoader {
   private cache: Map<string, SkillCacheItem> = new Map();
   private readonly cacheTTL: number;
   private marketplaceLoader: MarketplaceLoader;
+  private customSkillPaths: Map<SkillSource, string> = new Map();
 
   constructor(
     private settingsManager: SettingsManager,
@@ -59,6 +62,18 @@ export class SkillLoader {
   ) {
     this.cacheTTL = cacheTTL;
     this.marketplaceLoader = new MarketplaceLoader(settingsManager);
+    this.initializeCustomSkillPaths();
+  }
+
+  /**
+   * 初始化自定义技能路径
+   */
+  private initializeCustomSkillPaths() {
+    // 用户全局技能路径
+    this.customSkillPaths.set(SkillSource.USER_GLOBAL, path.join(process.env.HOME || '', '.deepv', 'skills'));
+
+    // 项目技能路径（使用工具函数，与命令处理保持一致）
+    this.customSkillPaths.set(SkillSource.USER_PROJECT, getProjectSkillsDir(process.cwd()));
   }
 
   // ============================================================================
@@ -66,29 +81,28 @@ export class SkillLoader {
   // ============================================================================
 
   /**
-   * 加载所有已启用的 Skills
+   * 加载所有已启用的 Skills（支持多来源）
    * @param loadLevel 加载级别（默认仅元数据）
    */
   async loadEnabledSkills(
     loadLevel: SkillLoadLevel = SkillLoadLevel.METADATA,
   ): Promise<Skill[]> {
     try {
-      const skills: Skill[] = [];
+      const allSkills: Skill[] = [];
 
-      // 获取已启用的 Plugins
-      const enabledPluginIds = await this.settingsManager.getEnabledPlugins();
+      // 按优先级加载：项目级 > 用户级 > 市场级
+      const sources = [
+        SkillSource.USER_PROJECT,
+        SkillSource.USER_GLOBAL,
+        SkillSource.MARKETPLACE,
+      ];
 
-      // 遍历每个 Plugin，加载其 Skills
-      for (const pluginId of enabledPluginIds) {
-        try {
-          const pluginSkills = await this.loadPluginSkills(pluginId, loadLevel);
-          skills.push(...pluginSkills);
-        } catch (error) {
-          console.warn(`Failed to load skills for plugin ${pluginId}:`, error);
-        }
+      for (const source of sources) {
+        const skills = await this.loadSkillsFromSource(source, loadLevel);
+        allSkills.push(...skills);
       }
 
-      return skills;
+      return allSkills;
     } catch (error) {
       throw new SkillError(
         `Failed to load enabled skills: ${error instanceof Error ? error.message : String(error)}`,
@@ -99,7 +113,159 @@ export class SkillLoader {
   }
 
   /**
-   * 加载指定 Plugin 的所有 Skills
+   * 从特定来源加载技能
+   */
+  private async loadSkillsFromSource(
+    source: SkillSource,
+    loadLevel: SkillLoadLevel,
+  ): Promise<Skill[]> {
+    // 如果是市场技能，使用现有的加载逻辑
+    if (source === SkillSource.MARKETPLACE) {
+      return await this.loadMarketplaceSkills(loadLevel);
+    }
+
+    const rootPath = this.customSkillPaths.get(source);
+    if (!rootPath || !(await fs.pathExists(rootPath))) {
+      return [];
+    }
+
+    const skills: Skill[] = [];
+    const skillDirs = await this.scanSkillDirectories(rootPath);
+
+    for (const skillDir of skillDirs) {
+      const skill = await this.parseCustomSkill(skillDir, source, loadLevel);
+      if (skill) skills.push(skill);
+    }
+
+    return skills;
+  }
+
+  /**
+   * 扫描技能目录
+   */
+  private async scanSkillDirectories(rootPath: string): Promise<string[]> {
+    const skillDirs: string[] = [];
+
+    try {
+      const entries = await fs.readdir(rootPath, { withFileTypes: true });
+
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          const skillDir = path.join(rootPath, entry.name);
+          const skillPath = path.join(skillDir, 'SKILL.md');
+
+          if (await fs.pathExists(skillPath)) {
+            skillDirs.push(skillDir);
+          }
+        }
+      }
+    } catch (error) {
+      console.warn(`Failed to scan skill directory ${rootPath}:`, error);
+    }
+
+    return skillDirs;
+  }
+
+  /**
+   * 解析自定义技能
+   */
+  private async parseCustomSkill(
+    skillPath: string,
+    source: SkillSource,
+    loadLevel: SkillLoadLevel,
+  ): Promise<Skill | null> {
+    try {
+      const skillName = path.basename(skillPath);
+      const skillId = this.generateCustomSkillId(skillPath, source);
+
+      const skill = await this.parseSkillFile(
+        path.join(skillPath, 'SKILL.md'),
+        skillName,
+        skillName,
+        loadLevel,
+        SkillType.SKILL,
+      );
+
+      if (skill) {
+        const rootPath = this.customSkillPaths.get(source)!;
+
+        const customSkill: Skill = {
+          ...skill,
+          id: skillId,
+          location: {
+            type: source,
+            path: skillPath,
+            rootPath: rootPath,
+            relativePath: path.relative(rootPath, skillPath),
+          },
+          isCustom: true,
+          isBuiltIn: false,
+        };
+
+        // 添加到缓存
+        this.addToCache(customSkill);
+
+        return customSkill;
+      }
+
+      return null;
+    } catch (error) {
+      console.warn(`Failed to parse custom skill ${skillPath}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * 生成自定义技能ID
+   */
+  private generateCustomSkillId(skillPath: string, source: SkillSource): string {
+    const rootPath = this.customSkillPaths.get(source)!;
+    const relativePath = path.relative(rootPath, skillPath);
+
+    switch (source) {
+      case SkillSource.USER_GLOBAL:
+        return `user:${relativePath}`;
+      case SkillSource.USER_PROJECT:
+        const projectName = path.basename(process.cwd());
+        return `project:${projectName}:${relativePath}`;
+      default:
+        return relativePath;
+    }
+  }
+
+  /**
+   * 加载市场技能（保持现有逻辑）
+   */
+  private async loadMarketplaceSkills(loadLevel: SkillLoadLevel): Promise<Skill[]> {
+    try {
+      const skills: Skill[] = [];
+
+      // 获取已启用的 Plugins
+      const enabledPluginIds = await this.settingsManager.getEnabledPlugins();
+
+      // 遍历每个 Plugin，加载其 Skills
+      for (const pluginId of enabledPluginIds) {
+        try {
+          const pluginSkills = await this.loadPluginSkills(pluginId, loadLevel);
+          skills.push(...pluginSkills.map(skill => ({
+            ...skill,
+            isCustom: false,
+            isBuiltIn: true,
+          })));
+        } catch (error) {
+          console.warn(`Failed to load skills for plugin ${pluginId}:`, error);
+        }
+      }
+
+      return skills;
+    } catch (error) {
+      console.warn('Failed to load marketplace skills:', error);
+      return [];
+    }
+  }
+
+  /**
+   * 加载指定 Plugin 的所有 Skills（保持现有逻辑）
    */
   async loadPluginSkills(
     pluginId: string,
@@ -170,6 +336,8 @@ export class SkillLoader {
         type: this.detectScriptType(s.name)
       })),
       references: component.references || [],
+      isBuiltIn: true,
+      isCustom: false,
     };
   }
 
@@ -266,6 +434,8 @@ export class SkillLoader {
         metadata,
         enabled: true,
         loadLevel: SkillLoadLevel.METADATA,
+        isBuiltIn: true,
+        isCustom: false,
       };
 
       // Level 2: 加载完整内容
@@ -425,7 +595,7 @@ export class SkillLoader {
    */
   private addToCache(skill: Skill): void {
     this.cache.set(skill.id, {
-      skill,
+      skill: skill,
       timestamp: Date.now(),
       loadLevel: skill.loadLevel,
     });

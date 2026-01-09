@@ -14,6 +14,7 @@ export const PROJECT_DIR_PREFIX = '.deepvcode';
 export const GOOGLE_ACCOUNTS_FILENAME = 'google_accounts.json';
 const TMP_DIR_NAME = 'tmp';
 const COMMANDS_DIR_NAME = 'commands';
+const SKILLS_DIR_NAME = 'skills';
 
 /**
  * Replaces the home directory with a tilde.
@@ -208,4 +209,8 @@ export function getProjectCommandsDirs(projectRoot: string): string[] {
     getProjectCommandsDir(projectRoot),
     path.join(projectRoot, '.gemini', COMMANDS_DIR_NAME),
   ];
+}
+
+export function getProjectSkillsDir(projectRoot: string): string {
+  return path.join(projectRoot, PROJECT_DIR_PREFIX, SKILLS_DIR_NAME);
 }
