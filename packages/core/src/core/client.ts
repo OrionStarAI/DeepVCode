@@ -14,7 +14,6 @@ import {
 } from '@google/genai';
 import { getFolderStructure } from '../utils/getFolderStructure.js';
 import { detectTerminalEnvironment, formatTerminalInfo } from '../utils/terminalDetection.js';
-import { getNodeProcessTreeAsync, formatNodeProcessInfo } from '../utils/nodeProcessDetection.js';
 import {
   Turn,
   ServerGeminiStreamEvent,
@@ -233,6 +232,30 @@ export class GeminiClient {
   }
 
   /**
+   * 等待Chat初始化完成，支持重试
+   * @param maxRetries 最大重试次数
+   * @param initialDelay 初始延迟（毫秒）
+   * @returns 初始化完成的GeminiChat实例
+   */
+  async waitForChatInitialized(maxRetries: number = 10, initialDelay: number = 100): Promise<GeminiChat> {
+    let retries = 0;
+    let delay = initialDelay;
+
+    while (retries < maxRetries) {
+      if (this.chat) {
+        return this.chat;
+      }
+
+      // 指数退避
+      await new Promise(resolve => setTimeout(resolve, delay));
+      delay = Math.min(delay * 2, 5000); // 最大延迟5秒
+      retries++;
+    }
+
+    throw new Error('Chat initialization timeout - please try again');
+  }
+
+  /**
    * 检查是否正在进行压缩操作
    * @returns 如果正在压缩返回true，否则返回false
    */
@@ -344,7 +367,6 @@ export class GeminiClient {
 
     // 异步检测环境，不阻塞初始化
     let environmentInfo = '';
-    let nodeProcessInfo = '';
     try {
       // 使用 setTimeout 让环境检测异步进行，避免阻塞UI
       const terminalInfo = await new Promise<any>((resolve) => {
@@ -363,59 +385,9 @@ export class GeminiClient {
         }, 0);
       });
       environmentInfo = formatTerminalInfo(terminalInfo);
-
-      // 检测VSCode环境，决定是否跳过进程检测
-      const isVSCodeEnvironment = this.config.getVsCodePluginMode();
-
-      // 🎯  优化：在 VSCode 环境中完全跳过进程检测（不必要的操作）
-      // 支持 vscode-ui-plugin 的环境变量优化
-      const shouldSkipProcessDetection =
-        isVSCodeEnvironment ||
-        process.env.DEEPV_SKIP_PROCESS_DETECTION === 'true';
-
-      if (shouldSkipProcessDetection) {
-        const skipReason = isVSCodeEnvironment
-          ? 'VSCode environment detected'
-          : 'DEEPV_SKIP_PROCESS_DETECTION environment variable set';
-        console.info(`[Process Detection] ${skipReason} - skipping unnecessary process detection`);
-        nodeProcessInfo = `Running in VSCode extension (PID: ${process.pid})`;
-      } else {
-        // CLI 环境：进行完整的进程检测 - 使用新的异步检测方法（带超时保护）
-        // 🚀 性能优化：让出事件循环，避免连续执行重型任务
-        await new Promise(resolve => setImmediate(resolve));
-
-        const nodeProcesses = await Promise.race([
-          getNodeProcessTreeAsync(false), // CLI 环境不跳过
-          new Promise<any[]>((_, reject) =>
-            setTimeout(() => reject(new Error('Process detection timeout')), 5000)
-          )
-        ]).catch((error) => {
-          console.warn('[Process Detection] 异步检测超时或失败，使用同步回退:', error);
-          return [{
-            pid: process.pid,
-            ppid: process.ppid || 0,
-            name: 'node',
-            commandLine: process.argv.join(' ')
-          }];
-        });
-
-        // 🚀 性能优化：在格式化前再次让出事件循环
-        await new Promise(resolve => setImmediate(resolve));
-
-        nodeProcessInfo = await Promise.race([
-          formatNodeProcessInfo(nodeProcesses),
-          new Promise<string>((_, reject) =>
-            setTimeout(() => reject(new Error('Format timeout')), 5000)
-          )
-        ]).catch((error) => {
-          console.warn('[Process Info Format] 格式化超时，使用基础信息:', error);
-          return `Current process PID: ${process.pid} (Node.js CLI - do not kill)`;
-        });
-      }
     } catch (error) {
       console.warn('[Environment Detection] 环境信息获取失败:', error);
       environmentInfo = `My operating system: ${process.platform}`;
-      nodeProcessInfo = `Current process PID: ${process.pid} (Node.js CLI - do not kill)`;
     }
 
     // 🚀 性能优化：在获取目录结构前让出事件循环
@@ -434,7 +406,6 @@ This is the DeepV Code CLI with enhanced environment awareness.
 **Platform:** ${environmentInfo}
 **🎯 CRITICAL: Always use ${process.platform}-appropriate commands!**
 **Working Directory:** ${cwd}
-${nodeProcessInfo}
 
 **📁 PROJECT STRUCTURE:**
 ${folderStructure}
@@ -443,7 +414,6 @@ ${folderStructure}
 Use Glob and ReadFile tools to explore specific files during our conversation.
 
 **🔒 SAFETY REMINDERS:**
-- Respect the process hierarchy shown above
 - Always explain potentially destructive commands before execution
 - Consider cross-platform compatibility in all suggestions
           `.trim();
