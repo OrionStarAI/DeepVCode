@@ -22,10 +22,10 @@ release:
     # 打包（使用 ci 版本避免重复自增）
     - npm run pack:prod:ci
     # 写入 npm token 以便 publish
-    - echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+    - echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
     # 发布到 npm
     - npm publish
   before_script:
-    - rm -f ~/.npmrc || true
+    - rm -f .npmrc || true
   after_script:
-    - rm -f ~/.npmrc || true
+    - rm -f .npmrc || true
