@@ -12,10 +12,13 @@ release:
   script:
     # 安装依赖
     - npm install
+    # 提取版本号并更新 package.json
+    - export NEW_VERSION=$(echo $CI_COMMIT_TAG | sed 's/^cli-release-v//')
+    - npm version $NEW_VERSION --no-git-tag-version
     # 构建
     - npm run build
-    # 打包并自动提升版本号
-    - npm run pack:prod
+    # 打包（使用 ci 版本避免重复自增）
+    - npm run pack:prod:ci
     # 写入 npm token 以便 publish
     - echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
     # 发布到 npm
