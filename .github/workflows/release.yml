@@ -52,27 +52,49 @@ jobs:
       - name: 📦 Install dependencies
         run: npm install
 
-      # 4. 构建跨平台包（不自动递增版本号）
+      # 4. 获取并同步版本号
+      - name: 📌 Get and Sync version
+        id: get_version
+        run: |
+          # 1. 确定版本号
+          if [ -n "${{ inputs.version }}" ]; then
+            VERSION="${{ inputs.version }}"
+          elif [[ $GITHUB_REF == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          else
+            VERSION=$(node -p "require('./package.json').version")
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Final target version: $VERSION"
+
+          # 2. 同步版本号到所有 package.json (仅在 runner 环境中，不提交回仓库)
+          node -e "
+            const fs = require('fs');
+            const paths = [
+              'package.json',
+              'packages/cli/package.json',
+              'packages/cli/src/package.json',
+              'packages/core/package.json',
+              'packages/vscode-ide-companion/package.json'
+            ];
+            paths.forEach(p => {
+              if (fs.existsSync(p)) {
+                const pkg = JSON.parse(fs.readFileSync(p, 'utf8'));
+                const oldVersion = pkg.version;
+                pkg.version = '$VERSION';
+                fs.writeFileSync(p, JSON.stringify(pkg, null, 2) + '\n');
+                console.log('✅ Updated ' + p + ': ' + oldVersion + ' -> $VERSION');
+              }
+            });
+          "
+
+      # 5. 构建跨平台包（由于已经同步了版本号，这里使用 --no-version-bump）
       - name: 🏗️ Build cross-platform package
         run: npm run pack:prod:ci
         env:
           NODE_ENV: production
 
-      # 7. 获取版本号
-      - name: 📌 Get version
-        id: get_version
-        run: |
-          if [ -n "${{ inputs.version }}" ]; then
-            echo "VERSION=${{ inputs.version }}" >> $GITHUB_OUTPUT
-          elif [[ $GITHUB_REF == refs/tags/* ]]; then
-            echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
-          else
-            VERSION=$(node -p "require('./package.json').version")
-            echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-          fi
-          echo "Current version: $(cat $GITHUB_OUTPUT | grep VERSION)"
-
-      # 8. 查找构建产物
+      # 6. 查找构建产物
       - name: 🔍 Find build artifacts
         id: find_artifacts
         run: |
@@ -90,7 +112,7 @@ jobs:
           echo "✅ Found artifact: $TGZ_FILE"
           ls -lh $TGZ_FILE
 
-      # 9. 创建 GitHub Release (使用 tag message 作为 release notes)
+      # 7. 创建 GitHub Release (使用 tag message 作为 release notes)
       - name: 🚀 Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
@@ -103,7 +125,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # 10. 上传构建产物为 workflow artifact（方便下载测试）
+      # 8. 上传构建产物为 workflow artifact
       - name: 📤 Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
