@@ -167,6 +167,22 @@ export interface ToolCallConfirmationDetails {
   affectedFiles?: string[];
   estimatedTime?: string;
   reversible?: boolean;
+  // 🎯 确认类型（来自 core ToolCallConfirmationDetails）
+  type?: 'edit' | 'exec' | 'mcp' | 'info' | 'delete';
+  title?: string;
+  // 🎯 Edit 类型确认的完整字段（来自 core ToolEditConfirmationDetails）
+  fileDiff?: string;
+  fileName?: string;
+  originalContent?: string | null;
+  newContent?: string;
+  // 🎯 Delete 类型确认的字段（来自 core ToolDeleteConfirmationDetails）
+  filePath?: string;
+  fileContent?: string;
+  fileSize?: number;
+  reason?: string;
+  // 🎯 Exec 类型确认的字段（来自 core ToolExecuteConfirmationDetails）
+  command?: string;
+  rootCommand?: string;
 }
 
 // 🎯 增强的工具调用接口
@@ -212,53 +228,53 @@ export interface ToolCall {
 
 export interface MessageFromExtension {
   type: 'tool_execution_result' |
-       'tool_execution_error' |
-       'tool_execution_confirmation_request' |
-       'tool_calls_update' |           // 🎯 新增：工具调用状态更新
-       'tool_confirmation_request' |   // 🎯 新增：确认请求
-       'tool_results_continuation' |   // 🎯 新增：工具结果提交后的AI续写
-       'chat_response' |
-       'chat_error' |
-       'context_update' |
-       'file_search_result' |          // 🎯 新增：文件搜索结果
-       'symbol_search_result' |        // 🎯 新增：符号搜索结果
-       'extension_version_response' |  // 🎯 新增：扩展版本响应
-       'update_check_response' |       // 🎯 新增：更新检测响应
-       'quick_action';
+  'tool_execution_error' |
+  'tool_execution_confirmation_request' |
+  'tool_calls_update' |           // 🎯 新增：工具调用状态更新
+  'tool_confirmation_request' |   // 🎯 新增：确认请求
+  'tool_results_continuation' |   // 🎯 新增：工具结果提交后的AI续写
+  'chat_response' |
+  'chat_error' |
+  'context_update' |
+  'file_search_result' |          // 🎯 新增：文件搜索结果
+  'symbol_search_result' |        // 🎯 新增：符号搜索结果
+  'extension_version_response' |  // 🎯 新增：扩展版本响应
+  'update_check_response' |       // 🎯 新增：更新检测响应
+  'quick_action';
   payload: Record<string, unknown>;
 }
 
 export interface MessageToExtension {
   type: 'tool_execution_request' |
-       'tool_execution_confirm' |
-       'tool_confirmation_response' | // 🎯 新增：确认响应
-       'tool_cancel_all' |            // 🎯 新增：取消所有工具
-       'chat_message' |
-       'get_context' |
-       'file_search' |                // 🎯 新增：文件搜索
-       'symbol_search' |              // 🎯 新增：符号搜索
-       'get_terminals' |              // 🎯 新增：获取终端列表
-       'get_terminal_output' |        // 🎯 新增：获取终端输出
-       'get_recent_files' |           // 🎯 新增：获取最近打开的文件
-       'get_extension_version' |      // 🎯 新增：获取扩展版本号
-       'check_for_updates' |          // 🎯 新增：检查更新
-       'openDiffInEditor' |           // 🎯 新增：在编辑器中打开diff
-       'openDeletedFileContent' |     // 🎯 新增：查看删除文件内容
-       'acceptFileChanges' |          // 🎯 新增：接受文件变更
-       'open_external_url' |          // 🎯 新增：打开外部URL（用于升级提示）
-       'open_extension_marketplace' | // 🎯 新增：打开扩展市场（用于升级提示）
-       'get_available_models' |       // 🎯 新增：获取可用模型列表
-       'set_current_model' |          // 🎯 新增：设置当前模型
-       'get_current_model' |          // 🎯 新增：获取当前模型
-       'execute_slash_command' |      // 🎯 新增：执行 slash 命令（如 /refine）
-       'get_slash_commands' |         // 🎯 新增：获取自定义斜杠命令列表
-       'execute_custom_slash_command' | // 🎯 新增：执行自定义斜杠命令
-       'open_file' |                  // 🎯 新增：打开文件并跳转到指定行/方法
-       'goto_symbol' |                // 🎯 新增：跳转到符号（方法名）
-       'goto_line' |                  // 🎯 新增：跳转到当前文件的指定行
-       'show_notification' |          // 🎯 新增：显示通知
-       'request_user_stats' |         // 🎯 新增：请求用户积分统计
-       'ready';
+  'tool_execution_confirm' |
+  'tool_confirmation_response' | // 🎯 新增：确认响应
+  'tool_cancel_all' |            // 🎯 新增：取消所有工具
+  'chat_message' |
+  'get_context' |
+  'file_search' |                // 🎯 新增：文件搜索
+  'symbol_search' |              // 🎯 新增：符号搜索
+  'get_terminals' |              // 🎯 新增：获取终端列表
+  'get_terminal_output' |        // 🎯 新增：获取终端输出
+  'get_recent_files' |           // 🎯 新增：获取最近打开的文件
+  'get_extension_version' |      // 🎯 新增：获取扩展版本号
+  'check_for_updates' |          // 🎯 新增：检查更新
+  'openDiffInEditor' |           // 🎯 新增：在编辑器中打开diff
+  'openDeletedFileContent' |     // 🎯 新增：查看删除文件内容
+  'acceptFileChanges' |          // 🎯 新增：接受文件变更
+  'open_external_url' |          // 🎯 新增：打开外部URL（用于升级提示）
+  'open_extension_marketplace' | // 🎯 新增：打开扩展市场（用于升级提示）
+  'get_available_models' |       // 🎯 新增：获取可用模型列表
+  'set_current_model' |          // 🎯 新增：设置当前模型
+  'get_current_model' |          // 🎯 新增：获取当前模型
+  'execute_slash_command' |      // 🎯 新增：执行 slash 命令（如 /refine）
+  'get_slash_commands' |         // 🎯 新增：获取自定义斜杠命令列表
+  'execute_custom_slash_command' | // 🎯 新增：执行自定义斜杠命令
+  'open_file' |                  // 🎯 新增：打开文件并跳转到指定行/方法
+  'goto_symbol' |                // 🎯 新增：跳转到符号（方法名）
+  'goto_line' |                  // 🎯 新增：跳转到当前文件的指定行
+  'show_notification' |          // 🎯 新增：显示通知
+  'request_user_stats' |         // 🎯 新增：请求用户积分统计
+  'ready';
   payload: Record<string, unknown>;
 }
 

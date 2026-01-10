@@ -4,8 +4,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { BaseTool, Icon, ToolResult, ToolLocation } from './tools.js';
-import { Config } from '../config/config.js';
+import { BaseTool, Icon, ToolResult, ToolLocation, ToolCallConfirmationDetails, ToolEditConfirmationDetails, ToolConfirmationOutcome } from './tools.js';
+import { Config, ApprovalMode } from '../config/config.js';
 import { PatchParser } from '../utils/patch-parser.js';
 import { Type } from '@google/genai';
 import { SchemaValidator } from '../utils/schemaValidator.js';
@@ -44,6 +44,56 @@ export class PatchTool extends BaseTool<PatchToolParams, ToolResult> {
         if (!params.patchText) return 'patchText is required';
         return null;
     }
+
+    /**
+     * 🎯 用户确认逻辑：显示 patch 预览并请求用户确认
+     */
+    async shouldConfirmExecute(
+        params: PatchToolParams,
+        _abortSignal: AbortSignal
+    ): Promise<ToolCallConfirmationDetails | false> {
+        if (this.config.getApprovalMode() === ApprovalMode.AUTO_EDIT) {
+            return false;
+        }
+
+        const validationError = this.validateToolParams(params);
+        if (validationError) {
+            console.error(`[PatchTool] Invalid parameters: ${validationError}`);
+            return false;
+        }
+
+        // 解析 patch 以获取涉及的文件
+        let affectedFiles: string[] = [];
+        try {
+            const { hunks } = PatchParser.parsePatch(params.patchText);
+            affectedFiles = hunks.map(h => h.path);
+        } catch {
+            // 解析失败仍然显示确认
+        }
+
+        const displayFileName = affectedFiles.length === 1
+            ? path.basename(affectedFiles[0])
+            : affectedFiles.length > 1
+                ? `${affectedFiles.length} files`
+                : 'Patch';
+
+        const confirmationDetails: ToolEditConfirmationDetails = {
+            type: 'edit',
+            title: `Confirm Patch: ${displayFileName}`,
+            fileName: displayFileName,
+            fileDiff: params.patchText,
+            originalContent: null,
+            newContent: '',
+            onConfirm: async (outcome: ToolConfirmationOutcome) => {
+                if (outcome === ToolConfirmationOutcome.ProceedAlways) {
+                    this.config.setApprovalMode(ApprovalMode.AUTO_EDIT);
+                }
+            },
+        };
+
+        return confirmationDetails;
+    }
+
 
     async execute(params: PatchToolParams): Promise<ToolResult> {
         try {
