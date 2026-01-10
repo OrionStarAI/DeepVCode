@@ -9,6 +9,8 @@
  * 用于在编辑工具中应用语言特定的文本处理逻辑
  */
 
+import os from 'os';
+
 export interface LanguageProcessingConfig {
   preserveTrailingSpaces: boolean;
   indentSensitive: boolean;
@@ -128,7 +130,8 @@ export function postProcessTextByLanguage(
   content: string,
   filePath: string,
   isNewFile: boolean = false,
-  autoTrimTrailingSpaces?: boolean
+  autoTrimTrailingSpaces?: boolean,
+  targetLineEnding?: string
 ): string {
   if (!content) return content;
 
@@ -154,12 +157,47 @@ export function postProcessTextByLanguage(
     processed = postProcessGenericText(content, effectiveConfig);
   }
 
-  // Windows脚本文件：转换为CRLF换行符
+  // Windows脚本文件：强制转换为CRLF换行符 (优先级最高)
   if (shouldUseCRLF(filePath)) {
+    processed = convertToCRLF(processed);
+  } else if (targetLineEnding) {
+    // 如果指定了目标换行符，且不是强制CRLF的文件类型，则统一转换为目标换行符
+    if (targetLineEnding === '\r\n') {
+      processed = convertToCRLF(processed);
+    } else {
+      // 默认为LF (postProcessXXXText 已经标准化为LF，这里只需确认)
+      // 如果 postProcess 内部有其他换行符引入（理论上不应有），这里再次确保
+      processed = processed.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+    }
+  } else if (isNewFile && os.platform() === 'win32') {
+    // 新文件且在 Windows 平台，默认使用 CRLF (如果未指定 targetLineEnding)
+    // 但为了保持现有行为的一致性，如果没特别指定，也许我们应该保持 LF？
+    // 考虑到 Issue #2 的诉求，Windows 用户希望保留 CRLF。
+    // 对于新文件，使用 OS 默认是合理的。
     processed = convertToCRLF(processed);
   }
 
   return processed;
+}
+
+/**
+ * 检测字符串中使用的主要换行符
+ * @param content 文本内容
+ * @returns Detected line ending ('\n' or '\r\n') or undefined if mixed/unknown
+ */
+export function detectLineEnding(content: string): string | undefined {
+  const crlfCount = (content.match(/\r\n/g) || []).length;
+  const lfCount = (content.match(/[^\r]\n/g) || []).length;
+
+  if (crlfCount === 0 && lfCount === 0) {
+    return undefined;
+  }
+
+  if (crlfCount > lfCount) {
+    return '\r\n';
+  } else {
+    return '\n';
+  }
 }
 
 /**
