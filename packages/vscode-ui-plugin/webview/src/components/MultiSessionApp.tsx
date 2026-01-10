@@ -409,7 +409,7 @@ export const MultiSessionApp: React.FC = () => {
     // =============================================================================
 
     messageService.onSessionListUpdate(({ sessions, currentSessionId }) => {
-        console.log('🔍 [DEBUG-UI-FLOW] [MultiSessionApp] onSessionListUpdate received:', sessions.length, 'sessions');
+      console.log('🔍 [DEBUG-UI-FLOW] [MultiSessionApp] onSessionListUpdate received:', sessions.length, 'sessions');
 
 
       // 🎯 注意：这里是活跃session列表（最多10个）
@@ -580,9 +580,9 @@ export const MultiSessionApp: React.FC = () => {
           if (sessionState?.info?.name) {
             const memoryTitle = sessionState.info.name;
             const isDefaultTitle = !memoryTitle ||
-                                   memoryTitle === 'New Session' ||
-                                   memoryTitle === 'New Chat' ||
-                                   memoryTitle === 'Untitled Chat';
+              memoryTitle === 'New Session' ||
+              memoryTitle === 'New Chat' ||
+              memoryTitle === 'Untitled Chat';
 
             // 如果内存中的标题不是默认值，说明是手动修改过或自动生成的，优先使用
             if (!isDefaultTitle) {
@@ -941,6 +941,14 @@ export const MultiSessionApp: React.FC = () => {
     });
 
     messageService.onToolConfirmationRequest(({ sessionId, toolCall }) => {
+      console.log('🔍 [ToolConfirmation] Received confirmation request:', {
+        sessionId,
+        toolId: toolCall.toolId,
+        toolName: toolCall.toolName,
+        hasConfirmationDetails: !!toolCall.confirmationDetails,
+        confirmationDetailsType: toolCall.confirmationDetails?.type,
+        hasFileDiff: !!toolCall.confirmationDetails?.fileDiff
+      });
 
       const confirmationTool: ToolCall = {
         id: toolCall.toolId,
@@ -955,6 +963,32 @@ export const MultiSessionApp: React.FC = () => {
 
       // 🎯 将 Session 状态设置为 CONFIRMING，页签显示红色问号闪烁
       updateSessionStatus(sessionId, SessionStatus.CONFIRMING);
+
+      // 🎯 关键修复：更新消息中已存在的工具的 confirmationDetails
+      // 因为 onToolCallsUpdate 可能先到达，但不包含 confirmationDetails
+      // 我们需要找到当前正在处理的消息，并更新其中对应工具的 confirmationDetails
+      const currentSession = getSessionRef.current(sessionId);
+      if (currentSession) {
+        const targetMessageId = currentSession.currentProcessingMessageId;
+        if (targetMessageId) {
+          const targetMessage = currentSession.messages.find(m => m.id === targetMessageId);
+          if (targetMessage?.associatedToolCalls) {
+            // 更新已存在的工具调用，添加 confirmationDetails
+            const updatedToolCalls = targetMessage.associatedToolCalls.map(tc => {
+              if (tc.id === toolCall.toolId) {
+                console.log('🔍 [ToolConfirmation] Updating existing tool with confirmationDetails:', tc.id);
+                return {
+                  ...tc,
+                  status: ToolCallStatus.WaitingForConfirmation,
+                  confirmationDetails: toolCall.confirmationDetails
+                };
+              }
+              return tc;
+            });
+            updateMessageToolCalls(sessionId, targetMessageId, updatedToolCalls);
+          }
+        }
+      }
 
       showConfirmationFor(sessionId, confirmationTool);
     });
@@ -1630,10 +1664,10 @@ User question: ${contentStr}`;
     // 🔥 关键修复：优先使用手动修改的标题
     // 如果 session.info.name 不是默认值，说明是手动修改的或自动生成的，直接使用
     const isDefaultName = !session.info.name ||
-                          session.info.name === 'New Session' ||
-                          session.info.name === 'New Chat' ||
-                          session.info.name === 'Untitled Chat' ||
-                          session.info.name === '新建会话';
+      session.info.name === 'New Session' ||
+      session.info.name === 'New Chat' ||
+      session.info.name === 'Untitled Chat' ||
+      session.info.name === '新建会话';
 
     if (!isDefaultName) {
       // 有明确的标题（手动修改或自动生成），直接使用

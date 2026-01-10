@@ -719,7 +719,7 @@ export const useMultiSessionState = () => {
         tool.status === ToolCallStatus.Canceled
       );
 
-      // 🎯 智能合并工具调用：保留现有的liveOutput
+      // 🎯 智能合并工具调用：保留现有的liveOutput和confirmationDetails
       const existingToolCalls = updatedMessages[messageIndex].associatedToolCalls || [];
       const mergedToolCalls = toolCalls.map(newTool => {
         const existingTool = existingToolCalls.find(t => t.id === newTool.id);
@@ -727,9 +727,32 @@ export const useMultiSessionState = () => {
         // 🎯 智能合并：保留现有的liveOutput（只在工具仍在执行中时）
         const shouldKeepLiveOutput = newTool.status === ToolCallStatus.Executing;
 
+        // 🎯 关键修复：保留已存在的 confirmationDetails（如果新工具没有提供）
+        // 这解决了 tool_calls_update 覆盖 tool_confirmation_request 设置的 confirmationDetails 的问题
+        // 注意：检查 newTool.confirmationDetails 是否有实际的 type 属性，而不仅仅是非 null
+        const newHasValidConfirmation = newTool.confirmationDetails &&
+          typeof newTool.confirmationDetails === 'object' &&
+          'type' in newTool.confirmationDetails;
+        const existingHasValidConfirmation = existingTool?.confirmationDetails &&
+          typeof existingTool.confirmationDetails === 'object' &&
+          'type' in existingTool.confirmationDetails;
+
+        const preservedConfirmationDetails = newHasValidConfirmation
+          ? newTool.confirmationDetails
+          : (existingHasValidConfirmation ? existingTool!.confirmationDetails : undefined);
+
+        // 调试日志：追踪确认详情的保留情况
+        if (existingHasValidConfirmation && !newHasValidConfirmation) {
+          console.log('🔧 [updateMessageToolCalls] Preserving confirmationDetails for tool:', newTool.id,
+            'status:', newTool.status,
+            'hasExisting:', existingHasValidConfirmation,
+            'hasNew:', newHasValidConfirmation);
+        }
+
         return {
           ...newTool,
-          liveOutput: shouldKeepLiveOutput ? (existingTool?.liveOutput || newTool.liveOutput) : undefined
+          liveOutput: shouldKeepLiveOutput ? (existingTool?.liveOutput || newTool.liveOutput) : undefined,
+          confirmationDetails: preservedConfirmationDetails
         };
       });
 

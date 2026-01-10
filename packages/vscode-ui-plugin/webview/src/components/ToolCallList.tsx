@@ -241,13 +241,13 @@ const ToolCallItem: React.FC<{
           // 🎯 优先匹配摘要格式 1: "(59 lines)"
           const summaryMatch1 = data.match(/\((\d+)\s+lines\)/i);
           if (summaryMatch1) {
-             return `Read ${shortName}, ${summaryMatch1[1]} lines`;
+            return `Read ${shortName}, ${summaryMatch1[1]} lines`;
           }
 
           // 🎯 优先匹配摘要格式 2: "read lines: 1-40"
           const summaryMatch2 = data.match(/read\s+lines:\s*(\d+-\d+)/i);
           if (summaryMatch2) {
-             return `Read ${shortName}, lines ${summaryMatch2[1]}`;
+            return `Read ${shortName}, lines ${summaryMatch2[1]}`;
           }
 
           // 可能是多文件合并的字符串
@@ -274,12 +274,12 @@ const ToolCallItem: React.FC<{
           // 🎯 优先匹配摘要格式: "Listed 13 item(s)."
           const summaryMatch = data.match(/Listed\s+(\d+)\s+item/i);
           if (summaryMatch) {
-             return `Listed ${summaryMatch[1]} items`;
+            return `Listed ${summaryMatch[1]} items`;
           }
 
           // 🎯 处理错误情况
           if (data.startsWith('Error:') || data.includes('Failed to')) {
-             return data.split('\n')[0]; // 只显示第一行错误信息
+            return data.split('\n')[0]; // 只显示第一行错误信息
           }
 
           // ❌ 移除不可靠的兜底行数计算
@@ -288,7 +288,7 @@ const ToolCallItem: React.FC<{
 
           return null;
         } else if (data && data.files) {
-           return `Listed ${data.files.length} items`;
+          return `Listed ${data.files.length} items`;
         }
       }
 
@@ -296,52 +296,52 @@ const ToolCallItem: React.FC<{
       if (toolName === 'search_file_content' || toolName === 'grep') {
         const pattern = parameters.pattern || parameters.regex || '';
         if (Array.isArray(data)) {
-           return `Found ${data.length} matches for "${pattern}"`;
+          return `Found ${data.length} matches for "${pattern}"`;
         } else if (typeof data === 'string') {
-           // 🎯 优先匹配摘要格式: "Found 20 matches (showing first 10)" 或 "Found 8 matches"
-           const summaryMatch = data.match(/Found\s+(\d+)\s+matches/i);
-           if (summaryMatch) {
-              return `Found ${summaryMatch[1]} matches for "${pattern}"`;
-           }
+          // 🎯 优先匹配摘要格式: "Found 20 matches (showing first 10)" 或 "Found 8 matches"
+          const summaryMatch = data.match(/Found\s+(\d+)\s+matches/i);
+          if (summaryMatch) {
+            return `Found ${summaryMatch[1]} matches for "${pattern}"`;
+          }
 
-           // 🎯 处理未找到的情况
-           if (data.includes('No matches found')) {
-              return `No matches found for "${pattern}"`;
-           }
+          // 🎯 处理未找到的情况
+          if (data.includes('No matches found')) {
+            return `No matches found for "${pattern}"`;
+          }
 
-           // ❌ 移除不可靠的兜底行数计算
-           // const count = data.trim().split('\n').length;
-           // return `Found ${count} matches for "${pattern}"`;
+          // ❌ 移除不可靠的兜底行数计算
+          // const count = data.trim().split('\n').length;
+          // return `Found ${count} matches for "${pattern}"`;
 
-           return null;
+          return null;
         }
       }
 
       // 4. run_shell_command
       if (toolName === 'run_shell_command') {
-         if (data.exit_code !== undefined) {
-             return `Exit code: ${data.exit_code}`;
-         }
+        if (data.exit_code !== undefined) {
+          return `Exit code: ${data.exit_code}`;
+        }
       }
 
       // 5. glob
       if (toolName === 'glob') {
         const pattern = parameters.pattern || '';
         if (Array.isArray(data)) {
-           return `Found ${data.length} files for "${pattern}"`;
+          return `Found ${data.length} files for "${pattern}"`;
         } else if (typeof data === 'string') {
-           // 🎯 优先匹配摘要格式: "Found 50 matching file(s)"
-           const summaryMatch = data.match(/Found\s+(\d+)\s+matching\s+file/i);
-           if (summaryMatch) {
-              return `Found ${summaryMatch[1]} files for "${pattern}"`;
-           }
+          // 🎯 优先匹配摘要格式: "Found 50 matching file(s)"
+          const summaryMatch = data.match(/Found\s+(\d+)\s+matching\s+file/i);
+          if (summaryMatch) {
+            return `Found ${summaryMatch[1]} files for "${pattern}"`;
+          }
 
-           // 🎯 处理未找到的情况
-           if (data.includes('No files found')) {
-              return `No files found for "${pattern}"`;
-           }
+          // 🎯 处理未找到的情况
+          if (data.includes('No files found')) {
+            return `No files found for "${pattern}"`;
+          }
 
-           return null;
+          return null;
         }
       }
 
@@ -352,37 +352,37 @@ const ToolCallItem: React.FC<{
 
         // 尝试从 diff 中获取增删行数
         if (data && data.fileDiff) {
-           // 简单的 diff 解析逻辑 (或者后端直接提供 stats)
-           // 这里假设 fileDiff 是标准的 diff 字符串
-           const added = (data.fileDiff.match(/^\+/gm) || []).length;
-           const removed = (data.fileDiff.match(/^-/gm) || []).length;
-           // 减去 header 的 +++ / ---
-           const realAdded = Math.max(0, added - 1);
-           const realRemoved = Math.max(0, removed - 1);
+          // 简单的 diff 解析逻辑 (或者后端直接提供 stats)
+          // 这里假设 fileDiff 是标准的 diff 字符串
+          const added = (data.fileDiff.match(/^\+/gm) || []).length;
+          const removed = (data.fileDiff.match(/^-/gm) || []).length;
+          // 减去 header 的 +++ / ---
+          const realAdded = Math.max(0, added - 1);
+          const realRemoved = Math.max(0, removed - 1);
 
-           return (
-             <span>
-               Edited {shortName}
-               <span style={{ color: 'var(--vscode-gitDecoration-addedResourceForeground)', marginLeft: '6px' }}>+{realAdded}</span>
-               <span style={{ color: 'var(--vscode-gitDecoration-deletedResourceForeground)', marginLeft: '6px' }}>-{realRemoved}</span>
-             </span>
-           );
+          return (
+            <span>
+              Edited {shortName}
+              <span style={{ color: 'var(--vscode-gitDecoration-addedResourceForeground)', marginLeft: '6px' }}>+{realAdded}</span>
+              <span style={{ color: 'var(--vscode-gitDecoration-deletedResourceForeground)', marginLeft: '6px' }}>-{realRemoved}</span>
+            </span>
+          );
         }
 
         // 如果没有 diff，尝试通过 old_string / new_string 计算
         if (parameters.old_string && parameters.new_string) {
-            const oldLines = parameters.old_string.split('\n').length;
-            const newLines = parameters.new_string.split('\n').length;
-            const diff = newLines - oldLines;
-            const sign = diff >= 0 ? '+' : '';
-            const color = diff > 0 ? 'var(--vscode-gitDecoration-addedResourceForeground)' : (diff < 0 ? 'var(--vscode-gitDecoration-deletedResourceForeground)' : 'inherit');
+          const oldLines = parameters.old_string.split('\n').length;
+          const newLines = parameters.new_string.split('\n').length;
+          const diff = newLines - oldLines;
+          const sign = diff >= 0 ? '+' : '';
+          const color = diff > 0 ? 'var(--vscode-gitDecoration-addedResourceForeground)' : (diff < 0 ? 'var(--vscode-gitDecoration-deletedResourceForeground)' : 'inherit');
 
-            return (
-              <span>
-                Edited {shortName}
-                <span style={{ color, marginLeft: '6px' }}>(lines: {sign}{diff})</span>
-              </span>
-            );
+          return (
+            <span>
+              Edited {shortName}
+              <span style={{ color, marginLeft: '6px' }}>(lines: {sign}{diff})</span>
+            </span>
+          );
         }
 
         return `Edited ${shortName}`;
@@ -400,7 +400,7 @@ const ToolCallItem: React.FC<{
     // 🎯 如果有结果摘要，优先显示摘要
     const summary = getToolResultSummary();
     if (summary) {
-        return summary;
+      return summary;
     }
 
     // 🎯 优先使用工具的动态描述（不手动截断，让CSS处理）
@@ -431,15 +431,33 @@ const ToolCallItem: React.FC<{
       return (
         <div className="confirmation-preview-item">
           <div className="preview-label">{t('tools.previewCommand', {}, 'Command to run:')}</div>
-          <pre className="preview-code command">$ {parameters.command || ''}</pre>
+          <pre className="preview-code command">$ {confirmationDetails?.command || parameters.command || ''}</pre>
         </div>
       );
     }
 
     // 2. 如果是写入文件
     if (toolName === 'write_file') {
-      const fileName = parameters.file_path || 'file';
-      const content = parameters.content || '';
+      const fileName = confirmationDetails?.fileName || parameters.file_path || 'file';
+      // 🎯 优先使用 confirmationDetails 中的 fileDiff
+      const fileDiff = confirmationDetails?.fileDiff;
+      if (fileDiff) {
+        return (
+          <div className="confirmation-diff-preview">
+            <DiffRenderer
+              data={{
+                fileDiff,
+                fileName: confirmationDetails?.fileName || fileName,
+                originalContent: confirmationDetails?.originalContent,
+                newContent: confirmationDetails?.newContent
+              }}
+              simplified={false}
+            />
+          </div>
+        );
+      }
+      // 回退显示
+      const content = confirmationDetails?.newContent || parameters.content || '';
       return (
         <div className="confirmation-preview-item">
           <div className="preview-label">Writing to: <span className="file-path">{fileName}</span></div>
@@ -450,9 +468,53 @@ const ToolCallItem: React.FC<{
       );
     }
 
-    // 3. 如果是编辑/替换文件 - 核心优化点：不显示巨大的 old_string/new_string
+    // 3. 如果是编辑/替换文件 - 使用 DiffRenderer 显示 diff
     if (toolName === 'replace' || toolName === 'edit') {
-      const fileName = parameters.file_path || 'file';
+      // 🔍 DEBUG: 详细记录 confirmationDetails 内容
+      const safeStringify = (obj: any) => {
+        try {
+          return JSON.stringify(obj, (key, value) => {
+            if (typeof value === 'function') return '[Function]';
+            return value;
+          }, 2)?.substring(0, 500) || 'null';
+        } catch (e) {
+          return `[Error: ${e}]`;
+        }
+      };
+      console.log('🔍 [ConfirmationPreview] Edit/Replace tool detected:', {
+        toolName,
+        hasConfirmationDetails: !!confirmationDetails,
+        confirmationDetailsKeys: confirmationDetails ? Object.keys(confirmationDetails) : [],
+        confirmationDetailsType: confirmationDetails?.type,
+        hasFileDiff: !!confirmationDetails?.fileDiff,
+        hasFileName: !!confirmationDetails?.fileName,
+        fileDiffLength: confirmationDetails?.fileDiff?.length,
+        confirmationDetails: safeStringify(confirmationDetails)
+      });
+
+      // 🎯 优先从 confirmationDetails 获取 diff 信息
+      const fileDiff = confirmationDetails?.fileDiff;
+      const fileName = confirmationDetails?.fileName || parameters.file_path || 'file';
+
+      if (fileDiff) {
+        console.log('✅ [ConfirmationPreview] Using DiffRenderer with fileDiff');
+        return (
+          <div className="confirmation-diff-preview">
+            <DiffRenderer
+              data={{
+                fileDiff,
+                fileName,
+                originalContent: confirmationDetails?.originalContent,
+                newContent: confirmationDetails?.newContent
+              }}
+              simplified={false}
+            />
+          </div>
+        );
+      }
+
+      // 回退显示（当没有 fileDiff 时）
+      console.warn('⚠️ [ConfirmationPreview] No fileDiff found, falling back to simple display');
       return (
         <div className="confirmation-preview-item">
           <div className="preview-label" style={{ fontSize: '0.85em', opacity: 0.8 }}>
@@ -462,7 +524,38 @@ const ToolCallItem: React.FC<{
       );
     }
 
-    // 4. 其他工具：显示过滤并截断后的参数
+    // 4. 🎯 删除文件确认 - 显示文件内容预览
+    if (toolName === 'delete_file' || confirmationDetails?.type === 'delete') {
+      const fileName = confirmationDetails?.fileName || parameters.file_path || 'file';
+      const fileContent = confirmationDetails?.fileContent || '';
+      const fileSize = confirmationDetails?.fileSize;
+      const reason = confirmationDetails?.reason;
+
+      return (
+        <div className="confirmation-preview-item">
+          <div className="preview-label" style={{ color: 'var(--vscode-gitDecoration-deletedResourceForeground)' }}>
+            🗑️ Deleting: <span className="file-path">{fileName}</span>
+          </div>
+          {fileSize !== undefined && (
+            <div className="preview-meta" style={{ fontSize: '0.85em', opacity: 0.7 }}>
+              Size: {(fileSize / 1024).toFixed(1)} KB
+            </div>
+          )}
+          {reason && (
+            <div className="preview-meta" style={{ fontSize: '0.85em', opacity: 0.8 }}>
+              Reason: {reason}
+            </div>
+          )}
+          {fileContent && (
+            <pre className="preview-code content" style={{ maxHeight: '150px', overflow: 'auto' }}>
+              {fileContent.length > 500 ? `${fileContent.substring(0, 500)}...` : fileContent}
+            </pre>
+          )}
+        </div>
+      );
+    }
+
+    // 5. 其他工具：显示过滤并截断后的参数
     const filteredParams: Record<string, any> = {};
     Object.entries(parameters).forEach(([key, value]) => {
       // 过滤掉已知的超长无意义预览字段
