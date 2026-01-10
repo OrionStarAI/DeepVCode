@@ -37,6 +37,27 @@ vi.mock('../../services/McpPromptLoader.js', () => ({
   })),
 }));
 
+const mockInlineLoadCommands = vi.fn();
+vi.mock('../../services/InlineCommandLoader.js', () => ({
+  InlineCommandLoader: vi.fn().mockImplementation(() => ({
+    loadCommands: mockInlineLoadCommands,
+  })),
+}));
+
+const mockExtensionLoadCommands = vi.fn();
+vi.mock('../../services/ExtensionCommandLoader.js', () => ({
+  ExtensionCommandLoader: vi.fn().mockImplementation(() => ({
+    loadCommands: mockExtensionLoadCommands,
+  })),
+}));
+
+const mockPluginLoadCommands = vi.fn();
+vi.mock('../../services/skill/loaders/plugin-command-loader.js', () => ({
+  PluginCommandLoader: vi.fn().mockImplementation(() => ({
+    loadCommands: mockPluginLoadCommands,
+  })),
+}));
+
 vi.mock('../contexts/SessionContext.js', () => ({
   useSessionStats: vi.fn(() => ({ stats: {} })),
 }));
@@ -73,9 +94,11 @@ describe('useSlashCommandProcessor', () => {
   const mockConfig = {
     getProjectRoot: () => '/mock/cwd',
     getSessionId: () => 'test-session',
+    getCheckpointingEnabled: () => false,
     getGeminiClient: () => ({
       setHistory: vi.fn().mockResolvedValue(undefined),
     }),
+    getHealthyUseEnabled: () => true,
   } as unknown as Config;
 
   const mockSettings = {} as LoadedSettings;
@@ -86,6 +109,9 @@ describe('useSlashCommandProcessor', () => {
     mockBuiltinLoadCommands.mockResolvedValue([]);
     mockFileLoadCommands.mockResolvedValue([]);
     mockMcpLoadCommands.mockResolvedValue([]);
+    mockInlineLoadCommands.mockResolvedValue([]);
+    mockExtensionLoadCommands.mockResolvedValue([]);
+    mockPluginLoadCommands.mockResolvedValue([]);
   });
 
   const setupProcessorHook = (
@@ -108,12 +134,18 @@ describe('useSlashCommandProcessor', () => {
         mockSetShowHelp,
         vi.fn(), // onDebugMessage
         vi.fn(), // openThemeDialog
+        vi.fn(), // openModelDialog
         mockOpenAuthDialog,
+        vi.fn(), // openLoginDialog
         vi.fn(), // openEditorDialog
         vi.fn(), // toggleCorgiMode
         mockSetQuittingMessages,
         vi.fn(), // openPrivacyNotice
-        vi.fn(), // toggleVimEnabled
+        vi.fn().mockResolvedValue(true), // toggleVimEnabled
+        0, // cumulativeCredits
+        0, // totalSessionCredits
+        [], // consoleMessages
+        null, // lastTokenUsage
       ),
     );
 
@@ -420,22 +452,22 @@ describe('useSlashCommandProcessor', () => {
   });
 
   describe('Command Parsing and Matching', () => {
-    it('should be case-sensitive', async () => {
+    it('should be case-sensitive and ignore non-matching commands', async () => {
       const command = createTestCommand({ name: 'test' });
       const result = setupProcessorHook([command]);
       await waitFor(() => expect(result.current.slashCommands).toHaveLength(1));
 
+      let actionResult;
       await act(async () => {
         // Use uppercase when command is lowercase
-        await result.current.handleSlashCommand('/Test');
+        actionResult = await result.current.handleSlashCommand('/Test');
       });
 
-      // It should fail and call addItem with an error
-      expect(mockAddItem).toHaveBeenCalledWith(
-        {
-          type: MessageType.ERROR,
-          text: 'Unknown command: /Test',
-        },
+      // It should return false (ignored) because it's not a valid command name (case-sensitive)
+      // and we want to avoid misinterpreting file paths.
+      expect(actionResult).toBe(false);
+      expect(mockAddItem).not.toHaveBeenCalledWith(
+        expect.objectContaining({ type: MessageType.ERROR }),
         expect.any(Number),
       );
     });

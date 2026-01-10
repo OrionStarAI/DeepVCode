@@ -21,6 +21,7 @@ import {
   EditorType,
   AuthType,
   GeminiEventType as ServerGeminiEventType,
+  DEFAULT_GEMINI_FLASH_MODEL,
 } from 'deepv-code-core';
 import { Part, PartListUnion } from '@google/genai';
 import { UseHistoryManagerReturn } from './useHistoryManager.js';
@@ -45,6 +46,11 @@ const MockedGeminiClientClass = vi.hoisted(() =>
     this.startChat = mockStartChat;
     this.sendMessageStream = mockSendMessageStream;
     this.addHistory = vi.fn();
+    this.waitForChatInitialized = vi.fn().mockResolvedValue({
+      getHistory: vi.fn(() => []),
+      getSystemInstruction: vi.fn(() => undefined),
+      getTools: vi.fn(() => []),
+    });
   }),
 );
 
@@ -264,6 +270,7 @@ describe('useGeminiStream', () => {
   let mockScheduleToolCalls: Mock;
   let mockCancelAllToolCalls: Mock;
   let mockMarkToolsAsSubmitted: Mock;
+  let mockHandleConfirmationResponse: Mock;
 
   beforeEach(() => {
     vi.clearAllMocks(); // Clear mocks before each test
@@ -313,6 +320,7 @@ describe('useGeminiStream', () => {
       getGeminiClient: mockGetGeminiClient,
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => false,
+      getModel: () => 'gemini-pro',
       addHistory: vi.fn(),
       getSessionId() {
         return 'test-session-id';
@@ -322,6 +330,9 @@ describe('useGeminiStream', () => {
       getContentGeneratorConfig: vi
         .fn()
         .mockReturnValue(contentGeneratorConfig),
+      getGitService: vi.fn().mockResolvedValue(undefined),
+      getPlanModeActive: vi.fn(() => false),
+      setPlanModeActive: vi.fn(),
     } as unknown as Config;
     mockOnDebugMessage = vi.fn();
     mockHandleSlashCommand = vi.fn().mockResolvedValue(false);
@@ -330,13 +341,14 @@ describe('useGeminiStream', () => {
     mockScheduleToolCalls = vi.fn();
     mockCancelAllToolCalls = vi.fn();
     mockMarkToolsAsSubmitted = vi.fn();
+    mockHandleConfirmationResponse = vi.fn();
 
     // Default mock for useReactToolScheduler to prevent toolCalls being undefined initially
     mockUseReactToolScheduler.mockReturnValue([
       [], // Default to empty array for toolCalls
       mockScheduleToolCalls,
-      mockCancelAllToolCalls,
       mockMarkToolsAsSubmitted,
+      mockHandleConfirmationResponse,
     ]);
 
     // Reset mocks for GeminiClient instance methods (startChat and sendMessageStream)
@@ -370,8 +382,8 @@ describe('useGeminiStream', () => {
     mockUseReactToolScheduler.mockImplementation(() => [
       currentToolCalls,
       mockScheduleToolCalls,
-      mockCancelAllToolCalls,
       mockMarkToolsAsSubmitted,
+      mockHandleConfirmationResponse,
     ]);
 
     const client = geminiClient || mockConfig.getGeminiClient();
@@ -404,6 +416,7 @@ describe('useGeminiStream', () => {
           props.onDebugMessage,
           props.handleSlashCommand,
           props.shellModeActive,
+          false,
           () => 'vscode' as EditorType,
           () => {},
           () => Promise.resolve(),
@@ -534,7 +547,12 @@ describe('useGeminiStream', () => {
 
     mockUseReactToolScheduler.mockImplementation((onComplete) => {
       capturedOnComplete = onComplete;
-      return [[], mockScheduleToolCalls, mockMarkToolsAsSubmitted];
+      return [
+        [],
+        mockScheduleToolCalls,
+        mockMarkToolsAsSubmitted,
+        mockHandleConfirmationResponse,
+      ];
     });
 
     renderHook(() =>
@@ -546,6 +564,7 @@ describe('useGeminiStream', () => {
         mockConfig,
         mockOnDebugMessage,
         mockHandleSlashCommand,
+        false,
         false,
         () => 'vscode' as EditorType,
         () => {},
@@ -602,7 +621,12 @@ describe('useGeminiStream', () => {
 
     mockUseReactToolScheduler.mockImplementation((onComplete) => {
       capturedOnComplete = onComplete;
-      return [[], mockScheduleToolCalls, mockMarkToolsAsSubmitted];
+      return [
+        [],
+        mockScheduleToolCalls,
+        mockMarkToolsAsSubmitted,
+        mockHandleConfirmationResponse,
+      ];
     });
 
     renderHook(() =>
@@ -614,6 +638,7 @@ describe('useGeminiStream', () => {
         mockConfig,
         mockOnDebugMessage,
         mockHandleSlashCommand,
+        false,
         false,
         () => 'vscode' as EditorType,
         () => {},
@@ -701,7 +726,12 @@ describe('useGeminiStream', () => {
 
     mockUseReactToolScheduler.mockImplementation((onComplete) => {
       capturedOnComplete = onComplete;
-      return [[], mockScheduleToolCalls, mockMarkToolsAsSubmitted];
+      return [
+        [],
+        mockScheduleToolCalls,
+        mockMarkToolsAsSubmitted,
+        mockHandleConfirmationResponse,
+      ];
     });
 
     renderHook(() =>
@@ -713,6 +743,7 @@ describe('useGeminiStream', () => {
         mockConfig,
         mockOnDebugMessage,
         mockHandleSlashCommand,
+        false,
         false,
         () => 'vscode' as EditorType,
         () => {},
@@ -804,6 +835,7 @@ describe('useGeminiStream', () => {
         currentToolCalls,
         mockScheduleToolCalls,
         mockMarkToolsAsSubmitted,
+        mockHandleConfirmationResponse,
       ];
     });
 
@@ -816,6 +848,7 @@ describe('useGeminiStream', () => {
         mockConfig,
         mockOnDebugMessage,
         mockHandleSlashCommand,
+        false,
         false,
         () => 'vscode' as EditorType,
         () => {},
@@ -836,6 +869,7 @@ describe('useGeminiStream', () => {
         completedToolCalls,
         mockScheduleToolCalls,
         mockMarkToolsAsSubmitted,
+        mockHandleConfirmationResponse,
       ];
     });
 
@@ -1156,7 +1190,12 @@ describe('useGeminiStream', () => {
 
       mockUseReactToolScheduler.mockImplementation((onComplete) => {
         capturedOnComplete = onComplete;
-        return [[], mockScheduleToolCalls, mockMarkToolsAsSubmitted];
+        return [
+          [],
+          mockScheduleToolCalls,
+          mockMarkToolsAsSubmitted,
+          mockHandleConfirmationResponse,
+        ];
       });
 
       renderHook(() =>
@@ -1168,6 +1207,7 @@ describe('useGeminiStream', () => {
           mockConfig,
           mockOnDebugMessage,
           mockHandleSlashCommand,
+          false,
           false,
           () => 'vscode' as EditorType,
           () => {},
@@ -1221,6 +1261,7 @@ describe('useGeminiStream', () => {
           mockOnDebugMessage,
           mockHandleSlashCommand,
           false,
+          false,
           () => 'vscode' as EditorType,
           () => {},
           () => Promise.resolve(),
@@ -1241,7 +1282,7 @@ describe('useGeminiStream', () => {
           mockAuthType,
           undefined,
           'gemini-2.5-pro',
-          'gemini-2.5-flash',
+          DEFAULT_GEMINI_FLASH_MODEL,
         );
       });
     });
@@ -1269,6 +1310,7 @@ describe('useGeminiStream', () => {
           mockConfig,
           mockOnDebugMessage,
           mockHandleSlashCommand,
+          false,
           false,
           () => 'vscode' as EditorType,
           () => {},
@@ -1317,6 +1359,7 @@ describe('useGeminiStream', () => {
           mockOnDebugMessage,
           mockHandleSlashCommand,
           false,
+          false,
           () => 'vscode' as EditorType,
           () => {},
           () => Promise.resolve(),
@@ -1364,6 +1407,7 @@ describe('useGeminiStream', () => {
           mockConfig,
           mockOnDebugMessage,
           mockHandleSlashCommand,
+          false,
           false,
           () => 'vscode' as EditorType,
           () => {},
@@ -1452,6 +1496,7 @@ describe('useGeminiStream', () => {
             mockConfig,
             mockOnDebugMessage,
             mockHandleSlashCommand,
+            false,
             false,
             () => 'vscode' as EditorType,
             () => {},

@@ -81,7 +81,7 @@ describe('handleInstall', () => {
 
   it('should install an extension from a http source', async () => {
     mockInstallOrUpdateExtension.mockResolvedValue({
-      name: 'http-extension',
+      config: { name: 'http-extension' },
     } as unknown as GeminiCLIExtension);
 
     await handleInstall({
@@ -95,7 +95,7 @@ describe('handleInstall', () => {
 
   it('should install an extension from a https source', async () => {
     mockInstallOrUpdateExtension.mockResolvedValue({
-      name: 'https-extension',
+      config: { name: 'https-extension' },
     } as unknown as GeminiCLIExtension);
 
     await handleInstall({
@@ -109,7 +109,7 @@ describe('handleInstall', () => {
 
   it('should install an extension from a git source', async () => {
     mockInstallOrUpdateExtension.mockResolvedValue({
-      name: 'git-extension',
+      config: { name: 'git-extension' },
     } as unknown as GeminiCLIExtension);
 
     await handleInstall({
@@ -133,7 +133,7 @@ describe('handleInstall', () => {
 
   it('should install an extension from a sso source', async () => {
     mockInstallOrUpdateExtension.mockResolvedValue({
-      name: 'sso-extension',
+      config: { name: 'sso-extension' },
     } as unknown as GeminiCLIExtension);
 
     await handleInstall({
@@ -147,7 +147,7 @@ describe('handleInstall', () => {
 
   it('should install an extension from a local path', async () => {
     mockInstallOrUpdateExtension.mockResolvedValue({
-      name: 'local-extension',
+      config: { name: 'local-extension' },
     } as unknown as GeminiCLIExtension);
     mockStat.mockResolvedValue({} as Stats);
     await handleInstall({

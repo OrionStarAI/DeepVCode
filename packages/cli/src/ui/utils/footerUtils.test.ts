@@ -116,13 +116,13 @@ describe('footerUtils', () => {
   describe('getFooterDisplayConfig', () => {
     it('should return full config for width >= 80', () => {
       const config80 = getFooterDisplayConfig(80);
-      expect(config80.showNodeVersion).toBe(true);
+      expect(config80.showNodeVersion).toBe(false);
       expect(config80.simplifyContext).toBe(false);
       expect(config80.simplifyModel).toBe(false);
       expect(config80.level).toBe('full');
 
       const config120 = getFooterDisplayConfig(120);
-      expect(config120.showNodeVersion).toBe(true);
+      expect(config120.showNodeVersion).toBe(false);
       expect(config120.simplifyContext).toBe(false);
       expect(config120.simplifyModel).toBe(false);
       expect(config120.level).toBe('full');
@@ -166,7 +166,7 @@ describe('footerUtils', () => {
       const context = getContextDisplay(92, config.simplifyContext);
       const model = getShortModelName('Claude-3.5-Sonnet', config.simplifyModel);
 
-      expect(version).toBe('v1.0.161(22.19.0)');
+      expect(version).toBe('v1.0.161');
       expect(context).toBe('(92% context left)');
       expect(model).toBe('Claude-3.5-Sonnet');
     });

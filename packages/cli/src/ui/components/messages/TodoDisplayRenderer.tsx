@@ -35,7 +35,7 @@ export const TodoDisplayRenderer: React.FC<{ data: TodoDisplay } & { titleEmphas
     <Box flexDirection="column">
       {/* Title with green dot */}
       <Box>
-        <Text color={Colors.AccentGreen}>● </Text>
+        <Text color={Colors.AccentGreen}>• </Text>
         <Text bold={titleEmphasis === 'strong'}>{data.title || 'Update Todos'}</Text>
       </Box>
 

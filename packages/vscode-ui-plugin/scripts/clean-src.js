@@ -32,6 +32,6 @@ function cleanDirectory(dir) {
 
 // Clean src directory
 const srcDir = path.join(__dirname, '..', 'src');
-console.log('Cleaning build artifacts from src directory...');
+console.log('Purging build artifacts from src directory...');
 cleanDirectory(srcDir);
-console.log('Clean completed.');
+console.log('Cleanup task completed.');

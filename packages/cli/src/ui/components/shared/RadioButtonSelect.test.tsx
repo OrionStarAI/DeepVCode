@@ -17,7 +17,7 @@ describe('RadioButtonSelect Horizontal Layout', () => {
 
   it('should render in horizontal layout when specified', () => {
     const mockOnSelect = vi.fn();
-    
+
     const { lastFrame } = render(
       <RadioButtonSelect
         items={mockItems}
@@ -29,13 +29,13 @@ describe('RadioButtonSelect Horizontal Layout', () => {
     );
 
     const output = lastFrame();
-    
+
     // 验证横向布局：选项应该在同一行
-    expect(output).toContain('●');  // 选中标记
+    expect(output).toContain('•');  // 选中标记
     expect(output).toContain('✓ Apply');
-    expect(output).toContain('○');  // 未选中标记  
+    expect(output).toContain('◦');  // 未选中标记
     expect(output).toContain('✗ Cancel');
-    
+
     // 在横向布局中，所有内容应该在较少的行中
     const lines = output.split('\n').filter(line => line.trim());
     expect(lines.length).toBeLessThanOrEqual(2); // 横向布局应该更紧凑
@@ -43,7 +43,7 @@ describe('RadioButtonSelect Horizontal Layout', () => {
 
   it('should render in vertical layout by default', () => {
     const mockOnSelect = vi.fn();
-    
+
     const { lastFrame } = render(
       <RadioButtonSelect
         items={mockItems}
@@ -53,7 +53,7 @@ describe('RadioButtonSelect Horizontal Layout', () => {
     );
 
     const output = lastFrame();
-    
+
     // 验证垂直布局：每个选项占用一行
     const lines = output.split('\n').filter(line => line.trim());
     expect(lines.length).toBeGreaterThanOrEqual(mockItems.length);
@@ -61,7 +61,7 @@ describe('RadioButtonSelect Horizontal Layout', () => {
 
   it('should handle horizontal layout with spacing', () => {
     const mockOnSelect = vi.fn();
-    
+
     const { lastFrame } = render(
       <RadioButtonSelect
         items={mockItems}
@@ -74,7 +74,7 @@ describe('RadioButtonSelect Horizontal Layout', () => {
     );
 
     const output = lastFrame();
-    
+
     // 验证包含数字和适当间距
     expect(output).toContain('1.');
     expect(output).toContain('2.');

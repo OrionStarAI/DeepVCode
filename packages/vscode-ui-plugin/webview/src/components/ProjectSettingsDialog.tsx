@@ -74,8 +74,10 @@ export const YoloModeSettingsDialog: React.FC<YoloModeSettingsDialogProps> = ({
   const {
     yoloMode: originalYoloMode,
     preferredModel: originalPreferredModel,
+    healthyUse: originalHealthyUse,
     updateYoloMode,
     updatePreferredModel,
+    updateHealthyUse,
     loadYoloMode,
     isLoading,
     error
@@ -126,6 +128,18 @@ export const YoloModeSettingsDialog: React.FC<YoloModeSettingsDialogProps> = ({
       await updatePreferredModel(model);
     } catch (error) {
       console.error('[YOLO] Failed to update preferred model:', error);
+    }
+  };
+
+  /**
+   * 处理健康使用提醒改变 - 直接生效
+   */
+  const handleHealthyUseChange = async (enabled: boolean) => {
+    console.log('[HEALTH] Healthy use toggle changed, immediately updating:', enabled);
+    try {
+      await updateHealthyUse(enabled);
+    } catch (error) {
+      console.error('[HEALTH] Failed to update healthy use reminder:', error);
     }
   };
 
@@ -263,6 +277,8 @@ export const YoloModeSettingsDialog: React.FC<YoloModeSettingsDialogProps> = ({
                 onYoloModeChange={handleYoloModeChange}
                 preferredModel={originalPreferredModel}
                 onPreferredModelChange={handlePreferredModelChange}
+                healthyUse={originalHealthyUse}
+                onHealthyUseChange={handleHealthyUseChange}
                 availableModels={availableModels}
               />
             )}

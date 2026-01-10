@@ -20,7 +20,7 @@ describe('SettingsManager', () => {
 
   beforeEach(async () => {
     // 创建临时测试目录
-    testRoot = path.join(os.tmpdir(), `deepv-test-${Date.now()}`);
+    testRoot = path.join(os.tmpdir(), `deepv-test-settings-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
     // Mock SkillsPaths 使用测试目录
     vi.spyOn(SkillsPaths, 'DEEPV_HOME', 'get').mockReturnValue(testRoot);

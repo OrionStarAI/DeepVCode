@@ -463,7 +463,7 @@ export const useGeminiStream = (
       addItem(
         {
           type: MessageType.INFO,
-          text: `\x1b[32m ● ${tp('checkpoint.created.success', { checkpointId: checkpointData.id })}\x1b[0m`,
+          text: `\x1b[32m • ${tp('checkpoint.created.success', { checkpointId: checkpointData.id })}\x1b[0m`,
         },
         Date.now(),
       );
@@ -1065,6 +1065,10 @@ export const useGeminiStream = (
           'Response stopped due to prohibited image content.',
         [FinishReason.NO_IMAGE]:
           'Response stopped due to missing image.',
+        [FinishReason.IMAGE_RECITATION]:
+          'Response stopped due to image recitation policy.',
+        [FinishReason.IMAGE_OTHER]:
+          'Response stopped due to other image-related reasons.',
         [FinishReason.UNEXPECTED_TOOL_CALL]:
           'Response stopped due to unexpected tool call.',
       };

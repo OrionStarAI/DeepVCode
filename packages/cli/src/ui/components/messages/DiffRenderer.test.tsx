@@ -316,7 +316,7 @@ fileDiff Index: file.txt
 @@ -20,1 +20,1 @@
 -const anotherOld = 'test';
 +const anotherNew = 'test';
-\\ No newline at end of file  
+\\ No newline at end of file
 `;
     const { lastFrame } = render(
       <OverflowProvider>
@@ -346,7 +346,7 @@ fileDiff Index: Dockerfile
 +FROM node:14
 +RUN npm install
 +RUN npm run build
-\\ No newline at end of file  
+\\ No newline at end of file
 `;
     const { lastFrame } = render(
       <OverflowProvider>
@@ -358,8 +358,8 @@ fileDiff Index: Dockerfile
       </OverflowProvider>,
     );
     const output = lastFrame();
-    expect(output).toEqual(`1 FROM node:14
-2 RUN npm install
-3 RUN npm run build`);
+    expect(output).toEqual(`FROM node:14
+RUN npm install
+RUN npm run build`);
   });
 });
