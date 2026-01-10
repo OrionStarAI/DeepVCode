@@ -8,6 +8,8 @@ workflow:
 
 release:
   stage: release
+  tags:
+    - deepvcode-release
   image: node:20
   script:
     # 安装依赖
