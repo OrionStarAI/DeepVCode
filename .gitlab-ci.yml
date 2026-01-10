@@ -49,10 +49,12 @@ release-vscode:
     - npm version $NEW_VERSION --no-git-tag-version
     # 构建插件 (包含 webview)
     - npm run build
-    # 发布到 VS Code Marketplace
-    - npx @vscode/vsce publish -p ${VSCE_TOKEN}
-    # 生成离线安装包作为备份 (Artifacts)
+    # 生成离线安装包作为发布产物
     - npx @vscode/vsce package -o ../../deepv-code-vscode-$NEW_VERSION.vsix
+    # 发布到 VS Code Marketplace
+    - npx @vscode/vsce publish -p ${VSCE_TOKEN} --packagePath ../../deepv-code-vscode-$NEW_VERSION.vsix
+    # 发布到 Open VSX Registry
+    - npx ovsx publish -p ${OVSX_TOKEN} --packagePath ../../deepv-code-vscode-$NEW_VERSION.vsix
   artifacts:
     paths:
       - "*.vsix"
