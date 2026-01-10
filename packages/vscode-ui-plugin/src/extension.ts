@@ -884,6 +884,12 @@ function setupBasicMessageHandlers() {
         logger.info(`[YOLO] ✅ Preferred model updated to: ${data.preferredModel}`);
       }
 
+      if (data.healthyUse !== undefined) {
+        const config = vscode.workspace.getConfiguration('deepv');
+        await config.update('healthyUse', data.healthyUse, vscode.ConfigurationTarget.Global);
+        logger.info(`[HEALTH] ✅ Healthy use updated to: ${data.healthyUse}`);
+      }
+
       logger.info(`[YOLO] ✅ Project settings synchronized`);
     } catch (error) {
       logger.error('[YOLO] Failed to update project settings', error instanceof Error ? error : undefined);
@@ -932,9 +938,10 @@ function setupBasicMessageHandlers() {
       // 🎯 获取默认模型配置
       const config = vscode.workspace.getConfiguration('deepv');
       const preferredModel = config.get<string>('preferredModel', 'auto');
+      const healthyUse = config.get<boolean>('healthyUse', true);
 
-      await communicationService.sendProjectSettingsResponse({ yoloMode, preferredModel });
-      logger.info(`[YOLO] ✅ Response sent: YOLO=${yoloMode}, Model=${preferredModel}`);
+      await communicationService.sendProjectSettingsResponse({ yoloMode, preferredModel, healthyUse });
+      logger.info(`[YOLO] ✅ Response sent: YOLO=${yoloMode}, Model=${preferredModel}, HealthyUse=${healthyUse}`);
     } catch (error) {
       logger.error('[YOLO] Failed to get project settings', error instanceof Error ? error : undefined);
     }

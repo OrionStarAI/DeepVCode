@@ -475,6 +475,8 @@ export const zhCN: Translations = {
       modelDesc: '新会话默认使用的 AI 模型。',
       autoModel: '自动 (Auto)',
       autoModelDesc: '自动选择最合适的模型',
+      healthyUseLabel: '健康使用提醒',
+      healthyUseDesc: '在深夜时段（22:00 - 06:00）显示健康使用提醒。',
     },
     memory: {
       title: '记忆文件',
@@ -546,5 +548,15 @@ export const zhCN: Translations = {
     runningInBackground: '正在后台运行中',
     noTasks: '无后台任务',
     outputTitle: '后台任务输出',
+  },
+
+  healthy: {
+    reminderTitle: '夜深了，该休息了',
+    reminderContent: '工作固然重要，但您的身体健康更珍贵。',
+    reminderSuggestion: '现在已经是深夜时段（22:00 - 06:00），建议您保存进度，早点休息。',
+    agentRunning: 'Agent 正在后台处理任务，不会受此提醒影响。',
+    waiting: '请在 {{seconds}} 秒后尝试确认...',
+    dismiss: '稍后提醒',
+    countdown: '{{seconds}}秒',
   },
 };

@@ -20,11 +20,17 @@ interface YoloModeContextType {
   /** 默认模型 */
   preferredModel: string;
 
+  /** 健康使用提醒 */
+  healthyUse: boolean;
+
   /** 更新YOLO模式 */
   updateYoloMode: (enabled: boolean) => Promise<void>;
 
   /** 更新默认模型 */
   updatePreferredModel: (model: string) => Promise<void>;
+
+  /** 更新健康使用提醒 */
+  updateHealthyUse: (enabled: boolean) => Promise<void>;
 
   /** 加载YOLO模式设置 */
   loadYoloMode: () => Promise<void>;
@@ -53,6 +59,7 @@ interface YoloModeProviderProps {
 export const YoloModeProvider: React.FC<YoloModeProviderProps> = ({ children }) => {
   const [yoloMode, setYoloMode] = useState<boolean>(false);
   const [preferredModel, setPreferredModel] = useState<string>('auto');
+  const [healthyUse, setHealthyUse] = useState<boolean>(true);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,6 +81,9 @@ export const YoloModeProvider: React.FC<YoloModeProviderProps> = ({ children }) 
         if (data.preferredModel) {
           setPreferredModel(data.preferredModel);
         }
+        if (data.healthyUse !== undefined) {
+          setHealthyUse(data.healthyUse);
+        }
       });
 
       // 请求当前设置
@@ -85,14 +95,15 @@ export const YoloModeProvider: React.FC<YoloModeProviderProps> = ({ children }) 
   /**
    * 向VSCode发送设置更新
    */
-  const sendToVSCode = useCallback(async (updates: { yoloMode?: boolean; preferredModel?: string }) => {
+  const sendToVSCode = useCallback(async (updates: { yoloMode?: boolean; preferredModel?: string; healthyUse?: boolean }) => {
     try {
       const messageService = getGlobalMessageService();
       if (messageService) {
         // 构造完整的更新对象，确保后端能接收到所有需要的字段
         const payload = {
           yoloMode: updates.yoloMode !== undefined ? updates.yoloMode : yoloMode,
-          preferredModel: updates.preferredModel !== undefined ? updates.preferredModel : preferredModel
+          preferredModel: updates.preferredModel !== undefined ? updates.preferredModel : preferredModel,
+          healthyUse: updates.healthyUse !== undefined ? updates.healthyUse : healthyUse
         };
 
         messageService.sendProjectSettingsUpdate(payload);
@@ -102,7 +113,7 @@ export const YoloModeProvider: React.FC<YoloModeProviderProps> = ({ children }) 
       console.error('Failed to send settings to VSCode:', error);
       throw new Error('同步设置到VSCode失败');
     }
-  }, [yoloMode, preferredModel]);
+  }, [yoloMode, preferredModel, healthyUse]);
 
   /**
    * 加载设置
@@ -154,6 +165,22 @@ export const YoloModeProvider: React.FC<YoloModeProviderProps> = ({ children }) 
     }
   }, [sendToVSCode, preferredModel]);
 
+  /**
+   * 更新健康使用提醒
+   */
+  const updateHealthyUse = useCallback(async (enabled: boolean) => {
+    setError(null);
+
+    try {
+      setHealthyUse(enabled);
+      await sendToVSCode({ healthyUse: enabled });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '更新健康使用提醒失败');
+      // 如果发送失败，恢复原状态
+      setHealthyUse(!enabled);
+    }
+  }, [sendToVSCode]);
+
   // =============================================================================
   // 初始化加载
   // =============================================================================
@@ -172,8 +199,10 @@ export const YoloModeProvider: React.FC<YoloModeProviderProps> = ({ children }) 
   const contextValue: YoloModeContextType = {
     yoloMode,
     preferredModel,
+    healthyUse,
     updateYoloMode,
     updatePreferredModel,
+    updateHealthyUse,
     loadYoloMode,
     isLoading,
     error

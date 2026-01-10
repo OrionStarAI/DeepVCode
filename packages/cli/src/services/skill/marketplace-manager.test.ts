@@ -18,7 +18,7 @@ describe('MarketplaceManager', () => {
 
   beforeEach(async () => {
     // 创建临时测试目录
-    testRoot = path.join(os.tmpdir(), `deepv-test-${Date.now()}`);
+    testRoot = path.join(os.tmpdir(), `deepv-test-mp-${Date.now()}-${Math.random().toString(36).slice(2)}`);
     testMarketplacePath = path.join(testRoot, 'test-marketplace');
 
     // Mock SkillsPaths

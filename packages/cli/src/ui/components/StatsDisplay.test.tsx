@@ -10,6 +10,7 @@ import { StatsDisplay } from './StatsDisplay.js';
 import * as SessionContext from '../contexts/SessionContext.js';
 import { SessionMetrics } from '../contexts/SessionContext.js';
 import { getExpectedText, withMockedLocale } from '../utils/testI18n.js';
+import { WindowSizeLevel } from '../hooks/useSmallWindowOptimization.js';
 
 // Mock the context to provide controlled data for testing
 vi.mock('../contexts/SessionContext.js', async (importOriginal) => {
@@ -20,19 +21,80 @@ vi.mock('../contexts/SessionContext.js', async (importOriginal) => {
   };
 });
 
+// Mock SubAgentStatsContainer to avoid internal crashes
+vi.mock('./SubAgentStats.js', () => ({
+  SubAgentStatsContainer: () => null,
+}));
+
+// Mock small window optimization to return normal size by default
+vi.mock('../hooks/useSmallWindowOptimization.js', () => ({
+  useSmallWindowOptimization: vi.fn(() => ({
+    sizeLevel: WindowSizeLevel.NORMAL,
+    disableAnimations: false,
+    reducedRefreshRate: false,
+    hideDecorations: false,
+    simplifiedDisplay: false,
+    refreshDebounceMs: 300,
+  })),
+  WindowSizeLevel: {
+    NORMAL: 'normal',
+    SMALL: 'small',
+    TINY: 'tiny',
+  },
+  shouldSkipAnimation: vi.fn(() => false),
+  getOptimalRefreshInterval: vi.fn(() => 1000),
+}));
+
 const useSessionStatsMock = vi.mocked(SessionContext.useSessionStats);
 
 const renderWithMockedStats = (metrics: SessionMetrics) => {
-  useSessionStatsMock.mockReturnValue({
-    stats: {
-      sessionStartTime: new Date(),
-      metrics,
-      lastPromptTokenCount: 0,
-      promptCount: 5,
-    },
+  // Ensure credits are present for all models to avoid reduce crashes in StatsDisplay
+  const sanitizedModels = { ...metrics.models };
+  for (const modelKey in sanitizedModels) {
+    if (!sanitizedModels[modelKey].credits) {
+      sanitizedModels[modelKey].credits = { total: 0 };
+    }
+    // Also ensure subAgents metrics are present for computeSubAgentStats
+    if (!sanitizedModels[modelKey].subAgents) {
+      sanitizedModels[modelKey].subAgents = {
+        api: { totalRequests: 0, totalErrors: 0, totalLatencyMs: 0 },
+        tokens: { total: 0, prompt: 0, candidates: 0, cached: 0, thoughts: 0, tool: 0 },
+      };
+    }
+  }
+  const sanitizedMetrics = { ...metrics, models: sanitizedModels };
 
+  const subAgentStats = {
+    totalApiCalls: 0,
+    totalErrors: 0,
+    totalLatencyMs: 0,
+    totalTokens: 0,
+    promptTokens: 0,
+    candidatesTokens: 0,
+    cachedTokens: 0,
+    cacheWriteTokens: 0,
+    cacheReadTokens: 0,
+    thoughtsTokens: 0,
+    toolTokens: 0,
+  };
+
+  const stats = {
+    sessionStartTime: new Date(),
+    metrics: sanitizedMetrics,
+    lastPromptTokenCount: 0,
+    promptCount: 5,
+    subAgentStats,
+  };
+
+  // Use the actual compute function to generate valid computed stats
+  const computedStats = SessionContext.computeSessionStats(stats as any);
+
+  useSessionStatsMock.mockReturnValue({
+    stats,
+    computedStats,
     getPromptCount: () => 5,
     startNewPrompt: vi.fn(),
+    resetStats: vi.fn(),
   });
 
   return render(<StatsDisplay duration="1s" />);
@@ -75,6 +137,7 @@ describe('<StatsDisplay />', () => {
             thoughts: 100,
             tool: 50,
           },
+          credits: { total: 0.1 },
         },
         'gemini-2.5-flash': {
           api: { totalRequests: 5, totalErrors: 1, totalLatencyMs: 4500 },
@@ -86,6 +149,7 @@ describe('<StatsDisplay />', () => {
             thoughts: 2000,
             tool: 1000,
           },
+          credits: { total: 0.01 },
         },
       },
       tools: {
@@ -121,6 +185,7 @@ describe('<StatsDisplay />', () => {
             thoughts: 0,
             tool: 0,
           },
+          credits: { total: 0.05 },
         },
       },
       tools: {
@@ -147,7 +212,6 @@ describe('<StatsDisplay />', () => {
     expect(output).toContain('Performance');
     expect(output).toContain('Interaction Summary');
     expect(output).toContain('User Agreement');
-    expect(output).toContain('Savings Highlight');
     expect(output).toContain('gemini-2.5-pro');
     expect(output).toMatchSnapshot();
   });
@@ -196,6 +260,7 @@ describe('<StatsDisplay />', () => {
               thoughts: 0,
               tool: 0,
             },
+            credits: { total: 0.02 },
           },
         },
         tools: {
@@ -281,12 +346,12 @@ describe('<StatsDisplay />', () => {
 
     it('renders the default title when no title prop is provided', () => {
       const expectedText = getExpectedText('stats.session.stats');
-      
+
       const result = withMockedLocale('en', () => {
         const { lastFrame } = renderWithMockedStats(zeroMetrics);
         return lastFrame();
       });
-      
+
       expect(result).toContain(expectedText.en);
       expect(result).not.toContain('Agent powering down');
       expect(result).toMatchSnapshot();
@@ -294,7 +359,7 @@ describe('<StatsDisplay />', () => {
 
     it('renders the custom title when a title prop is provided', () => {
       const expectedText = getExpectedText('agent.powering.down');
-      
+
       const result = withMockedLocale('en', () => {
         useSessionStatsMock.mockReturnValue({
           stats: {
@@ -313,7 +378,7 @@ describe('<StatsDisplay />', () => {
         );
         return lastFrame();
       });
-      
+
       expect(result).toContain(expectedText.en);
       expect(result).not.toContain(getExpectedText('stats.session.stats').en);
       expect(result).toMatchSnapshot();

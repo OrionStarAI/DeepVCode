@@ -109,6 +109,7 @@ describe('Server Config (config.ts)', () => {
     telemetry: TELEMETRY_SETTINGS,
     sessionId: SESSION_ID,
     model: MODEL,
+    healthyUse: true,
   };
 
   beforeEach(() => {
@@ -228,6 +229,14 @@ describe('Server Config (config.ts)', () => {
     };
     const config = new Config(paramsWithTelemetry);
     expect(config.getTelemetryEnabled()).toBe(false);
+  });
+
+  it('Config constructor should store healthyUse correctly', () => {
+    const config = new Config({ ...baseParams, healthyUse: false });
+    expect(config.getHealthyUseEnabled()).toBe(false);
+
+    const configDefault = new Config(baseParams);
+    expect(configDefault.getHealthyUseEnabled()).toBe(true);
   });
 
   it('should have a getFileService method that returns FileDiscoveryService', () => {

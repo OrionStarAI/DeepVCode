@@ -251,24 +251,24 @@ describe('LoopDetectionService - Preview Model Strict Checking', () => {
     service = new LoopDetectionService(mockConfig);
     service.reset('test-prompt');
 
-    // Call read_file with different args 12 times
+    // Call read_file with different args 32 times
     const events = [];
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 32; i++) {
       events.push(createToolCallRequestEvent('read_file', { file_path: `/path/file${i}.txt` }));
     }
 
-    // First 11 calls should not trigger
-    for (let i = 0; i < 11; i++) {
+    // First 31 calls should not trigger
+    for (let i = 0; i < 31; i++) {
       expect(service.addAndCheck(events[i])).toBe(false);
     }
     expect(loggers.logLoopDetected).not.toHaveBeenCalled();
 
-    // 12th call to read_file should trigger
-    expect(service.addAndCheck(events[11])).toBe(true);
+    // 32th call to read_file should trigger
+    expect(service.addAndCheck(events[31])).toBe(true);
     expect(loggers.logLoopDetected).toHaveBeenCalledTimes(1);
   });
 
-  it('should use threshold of 12 for non-intensive tools in preview models', () => {
+  it('should use threshold of 32 for non-intensive tools in preview models', () => {
     mockConfig = {
       getTelemetryEnabled: () => true,
       getModel: () => 'gemini-3-pro-preview',
@@ -276,20 +276,20 @@ describe('LoopDetectionService - Preview Model Strict Checking', () => {
     service = new LoopDetectionService(mockConfig);
     service.reset('test-prompt');
 
-    // Call shell with different args 12 times
+    // Call shell with different args 32 times
     const events = [];
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 32; i++) {
       events.push(createToolCallRequestEvent('shell', { command: `ls /dir${i}` }));
     }
 
-    // First 11 calls should not trigger
-    for (let i = 0; i < 11; i++) {
+    // First 31 calls should not trigger
+    for (let i = 0; i < 31; i++) {
       expect(service.addAndCheck(events[i])).toBe(false);
     }
     expect(loggers.logLoopDetected).not.toHaveBeenCalled();
 
-    // 12th call should trigger
-    expect(service.addAndCheck(events[11])).toBe(true);
+    // 32th call should trigger
+    expect(service.addAndCheck(events[31])).toBe(true);
     expect(loggers.logLoopDetected).toHaveBeenCalledTimes(1);
   });
 
@@ -320,19 +320,19 @@ describe('LoopDetectionService - Preview Model Strict Checking', () => {
     service = new LoopDetectionService(mockConfig);
     service.reset('test-prompt');
 
-    // threshold = 12
+    // threshold = 32
     const events = [];
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 32; i++) {
       events.push(createToolCallRequestEvent('glob', { pattern: `**/*.${i}` }));
     }
 
-    // First 11 should pass
-    for (let i = 0; i < 11; i++) {
+    // First 31 should pass
+    for (let i = 0; i < 31; i++) {
       expect(service.addAndCheck(events[i])).toBe(false);
     }
 
-    // 12th call should trigger
-    expect(service.addAndCheck(events[11])).toBe(true);
+    // 32th call should trigger
+    expect(service.addAndCheck(events[31])).toBe(true);
     expect(loggers.logLoopDetected).toHaveBeenCalledTimes(1);
   });
 
@@ -344,19 +344,19 @@ describe('LoopDetectionService - Preview Model Strict Checking', () => {
     service = new LoopDetectionService(mockConfig);
     service.reset('test-prompt');
 
-    // threshold = 12
+    // threshold = 32
     const events = [];
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 32; i++) {
       events.push(createToolCallRequestEvent('search_file_content', { pattern: `pattern${i}` }));
     }
 
-    // First 11 should pass
-    for (let i = 0; i < 11; i++) {
+    // First 31 should pass
+    for (let i = 0; i < 31; i++) {
       expect(service.addAndCheck(events[i])).toBe(false);
     }
 
-    // 12th call should trigger
-    expect(service.addAndCheck(events[11])).toBe(true);
+    // 32th call should trigger
+    expect(service.addAndCheck(events[31])).toBe(true);
     expect(loggers.logLoopDetected).toHaveBeenCalledTimes(1);
   });
 });

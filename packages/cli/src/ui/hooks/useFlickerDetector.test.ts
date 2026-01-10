@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { renderHook } from '../../test-utils/render.js';
+import { renderHook } from '@testing-library/react';
 import { vi, type Mock } from 'vitest';
 import { useFlickerDetector } from './useFlickerDetector.js';
 import { recordFlickerFrame, type Config } from 'deepv-code-core';

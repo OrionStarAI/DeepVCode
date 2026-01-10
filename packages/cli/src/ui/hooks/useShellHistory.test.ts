@@ -14,6 +14,13 @@ import * as crypto from 'crypto';
 vi.mock('fs/promises');
 vi.mock('os');
 vi.mock('crypto');
+vi.mock('deepv-code-core', () => ({
+  getProjectTempDir: vi.fn(() =>
+    path.join('/test/home', '.gemini', 'tmp', 'mocked_hash'),
+  ),
+  isNodeError: (error: unknown) =>
+    typeof error === 'object' && error !== null && 'code' in error,
+}));
 
 const MOCKED_PROJECT_ROOT = '/test/project';
 const MOCKED_HOME_DIR = '/test/home';
@@ -56,6 +63,10 @@ describe('useShellHistory', () => {
         MOCKED_HISTORY_FILE,
         'utf-8',
       );
+    });
+    // Flush effects and state updates
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
     });
 
     let command: string | null = null;
@@ -116,8 +127,12 @@ describe('useShellHistory', () => {
     mockedFs.readFile.mockResolvedValue('cmd1\ncmd2\ncmd3');
     const { result } = renderHook(() => useShellHistory(MOCKED_PROJECT_ROOT));
 
-    // Wait for history to be loaded: ['cmd3', 'cmd2', 'cmd1']
+    // Wait for history to be loaded
     await waitFor(() => expect(mockedFs.readFile).toHaveBeenCalled());
+    // Flush effects and state updates
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    });
 
     let command: string | null = null;
 

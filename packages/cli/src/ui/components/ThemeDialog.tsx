@@ -13,6 +13,7 @@ import { DiffRenderer } from './messages/DiffRenderer.js';
 import { colorizeCode } from '../utils/CodeColorizer.js';
 import { LoadedSettings, SettingScope } from '../../config/settings.js';
 import { useSmallWindowOptimization, WindowSizeLevel } from '../hooks/useSmallWindowOptimization.js';
+import { t, tp } from '../utils/i18n.js';
 
 interface ThemeDialogProps {
   /** Callback function when a theme is selected */
@@ -34,7 +35,9 @@ export function ThemeDialog({
   terminalWidth,
 }: ThemeDialogProps): React.JSX.Element {
   const smallWindowConfig = useSmallWindowOptimization();
-  
+
+  const isFirstTime = !settings.user.settings.theme;
+
   const [selectedScope, setSelectedScope] = useState<SettingScope>(
     SettingScope.User,
   );
@@ -44,11 +47,17 @@ export function ThemeDialog({
     string | undefined
   >(settings.merged.theme || DEFAULT_THEME.name);
 
+  // Current active theme info
+  const activeThemeName = settings.merged.theme || DEFAULT_THEME.name;
+  const activeThemeScope = settings.workspace.settings.theme
+    ? t('theme.scope.workspace')
+    : (settings.user.settings.theme ? t('theme.scope.user') : t('theme.scope.default'));
+
   // Generate theme items filtered by selected scope
   const customThemes =
     selectedScope === SettingScope.User
       ? settings.user.settings.customThemes || {}
-      : settings.merged.customThemes || {};
+      : settings.workspace.settings.customThemes || {}; // Fixed: use workspace settings for custom themes if scope is workspace
   const builtInThemes = themeManager
     .getAvailableThemes()
     .filter((theme) => theme.type !== 'custom');
@@ -80,16 +89,15 @@ export function ThemeDialog({
   const safeInitialThemeIndex = initialThemeIndex >= 0 ? initialThemeIndex : 0;
 
   const scopeItems = [
-    { label: '用户设置', value: SettingScope.User },
-    { label: '工作区设置', value: SettingScope.Workspace },
-    { label: 'System Settings', value: SettingScope.System },
+    { label: t('theme.settings.user'), value: SettingScope.User },
+    { label: t('theme.settings.workspace'), value: SettingScope.Workspace },
   ];
 
   const handleThemeSelect = useCallback(
     (themeName: string) => {
-      onSelect(themeName, selectedScope);
+      onSelect(themeName, isFirstTime ? SettingScope.User : selectedScope);
     },
-    [onSelect, selectedScope],
+    [onSelect, selectedScope, isFirstTime],
   );
 
   const handleThemeHighlight = (themeName: string) => {
@@ -115,7 +123,7 @@ export function ThemeDialog({
   );
 
   useInput((input, key) => {
-    if (key.tab) {
+    if (key.tab && !isFirstTime) {
       setFocusedSection((prev) => (prev === 'theme' ? 'scope' : 'theme'));
     }
     if (key.escape) {
@@ -123,7 +131,7 @@ export function ThemeDialog({
     }
   });
 
-  const otherScopes = Object.values(SettingScope).filter(
+  const otherScopes = [SettingScope.User, SettingScope.Workspace].filter(
     (scope) => scope !== selectedScope,
   );
 
@@ -133,11 +141,13 @@ export function ThemeDialog({
 
   let otherScopeModifiedMessage = '';
   if (modifiedInOtherScopes.length > 0) {
-    const modifiedScopesStr = modifiedInOtherScopes.join(', ');
+    const modifiedScopesStr = modifiedInOtherScopes
+      .map(s => s === SettingScope.User ? t('theme.scope.user') : t('theme.scope.workspace'))
+      .join(', ');
     otherScopeModifiedMessage =
       settings.forScope(selectedScope).settings.theme !== undefined
-        ? `(Also modified in ${modifiedScopesStr})`
-        : `(Modified in ${modifiedScopesStr})`;
+        ? tp('theme.modified_also', { scopes: modifiedScopesStr })
+        : tp('theme.modified_in', { scopes: modifiedScopesStr });
   }
 
   // Constants for calculating preview pane layout.
@@ -220,8 +230,8 @@ export function ThemeDialog({
     }
   }
 
-  // Don't focus the scope selection if it is hidden due to height constraints.
-  const currentFocusedSection = !showScopeSelection ? 'theme' : focusedSection;
+  // Don't focus the scope selection if it is hidden due to height constraints or first time.
+  const currentFocusedSection = (!showScopeSelection || isFirstTime) ? 'theme' : focusedSection;
 
   // Vertical space taken by elements other than the two code blocks in the preview pane.
   // Includes "Preview" title, borders, and margin between blocks.
@@ -257,15 +267,20 @@ export function ThemeDialog({
       paddingRight={1}
       width="100%"
     >
+      <Box marginBottom={1}>
+        <Text>
+          {tp('theme.current', { theme: activeThemeName, scope: activeThemeScope })}
+        </Text>
+      </Box>
       <Box flexDirection="row">
         {/* Left Column: Selection */}
-        <Box 
-          flexDirection="column" 
-          width={showPreview ? "45%" : "100%"} 
+        <Box
+          flexDirection="column"
+          width={showPreview ? "45%" : "100%"}
           paddingRight={showPreview ? 2 : 0}
         >
           <Text bold={currentFocusedSection === 'theme'} wrap="truncate">
-            {currentFocusedSection === 'theme' ? '> ' : '  '}Select Theme{' '}
+            {currentFocusedSection === 'theme' ? '> ' : '  '}{t('theme.select')}{' '}
             <Text color={Colors.Gray}>{otherScopeModifiedMessage}</Text>
           </Text>
           <RadioButtonSelect
@@ -281,14 +296,14 @@ export function ThemeDialog({
           />
 
           {/* Scope Selection */}
-          {showScopeSelection && (
+          {showScopeSelection && !isFirstTime && (
             <Box marginTop={1} flexDirection="column">
               <Text bold={currentFocusedSection === 'scope'} wrap="truncate">
-                {currentFocusedSection === 'scope' ? '> ' : '  '}应用到
+                {currentFocusedSection === 'scope' ? '> ' : '  '}{t('theme.apply_to')}
               </Text>
               <RadioButtonSelect
                 items={scopeItems}
-                initialIndex={0} // Default to User Settings
+                initialIndex={selectedScope === SettingScope.User ? 0 : 1}
                 onSelect={handleScopeSelect}
                 onHighlight={handleScopeHighlight}
                 isFocused={currentFocusedSection === 'scope'}
@@ -365,9 +380,11 @@ def fibonacci(n):
       </Box>
       <Box marginTop={smallWindowConfig.sizeLevel === WindowSizeLevel.TINY ? 0 : 1}>
         <Text color={Colors.Gray} wrap="truncate">
-          {smallWindowConfig.sizeLevel === WindowSizeLevel.TINY 
-            ? '(回车选择，ESC退出)'
-            : `(按回车键选择${showScopeSelection ? '，按Tab键切换焦点' : ''})`
+          {smallWindowConfig.sizeLevel === WindowSizeLevel.TINY
+            ? t('theme.hint.tiny')
+            : tp('theme.hint.normal', {
+                tabHint: showScopeSelection && !isFirstTime ? t('theme.hint.tab') : ''
+              })
           }
         </Text>
       </Box>

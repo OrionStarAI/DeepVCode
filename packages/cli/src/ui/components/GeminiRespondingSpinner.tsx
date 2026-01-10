@@ -29,7 +29,7 @@ export const GeminiRespondingSpinner: React.FC<
 > = ({ nonRespondingDisplay, isWaitingForConfirmation = false }) => {
   const streamingState = useStreamingContext();
   const smallWindowConfig = useSmallWindowOptimization();
-  const [isFilled, setIsFilled] = useState(true); // true=实心●, false=空心○
+  const [isFilled, setIsFilled] = useState(true); // true=实心•, false=空心◦
   const [isVisible, setIsVisible] = useState(true); // true=显示, false=隐藏（用于问号闪烁）
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -83,13 +83,13 @@ export const GeminiRespondingSpinner: React.FC<
   if (streamingState === StreamingState.Responding) {
     // 矮终端优化：使用静态显示
     if (shouldSkipAnimation(smallWindowConfig, 'spinner')) {
-      return <Text key="spinner-static" color={dotColor}>●</Text>;
+      return <Text key="spinner-static" color={dotColor}>•</Text>;
     }
 
-    // 渲染简洁的圆点动画：实心●和空心○切换
+    // 渲染简洁的圆点动画：实心•和空心◦切换
     return (
       <Text key="spinner-animated" color={dotColor}>
-        {isFilled ? '●' : '○'}
+        {isFilled ? '•' : '◦'}
       </Text>
     );
   } else if (nonRespondingDisplay) {

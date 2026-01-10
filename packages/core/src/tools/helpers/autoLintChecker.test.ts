@@ -66,10 +66,10 @@ describe('autoLintChecker', () => {
 
       const result = formatLintResults(diagnostics, 'test.ts');
       expect(result).toContain('🔍 **Lint Check Results** for test.ts');
-      expect(result).toContain('❌ **1 Error**');
-      expect(result).toContain('⚠️ **1 Warning**');
-      expect(result).toContain('Line 10:5: Type error [typescript]');
-      expect(result).toContain('Line 15:10: Unused variable [eslint]');
+      expect(result).toContain('<file_diagnostics path="test.ts">');
+      expect(result).toContain('[Line 10] Error: Type error (TS2345)');
+      expect(result).toContain('[Line 15] Warning: Unused variable (no-unused-vars)');
+      expect(result).toContain('</file_diagnostics>');
     });
   });
 
@@ -162,7 +162,7 @@ describe('autoLintChecker', () => {
       const result = await performAutoLintCheck('test.ts', mockConfig);
 
       expect(result.shouldAppend).toBe(true);
-      expect(result.lintMessage).toContain('❌ **1 Error**');
+      expect(result.lintMessage).toContain('<file_diagnostics path="test.ts">');
       expect(result.lintStatus).toBe('❌ 1 error');
       expect(result.diagnostics).toHaveLength(1);
       expect(mockCallback).toHaveBeenCalledWith(['test.ts']);
