@@ -1,3 +1,9 @@
+/**
+ * @license
+ * Copyright 2025 DeepV Code team
+ * https://github.com/OrionStarAI/DeepVCode
+ * SPDX-License-Identifier: Apache-2.0
+ */
 import { ICommandLoader } from '../../types.js';
 import { SlashCommand, CommandContext, CommandKind, SubmitPromptActionReturn } from '../../../ui/commands/types.js';
 import { SkillLoader } from '../skill-loader.js';

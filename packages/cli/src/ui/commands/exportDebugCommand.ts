@@ -1,3 +1,9 @@
+/**
+ * @license
+ * Copyright 2025 DeepV Code team
+ * https://github.com/OrionStarAI/DeepVCode
+ * SPDX-License-Identifier: Apache-2.0
+ */
 import { CommandContext, SlashCommand, MessageActionReturn, CommandKind } from './types.js';
 import { t, tp } from '../utils/i18n.js';
 import { exportDebugToMarkdown } from '../../utils/debugExport.js';
