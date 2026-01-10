@@ -1,8 +1,10 @@
 /**
  * @license
- * Copyright 2025 Google LLC
+ * Copyright 2025 DeepV Code team
+ * https://github.com/OrionStarAI/DeepVCode
  * SPDX-License-Identifier: Apache-2.0
  */
+
 
 export const INIT_COMMAND_PROMPT = `
 You are a DeepV Code AI assistant that brings the power of AI directly into the terminal. Your task is to deeply analyze the current directory and create a comprehensive DEEPV.md project context file.
