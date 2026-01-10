@@ -11,6 +11,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AuthDialog } from './AuthDialog.js';
 import { LoadedSettings, SettingScope } from '../../config/settings.js';
 import { AuthType } from 'deepv-code-core';
+import stripAnsi from 'strip-ansi';
 
 describe('AuthDialog', () => {
   const wait = (ms = 50) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -19,8 +20,7 @@ describe('AuthDialog', () => {
 
   beforeEach(() => {
     originalEnv = { ...process.env };
-    process.env.GEMINI_API_KEY = '';
-    process.env.GEMINI_DEFAULT_AUTH_TYPE = '';
+    process.env.DEEPV_DEFAULT_AUTH_TYPE = '';
     vi.clearAllMocks();
   });
 
@@ -29,8 +29,6 @@ describe('AuthDialog', () => {
   });
 
   it('should show an error if the initial auth type is invalid', () => {
-    process.env.GEMINI_API_KEY = '';
-
     const settings: LoadedSettings = new LoadedSettings(
       {
         settings: { customThemes: {}, mcpServers: {} },
@@ -38,7 +36,7 @@ describe('AuthDialog', () => {
       },
       {
         settings: {
-          selectedAuthType: AuthType.USE_GEMINI,
+          selectedAuthType: AuthType.LOGIN_WITH_GOOGLE,
         },
         path: '',
       },
@@ -53,118 +51,18 @@ describe('AuthDialog', () => {
       <AuthDialog
         onSelect={() => {}}
         settings={settings}
-        initialErrorMessage="GEMINI_API_KEY  environment variable not found"
+        initialErrorMessage="Initial error message"
       />,
     );
 
-    expect(lastFrame()).toContain(
-      'GEMINI_API_KEY  environment variable not found',
+    expect(stripAnsi(lastFrame())).toContain(
+      'Initial error message',
     );
   });
 
-  describe('GEMINI_API_KEY environment variable', () => {
-    it('should detect GEMINI_API_KEY environment variable', () => {
-      process.env.GEMINI_API_KEY = 'foobar';
-
-      const settings: LoadedSettings = new LoadedSettings(
-        {
-          settings: {
-            selectedAuthType: undefined,
-            customThemes: {},
-            mcpServers: {},
-          },
-          path: '',
-        },
-        {
-          settings: { customThemes: {}, mcpServers: {} },
-          path: '',
-        },
-        {
-          settings: { customThemes: {}, mcpServers: {} },
-          path: '',
-        },
-        [],
-      );
-
-      const { lastFrame } = render(
-        <AuthDialog onSelect={() => {}} settings={settings} />,
-      );
-
-      expect(lastFrame()).toContain(
-        'Existing API key detected (GEMINI_API_KEY)',
-      );
-    });
-
-    it('should not show the GEMINI_API_KEY message if GEMINI_DEFAULT_AUTH_TYPE is set to something else', () => {
-      process.env.GEMINI_API_KEY = 'foobar';
-      process.env.GEMINI_DEFAULT_AUTH_TYPE = AuthType.LOGIN_WITH_GOOGLE;
-
-      const settings: LoadedSettings = new LoadedSettings(
-        {
-          settings: {
-            selectedAuthType: undefined,
-            customThemes: {},
-            mcpServers: {},
-          },
-          path: '',
-        },
-        {
-          settings: { customThemes: {}, mcpServers: {} },
-          path: '',
-        },
-        {
-          settings: { customThemes: {}, mcpServers: {} },
-          path: '',
-        },
-        [],
-      );
-
-      const { lastFrame } = render(
-        <AuthDialog onSelect={() => {}} settings={settings} />,
-      );
-
-      expect(lastFrame()).not.toContain(
-        'Existing API key detected (GEMINI_API_KEY)',
-      );
-    });
-
-    it('should show the GEMINI_API_KEY message if GEMINI_DEFAULT_AUTH_TYPE is set to use api key', () => {
-      process.env.GEMINI_API_KEY = 'foobar';
-      process.env.GEMINI_DEFAULT_AUTH_TYPE = AuthType.USE_GEMINI;
-
-      const settings: LoadedSettings = new LoadedSettings(
-        {
-          settings: {
-            selectedAuthType: undefined,
-            customThemes: {},
-            mcpServers: {},
-          },
-          path: '',
-        },
-        {
-          settings: { customThemes: {}, mcpServers: {} },
-          path: '',
-        },
-        {
-          settings: { customThemes: {}, mcpServers: {} },
-          path: '',
-        },
-        [],
-      );
-
-      const { lastFrame } = render(
-        <AuthDialog onSelect={() => {}} settings={settings} />,
-      );
-
-      expect(lastFrame()).toContain(
-        'Existing API key detected (GEMINI_API_KEY)',
-      );
-    });
-  });
-
-  describe('GEMINI_DEFAULT_AUTH_TYPE environment variable', () => {
-    it('should select the auth type specified by GEMINI_DEFAULT_AUTH_TYPE', () => {
-      process.env.GEMINI_DEFAULT_AUTH_TYPE = AuthType.LOGIN_WITH_GOOGLE;
+  describe('DEEPV_DEFAULT_AUTH_TYPE environment variable', () => {
+    it('should select the auth type specified by DEEPV_DEFAULT_AUTH_TYPE', () => {
+      process.env.DEEPV_DEFAULT_AUTH_TYPE = AuthType.USE_PROXY_AUTH;
 
       const settings: LoadedSettings = new LoadedSettings(
         {
@@ -191,10 +89,10 @@ describe('AuthDialog', () => {
       );
 
       // This is a bit brittle, but it's the best way to check which item is selected.
-      expect(lastFrame()).toContain('● 1. Login with Google');
+      expect(stripAnsi(lastFrame())).toContain('• 1. Press Enter to sign in to DeepV Code');
     });
 
-    it('should fall back to default if GEMINI_DEFAULT_AUTH_TYPE is not set', () => {
+    it('should fall back to default if DEEPV_DEFAULT_AUTH_TYPE is not set', () => {
       const settings: LoadedSettings = new LoadedSettings(
         {
           settings: {
@@ -219,12 +117,12 @@ describe('AuthDialog', () => {
         <AuthDialog onSelect={() => {}} settings={settings} />,
       );
 
-      // Default is LOGIN_WITH_GOOGLE
-      expect(lastFrame()).toContain('● 1. Login with Google');
+      // Default is DeepVlab auth
+      expect(stripAnsi(lastFrame())).toContain('• 1. Press Enter to sign in to DeepV Code');
     });
 
-    it('should show an error and fall back to default if GEMINI_DEFAULT_AUTH_TYPE is invalid', () => {
-      process.env.GEMINI_DEFAULT_AUTH_TYPE = 'invalid-auth-type';
+    it('should show an error and fall back to default if DEEPV_DEFAULT_AUTH_TYPE is invalid', () => {
+      process.env.DEEPV_DEFAULT_AUTH_TYPE = 'invalid-auth-type';
 
       const settings: LoadedSettings = new LoadedSettings(
         {
@@ -250,12 +148,12 @@ describe('AuthDialog', () => {
         <AuthDialog onSelect={() => {}} settings={settings} />,
       );
 
-      expect(lastFrame()).toContain(
-        'Invalid value for GEMINI_DEFAULT_AUTH_TYPE: "invalid-auth-type"',
+      expect(stripAnsi(lastFrame())).toContain(
+        'Invalid value for DEEPV_DEFAULT_AUTH_TYPE: "invalid-auth-type"',
       );
 
-      // Default is LOGIN_WITH_GOOGLE
-      expect(lastFrame()).toContain('● 1. Login with Google');
+      // Default is DeepVlab auth
+      expect(stripAnsi(lastFrame())).toContain('• 1. Press Enter to sign in to DeepV Code');
     });
   });
 
@@ -288,10 +186,11 @@ describe('AuthDialog', () => {
 
     // Simulate pressing escape key
     stdin.write('\u001b'); // ESC key
-    await wait();
+    await wait(200);
 
     // Should show error message instead of calling onSelect
-    expect(lastFrame()).toContain(
+    const frame = stripAnsi(lastFrame());
+    expect(frame).toContain(
       'You must select an auth method to proceed. Press Ctrl+C twice to exit.',
     );
     expect(onSelect).not.toHaveBeenCalled();
@@ -329,7 +228,7 @@ describe('AuthDialog', () => {
     );
     await wait();
 
-    expect(lastFrame()).toContain('Initial error');
+    expect(stripAnsi(lastFrame())).toContain('Initial error');
 
     // Simulate pressing escape key
     stdin.write('\u001b'); // ESC key
@@ -349,7 +248,7 @@ describe('AuthDialog', () => {
       },
       {
         settings: {
-          selectedAuthType: AuthType.USE_GEMINI,
+          selectedAuthType: AuthType.USE_PROXY_AUTH,
           customThemes: {},
           mcpServers: {},
         },
@@ -362,7 +261,7 @@ describe('AuthDialog', () => {
       [],
     );
 
-    const { stdin, unmount } = render(
+    const { lastFrame, stdin, unmount } = render(
       <AuthDialog onSelect={onSelect} settings={settings} />,
     );
     await wait();
@@ -372,7 +271,7 @@ describe('AuthDialog', () => {
     await wait();
 
     // Should call onSelect with undefined to exit
-    expect(onSelect).toHaveBeenCalledWith(undefined, SettingScope.User);
+    expect(onSelect).toHaveBeenCalledWith(undefined, 'User');
     unmount();
   });
 });

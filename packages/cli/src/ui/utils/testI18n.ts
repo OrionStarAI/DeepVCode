@@ -6,7 +6,7 @@
  */
 
 
-import { translations, tp } from './i18n.js';
+import { translations, tp, _clearLocaleCache } from './i18n.js';
 
 /**
  * Test helper to get the expected translation text for both locales
@@ -18,10 +18,10 @@ export function getExpectedText(key: keyof typeof translations.en): {
 } {
   const enTranslation = translations.en[key];
   const zhTranslation = translations.zh[key];
-  
+
   // 对于包含参数的翻译，使用默认的esc键进行测试
   const hasParams = typeof enTranslation === 'string' && enTranslation.includes('{');
-  
+
   return {
     en: hasParams ? tp(key, { cancelKey: 'esc' }) : enTranslation,
     zh: hasParams ? withMockedLocale('zh', () => tp(key, { cancelKey: 'esc' })) : zhTranslation,
@@ -39,8 +39,11 @@ export function withMockedLocale<T>(
 ): T {
   // Save original environment
   const originalEnv = { ...process.env };
-  
+
   try {
+    // 🎯 关键修复：清除 i18n 缓存以使环境变量生效
+    _clearLocaleCache();
+
     // Set environment variables to force locale
     if (locale === 'zh') {
       process.env.LANG = 'zh_CN.UTF-8';
@@ -49,8 +52,13 @@ export function withMockedLocale<T>(
       process.env.LANG = 'en_US.UTF-8';
       process.env.LC_ALL = 'en_US.UTF-8';
     }
-    
-    return callback();
+
+    const result = callback();
+
+    // 🎯 执行完后再次清除缓存，以免影响后续非 mocked 调用
+    _clearLocaleCache();
+
+    return result;
   } finally {
     // Restore original environment
     process.env = originalEnv;

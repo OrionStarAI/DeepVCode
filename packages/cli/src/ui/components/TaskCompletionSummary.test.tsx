@@ -82,11 +82,12 @@ describe('<TaskCompletionSummary />', () => {
   });
 
   it('should render a single second value', () => {
+    // Note: Component hides values < 20s, using 21s to test formatting
     const { lastFrame } = render(
-      <TaskCompletionSummary elapsedTime={1} isVisible={true} />,
+      <TaskCompletionSummary elapsedTime={21} isVisible={true} />,
     );
     const output = lastFrame();
-    expect(output).toContain('✓ Worked for 1s');
+    expect(output).toContain('✓ Worked for 21s');
   });
 
   it('should render exactly 1 minute', () => {

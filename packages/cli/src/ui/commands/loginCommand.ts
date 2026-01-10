@@ -15,6 +15,13 @@ import { t } from '../utils/i18n.js';
 let authServerInstance: AuthServer | null = null;
 
 /**
+ * 重置认证服务器实例（仅用于测试）
+ */
+export function _resetAuthServer(): void {
+  authServerInstance = null;
+}
+
+/**
  * 启动认证服务器
  */
 async function startAuthServer(): Promise<void> {

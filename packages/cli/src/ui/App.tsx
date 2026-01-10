@@ -66,6 +66,7 @@ import { appEvents, AppEvent } from '../utils/events.js';
 import { ContextSummaryDisplay } from './components/ContextSummaryDisplay.js';
 import { IDEContextDetailDisplay } from './components/IDEContextDetailDisplay.js';
 import { ReasoningDisplay } from './components/ReasoningDisplay.js';
+import { HealthyUseReminder } from './components/HealthyUseReminder.js';
 import { useHistory } from './hooks/useHistoryManager.js';
 import { useSessionRestore, useSessionAutoSave } from './hooks/useSessionRestore.js';
 import process from 'node:process';
@@ -498,6 +499,42 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   const [modelSwitchedFromQuotaError, setModelSwitchedFromQuotaError] =
     useState<boolean>(false);
   const [userTier, setUserTier] = useState<UserTierId | undefined>(undefined);
+  const [showHealthyUseReminder, setShowHealthyUseReminder] = useState<boolean>(false);
+  const [lastHealthyUseReminderDismissedAt, setLastHealthyUseReminderDismissedAt] = useState<number>(0);
+
+  // 健康使用提醒逻辑
+  useEffect(() => {
+    if (!config.getHealthyUseEnabled()) {
+      setShowHealthyUseReminder(false);
+      return;
+    }
+
+    const checkHealthyUse = () => {
+      const now = new Date();
+      const hour = now.getHours();
+      // 深夜时段：22:00 - 06:00
+      const isRestrictedTime = hour >= 22 || hour < 6;
+
+      if (isRestrictedTime) {
+        const thirtyMinutesInMs = 30 * 60 * 1000;
+        const timeSinceLastDismiss = Date.now() - lastHealthyUseReminderDismissedAt;
+
+        if (!showHealthyUseReminder && timeSinceLastDismiss > thirtyMinutesInMs) {
+          setShowHealthyUseReminder(true);
+        }
+      } else {
+        // 自动退出受限时段时隐藏弹窗
+        if (showHealthyUseReminder) {
+          setShowHealthyUseReminder(false);
+        }
+      }
+    };
+
+    const intervalId = setInterval(checkHealthyUse, 1000 * 60); // 每分钟检查一次
+    checkHealthyUse(); // 初始检查
+
+    return () => clearInterval(intervalId);
+  }, [config, lastHealthyUseReminderDismissedAt, showHealthyUseReminder]);
   const [openFiles, setOpenFiles] = useState<OpenFiles | undefined>();
   const [logoShows, setLogoShows] = useState<boolean>(true);
   const [refineResult, setRefineResult] = useState<{
@@ -2103,6 +2140,13 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
             <PrivacyNotice
               onExit={() => setShowPrivacyNotice(false)}
               config={config}
+            />
+          ) : showHealthyUseReminder ? (
+            <HealthyUseReminder
+              onDismiss={() => {
+                setShowHealthyUseReminder(false);
+                setLastHealthyUseReminderDismissedAt(Date.now());
+              }}
             />
           ) : (
             <>

@@ -113,7 +113,7 @@ export const BackgroundTaskPanel: React.FC<BackgroundTaskPanelProps> = ({
   const getStatusIcon = (status: BackgroundTask['status']) => {
     switch (status) {
       case 'running': return '»';
-      case 'completed': return '●';
+      case 'completed': return '•';
       case 'failed': return '✗';
       default: return '?';
     }

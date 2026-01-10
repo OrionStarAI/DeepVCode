@@ -410,12 +410,14 @@ if (existsSync(soundsSourceDir)) {
   const readmePath = join(soundsSourceDir, 'README.md');
   const isProduction = process.env.BUILD_ENV === 'production';
 
-  if (existsSync(readmePath) && !isProduction) {
-    copyFileSync(readmePath, join(soundsBundleDir, 'README.md'));
-    copiedSoundCount++;
-    console.log(`📋 Copied audio README.md`);
-  } else if (isProduction) {
-    console.log(`⏭️  Skipped audio README.md (production build)`);
+  if (existsSync(readmePath)) {
+    if (!isProduction) {
+      copyFileSync(readmePath, join(soundsBundleDir, 'README.md'));
+      copiedSoundCount++;
+      console.log(`📋 Copied audio README.md`);
+    } else {
+      console.log(`⏭️  Skipping README.md in assets/sounds/ (production build)`);
+    }
   }
 
   console.log(`🔊 Copied ${copiedSoundCount} audio notification files`);

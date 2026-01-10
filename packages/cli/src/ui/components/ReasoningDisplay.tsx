@@ -25,7 +25,7 @@ interface ReasoningDisplayProps {
  * - 窗口高度：终端高度的20%（最小4行）
  * - 自动滚动显示最后的内容
  * - 框样式显示
- * - 动画指示器：○和●交替显示，低调表示思考中
+ * - 动画指示器：◦和•交替显示，低调表示思考中
  */
 export const ReasoningDisplay = ({
   reasoning,
@@ -33,7 +33,7 @@ export const ReasoningDisplay = ({
   terminalWidth,
 }: ReasoningDisplayProps) => {
   const streamingState = useStreamingContext();
-  const [isFilled, setIsFilled] = useState(true); // true=实心●, false=空心○
+  const [isFilled, setIsFilled] = useState(true); // true=实心•, false=空心◦
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   // 圆点动画：每秒在实心和空心之间切换
@@ -98,7 +98,7 @@ export const ReasoningDisplay = ({
       {/* 标题行（带动画指示器） */}
       <Box marginBottom={0}>
         <Text color={Colors.Gray}>
-          {isFilled ? '●' : '○'}
+          {isFilled ? '•' : '◦'}
         </Text>
         <Box marginLeft={1}>
           <Text bold color={Colors.AccentBlue}>

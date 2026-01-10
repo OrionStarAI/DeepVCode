@@ -37,20 +37,38 @@ const { mockAuthServerStart, mockAuthServer, mockExec } = vi.hoisted(() => {
   };
 });
 
-vi.mock('../../login/authServer.js', () => ({
-  AuthServer: mockAuthServer,
-}));
+vi.mock('deepv-code-core', () => {
+  return {
+    AuthServer: mockAuthServer,
+  };
+});
 
 vi.mock('child_process', async (importOriginal) => {
   const actual = await importOriginal<typeof import('child_process')>();
   return {
     ...actual,
     exec: mockExec,
+    default: {
+      ...actual,
+      exec: mockExec,
+    },
+  };
+});
+
+vi.mock('node:child_process', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:child_process')>();
+  return {
+    ...actual,
+    exec: mockExec,
+    default: {
+      ...actual,
+      exec: mockExec,
+    },
   };
 });
 
 // 现在导入 loginCommand
-import { loginCommand } from './loginCommand.js';
+import { loginCommand, _resetAuthServer } from './loginCommand.js';
 
 // Mock console 方法以避免测试输出污染
 const mockConsoleLog = vi.spyOn(console, 'log').mockImplementation(() => {});
@@ -60,6 +78,9 @@ describe('loginCommand', () => {
   let mockContext: CommandContext;
 
   beforeEach(() => {
+    // 重置全局状态
+    _resetAuthServer();
+
     // 重置所有 mock
     vi.clearAllMocks();
 

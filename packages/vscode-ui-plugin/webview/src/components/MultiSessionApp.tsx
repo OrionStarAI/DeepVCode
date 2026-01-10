@@ -12,6 +12,7 @@ import { useMultiSessionState } from '../hooks/useMultiSessionState';
 import { getGlobalMessageService } from '../services/globalMessageService';
 import { webviewModelService } from '../services/webViewModelService';
 import { useTranslation } from '../hooks/useTranslation';
+import { useYoloMode } from '../hooks/useProjectSettings';
 import { SessionSwitcher } from './SessionSwitcher';
 import { SessionManagerDialog } from './SessionManagerDialog';
 import { ProjectSettingsDialog } from './ProjectSettingsDialog';
@@ -27,6 +28,7 @@ import { ChatHistoryModal } from './ChatHistoryModal';
 import { NanoBananaDialog } from './NanoBananaDialog';
 import { NanoBananaIcon } from './NanoBananaIcon';
 import { CompressionConfirmationDialog } from './CompressionConfirmationDialog';
+import { HealthyUseReminder } from './HealthyUseReminder';
 import { CompressionConfirmationRequest } from '../services/webViewModelService';
 import { SessionType, SessionStatus } from '../../../src/constants/sessionConstants';
 import { SessionInfo } from '../../../src/types/sessionTypes';
@@ -95,8 +97,54 @@ export const MultiSessionApp: React.FC = () => {
   // 🛡️ 改为 'auto' 让服务端决定成本最优的模型
   const [selectedModelId, setSelectedModelId] = useState('auto');
 
+  // 🎯 健康使用提醒相关
+  const { healthyUse, loadYoloMode } = useYoloMode();
+  const [showHealthyUseReminder, setShowHealthyUseReminder] = useState(false);
+  const [lastHealthyUseReminderDismissedAt, setLastHealthyUseReminderDismissedAt] = useState(0);
+
   // 🎯 规则管理对话框状态
   const [isRulesManagementOpen, setIsRulesManagementOpen] = useState(false);
+
+  // 🎯 健康使用提醒逻辑
+  useEffect(() => {
+    // 组件挂载时先加载一次设置，确保同步
+    loadYoloMode();
+  }, [loadYoloMode]);
+
+  useEffect(() => {
+    // 只有在开启了健康提醒时才执行检测
+    if (!healthyUse) {
+      setShowHealthyUseReminder(false);
+      return;
+    }
+
+    const checkHealthyUse = () => {
+      const now = new Date();
+      const hour = now.getHours();
+      // 深夜时段：22:00 - 06:00
+      const isRestrictedTime = hour >= 22 || hour < 6;
+
+      if (isRestrictedTime) {
+        const thirtyMinutesInMs = 30 * 60 * 1000;
+        const timeSinceLastDismiss = Date.now() - lastHealthyUseReminderDismissedAt;
+
+        if (!showHealthyUseReminder && timeSinceLastDismiss > thirtyMinutesInMs) {
+          console.log('🌙 [HEALTH] Late night detected, showing reminder');
+          setShowHealthyUseReminder(true);
+        }
+      } else {
+        // 自动退出受限时段时隐藏弹窗
+        if (showHealthyUseReminder) {
+          setShowHealthyUseReminder(false);
+        }
+      }
+    };
+
+    const intervalId = setInterval(checkHealthyUse, 1000 * 60); // 每分钟检查一次
+    checkHealthyUse(); // 初始检查
+
+    return () => clearInterval(intervalId);
+  }, [healthyUse, lastHealthyUseReminderDismissedAt, showHealthyUseReminder]);
 
   // 🎯 重命名对话框状态
   const [renameDialog, setRenameDialog] = useState<{ isOpen: boolean; sessionId: string; currentName: string }>({
@@ -2351,6 +2399,16 @@ User question: ${contentStr}`;
 
       {/* 🎯 全局拖拽测试组件 - 恢复启用但非干扰模式 */}
       <DragDropGlobalTest enabled={false} />
+
+      {/* 🌙 健康使用提醒（全屏蒙层） */}
+      {showHealthyUseReminder && (
+        <HealthyUseReminder
+          onDismiss={() => {
+            setShowHealthyUseReminder(false);
+            setLastHealthyUseReminderDismissedAt(Date.now());
+          }}
+        />
+      )}
     </div>
   );
 };

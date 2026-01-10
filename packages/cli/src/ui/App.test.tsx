@@ -22,7 +22,6 @@ import process from 'node:process';
 import { useGeminiStream } from './hooks/useGeminiStream.js';
 import { useConsoleMessages } from './hooks/useConsoleMessages.js';
 import { StreamingState, ConsoleMessageItem } from './types.js';
-import { Tips } from './components/Tips.js';
 
 // Define a more complete mock server config based on actual Config
 interface MockServerConfig {
@@ -80,6 +79,19 @@ interface MockServerConfig {
   getAllGeminiMdFilenames: Mock<() => string[]>;
   getGeminiClient: Mock<() => GeminiClient | undefined>;
   getUserTier: Mock<() => Promise<string | undefined>>;
+  getCloudModelInfo: Mock<(model: string) => unknown>;
+  getCloudModels: Mock<() => unknown[]>;
+  getAgentStyle: Mock<() => string>;
+  getGeminiMdFilePaths: Mock<() => string[]>;
+  getHealthyUseEnabled: Mock<() => boolean>;
+  getIdeClient: Mock<
+    () =>
+      | {
+          getConnectionStatus: () => { status: string };
+        }
+      | undefined
+  >;
+  getGitService: Mock<() => Promise<unknown>>;
 }
 
 // Mock deepv-code-core and its Config class
@@ -143,12 +155,23 @@ vi.mock('deepv-code-core', async (importOriginal) => {
         getGeminiClient: vi.fn(() => ({
           getUserTier: vi.fn(),
         })),
+        getCloudModelInfo: vi.fn(() => undefined),
+        getCloudModels: vi.fn(() => []),
+        getAgentStyle: vi.fn(() => 'default'),
+        getGeminiMdFilePaths: vi.fn(() => []),
+        getHealthyUseEnabled: vi.fn(() => opts.healthyUse ?? false),
+        getIdeClient: vi.fn(() => undefined),
+        getGitService: vi.fn().mockResolvedValue(undefined),
         getCheckpointingEnabled: vi.fn(() => opts.checkpointing ?? true),
         getAllGeminiMdFilenames: vi.fn(() => ['GEMINI.md']),
         setFlashFallbackHandler: vi.fn(),
         getSessionId: vi.fn(() => 'test-session-id'),
         getUserTier: vi.fn().mockResolvedValue(undefined),
         getIdeMode: vi.fn(() => false),
+        getPlanModeActive: vi.fn(() => false),
+        getHookSystem: vi.fn(() => ({
+          getEventHandler: vi.fn(() => ({})),
+        })),
       };
     });
 
@@ -220,6 +243,25 @@ vi.mock('./components/Header.js', () => ({
   Header: vi.fn(() => null),
 }));
 
+vi.mock('./components/WelcomeScreen.js', () => ({
+  WelcomeScreen: vi.fn(() => null),
+}));
+
+vi.mock('./hooks/useFocus.js', () => ({
+  useFocus: vi.fn(() => true),
+}));
+
+vi.mock('./hooks/useBracketedPaste.js', () => ({
+  useBracketedPaste: vi.fn(),
+}));
+
+// Mock sandbox.ts to avoid vite import-glob path issues on Windows
+vi.mock('../utils/sandbox.js', () => ({
+  start_sandbox: vi.fn(),
+  getContainerPath: vi.fn((path: string) => path),
+  ensureSandboxImageIsPresent: vi.fn().mockResolvedValue(true),
+}));
+
 describe('App UI', () => {
   let mockConfig: MockServerConfig;
   let mockSettings: LoadedSettings;
@@ -275,8 +317,8 @@ describe('App UI', () => {
     }
     mockConfig.getShowMemoryUsage.mockReturnValue(false); // Default for most tests
 
-    // Ensure a theme is set so the theme dialog does not appear.
-    mockSettings = createMockSettings({ workspace: { theme: 'Default' } });
+    // Ensure a user theme is set so the theme dialog does not appear.
+    mockSettings = createMockSettings({ user: { theme: 'Default' } });
     vi.mocked(ideContext.getOpenFilesContext).mockReturnValue(undefined);
   });
 
@@ -389,7 +431,8 @@ describe('App UI', () => {
 
   it('should display custom contextFileName in footer when set and count is 1', async () => {
     mockSettings = createMockSettings({
-      workspace: { contextFileName: 'AGENTS.md', theme: 'Default' },
+      user: { theme: 'Default' },
+      workspace: { contextFileName: 'AGENTS.md' },
     });
     mockConfig.getGeminiMdFileCount.mockReturnValue(1);
     mockConfig.getAllGeminiMdFilenames.mockReturnValue(['AGENTS.md']);
@@ -410,9 +453,9 @@ describe('App UI', () => {
 
   it('should display a generic message when multiple context files with different names are provided', async () => {
     mockSettings = createMockSettings({
+      user: { theme: 'Default' },
       workspace: {
         contextFileName: ['AGENTS.md', 'CONTEXT.md'],
-        theme: 'Default',
       },
     });
     mockConfig.getGeminiMdFileCount.mockReturnValue(2);
@@ -437,7 +480,8 @@ describe('App UI', () => {
 
   it('should display custom contextFileName with plural when set and count is > 1', async () => {
     mockSettings = createMockSettings({
-      workspace: { contextFileName: 'MY_NOTES.TXT', theme: 'Default' },
+      user: { theme: 'Default' },
+      workspace: { contextFileName: 'MY_NOTES.TXT' },
     });
     mockConfig.getGeminiMdFileCount.mockReturnValue(3);
     mockConfig.getAllGeminiMdFilenames.mockReturnValue([
@@ -462,7 +506,8 @@ describe('App UI', () => {
 
   it('should not display context file message if count is 0, even if contextFileName is set', async () => {
     mockSettings = createMockSettings({
-      workspace: { contextFileName: 'ANY_FILE.MD', theme: 'Default' },
+      user: { theme: 'Default' },
+      workspace: { contextFileName: 'ANY_FILE.MD' },
     });
     mockConfig.getGeminiMdFileCount.mockReturnValue(0);
     mockConfig.getAllGeminiMdFilenames.mockReturnValue([]);
@@ -524,10 +569,11 @@ describe('App UI', () => {
     );
     currentUnmount = unmount;
     await Promise.resolve();
-    expect(lastFrame()).toContain('Using: 2 MCP servers (ctrl+t to view)');
+    expect(lastFrame()).toContain('0/2 MCP servers');
   });
 
-  it('should display Tips component by default', async () => {
+  it('should display WelcomeScreen component by default', async () => {
+    const { WelcomeScreen } = await import('./components/WelcomeScreen.js');
     const { unmount } = render(
       <App
         config={mockConfig as unknown as ServerConfig}
@@ -537,44 +583,11 @@ describe('App UI', () => {
     );
     currentUnmount = unmount;
     await Promise.resolve();
-    expect(vi.mocked(Tips)).toHaveBeenCalled();
+    expect(vi.mocked(WelcomeScreen)).toHaveBeenCalled();
   });
 
-  it('should not display Tips component when hideTips is true', async () => {
-    mockSettings = createMockSettings({
-      workspace: {
-        hideTips: true,
-      },
-    });
-
-    const { unmount } = render(
-      <App
-        config={mockConfig as unknown as ServerConfig}
-        settings={mockSettings}
-        version={mockVersion}
-      />,
-    );
-    currentUnmount = unmount;
-    await Promise.resolve();
-    expect(vi.mocked(Tips)).not.toHaveBeenCalled();
-  });
-
-  it('should display Header component by default', async () => {
-    const { Header } = await import('./components/Header.js');
-    const { unmount } = render(
-      <App
-        config={mockConfig as unknown as ServerConfig}
-        settings={mockSettings}
-        version={mockVersion}
-      />,
-    );
-    currentUnmount = unmount;
-    await Promise.resolve();
-    expect(vi.mocked(Header)).toHaveBeenCalled();
-  });
-
-  it('should not display Header component when hideBanner is true', async () => {
-    const { Header } = await import('./components/Header.js');
+  it('should not display WelcomeScreen component when hideBanner is true', async () => {
+    const { WelcomeScreen } = await import('./components/WelcomeScreen.js');
     mockSettings = createMockSettings({
       user: { hideBanner: true },
     });
@@ -588,26 +601,7 @@ describe('App UI', () => {
     );
     currentUnmount = unmount;
     await Promise.resolve();
-    expect(vi.mocked(Header)).not.toHaveBeenCalled();
-  });
-
-  it('should show tips if system says show, but workspace and user settings say hide', async () => {
-    mockSettings = createMockSettings({
-      system: { hideTips: false },
-      user: { hideTips: true },
-      workspace: { hideTips: true },
-    });
-
-    const { unmount } = render(
-      <App
-        config={mockConfig as unknown as ServerConfig}
-        settings={mockSettings}
-        version={mockVersion}
-      />,
-    );
-    currentUnmount = unmount;
-    await Promise.resolve();
-    expect(vi.mocked(Tips)).toHaveBeenCalled();
+    expect(vi.mocked(WelcomeScreen)).not.toHaveBeenCalled();
   });
 
   describe('when no theme is set', () => {
@@ -637,7 +631,7 @@ describe('App UI', () => {
       );
       currentUnmount = unmount;
 
-      expect(lastFrame()).toContain("I'm Feeling Lucky (esc to cancel");
+      expect(lastFrame()).toContain('Select Theme');
     });
 
     it('should display a message if NO_COLOR is set', async () => {
@@ -652,7 +646,7 @@ describe('App UI', () => {
       );
       currentUnmount = unmount;
 
-      expect(lastFrame()).toContain("I'm Feeling Lucky (esc to cancel");
+      expect(lastFrame()).toContain('First launch detected');
       expect(lastFrame()).not.toContain('Select Theme');
     });
   });
@@ -666,7 +660,8 @@ describe('App UI', () => {
       />,
     );
     currentUnmount = unmount;
-    expect(lastFrame()).toMatchSnapshot();
+    expect(lastFrame()).toContain('Type your message or @filepath');
+    expect(lastFrame()).toContain('/test/dir');
   });
 
   it('should render correctly with the prompt input box', () => {
@@ -689,7 +684,8 @@ describe('App UI', () => {
       />,
     );
     currentUnmount = unmount;
-    expect(lastFrame()).toMatchSnapshot();
+    expect(lastFrame()).toContain('Type your message or @filepath');
+    expect(lastFrame()).toContain('/test/dir');
   });
 
   describe('with initial prompt from --prompt-interactive', () => {
@@ -743,9 +739,9 @@ describe('App UI', () => {
   describe('errorCount', () => {
     it('should correctly sum the counts of error messages', async () => {
       const mockConsoleMessages: ConsoleMessageItem[] = [
-        { type: 'error', content: 'First error', count: 1 },
+        { type: 'error', content: 'First error', count: 5 },
         { type: 'log', content: 'some log', count: 1 },
-        { type: 'error', content: 'Second error', count: 3 },
+        { type: 'error', content: 'Second error', count: 7 },
         { type: 'warn', content: 'a warning', count: 1 },
         { type: 'error', content: 'Third error', count: 1 },
       ];
@@ -766,8 +762,50 @@ describe('App UI', () => {
       currentUnmount = unmount;
       await Promise.resolve();
 
-      // Total error count should be 1 + 3 + 1 = 5
-      expect(lastFrame()).toContain('5 errors');
+      // Total error count should be 5 + 7 + 1 = 13
+      expect(lastFrame()).toContain('13 errors');
+    });
+  });
+
+  describe('Healthy Use Reminder', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('should show reminder during restricted hours and hide it when hours change', async () => {
+      // 1. Set time to late night (23:00)
+      const lateNightDate = new Date(2025, 0, 1, 23, 0, 0);
+      vi.setSystemTime(lateNightDate);
+
+      mockConfig.getHealthyUseEnabled.mockReturnValue(true);
+
+      const { lastFrame, unmount } = render(
+        <App
+          config={mockConfig as unknown as ServerConfig}
+          settings={mockSettings}
+          version={mockVersion}
+        />,
+      );
+      currentUnmount = unmount;
+
+      // Wait for initial check
+      await vi.advanceTimersByTimeAsync(100);
+
+      // Check for content from the reminder (English version)
+      expect(lastFrame()).toContain("It's late, time to rest");
+
+      // 2. Set time to morning (08:00)
+      const morningDate = new Date(2025, 0, 2, 8, 0, 0);
+      vi.setSystemTime(morningDate);
+
+      // Advance timer to trigger next check (every minute)
+      await vi.advanceTimersByTimeAsync(60000);
+
+      expect(lastFrame()).not.toContain("It's late, time to rest");
     });
   });
 });

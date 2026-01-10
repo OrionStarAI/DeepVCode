@@ -9,6 +9,18 @@ import { describe, it, expect, vi } from 'vitest';
 import { ToolConfirmationMessage } from './ToolConfirmationMessage.js';
 import { ToolCallConfirmationDetails } from 'deepv-code-core';
 
+vi.mock('../../hooks/useSmallWindowOptimization.js', () => ({
+  useSmallWindowOptimization: vi.fn(() => ({
+    sizeLevel: 'normal',
+    disableAnimations: false,
+    reducedRefreshRate: false,
+    hideDecorations: false,
+    simplifiedDisplay: false,
+    refreshDebounceMs: 300,
+  })),
+  WindowSizeLevel: { NORMAL: 'normal', SMALL: 'small', TINY: 'tiny' },
+}));
+
 describe('ToolConfirmationMessage', () => {
   it('should not display urls if prompt and url are the same', () => {
     const confirmationDetails: ToolCallConfirmationDetails = {

@@ -224,6 +224,7 @@ export interface ConfigParameters {
   vsCodePluginMode?: boolean;
   memoryTokenCount?: number; // 新增
   hooks?: { [K in HookEventName]?: HookDefinition[] };
+  healthyUse?: boolean;
 }
 
 export class Config {
@@ -294,6 +295,7 @@ export class Config {
   private projectSettingsManager: ProjectSettingsManager;
   private planModeActive: boolean = false;
   private readonly hooks: { [K in HookEventName]?: HookDefinition[] };
+  private readonly healthyUse: boolean;
 
   constructor(params: ConfigParameters) {
     this.sessionId = params.sessionId;
@@ -363,6 +365,7 @@ export class Config {
     this.ideClient = params.ideClient;
     this.vsCodePluginMode = params.vsCodePluginMode ?? false;
     this.hooks = params.hooks ?? {};
+    this.healthyUse = params.healthyUse ?? true;
 
     if (params.contextFileName) {
       setGeminiMdFilename(params.contextFileName);
@@ -717,6 +720,10 @@ export class Config {
    */
   setPlanModeActive(active: boolean): void {
     this.planModeActive = active;
+  }
+
+  getHealthyUseEnabled(): boolean {
+    return this.healthyUse;
   }
 
   /**
