@@ -1,0 +1,26 @@
+stages:
+  - release
+
+# 只在符合 cli-release-vx.x.x 的 tag时触发
+workflow:
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^cli-release-v\d+\.\d+\.\d+$/'
+
+release:
+  stage: release
+  image: node:20
+  script:
+    # 安装依赖
+    - npm install
+    # 构建
+    - npm run build
+    # 打包并自动提升版本号
+    - npm run pack:prod
+    # 写入 npm token 以便 publish
+    - echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+    # 发布到 npm
+    - npm publish
+  before_script:
+    - rm -f ~/.npmrc || true
+  after_script:
+    - rm -f ~/.npmrc || true
