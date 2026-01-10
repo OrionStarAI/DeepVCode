@@ -33,7 +33,10 @@ import {
   recordFileOperationMetric,
   FileOperation,
 } from '../telemetry/metrics.js';
-import { postProcessTextByLanguage } from '../utils/languageAwareTextProcessor.js';
+import {
+  postProcessTextByLanguage,
+  detectLineEnding,
+} from '../utils/languageAwareTextProcessor.js';
 
 /**
  * Parameters for the WriteFile tool
@@ -67,8 +70,7 @@ interface GetCorrectedFileContentResult {
  */
 export class WriteFileTool
   extends BaseTool<WriteFileToolParams, ToolResult>
-  implements ModifiableTool<WriteFileToolParams>
-{
+  implements ModifiableTool<WriteFileToolParams> {
   static readonly Name: string = 'write_file';
 
   constructor(private readonly config: Config) {
@@ -239,18 +241,26 @@ export class WriteFileTool
     // 应用语言感知的文本处理
     const projectSettings = this.config.getProjectSettingsManager().getSettings();
     const autoTrimTrailingSpaces = projectSettings.autoTrimTrailingSpaces;
-    const fileContent = postProcessTextByLanguage(
-      rawFileContent,
-      params.file_path,
-      !fileExists,
-      autoTrimTrailingSpaces
-    );
     // fileExists is true if the file existed (and was readable or unreadable but caught by readError).
     // fileExists is false if the file did not exist (ENOENT).
     const isNewFile =
       !fileExists ||
       (correctedContentResult.error !== undefined &&
         !correctedContentResult.fileExists);
+
+    // Detect line endings from original content if it exists
+    let targetLineEnding: string | undefined;
+    if (!isNewFile && originalContent) {
+      targetLineEnding = detectLineEnding(originalContent);
+    }
+
+    const fileContent = postProcessTextByLanguage(
+      rawFileContent,
+      params.file_path,
+      !fileExists,
+      autoTrimTrailingSpaces,
+      targetLineEnding,
+    );
 
     try {
       const dirName = path.dirname(params.file_path);
