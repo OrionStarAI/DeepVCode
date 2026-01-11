@@ -227,10 +227,14 @@ export async function activate(context: vscode.ExtensionContext) {
 
     // 🎯 立即初始化WebView服务，这样用户点击时就能看到loading界面
     try {
+      logger.info('🔧 About to initialize WebViewService...');
+      console.log('[DeepV] About to initialize WebViewService...');
       await webviewService.initialize();
-      logger.info('WebView service initialized - ready for immediate display');
+      logger.info('✅ WebView service initialized - ready for immediate display');
+      console.log('[DeepV] WebView service initialized successfully');
     } catch (error) {
-      logger.warn('WebView service initialization failed, will retry later', error instanceof Error ? error : undefined);
+      logger.warn('❌ WebView service initialization failed, will retry later', error instanceof Error ? error : undefined);
+      console.error('[DeepV] WebView service initialization failed:', error);
     }
 
     startupOptimizer.endPhase();
@@ -299,23 +303,84 @@ export async function deactivate(): Promise<void> {
 
     if (inlineCompletionStatusBar) {
       inlineCompletionStatusBar.dispose();
+      // @ts-ignore - 清理模块级变量，确保重启时重新创建
+      inlineCompletionStatusBar = undefined;
     }
     if (inlineCompletionProvider) {
       inlineCompletionProvider.dispose();
+      // @ts-ignore
+      inlineCompletionProvider = undefined;
     }
     if (webviewService) {
       await webviewService.dispose();
+      // @ts-ignore
+      webviewService = undefined;
     }
     if (contextService) {
       await contextService.dispose();
+      // @ts-ignore
+      contextService = undefined;
     }
     if (communicationService) {
       await communicationService.dispose();
+      // @ts-ignore
+      communicationService = undefined;
     }
     if (sessionManager) {
       await sessionManager.dispose();
+      // @ts-ignore
+      sessionManager = undefined;
     }
+    if (fileSearchService) {
+      // @ts-ignore
+      fileSearchService = undefined;
+    }
+    if (fileRollbackService) {
+      // @ts-ignore
+      fileRollbackService = undefined;
+    }
+    if (versionControlManager) {
+      // @ts-ignore
+      versionControlManager = undefined;
+    }
+    if (simpleRevertService) {
+      // @ts-ignore
+      simpleRevertService = undefined;
+    }
+    if (cursorStyleRevertService) {
+      // @ts-ignore
+      cursorStyleRevertService = undefined;
+    }
+    if (completionCache) {
+      // @ts-ignore
+      completionCache = undefined;
+    }
+    if (completionScheduler) {
+      // @ts-ignore
+      completionScheduler = undefined;
+    }
+    if (ruleService) {
+      // @ts-ignore
+      ruleService = undefined;
+    }
+    if (clipboardCache) {
+      // @ts-ignore
+      clipboardCache = undefined;
+    }
+    if (slashCommandService) {
+      // @ts-ignore
+      slashCommandService = undefined;
+    }
+    if (terminalOutputService) {
+      // @ts-ignore
+      terminalOutputService = undefined;
+    }
+
     logger?.info('DeepV Code AI Assistant deactivated successfully');
+
+    // 最后清理 logger
+    // @ts-ignore
+    logger = undefined;
   } catch (error) {
     logger?.error('Error during deactivation', error instanceof Error ? error : undefined);
   }
