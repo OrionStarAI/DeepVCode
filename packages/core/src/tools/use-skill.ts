@@ -114,14 +114,58 @@ Important:
       // Dynamic import with runtime path resolution to avoid TypeScript compile-time errors
       // This works because at runtime, both packages are compiled
       const path = await import('path');
-      const { fileURLToPath, pathToFileURL } = await import('url');
+      const { pathToFileURL } = await import('url');
 
-      // Get current file's directory
-      const __filename = fileURLToPath(import.meta.url);
-      const __dirname = path.dirname(__filename);
+      // Get skill module path using cross-platform safe method
+      // In VSCode extension: use global __extensionPath if available
+      // In CLI: use process.cwd() based resolution
+      // In dev: use relative path from __dirname
+      let skillModulePath: string;
 
-      // Resolve path to cli package: from packages/core/dist/src/tools/ to packages/cli/dist/src/services/skill/
-      const skillModulePath = path.resolve(__dirname, '../../../../cli/dist/src/services/skill/index.js');
+      // Check if we're in VSCode extension environment (extensionPath is set globally)
+      const extensionPath = (globalThis as any).__extensionPath;
+      if (extensionPath) {
+        // VSCode extension environment - skills are not available in bundled extension
+        // The skill system is only available in CLI mode
+        return {
+          llmContent: `❌ Skill system is not available in VSCode extension mode.
+
+The skill system requires the CLI environment to function.
+Skills are designed for the DeepV Code CLI, not the VSCode extension.
+
+To use skills, please run DeepV Code from the command line.`,
+          returnDisplay: 'Skill system not available in VSCode extension',
+        };
+      }
+
+      // CLI environment - resolve path relative to process.cwd() or known CLI structure
+      // Try multiple possible locations
+      const possiblePaths = [
+        // When running from CLI dist
+        path.resolve(process.cwd(), 'dist', 'src', 'services', 'skill', 'index.js'),
+        // When running from monorepo root
+        path.resolve(process.cwd(), 'packages', 'cli', 'dist', 'src', 'services', 'skill', 'index.js'),
+        // Fallback: try to find via node_modules resolution
+      ];
+
+      const fs = await import('fs');
+      skillModulePath = '';
+      for (const testPath of possiblePaths) {
+        if (fs.existsSync(testPath)) {
+          skillModulePath = testPath;
+          break;
+        }
+      }
+
+      if (!skillModulePath) {
+        return {
+          llmContent: `❌ Skill system module not found.
+
+The skill system requires the CLI to be properly built.
+Please ensure you have run 'npm run build' in the project root.`,
+          returnDisplay: 'Skill module not found',
+        };
+      }
 
       const {
         SkillContextInjector,
