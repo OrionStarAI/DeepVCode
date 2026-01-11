@@ -15,7 +15,9 @@ tsconfig.json
 webpack.config.js
 webpack.core.config.js
 esbuild.config.js
+esbuild.config.mjs
 *.config.js
+*.config.mjs
 scripts/**
 
 # Exclude npm/node related files
