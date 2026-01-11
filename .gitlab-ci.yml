@@ -18,7 +18,7 @@ release:
     - npm install
     # 提取版本号并更新 package.json
     - export NEW_VERSION=$(echo $CI_COMMIT_TAG | sed 's/^cli-release-v//')
-    - npm version $NEW_VERSION --no-git-tag-version
+    - npm version $NEW_VERSION --no-git-tag-version --force
     # 构建
     - npm run build
     # 打包（使用 ci 版本避免重复自增）
@@ -46,7 +46,7 @@ release-vscode:
     - export NEW_VERSION=$(echo $CI_COMMIT_TAG | sed 's/^vscode-release-v//')
     # 更新插件版本号 (在子目录中执行)
     - cd packages/vscode-ui-plugin
-    - npm version $NEW_VERSION --no-git-tag-version
+    - npm version $NEW_VERSION --no-git-tag-version --force
     # 构建插件 (包含 webview) - 使用生产构建 (minify)
     - npm run build:prod
     # 发布到 VS Code Marketplace (让 vsce 自动处理打包和发布)
