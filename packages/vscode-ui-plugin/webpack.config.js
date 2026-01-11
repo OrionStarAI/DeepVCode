@@ -97,6 +97,10 @@ module.exports = [
         '.js': ['.ts', '.tsx', '.js'], // 🚀 关键修复：把 .js 映射回 .ts/.tsx
         '.mjs': ['.mts', '.mjs']
       },
+      alias: {
+        // Replace 'open' package with a stub to avoid import.meta.url cross-platform issues
+        'open': path.resolve(__dirname, 'src/stubs/open-stub.ts')
+      },
       mainFields: ['module', 'main'],
       // VS Code 扩展环境不需要浏览器版的 polyfills
       aliasFields: []
@@ -203,10 +207,14 @@ module.exports = [
       'os': 'commonjs os',
       'net': 'commonjs net',
       'tls': 'commonjs tls',
-      'zlib': 'commonjs zlib'
-    },
+      'zlib': 'commonjs zlib',
+      },
     resolve: {
       extensions: ['.js', '.ts'],
+      alias: {
+        // Replace 'open' package with a stub to avoid import.meta.url cross-platform issues
+        'open': path.resolve(__dirname, 'src/stubs/open-stub.ts')
+      },
       fallback: {
         "fs": false,
         "path": require.resolve("path-browserify"),
@@ -226,14 +234,25 @@ module.exports = [
     },
     plugins: [
       ...sharedPlugins,
-      // 复制core包中的HTML模板和icon资源
+      // 复制core包中的HTML模板和icon资源（只复制HTML和图标文件，不复制JS）
       new CopyWebpackPlugin({
         patterns: [
           {
             from: path.resolve(__dirname, '../core/dist/src/auth/login/templates'),
             to: path.resolve(__dirname, 'dist/bundled/auth/login/templates'),
             globOptions: {
-              ignore: ['**/*.js', '**/*.js.map', '**/*.d.ts']
+              // 必须使用绝对路径或相对于 from 目录的路径
+              ignore: [
+                '**/index.js',
+                '**/index.js.map',
+                '**/index.d.ts',
+                '**/*.ts'
+              ]
+            },
+            // 只复制特定文件类型
+            filter: (resourcePath) => {
+              // 只允许 HTML, ICO, PNG, SVG, MD 文件
+              return /\.(html|ico|png|svg|md)$/i.test(resourcePath);
             }
           }
         ]
