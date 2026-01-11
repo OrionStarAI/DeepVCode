@@ -102,6 +102,7 @@ if (typeof globalThis.__dirname === 'undefined') {
 };
 
 // Extension bundle configuration
+// This bundles extension.ts along with all its dependencies including deepv-code-core
 const extensionConfig = {
   ...commonOptions,
   entryPoints: [path.resolve(__dirname, 'src/extension.ts')],
@@ -113,7 +114,8 @@ const extensionConfig = {
   },
 };
 
-// Core bundle configuration (bundles deepv-code-core)
+// Core bundle configuration (standalone bundle for other consumers)
+// Note: extension.bundle.js already includes core, this is for reference/debugging
 const coreConfig = {
   ...commonOptions,
   entryPoints: [path.resolve(__dirname, '../core/dist/index.js')],
@@ -203,15 +205,14 @@ async function build() {
     // Build webview first (uses webpack)
     await buildWebview();
 
-    // Build extension bundle
+    // Build extension bundle (includes core via deepv-code-core import)
     console.log('📦 Building extension bundle...');
     await esbuild.build(extensionConfig);
     console.log('✅ Extension bundle completed');
 
-    // Build core bundle
-    console.log('📦 Building core bundle...');
-    await esbuild.build(coreConfig);
-    console.log('✅ Core bundle completed');
+    // Note: We no longer build a separate core bundle since extension.bundle.js
+    // already includes all needed code from deepv-code-core via tree-shaking.
+    // This reduces build time and avoids duplicate code.
 
     // Copy template files
     copyTemplateFiles();

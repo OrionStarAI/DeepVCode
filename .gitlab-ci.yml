@@ -47,8 +47,8 @@ release-vscode:
     # 更新插件版本号 (在子目录中执行)
     - cd packages/vscode-ui-plugin
     - npm version $NEW_VERSION --no-git-tag-version
-    # 构建插件 (包含 webview)
-    - npm run build
+    # 构建插件 (包含 webview) - 使用生产构建 (minify)
+    - npm run build:prod
     # 发布到 VS Code Marketplace (让 vsce 自动处理打包和发布)
     - npx @vscode/vsce publish -p ${VSCE_TOKEN}
     # 为了备份和 ovsx，显式打包一次
