@@ -30,6 +30,8 @@ test-build:
   tags:
     - deepvcode-docker-runner
   image: node:20
+  variables:
+    GIT_DEPTH: 1
   script:
     # 配置 npm 缓存目录（写入到项目 .npm）
     - npm config set cache /cache/.npm --global
@@ -45,6 +47,8 @@ release:
   tags:
     - deepvcode-docker-runner     # ✅ 必须匹配 config.toml 的 name 或 tag
   image: node:20
+  variables:
+    GIT_DEPTH: 1
   before_script:
     - rm -f .npmrc || true
   script:
@@ -69,6 +73,8 @@ release-vscode:
   tags:
     - deepvcode-docker-runner     # ✅ 与上保持一致
   image: node:20
+  variables:
+    GIT_DEPTH: 1
   script:
     - npm config set cache /cache/.npm --global
     - npm ci --retry=10 --retry-delay=5000 --prefer-offline
