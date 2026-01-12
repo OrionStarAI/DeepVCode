@@ -263,8 +263,14 @@ class GeminiAgent implements Agent {
         };
       }
 
+      // 为危险命令添加警告信息到label
+      let confirmLabel = tool.getDescription(args);
+      if (confirmationDetails.type === 'exec' && confirmationDetails.warning) {
+        confirmLabel = `${confirmationDetails.warning}\n\n${confirmLabel}`;
+      }
+
       const result = await this.client.requestToolCallConfirmation({
-        label: tool.getDescription(args),
+        label: confirmLabel,
         icon: tool.icon,
         content,
         confirmation: toAcpToolCallConfirmation(confirmationDetails),

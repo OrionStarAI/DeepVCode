@@ -256,7 +256,7 @@ async function main() {
     console.log(`${chalk.bold.blue('---------------------------------------------------------------')}`);
 
     if (!shouldInstall) {
-      console.log(`\n${chalk.yellow('💡 Hint:')} Run ${chalk.white.bold(`npm install -g ./${tgzFileName}`)} to install globally.\n`);
+      console.log(`\n${chalk.yellow('💡 Hint:')} Run ${chalk.cyan.bold(`npm install -g ./${tgzFileName}`)} to install globally.\n`);
     } else {
       console.log(`\n${chalk.green('🎉')} ${chalk.bold('dvcode')} is now updated and ready for use!\n`);
     }
