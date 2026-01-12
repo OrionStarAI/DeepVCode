@@ -1,5 +1,4 @@
 ## DeepV Code Added Memories
-
 ### 项目概述
 DeepV Code 是一个 AI 驱动的智能编程助手，采用 monorepo 架构，包含 4 个主要包：
 - **cli** (deepv-code-cli): 命令行界面 (binary: "dvcode")
@@ -104,3 +103,4 @@ DeepV Code (Monorepo)
 - `DeepV_Code_Whitepaper.md` - 项目白皮书
 - `DEEPV.md` - 本文件（AI记忆文件）
 - `docs/index.md` - 文档总索引
+- 在解决同一个问题的情况下，应该使用 git commit --amend 将多个修改合并成一笔提交，而不是创建多个提交。这样可以保持提交历史清晰。

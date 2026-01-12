@@ -83,12 +83,7 @@ export const SessionSummaryDisplay: React.FC<SessionSummaryDisplayProps> = ({
     return () => clearInterval(animationInterval);
   }, [isLoading]);
 
-  // 将加载完成状态存储到 window，以便 slashCommandProcessor 检测
-  useEffect(() => {
-    if (creditsLoadComplete) {
-      (window as any).__creditsLoadComplete = true;
-    }
-  }, [creditsLoadComplete]);
+
 
   return (
     <>
@@ -98,17 +93,15 @@ export const SessionSummaryDisplay: React.FC<SessionSummaryDisplayProps> = ({
         totalCredits={credits}
         config={config}
       />
-      {isLoading ? (
-        <Box marginTop={1}>
+      <Box marginTop={1}>
+        {isLoading ? (
           <Text>
-            {loadingSpinners[spinnerFrame]} {t('credits.fetching')}
+            {loadingSpinners[spinnerFrame]} {t('command.quit.exiting')}
           </Text>
-        </Box>
-      ) : showLatestCredits && latestCreditsInfo ? (
-        <Box marginTop={1}>
+        ) : showLatestCredits && latestCreditsInfo ? (
           <Text>{latestCreditsInfo}</Text>
-        </Box>
-      ) : null}
+        ) : null}
+      </Box>
     </>
   );
 };
