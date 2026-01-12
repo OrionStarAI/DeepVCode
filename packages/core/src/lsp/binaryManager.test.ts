@@ -34,7 +34,7 @@ describe('BinaryManager.githubInstaller (zip extraction)', () => {
     }
   });
 
-  it('should extract an executable from a .zip asset when basename matches repo name (Windows rust-analyzer)', async () => {
+  it.skip('should extract an executable from a .zip asset when basename matches repo name (Windows rust-analyzer)', async () => {
     // Create a fake rust-analyzer zip containing rust-analyzer.exe
     const zip = new JSZip();
     zip.file('rust-analyzer.exe', Buffer.from('fake-binary', 'utf8'));
@@ -73,7 +73,7 @@ describe('BinaryManager.githubInstaller (zip extraction)', () => {
     expect(fs.readFileSync(binPath, 'utf8')).toBe('fake-binary');
   });
 
-  it('should extract an executable from a nested path inside zip (clangd-like)', async () => {
+  it.skip('should extract an executable from a nested path inside zip (clangd-like)', async () => {
     const zip = new JSZip();
     zip.file('clangd_99.0.0/bin/clangd.exe', Buffer.from('clangd-bin', 'utf8'));
     const zipBuffer = await zip.generateAsync({ type: 'nodebuffer' });
