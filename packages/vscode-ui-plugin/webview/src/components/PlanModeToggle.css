@@ -33,7 +33,7 @@
 .plan-mode-toggle:focus {
   outline: none;
   border-color: var(--vscode-focusBorder, #007acc);
-  background-color: var(--vscode-button-hoverBackground, rgba(255, 255, 255, 0.1));
+  background-color: transparent;
 }
 
 .plan-mode-toggle:disabled {
