@@ -1262,10 +1262,11 @@ describe('useCompletion', () => {
         result.current.handleAutocomplete(0);
       });
 
+      // 新代码会使用引号包裹路径，并在文件后加空格
       expect(mockBuffer.replaceRangeByOffset).toHaveBeenCalledWith(
-        5, // after '@src/'
+        0, // 从 @ 开始替换
         mockBuffer.text.length,
-        'file1.txt',
+        '@"src/file1.txt" ', // 引号包裹，文件后加空格
       );
     });
   });
