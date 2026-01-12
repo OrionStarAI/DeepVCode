@@ -783,6 +783,9 @@ export const useGeminiStream = (
               // 不立即发送给 AI，等待用户操作（回车发送/R再润色/Esc取消）
               return { queryToSend: null, shouldProceed: false };
             }
+            case 'select_session': {
+              return { queryToSend: null, shouldProceed: false };
+            }
             default: {
               const unreachable: never = slashCommandResult;
               throw new Error(
