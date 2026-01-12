@@ -1,12 +1,14 @@
 stages:
+  - test-build
   - release
   - release-vscode
 
-# 只在符合 cli-release-vx.x.x 或 vscode-release-vx.x.x 的 tag 时触发
+# 只在符合 cli-release-vx.x.x 或 vscode-release-vx.x.x 或 test-all-vx.x.x 的 tag 时触发
 workflow:
   rules:
     - if: '$CI_COMMIT_TAG =~ /^cli-release-v\d+\.\d+\.\d+$/'
     - if: '$CI_COMMIT_TAG =~ /^vscode-release-v\d+\.\d+\.\d+$/'
+    - if: '$CI_COMMIT_TAG =~ /^test-all-v\d+\.\d+\.\d+$/'
 
 # 全局 npm 缓存配置
 cache:
@@ -22,6 +24,21 @@ cache:
     - packages/vscode-ui-plugin/webview/node_modules/
     - .npm/
   policy: pull-push
+
+test-build:
+  stage: test-build
+  tags:
+    - deepvcode-docker-runner
+  image: node:20
+  script:
+    # 配置 npm 缓存目录（写入到项目 .npm）
+    - npm config set cache .npm --global
+    # 安装依赖
+    - npm install --retry=3 --retry-delay=1000 --prefer-offline
+    # 仅构建，不发布
+    - npm run build
+  rules:
+    - if: '$CI_COMMIT_TAG =~ /^test-all-v\d+\.\d+\.\d+$/'
 
 release:
   stage: release
