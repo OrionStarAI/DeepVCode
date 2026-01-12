@@ -56,10 +56,7 @@ release:
     - export NEW_VERSION=$(echo "$CI_COMMIT_TAG" | sed 's/^cli-release-v//')
     # 更新版本号
     - npm version "$NEW_VERSION" --no-git-tag-version --force
-    # 构建与打包
-    - npm run build
-    - npm run pack:prod:ci
-    # 发布到 npm
+    # 发布到 npm（prepublishOnly 钩子会自动执行 prepare-publish.js 和 bundle:prod）
     - echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > .npmrc
     - npm publish
   after_script:
