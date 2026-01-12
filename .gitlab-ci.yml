@@ -79,6 +79,8 @@ release-vscode:
     - npm config set cache /cache/.npm --global
     - SKIP_PREPARE=1 npm ci --retry=10 --retry-delay=5000 --prefer-offline
     - export NEW_VERSION=$(echo "$CI_COMMIT_TAG" | sed 's/^vscode-release-v//')
+    # Build core package (required dependency for vscode-ui-plugin)
+    - npm run build --workspace=packages/core
     - cd packages/vscode-ui-plugin
     - npm version "$NEW_VERSION" --no-git-tag-version --force
     - npm run build:prod
