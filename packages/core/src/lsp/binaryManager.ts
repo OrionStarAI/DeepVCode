@@ -14,22 +14,75 @@ import { spawn } from 'node:child_process';
 import { request } from 'undici';
 import JSZip from 'jszip';
 
+/**
+ * 递归删除目录
+ */
+function removeDirectoryRecursive(dirPath: string) {
+  if (!fs.existsSync(dirPath)) return;
+
+  for (const file of fs.readdirSync(dirPath)) {
+    const filePath = path.join(dirPath, file);
+    if (fs.statSync(filePath).isDirectory()) {
+      removeDirectoryRecursive(filePath);
+    } else {
+      fs.unlinkSync(filePath);
+    }
+  }
+  fs.rmdirSync(dirPath);
+}
+
 export class BinaryManager {
   private static readonly LSP_DIR = path.join(os.homedir(), '.deepv', 'lsp');
 
   /**
+   * 清理坏的二进制文件缓存
+   */
+  static async cleanBinaryCache(id: string): Promise<void> {
+    const destDir = path.join(this.LSP_DIR, id);
+    if (fs.existsSync(destDir)) {
+      console.log(`[LSP] Cleaning corrupted binary cache for ${id} at ${destDir}`);
+      removeDirectoryRecursive(destDir);
+      console.log(`[LSP] Cache cleaned successfully`);
+    }
+  }
+
+  /**
    * 确保二进制文件可用，如果不存在则调用 installer 下载
+   * 支持自动重试：如果二进制文件损坏（spawn失败），会清理并重试
    */
   static async ensureBinary(
     id: string,
-    installer: (destDir: string) => Promise<string>
+    installer: (destDir: string) => Promise<string>,
+    options?: { maxRetries?: number }
   ): Promise<string> {
-    const destDir = path.join(this.LSP_DIR, id);
-    if (!fs.existsSync(destDir)) {
-      fs.mkdirSync(destDir, { recursive: true });
+    const maxRetries = options?.maxRetries ?? 1;
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const destDir = path.join(this.LSP_DIR, id);
+        if (!fs.existsSync(destDir)) {
+          fs.mkdirSync(destDir, { recursive: true });
+        }
+
+        const binPath = await installer(destDir);
+
+        // ✓ 如果成功返回，直接返回
+        return binPath;
+      } catch (err) {
+        lastError = err as Error;
+
+        // 如果还有重试次数，清理缓存后重试
+        if (attempt < maxRetries) {
+          console.log(`[LSP] Attempt ${attempt + 1} failed: ${lastError.message}`);
+          console.log(`[LSP] Cleaning cache and retrying (${maxRetries - attempt} retries left)...`);
+          await this.cleanBinaryCache(id);
+        }
+      }
     }
 
-    return await installer(destDir);
+    // 所有重试都失败了
+    throw lastError || new Error(`Failed to ensure binary for ${id}`);
   }
 
   /**
@@ -152,28 +205,43 @@ export class BinaryManager {
         throw new Error(`Could not find a suitable binary for ${platform}-${arch} in ${owner}/${repo} releases. Available: ${availableAssets}`);
       }
 
-      console.log(`[LSP] Downloading ${asset.browser_download_url}...`);
+      console.log(`[LSP] Starting download: ${asset.browser_download_url}`);
+      console.log(`[LSP] File size: ${asset.size} bytes`);
 
       const tempDownloadPath = path.join(destDir, asset.name);
+      let lastLogTime = Date.now();
+      let lastLoggedSize = 0;
 
-      // 使用 curl 异步下载，非阻塞
+      // 🎯 使用 curl 下载，通过监控文件大小来显示下载进度
       await new Promise<void>((resolve, reject) => {
         const curlBin = process.platform === 'win32' ? 'curl.exe' : 'curl';
         const curlProcess = spawn(curlBin, [
           '-L',                      // follow redirects
           '--fail',                  // fail on HTTP errors
-          '--silent',                // no progress meter
-          '--show-error',            // show errors
           '-o', tempDownloadPath,    // output file
           asset.browser_download_url
         ]);
 
         let stderrOutput = '';
+
+        // 进度监控：定期检查文件大小
+        const progressInterval = setInterval(() => {
+          if (fs.existsSync(tempDownloadPath)) {
+            const currentSize = fs.statSync(tempDownloadPath).size;
+            const elapsed = ((Date.now() - lastLogTime) / 1000).toFixed(1);
+            const downloaded = ((currentSize / (asset.size || 1)) * 100).toFixed(1);
+            console.log(`[LSP] Download progress: ${currentSize}/${asset.size} bytes (${downloaded}%)`);
+            lastLoggedSize = currentSize;
+            lastLogTime = Date.now();
+          }
+        }, 2000); // 每2秒输出一次进度
+
         curlProcess.stderr.on('data', (data) => {
           stderrOutput += data.toString();
         });
 
         curlProcess.on('close', (code) => {
+          clearInterval(progressInterval);
           if (code === 0) {
             resolve();
           } else {
@@ -185,6 +253,7 @@ export class BinaryManager {
         });
 
         curlProcess.on('error', (err) => {
+          clearInterval(progressInterval);
           if (fs.existsSync(tempDownloadPath)) {
             fs.unlinkSync(tempDownloadPath);
           }
@@ -212,7 +281,7 @@ export class BinaryManager {
         );
       }
 
-      console.log(`[LSP] Downloaded ${actualSize} bytes`);
+      console.log(`[LSP] Downloaded ${actualSize} bytes (expected: ${asset.size} bytes)`);
 
       // 处理压缩文件
       if (asset.name.endsWith('.gz')) {
@@ -295,6 +364,13 @@ export class BinaryManager {
 
       if (platform !== 'win32') {
         fs.chmodSync(binPath, 0o755);
+      }
+
+      console.log(`[LSP] Binary installed at: ${binPath}`);
+      console.log(`[LSP] Binary exists: ${fs.existsSync(binPath)}`);
+      if (fs.existsSync(binPath)) {
+        const stats = fs.statSync(binPath);
+        console.log(`[LSP] Binary stats: size=${stats.size}, mode=${(stats.mode & parseInt('777', 8)).toString(8)}`);
       }
 
       return binPath;
