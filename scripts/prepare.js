@@ -5,7 +5,7 @@ import { execSync } from 'child_process';
 const buildEnv = process.env.BUILD_ENV;
 
 // Skip build during npm publish (prepublishOnly will handle it)
-if (process.env.npm_lifecycle_event === 'publish' || process.env.SKIP_PREPARE === '1') {
+if (process.env.SKIP_PREPARE === '1') {
   console.log('⏭️  Skipping prepare build (handled by prepublishOnly or explicitly disabled)');
   process.exit(0);
 }
