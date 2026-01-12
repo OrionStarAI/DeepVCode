@@ -6,7 +6,7 @@
  * Copyright 2025 DeepV Code
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Settings, History } from 'lucide-react';
 import { useMultiSessionState } from '../hooks/useMultiSessionState';
 import { getGlobalMessageService } from '../services/globalMessageService';
@@ -1327,11 +1327,42 @@ export const MultiSessionApp: React.FC = () => {
     }
   }, [state.currentSessionId]);
 
+  // 🎯 处理 Plan 模式切换（含消息同步）
+  const handlePlanModeToggle = useCallback((enabled: boolean) => {
+    // 优先使用当前Session
+    const sessionId = state.currentSessionId;
+    if (!sessionId) return;
+
+    // 1. 更新本地状态
+    togglePlanMode(sessionId, enabled);
+
+    // 2. 如果是退出 Plan 模式，同步消息到 后端（AI历史），不添加到UI
+    if (!enabled) {
+      const exitMsgText = '[PLAN MODE EXITED] The user has exited Plan mode. You can now use all tools including modification tools (write_file, replace, run_shell_command, lint_fix, etc.). Normal operation mode is now active.';
+      getGlobalMessageService().sendInjectSystemMessage(sessionId, exitMsgText);
+    }
+  }, [state.currentSessionId, togglePlanMode]);
+
   // 🎯 处理发送消息
   const handleSendMessage = React.useCallback((content: MessageContent, targetSessionId?: string) => {
     // 优先使用目标 Session ID，否则使用当前 Session ID
     const sessionId = targetSessionId || state.currentSessionId;
     if (!sessionId) return;
+
+    // 🎯 拦截 /plan off 命令
+    const textContent = messageContentToString(content).trim();
+    if (textContent.toLowerCase() === '/plan off') {
+      console.log('🎯 [PLAN-MODE] Intercepted /plan off command');
+
+      // 更新本地状态
+      togglePlanMode(sessionId, false);
+
+      // 仅同步消息到后端（AI历史），不添加到UI
+      const exitMsgText = '[PLAN MODE EXITED] The user has exited Plan mode. You can now use all tools including modification tools (write_file, replace, run_shell_command, lint_fix, etc.). Normal operation mode is now active.';
+      getGlobalMessageService().sendInjectSystemMessage(sessionId, exitMsgText);
+
+      return; // ⛔️ 阻止发送给 AI
+    }
 
     const currentSession = state.sessions.get(sessionId);
     if (!currentSession) return;
@@ -2104,33 +2135,7 @@ User question: ${contentStr}`;
               tokenUsage={currentSession.info.tokenUsage}     // 🎯 传入Token使用情况
               rollbackableMessageIds={currentSession.rollbackableMessageIds} // 🎯 传入可回滚消息ID列表
               isPlanMode={currentSession.isPlanMode}          // 🎯 传入Plan模式状态
-              onTogglePlanMode={(enabled) => {                // 🎯 传入Plan模式切换回调
-                if (state.currentSessionId) {
-                  const sessionId = state.currentSessionId;  // 🎯 在外部捕获sessionId，避免null问题
-                  togglePlanMode(sessionId, enabled);
-
-                  // 🎯 当关闭Plan模式时，自动发送退出消息到后端
-                  if (!enabled && currentSession.isPlanMode) {
-                    // 延迟以确保状态已更新
-                    setTimeout(() => {
-                      const updatedSession = getCurrentSession();
-                      if (updatedSession && updatedSession.messages.length > 0) {
-                        // 获取最后一条消息（应该是刚添加的退出消息）
-                        const lastMessage = updatedSession.messages[updatedSession.messages.length - 1];
-                        if (lastMessage.type === 'user' && lastMessage.id.startsWith('plan-mode-exit-')) {
-                          console.log(`🎯 [PLAN-MODE-EXIT] Auto-sending exit message to backend:`, lastMessage.id);
-                          // 发送到后端
-                          getGlobalMessageService().sendChatMessage(
-                            sessionId,
-                            lastMessage.content,
-                            lastMessage.id
-                          );
-                        }
-                      }
-                    }, 50);
-                  }
-                }
-              }}
+              onTogglePlanMode={handlePlanModeToggle}         // 🎯 传入Plan模式切换回调
             />
           ) : (
             <div className="multi-session-app__no-session">
