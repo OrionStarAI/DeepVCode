@@ -34,7 +34,7 @@ test-build:
     # 配置 npm 缓存目录（写入到项目 .npm）
     - npm config set cache .npm --global
     # 安装依赖
-    - npm install --retry=10 --retry-delay=5000 --prefer-offline
+    - npm ci --retry=10 --retry-delay=5000 --prefer-offline
     # 仅构建，不发布
     - npm run build
   rules:
@@ -51,7 +51,7 @@ release:
     # 配置 npm 缓存目录（写入到项目 .npm）
     - npm config set cache .npm --global
     # 安装依赖
-    - npm install --retry=10 --retry-delay=5000 --prefer-offline
+    - npm ci --retry=10 --retry-delay=5000 --prefer-offline
     # 提取版本号
     - export NEW_VERSION=$(echo "$CI_COMMIT_TAG" | sed 's/^cli-release-v//')
     # 更新版本号
@@ -74,7 +74,7 @@ release-vscode:
   image: node:20
   script:
     - npm config set cache .npm --global
-    - npm install --retry=10 --retry-delay=5000 --prefer-offline
+    - npm ci --retry=10 --retry-delay=5000 --prefer-offline
     - export NEW_VERSION=$(echo "$CI_COMMIT_TAG" | sed 's/^vscode-release-v//')
     - cd packages/vscode-ui-plugin
     - npm version "$NEW_VERSION" --no-git-tag-version --force
