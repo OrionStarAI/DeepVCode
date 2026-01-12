@@ -205,8 +205,8 @@ export class BinaryManager {
         throw new Error(`Could not find a suitable binary for ${platform}-${arch} in ${owner}/${repo} releases. Available: ${availableAssets}`);
       }
 
-      console.log(`[LSP] Starting download: ${asset.browser_download_url}`);
-      console.log(`[LSP] File size: ${asset.size} bytes`);
+      console.log(`[LSP] Downloading: ${asset.name}`);
+      console.log(`[LSP] File size: ${(asset.size / 1024 / 1024).toFixed(1)}MB`);
 
       const tempDownloadPath = path.join(destDir, asset.name);
       let lastLogTime = Date.now();
@@ -228,9 +228,10 @@ export class BinaryManager {
         const progressInterval = setInterval(() => {
           if (fs.existsSync(tempDownloadPath)) {
             const currentSize = fs.statSync(tempDownloadPath).size;
-            const elapsed = ((Date.now() - lastLogTime) / 1000).toFixed(1);
             const downloaded = ((currentSize / (asset.size || 1)) * 100).toFixed(1);
-            console.log(`[LSP] Download progress: ${currentSize}/${asset.size} bytes (${downloaded}%)`);
+            const currentMB = (currentSize / 1024 / 1024).toFixed(1);
+            const totalMB = (asset.size / 1024 / 1024).toFixed(1);
+            console.log(`[LSP] ⬇️  ${asset.name}: ${currentMB}MB / ${totalMB}MB (${downloaded}%)`);
             lastLoggedSize = currentSize;
             lastLogTime = Date.now();
           }
