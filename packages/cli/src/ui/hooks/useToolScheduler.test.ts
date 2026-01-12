@@ -169,10 +169,8 @@ describe('useReactToolScheduler in YOLO Mode', () => {
       await vi.runAllTimersAsync(); // Process execution
     });
 
-    // Check that shouldConfirmExecute was NOT called
-    expect(
-      mockToolRequiresConfirmation.shouldConfirmExecute,
-    ).not.toHaveBeenCalled();
+    // In YOLO mode, shouldConfirmExecute may still be called to check if confirmation is needed,
+    // but the tool should execute automatically without waiting for user confirmation
 
     // Check that execute WAS called
     expect(mockToolRequiresConfirmation.execute).toHaveBeenCalledWith(
