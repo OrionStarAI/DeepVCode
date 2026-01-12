@@ -10,7 +10,7 @@ import * as path from 'node:path';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as zlib from 'node:zlib';
-import { spawn, execSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { request } from 'undici';
 import JSZip from 'jszip';
 
@@ -156,23 +156,45 @@ export class BinaryManager {
 
       const tempDownloadPath = path.join(destDir, asset.name);
 
-      // 使用 curl 下载，原生支持重定向和各种网络条件
-      try {
-        const curlCmd = process.platform === 'win32'
-          ? `curl.exe -L --fail --silent --show-error -o "${tempDownloadPath}" "${asset.browser_download_url}"`
-          : `curl -L --fail --silent --show-error -o "${tempDownloadPath}" "${asset.browser_download_url}"`;
+      // 使用 curl 异步下载，非阻塞
+      await new Promise<void>((resolve, reject) => {
+        const curlBin = process.platform === 'win32' ? 'curl.exe' : 'curl';
+        const curlProcess = spawn(curlBin, [
+          '-L',                      // follow redirects
+          '--fail',                  // fail on HTTP errors
+          '--silent',                // no progress meter
+          '--show-error',            // show errors
+          '-o', tempDownloadPath,    // output file
+          asset.browser_download_url
+        ]);
 
-        execSync(curlCmd, { stdio: 'pipe' });
-      } catch (curlError) {
-        if (fs.existsSync(tempDownloadPath)) {
-          fs.unlinkSync(tempDownloadPath);
-        }
-        const errorMsg = curlError instanceof Error ? curlError.message : String(curlError);
-        throw new Error(
-          `[LSP] curl download failed: ${errorMsg}. ` +
-          `This may indicate a network issue or the download URL is temporarily unavailable. Please retry.`
-        );
-      }
+        let stderrOutput = '';
+        curlProcess.stderr.on('data', (data) => {
+          stderrOutput += data.toString();
+        });
+
+        curlProcess.on('close', (code) => {
+          if (code === 0) {
+            resolve();
+          } else {
+            if (fs.existsSync(tempDownloadPath)) {
+              fs.unlinkSync(tempDownloadPath);
+            }
+            reject(new Error(`[LSP] curl failed with code ${code}: ${stderrOutput}`));
+          }
+        });
+
+        curlProcess.on('error', (err) => {
+          if (fs.existsSync(tempDownloadPath)) {
+            fs.unlinkSync(tempDownloadPath);
+          }
+          reject(new Error(
+            `[LSP] Failed to spawn curl: ${err.message}. ` +
+            `curl may not be installed or available in PATH. ` +
+            `Please install curl and add it to your system PATH.`
+          ));
+        });
+      });
 
       // 验证文件是否成功下载
       if (!fs.existsSync(tempDownloadPath)) {
