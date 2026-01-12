@@ -505,7 +505,17 @@ export function useCompletion(
       return;
     }
 
-    const partialPath = buffer.text.substring(atIndex + 1);
+    let partialPath = buffer.text.substring(atIndex + 1);
+
+    // 🚀 修复：如果路径以引号开头（因为选中了自动补全的目录），去除引号以便继续匹配子目录
+    // 例如：@"path/to/dir/ -> path/to/dir/
+    if (partialPath.startsWith('"')) {
+      // 如果有闭合引号且光标在闭合引号后面，那就不应该是补全状态了（除非是在修改引号内的内容）
+      // 这里我们假设光标在引号内部或刚刚输入了内容
+      // 简单地去除所有引号来获取原始路径
+      partialPath = partialPath.replace(/"/g, '');
+    }
+
     const lastSlashIndex = partialPath.lastIndexOf('/');
     const baseDirRelative =
       lastSlashIndex === -1

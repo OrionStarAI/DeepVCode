@@ -140,19 +140,20 @@ function fuzzyMatchCharacters(
   let textIdx = 0;
   let queryIdx = 0;
 
-  const isAlphaNum = (c: string) => /[a-z0-9]/i.test(c);
+  // 定义分隔符：这些字符在模糊匹配中通常被忽略
+  const isSeparator = (c: string) => /[\-\_\.\/\\\s]/.test(c);
 
   while (queryIdx < query.length) {
     const qChar = query[queryIdx].toLowerCase();
 
-    // 跳过查询中的特殊字符
-    if (!isAlphaNum(qChar)) {
+    // 跳过查询中的分隔符
+    if (isSeparator(qChar)) {
       queryIdx++;
       continue;
     }
 
-    // 跳过文本中的特殊字符，找到下一个字母或数字
-    while (textIdx < text.length && !isAlphaNum(text[textIdx])) {
+    // 跳过文本中的分隔符，找到下一个有效的内容字符
+    while (textIdx < text.length && isSeparator(text[textIdx])) {
       textIdx++;
     }
 
