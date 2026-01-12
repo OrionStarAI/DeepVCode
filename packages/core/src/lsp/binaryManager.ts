@@ -12,6 +12,7 @@ import * as os from 'node:os';
 import * as zlib from 'node:zlib';
 import { spawn } from 'node:child_process';
 import { request } from 'undici';
+import JSZip from 'jszip';
 
 export class BinaryManager {
   private static readonly LSP_DIR = path.join(os.homedir(), '.deepv', 'lsp');
@@ -93,13 +94,62 @@ export class BinaryManager {
       });
       const release = (await res.body.json()) as any;
 
-      const asset = release.assets.find((a: any) => {
+      let asset = release.assets.find((a: any) => {
         if (typeof expectedName === 'string') return a.name === expectedName;
         return expectedName.test(a.name);
       });
 
+      // Fallback: If exact match not found, try platform-arch patterns for common naming schemes
       if (!asset) {
-        throw new Error(`Could not find a suitable binary for ${platform}-${arch} in ${owner}/${repo} releases.`);
+        const platformArch = `${platform}-${arch}`;
+
+        // Build flexible patterns for different repos and platforms
+        const fallbackPatterns: RegExp[] = [];
+
+        if (repo === 'rust-analyzer') {
+          if (platformArch === 'win32-x64') {
+            fallbackPatterns.push(
+              /rust-analyzer.*x86_64.*windows.*\.zip/i,
+              /rust-analyzer.*x64.*windows.*\.zip/i,
+              /rust-analyzer.*msvc.*\.zip/i
+            );
+          } else if (platformArch === 'win32-arm64') {
+            fallbackPatterns.push(/rust-analyzer.*aarch64.*windows.*\.zip/i);
+          } else if (platformArch === 'darwin-x64') {
+            fallbackPatterns.push(
+              /rust-analyzer.*x86_64.*apple-darwin.*\.gz/i,
+              /rust-analyzer.*x86_64.*macos.*\.gz/i
+            );
+          } else if (platformArch === 'darwin-arm64') {
+            fallbackPatterns.push(
+              /rust-analyzer.*aarch64.*apple-darwin.*\.gz/i,
+              /rust-analyzer.*aarch64.*macos.*\.gz/i
+            );
+          } else if (platformArch === 'linux-x64') {
+            fallbackPatterns.push(
+              /rust-analyzer.*x86_64.*linux.*\.gz/i,
+              /rust-analyzer.*x86_64.*gnu.*\.gz/i
+            );
+          } else if (platformArch === 'linux-arm64') {
+            fallbackPatterns.push(
+              /rust-analyzer.*aarch64.*linux.*\.gz/i,
+              /rust-analyzer.*aarch64.*gnu.*\.gz/i
+            );
+          }
+        }
+
+        // Try fallback patterns
+        if (fallbackPatterns.length > 0) {
+          asset = release.assets.find((a: any) =>
+            fallbackPatterns.some(p => p.test(a.name))
+          );
+        }
+      }
+
+      if (!asset) {
+        // Log available assets for debugging
+        const availableAssets = release.assets.map((a: any) => a.name).join(', ');
+        throw new Error(`Could not find a suitable binary for ${platform}-${arch} in ${owner}/${repo} releases. Available: ${availableAssets}`);
       }
 
       console.log(`[LSP] Downloading ${asset.browser_download_url}...`);
@@ -113,6 +163,9 @@ export class BinaryManager {
       }
       fileStream.end();
 
+      // Ensure the file is fully flushed before we attempt to read it.
+      await new Promise<void>((resolve) => fileStream.on('finish', resolve));
+
       // 处理压缩文件
       if (asset.name.endsWith('.gz')) {
         console.log(`[LSP] Decompressing ${asset.name}...`);
@@ -121,9 +174,32 @@ export class BinaryManager {
         fs.writeFileSync(binPath, decompressedData);
         fs.unlinkSync(tempDownloadPath);
       } else if (asset.name.endsWith('.zip')) {
-        // TODO: 使用 adm-zip 或其他方式解压 zip
-        console.warn(`[LSP] .zip extraction not fully implemented, manually check ${tempDownloadPath}`);
-        fs.renameSync(tempDownloadPath, binPath);
+        console.log(`[LSP] Extracting ${asset.name}...`);
+        const zipBuffer = fs.readFileSync(tempDownloadPath);
+        const zip = await JSZip.loadAsync(zipBuffer);
+
+        // Heuristic: find an entry whose basename matches the expected binary name.
+        // Works for rust-analyzer (rust-analyzer.exe) and clangd (clangd.exe inside bin/).
+        const expectedBase = binName.toLowerCase();
+        const matchingFiles = Object.values(zip.files)
+          .filter((f) => !f.dir)
+          .filter((f) => {
+            const base = path.posix.basename(f.name).toLowerCase();
+            return base === expectedBase;
+          })
+          // Prefer shorter paths (closer to root).
+          .sort((a, b) => a.name.length - b.name.length);
+
+        const target = matchingFiles[0];
+        if (!target) {
+          throw new Error(
+            `Zip archive did not contain expected executable "${binName}" for ${owner}/${repo}.`,
+          );
+        }
+
+        const data = await target.async('nodebuffer');
+        fs.writeFileSync(binPath, data);
+        fs.unlinkSync(tempDownloadPath);
       } else {
         fs.renameSync(tempDownloadPath, binPath);
       }
