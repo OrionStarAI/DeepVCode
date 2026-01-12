@@ -1751,7 +1751,11 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
       const fullFooterMeasurement = measureElement(mainControlsRef.current);
       setFooterHeight(fullFooterMeasurement.height);
     }
-  }, [terminalHeight, terminalWidth, showErrorDetails, debugPanelExpanded]);
+    // ⚠️ 关键优化：移除 showErrorDetails 和 debugPanelExpanded 依赖
+    // 原因：这两个状态变化会导致频繁的 measureElement 调用，进而导致整个布局重排和闪烁
+    // Debug Console 的高度变化应该被 Box 的 flexDirection="column" 自然吸收
+    // 而不应该影响 Static 区域和其他组件的高度计算
+  }, [terminalHeight, terminalWidth]);
 
   // Detect UI flickering (renders taller than terminal)
   // Debug console expansion no longer relies on unconstrained overflow.
