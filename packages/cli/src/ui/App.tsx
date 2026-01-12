@@ -480,6 +480,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   const [helpModeActive, setHelpModeActive] = useState(false);
   const [planModeActive, setPlanModeActive] = useState(config.getPlanModeActive());
   const [showErrorDetails, setShowErrorDetails] = useState<boolean>(false);
+  const [debugPanelExpanded, setDebugPanelExpanded] = useState<boolean>(false);
   const [showToolDescriptions, setShowToolDescriptions] =
     useState<boolean>(false);
   const [showIDEContextDetail, setShowIDEContextDetail] =
@@ -491,7 +492,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   const ctrlCTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [ctrlDPressedOnce, setCtrlDPressedOnce] = useState(false);
   const ctrlDTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const [constrainHeight, setConstrainHeight] = useState<boolean>(true);
+
   const [ideConnectionStatus, setIdeConnectionStatus] = useState<IDEConnectionStatus>(
     IDEConnectionStatus.Disconnected
   );
@@ -610,7 +611,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   useEffect(() => {
     const openDebugConsole = () => {
       setShowErrorDetails(true);
-      setConstrainHeight(false); // Make sure the user sees the full message.
+      setDebugPanelExpanded(true);
     };
     appEvents.on(AppEvent.OpenDebugConsole, openDebugConsole);
 
@@ -1652,24 +1653,19 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
       // console.log('🌍 [App级别] 检测到取消键');
     }
 
-    let enteringConstrainHeightMode = false;
-    if (!constrainHeight) {
-      // Automatically re-enter constrain height mode if the user types
-      // anything. When constrainHeight==false, the user will experience
-      // significant flickering so it is best to disable it immediately when
-      // the user starts interacting with the app.
-      enteringConstrainHeightMode = true;
-      setConstrainHeight(true);
-    }
-
     if (key.ctrl && input === 'o') {
-      // Toggle small console panel open/closed
-      setShowErrorDetails((prev) => !prev);
+      // Toggle debug console open/closed
+      setShowErrorDetails((prev) => {
+        const next = !prev;
+        if (!next) {
+          setDebugPanelExpanded(false);
+        }
+        return next;
+      });
     } else if (key.ctrl && input === 's') {
-      // Toggle between small and large panel (only when open)
+      // Toggle between small and expanded debug console (only when open)
       if (showErrorDetails) {
-        // If already open, toggle between constrained and full height
-        setConstrainHeight((prev) => !prev);
+        setDebugPanelExpanded((prev) => !prev);
       }
     } else if (key.ctrl && input === 't') {
       const newValue = !showToolDescriptions;
@@ -1755,10 +1751,11 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
       const fullFooterMeasurement = measureElement(mainControlsRef.current);
       setFooterHeight(fullFooterMeasurement.height);
     }
-  }, [terminalHeight, consoleMessages, showErrorDetails]);
+  }, [terminalHeight, terminalWidth, showErrorDetails, debugPanelExpanded]);
 
   // Detect UI flickering (renders taller than terminal)
-  useFlickerDetector(rootUiRef, terminalHeight, config, constrainHeight);
+  // Debug console expansion no longer relies on unconstrained overflow.
+  useFlickerDetector(rootUiRef, terminalHeight, config, true);
 
   const staticExtraHeight = /* margins and padding */ 3;
   const availableTerminalHeight = useMemo(
@@ -1930,9 +1927,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
       {quittingMessages.map((item) => (
         <HistoryItemDisplay
           key={item.id}
-          availableTerminalHeight={
-            constrainHeight ? availableTerminalHeight : undefined
-          }
+          availableTerminalHeight={availableTerminalHeight}
           terminalWidth={terminalWidth}
           item={item}
           isPending={false}
@@ -1942,9 +1937,8 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     </Box>
   ) : null;
   const debugConsoleMaxHeight = Math.floor(Math.max(terminalHeight * 0.2, 5));
-  const debugPanelPageSize = Math.floor(Math.max(terminalHeight * 0.6, 10)); // 60% of terminal height for paged mode
-  // Calculate debug panel height based on constrainHeight state
-  const debugPanelHeight = constrainHeight ? debugConsoleMaxHeight : debugPanelPageSize;
+  const debugPanelPageSize = Math.floor(Math.max(terminalHeight * 0.6, 10)); // 60% of terminal height
+  const debugPanelHeight = debugPanelExpanded ? debugPanelPageSize : debugConsoleMaxHeight;
   const placeholder = planModeActive
     ? "  计划模式：可读取代码分析，禁止修改 (/plan off 退出)"
     : vimModeEnabled
@@ -2002,9 +1996,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
             {pendingHistoryItems.map((item, i) => (
               <HistoryItemDisplay
                 key={i}
-                availableTerminalHeight={
-                  constrainHeight ? availableTerminalHeight : undefined
-                }
+                availableTerminalHeight={availableTerminalHeight}
                 terminalWidth={mainAreaWidth}
                 // TODO(taehykim): It seems like references to ids aren't necessary in
                 // HistoryItemDisplay. Refactor later. Use a fake id for now.
@@ -2014,7 +2006,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                 isFocused={!isEditorDialogOpen}
               />
             ))}
-            <ShowMoreLines constrainHeight={constrainHeight} />
+            <ShowMoreLines />
           </Box>
         </OverflowProvider>
 
@@ -2057,11 +2049,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                 onSelect={handleThemeSelect}
                 onHighlight={handleThemeHighlight}
                 settings={settings}
-                availableTerminalHeight={
-                  constrainHeight
-                    ? terminalHeight - staticExtraHeight
-                    : undefined
-                }
+                availableTerminalHeight={terminalHeight - staticExtraHeight}
                 terminalWidth={mainAreaWidth}
               />
             </Box>
@@ -2077,11 +2065,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                 onHighlight={handleModelHighlight}
                 settings={settings}
                 config={config}
-                availableTerminalHeight={
-                  constrainHeight
-                    ? terminalHeight - staticExtraHeight
-                    : undefined
-                }
+                availableTerminalHeight={terminalHeight - staticExtraHeight}
                 terminalWidth={mainAreaWidth}
               />
             </Box>
