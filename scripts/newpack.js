@@ -96,7 +96,8 @@ async function main() {
   const allArgs = [...args, ...(npmConfigArgv?.original || [])];
 
   const shouldInstall = allArgs.includes('--install');
-  const noVersionBump = allArgs.includes('--no-version-bump');
+  // Check for no-version-bump flag OR production build environment
+  const noVersionBump = allArgs.includes('--no-version-bump') || process.env.BUILD_ENV === 'production';
 
   if (shouldInstall) {
     console.log(chalk.green('🔧 Mode: Full workflow (build + install + test)'));
@@ -104,7 +105,8 @@ async function main() {
     console.log(chalk.blue('🔧 Mode: Build only (no installation)'));
   }
   if (noVersionBump) {
-    console.log(chalk.yellow('⚠️  Version bump: Disabled (using current version)'));
+    const reason = process.env.BUILD_ENV === 'production' ? '(production build)' : '(--no-version-bump flag)';
+    console.log(chalk.yellow(`⚠️  Version bump: Disabled ${reason}`));
   }
   console.log('');
 
