@@ -165,7 +165,7 @@ export function SuggestionsDisplay({
         };
 
         return (
-          <Box key={`${suggestion.value}-${originalIndex}`} width={width}>
+          <Box key={`suggestion-${originalIndex}`} width={width}>
             <Box flexDirection="row">
               <Box width={userInput.startsWith('/') ? dynamicWidth : undefined} flexShrink={0}>
                 {renderLabel()}
