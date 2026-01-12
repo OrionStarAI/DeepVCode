@@ -155,28 +155,98 @@ export class BinaryManager {
       console.log(`[LSP] Downloading ${asset.browser_download_url}...`);
       const downloadRes = await request(asset.browser_download_url);
 
+      // 获取预期的文件大小（用于完整性验证）
+      const contentLength = downloadRes.headers['content-length'];
+      const expectedSize = contentLength ? parseInt(contentLength as string, 10) : -1;
+
       const tempDownloadPath = path.join(destDir, asset.name);
       const fileStream = fs.createWriteStream(tempDownloadPath);
       const readable = downloadRes.body as any;
+
+      let downloadedSize = 0;
       for await (const chunk of readable) {
+        downloadedSize += chunk.length;
         fileStream.write(chunk);
       }
       fileStream.end();
 
-      // Ensure the file is fully flushed before we attempt to read it.
-      await new Promise<void>((resolve) => fileStream.on('finish', resolve));
+      // 确保文件完全写入磁盘
+      await new Promise<void>((resolve, reject) => {
+        fileStream.on('finish', resolve);
+        fileStream.on('error', reject);
+      });
+
+      // 验证下载的文件大小
+      const actualSize = fs.statSync(tempDownloadPath).size;
+      if (expectedSize > 0 && actualSize !== expectedSize) {
+        fs.unlinkSync(tempDownloadPath);
+        throw new Error(
+          `[LSP] Download incomplete: expected ${expectedSize} bytes, got ${actualSize} bytes for ${asset.name}. ` +
+          `This may indicate a network issue or corrupted download. Please retry.`
+        );
+      }
+
+      // 验证文件非空
+      if (actualSize === 0) {
+        fs.unlinkSync(tempDownloadPath);
+        throw new Error(
+          `[LSP] Downloaded file is empty (0 bytes) for ${asset.name}. ` +
+          `This may indicate a network interruption or server issue. Please retry.`
+        );
+      }
 
       // 处理压缩文件
       if (asset.name.endsWith('.gz')) {
         console.log(`[LSP] Decompressing ${asset.name}...`);
         const compressedData = fs.readFileSync(tempDownloadPath);
-        const decompressedData = zlib.gunzipSync(compressedData);
-        fs.writeFileSync(binPath, decompressedData);
+        try {
+          const decompressedData = zlib.gunzipSync(compressedData);
+          if (decompressedData.length === 0) {
+            throw new Error('Decompressed data is empty');
+          }
+          fs.writeFileSync(binPath, decompressedData);
+        } catch (gzError) {
+          fs.unlinkSync(tempDownloadPath);
+          const errorMsg = gzError instanceof Error ? gzError.message : String(gzError);
+          throw new Error(
+            `[LSP] Failed to decompress ${asset.name}: ${errorMsg}. ` +
+            `The file may be corrupted. Please retry.`
+          );
+        }
         fs.unlinkSync(tempDownloadPath);
       } else if (asset.name.endsWith('.zip')) {
         console.log(`[LSP] Extracting ${asset.name}...`);
         const zipBuffer = fs.readFileSync(tempDownloadPath);
-        const zip = await JSZip.loadAsync(zipBuffer);
+
+        // 验证ZIP文件结构完整性
+        if (zipBuffer.length < 4) {
+          fs.unlinkSync(tempDownloadPath);
+          throw new Error(
+            `[LSP] ZIP file is too small (${zipBuffer.length} bytes) for ${asset.name}. ` +
+            `The download is corrupted. Please retry or check your network connection.`
+          );
+        }
+
+        // 检查ZIP本地文件头签名 (PK\x03\x04)
+        if (zipBuffer[0] !== 0x50 || zipBuffer[1] !== 0x4b || zipBuffer[2] !== 0x03 || zipBuffer[3] !== 0x04) {
+          fs.unlinkSync(tempDownloadPath);
+          throw new Error(
+            `[LSP] ZIP file header is corrupted for ${asset.name}. ` +
+            `The download may have been interrupted. Please retry.`
+          );
+        }
+
+        let zip: JSZip;
+        try {
+          zip = await JSZip.loadAsync(zipBuffer);
+        } catch (zipError) {
+          fs.unlinkSync(tempDownloadPath);
+          const errorMsg = zipError instanceof Error ? zipError.message : String(zipError);
+          throw new Error(
+            `[LSP] Failed to parse ZIP file ${asset.name}: ${errorMsg}. ` +
+            `The file may be corrupted. Please retry the download.`
+          );
+        }
 
         // Heuristic: find an entry whose basename matches the expected binary name.
         // Works for rust-analyzer (rust-analyzer.exe) and clangd (clangd.exe inside bin/).
