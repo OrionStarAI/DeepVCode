@@ -199,28 +199,25 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
       </Box>
 
       {/* 用户积分信息 */}
-      {(() => {
-        console.log('📊 WelcomeScreen render: creditsInfo =', creditsInfo);
-        return creditsInfo && (
-          <Box flexDirection="row" marginBottom={1}>
-            <Text color={Colors.AccentCyan}>
-              💳 Credits:{' '}
-            </Text>
-            <Text color={Colors.AccentBlue} bold>
-              {formatCredits(creditsInfo.totalCredits)}
-            </Text>
-            <Text color={Colors.AccentCyan}>
-              {' | Used: '}
-            </Text>
-            <Text color={creditsInfo.usagePercentage > 95 ? Colors.AccentRed : Colors.AccentOrange} bold>
-              {formatCredits(creditsInfo.usedCredits)}
-            </Text>
-            <Text color={Colors.AccentCyan}>
-              {' '}({creditsInfo.usagePercentage.toFixed(1)}%)
-            </Text>
-          </Box>
-        );
-      })()}
+      {creditsInfo && (
+        <Box flexDirection="row" marginBottom={1}>
+          <Text color={Colors.AccentCyan}>
+            💳 Credits:{' '}
+          </Text>
+          <Text color={Colors.AccentBlue} bold>
+            {formatCredits(creditsInfo.totalCredits)}
+          </Text>
+          <Text color={Colors.AccentCyan}>
+            {' | Used: '}
+          </Text>
+          <Text color={creditsInfo.usagePercentage > 95 ? Colors.AccentRed : Colors.AccentOrange} bold>
+            {formatCredits(creditsInfo.usedCredits)}
+          </Text>
+          <Text color={Colors.AccentCyan}>
+            {' '}({creditsInfo.usagePercentage.toFixed(1)}%)
+          </Text>
+        </Box>
+      )}
 
       {/* 主内容区 - 左对齐布局 */}
       <Box flexDirection="column">

@@ -4,12 +4,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Box, Text } from 'ink';
 import { Colors } from '../colors.js';
 import { t } from '../utils/i18n.js';
 import { cuteVLogo } from './AsciiArt.js';
-import { getCreditsService, formatCredits, type UserCreditsInfo } from '../../services/creditsService.js';
+import { formatCredits, type UserCreditsInfo } from '../../services/creditsService.js';
 
 interface HeaderProps {
   customAsciiArt?: string; // For user-defined ASCII art
@@ -17,6 +17,7 @@ interface HeaderProps {
   version: string;
   nightly: boolean;
   feishuServerPort?: number; // 飞书认证服务器端口号
+  creditsInfo?: UserCreditsInfo | null; // 从父组件传递的积分信息
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -25,27 +26,8 @@ export const Header: React.FC<HeaderProps> = ({
   version,
   nightly,
   feishuServerPort,
+  creditsInfo,
 }) => {
-  const [creditsInfo, setCreditsInfo] = useState<UserCreditsInfo | null>(null);
-  const [creditsLoading, setCreditsLoading] = useState(true);
-
-  // 异步获取积分信息
-  useEffect(() => {
-    const fetchCredits = async () => {
-      try {
-        const creditsService = getCreditsService();
-        const info = await creditsService.getCreditsInfo();
-        setCreditsInfo(info);
-      } catch (error) {
-        // 静默处理错误，不影响启动
-      } finally {
-        setCreditsLoading(false);
-      }
-    };
-
-    // 异步获取，不阻塞渲染
-    fetchCredits();
-  }, []);
 
   // 如果用户自定义了 ASCII art，则使用它
   if (customAsciiArt) {
@@ -73,8 +55,8 @@ export const Header: React.FC<HeaderProps> = ({
         </Box>
       </Box>
 
-      {/* 积分信息显示 - 异步加载完成后显示 */}
-      {!creditsLoading && creditsInfo && (
+      {/* 积分信息显示 */}
+      {creditsInfo && (
         <Box flexDirection="row" paddingX={1} marginTop={1}>
           <Text color={Colors.AccentCyan}>
             💳 Credits:{' '}
