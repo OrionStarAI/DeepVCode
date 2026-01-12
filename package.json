@@ -50,7 +50,7 @@
     "build:sandbox": "node scripts/build_sandbox.js --skip-npm-install-build",
     "bundle": "npm run build && node esbuild.config.js && node scripts/copy_bundle_assets.js",
     "bundle:dev": "cross-env BUILD_ENV=development npm run build && cross-env BUILD_ENV=development node esbuild.config.js && cross-env BUILD_ENV=development node scripts/copy_bundle_assets.js",
-    "bundle:prod": "cross-env BUILD_ENV=production npm run build && cross-env BUILD_ENV=production node esbuild.config.js && cross-env BUILD_ENV=production node scripts/copy_bundle_assets.js",
+    "bundle:prod": "cross-env BUILD_ENV=production npm run build && cross-env BUILD_ENV=production node esbuild.config.js && cross-env BUILD_ENV=production DOWNLOAD_ALL_PLATFORMS=true node scripts/copy_bundle_assets.js",
     "bundle:full": "cross-env INCLUDE_VSCODE_PLUGIN=true npm run build:full && node esbuild.config.js && node scripts/copy_bundle_assets.js",
     "bundle:cross-platform:dev": "cross-env BUILD_ENV=development DOWNLOAD_ALL_PLATFORMS=true npm run build && cross-env BUILD_ENV=development node esbuild.config.js && cross-env BUILD_ENV=development DOWNLOAD_ALL_PLATFORMS=true node scripts/copy_bundle_assets.js",
     "bundle:cross-platform:prod": "cross-env BUILD_ENV=production DOWNLOAD_ALL_PLATFORMS=true npm run build && cross-env BUILD_ENV=production node esbuild.config.js && cross-env BUILD_ENV=production DOWNLOAD_ALL_PLATFORMS=true node scripts/copy_bundle_assets.js",
