@@ -190,7 +190,7 @@ export class GeminiClient {
     const userMemory = this.config.getUserMemory();
     const promptRegistry = this.config.getPromptRegistry();
     const agentStyle = this.config.getAgentStyle();
-    const systemInstruction = getCoreSystemPrompt(userMemory, false, promptRegistry, agentStyle);
+    const systemInstruction = getCoreSystemPrompt(userMemory, false, promptRegistry, agentStyle, modelToUse);
 
     const isThinking = isThinkingSupported(modelToUse);
     const generateContentConfig = isThinking
@@ -344,7 +344,7 @@ export class GeminiClient {
     const userMemory = this.config.getUserMemory();
     const isVSCode = this.config.getVsCodePluginMode();
     const agentStyle = this.config.getAgentStyle();
-    const updatedSystemPrompt = getCoreSystemPrompt(userMemory, isVSCode, promptRegistry, agentStyle);
+    const updatedSystemPrompt = getCoreSystemPrompt(userMemory, isVSCode, promptRegistry, agentStyle, this.config.getModel());
 
     if (this.chat) {
       this.chat.setSystemInstruction(updatedSystemPrompt);
@@ -499,7 +499,7 @@ Use Glob and ReadFile tools to explore specific files during our conversation.
       // 使用统一的 getCoreSystemPrompt，根据环境调整内容
       const promptRegistry = this.config.getPromptRegistry();
       const agentStyle = this.config.getAgentStyle();
-      const systemInstruction = getCoreSystemPrompt(userMemory, isVSCode, promptRegistry, agentStyle);
+      const systemInstruction = getCoreSystemPrompt(userMemory, isVSCode, promptRegistry, agentStyle, this.config.getModel());
 
       const generateContentConfigWithThinking = isThinkingSupported(
         this.config.getModel(),
@@ -918,6 +918,14 @@ Use Glob and ReadFile tools to explore specific files during our conversation.
       // 不同模型（Gemini vs Claude）可能需要不同的工具声明格式
       // 服务端会根据模型类型智能转换工具格式
       await this.setTools();
+
+      // 📌 Add model switch awareness message to context without breaking cache
+      // This allows AI to understand that the model has been switched
+      const modelSwitchMessage: Content = {
+        role: MESSAGE_ROLES.USER,
+        parts: [{ text: `[Model switched from ${currentModel} to ${newModel}]` }],
+      };
+      this.getChat().addHistory(modelSwitchMessage);
 
       // 重置压缩标记，因为上下文可能已经改变
       this.resetCompressionFlag();

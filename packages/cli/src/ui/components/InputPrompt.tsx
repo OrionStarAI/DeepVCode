@@ -12,6 +12,7 @@ import { useInputHistory } from '../hooks/useInputHistory.js';
 import { TextBuffer } from './shared/text-buffer.js';
 import { cpSlice, cpLen, hasRealLineBreaks, getRealLineCount } from '../utils/textUtils.js';
 import { sanitizePasteContent } from '../utils/displayUtils.js';
+import { formatAttachmentReferencesForDisplay, ensureQuotesAroundAttachments } from '../utils/attachmentFormatter.js';
 import chalk from 'chalk';
 import stringWidth from 'string-width';
 import { useShellHistory } from '../hooks/useShellHistory.js';
@@ -257,7 +258,10 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
       buffer.setText('');
 
       // 重构完整消息内容
-      const contentToSubmit = reconstructFullMessage(submittedValue);
+      let contentToSubmit = reconstructFullMessage(submittedValue);
+
+      // 为所有未引号的附件路径添加引号，以支持 command+click 打开文件
+      contentToSubmit = ensureQuotesAroundAttachments(contentToSubmit);
 
       // Restore pasted content if there are segments
       // (Paste content will be restored silently)
@@ -331,8 +335,9 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
           // Get relative path from current directory
           const relativePath = path.relative(config.getTargetDir(), imagePath);
 
-          // Insert @path reference at cursor position
-          const insertText = `@${relativePath}`;
+          // Insert @"path" reference at cursor position
+          // 使用引号包裹路径，防止终端（如 iTerm2）将其误识别为 URL
+          const insertText = `@"${relativePath}"`;
           const currentText = buffer.text;
           const [row, col] = buffer.cursor;
 
@@ -1004,46 +1009,52 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
     const cursorVisualRow = cursorVisualRowAbsolute - scrollVisualRow;
 
     return linesToRender.map((lineText, visualIdxInRenderedSet) => {
-      // 对于非常长的行，进行截断避免渲染性能问题
+      // 对于非常长的行，先基于原始文本进行截断避免渲染性能问题
       const maxDisplayLength = Math.min(inputWidth * 2, 1000); // 限制最大显示长度
       const truncatedLineText = cpLen(lineText) > maxDisplayLength
         ? cpSlice(lineText, 0, maxDisplayLength) + '...'
         : lineText;
 
-      let display = cpSlice(truncatedLineText, 0, inputWidth);
-      const currentVisualWidth = stringWidth(display);
+      let display: string;
 
-      // 只在需要时才补充空格
-      if (currentVisualWidth < inputWidth) {
-        display = display + ' '.repeat(inputWidth - currentVisualWidth);
+      // 检查是否需要在这一行显示光标
+      const needsCursor = focus && visualIdxInRenderedSet === cursorVisualRow;
+
+      if (needsCursor) {
+        // 有光标的情况：在原始文本上处理光标，再格式化
+        const relativeVisualColForHighlight = cursorVisualColAbsolute;
+        const originalLineLength = cpLen(truncatedLineText);
+
+        if (relativeVisualColForHighlight >= 0 && relativeVisualColForHighlight < originalLineLength) {
+          // 光标在行中间
+          const beforeCursor = cpSlice(truncatedLineText, 0, relativeVisualColForHighlight);
+          const charAtCursor = cpSlice(truncatedLineText, relativeVisualColForHighlight, relativeVisualColForHighlight + 1) || ' ';
+          const afterCursor = cpSlice(truncatedLineText, relativeVisualColForHighlight + 1);
+
+          // 格式化前后部分
+          const formattedBefore = formatAttachmentReferencesForDisplay(beforeCursor);
+          const formattedAfter = formatAttachmentReferencesForDisplay(afterCursor);
+          const highlighted = chalk.inverse(charAtCursor);
+
+          // 组合：格式化前 + 高亮字符 + 格式化后
+          display = formattedBefore + highlighted + formattedAfter;
+        } else if (relativeVisualColForHighlight >= originalLineLength) {
+          // 光标在行末
+          const formattedLine = formatAttachmentReferencesForDisplay(truncatedLineText);
+          display = formattedLine + chalk.inverse(' ');
+        } else {
+          // 不应该到这里
+          display = formatAttachmentReferencesForDisplay(truncatedLineText);
+        }
+      } else {
+        // 没有光标的情况：直接格式化
+        display = formatAttachmentReferencesForDisplay(truncatedLineText);
       }
 
-      if (focus && visualIdxInRenderedSet === cursorVisualRow) {
-        const relativeVisualColForHighlight = cursorVisualColAbsolute;
-
-        // 🔧 调试单行光标问题
-        // Removed debug logging for single line cursor
-
-        if (relativeVisualColForHighlight >= 0) {
-          if (relativeVisualColForHighlight < cpLen(display)) {
-            const charToHighlight =
-              cpSlice(
-                display,
-                relativeVisualColForHighlight,
-                relativeVisualColForHighlight + 1,
-              ) || ' ';
-            const highlighted = chalk.inverse(charToHighlight);
-            display =
-              cpSlice(display, 0, relativeVisualColForHighlight) +
-              highlighted +
-              cpSlice(display, relativeVisualColForHighlight + 1);
-          } else if (
-            relativeVisualColForHighlight === cpLen(display) &&
-            cpLen(display) === inputWidth
-          ) {
-            display = display + chalk.inverse(' ');
-          }
-        }
+      // 补充空格以填充行宽
+      const currentVisualWidth = stringWidth(display);
+      if (currentVisualWidth < inputWidth) {
+        display = display + ' '.repeat(inputWidth - currentVisualWidth);
       }
 
       return <Text key={visualIdxInRenderedSet}>{display}</Text>;

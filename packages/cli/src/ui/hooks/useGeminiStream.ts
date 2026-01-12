@@ -312,6 +312,8 @@ export const useGeminiStream = (
   const [isCreatingCheckpoint, setIsCreatingCheckpoint] = useState(false);
   // 用于跟踪 checkpoint 创建失败，避免重复尝试
   const checkpointCreationFailed = useRef(false);
+  // 🎯 用于跟踪当前创建的 checkpoint ID，以便后续更新摘要
+  const currentCheckpointIdRef = useRef<string | null>(null);
   // 🎯 用于保存当前用户输入，供 checkpoint 创建时使用
   const currentUserQueryRef = useRef<string>('');
   // 🎯 用于保存 AI 在调用工具前的文本回复，供 checkpoint 摘要使用
@@ -341,15 +343,15 @@ export const useGeminiStream = (
   // 简化：直接基于现有状态判断，无需中央状态管理
 
   /**
-   * 在工具执行完成后创建 Checkpoint
+   * 🎯 在工具执行前创建初始 Checkpoint
    */
-  const createCheckpointAfterTools = useCallback(async (completedToolCalls: TrackedToolCall[]) => {
+  const createInitialCheckpoint = useCallback(async (requests: ToolCallRequestInfo[]) => {
     if (!sessionManager || !gitService) return;
 
     // 检查是否有文件修改工具
     const fileModifyingToolNames = ['replace', 'write_file', 'delete_file'];
-    const hasFileModifyingTools = completedToolCalls.some(tc => {
-      const toolName = tc.request?.name || ('tool' in tc ? tc.tool?.name : '') || '';
+    const hasFileModifyingTools = requests.some(req => {
+      const toolName = req.name || '';
       return fileModifyingToolNames.includes(toolName);
     });
 
@@ -376,19 +378,19 @@ export const useGeminiStream = (
 
       const now = Date.now();
 
-      // 创建 Git 快照
+      // 创建 Git 快照 (编辑前快照)
       const createCommitWithTimeout = async () => {
-        return new Promise(async (resolve, reject) => {
+        return new Promise<string>(async (resolve, reject) => {
           const timeout = setTimeout(() => {
             reject(new Error('Git commit 操作超时 (15秒)'));
           }, 15000);
 
           try {
             const result = await gitService.createFileSnapshot(
-              `Checkpoint ${new Date(now).toLocaleString()} for session ${config.getSessionId()}`,
+              `Pre-edit Checkpoint ${new Date(now).toLocaleString()} for session ${config.getSessionId()}`,
             );
             clearTimeout(timeout);
-            resolve(result);
+            resolve(result as string);
           } catch (error) {
             clearTimeout(timeout);
             reject(error);
@@ -417,47 +419,22 @@ export const useGeminiStream = (
         }
       }
 
-      // 🎯 从 AI 文本回复生成摘要（优先），如果没有则从工具调用生成
-      let summarySource = aiTextBeforeToolsRef.current.trim();
-
-      // 如果 AI 没有文本回复，降级到工具调用信息
-      if (!summarySource || summarySource.length < 5) {
-        summarySource = formatToolCallsForSummary(completedToolCalls);
-      } else {
-        // 限制 AI 文本长度（前 200 字符）
-        summarySource = summarySource.substring(0, 200);
-      }
-
-      let summary = '';
-      try {
-        console.log('[Checkpoint] Starting summary generation from:', summarySource.substring(0, 50));
-        summary = await generateCheckpointSummary(geminiClient, summarySource);
-        console.log('[Checkpoint] Summary generated:', summary);
-
-        // 🎯 新增：更新窗口标题（包含工作目录名）
-        if (summary && summary.length > 0 && settings) {
-          const workspaceName = path.basename(config.getProjectRoot());
-          updateWindowTitleWithSummary(summary, settings, workspaceName);
-        }
-      } catch (error) {
-        console.error('[Checkpoint] Failed to generate summary, continuing without it:', error);
-        summary = '';
-      }
-
+      const checkpointId = `checkpoint-${now}`;
       const checkpointData = {
-        id: `checkpoint-${now}`,
+        id: checkpointId,
         timestamp: now,
         timeString: new Date(now).toLocaleString('zh-CN', {
           year: 'numeric', month: '2-digit', day: '2-digit',
           hour: '2-digit', minute: '2-digit', second: '2-digit'
         }),
         lastUserMessage,
-        summary,
+        summary: '正在生成摘要...', // 初始占位符
         commitHash,
         sessionId: config.getSessionId(),
       };
 
       await sessionManager.saveSessionCheckpoint(config.getSessionId(), checkpointData);
+      currentCheckpointIdRef.current = checkpointId;
 
       // 打印 Checkpoint 成功消息
       addItem(
@@ -469,17 +446,57 @@ export const useGeminiStream = (
       );
 
       onDebugMessage(
-        `✅ Checkpoint 创建完成: ${checkpointData.timeString} - "${summary || summarySource.substring(0, 30)}"`,
+        `✅ 初始 Checkpoint 已创建: ${checkpointData.timeString}`,
       );
     } catch (error) {
       checkpointCreationFailed.current = true;
       onDebugMessage(`❌ ${tp('checkpoint.created.failed', { error: getErrorMessage(error) })}`);
       onDebugMessage(t('checkpoint.creation.skipped'));
     } finally {
-      await new Promise(resolve => setTimeout(resolve, 1000));
       setIsCreatingCheckpoint(false);
     }
-  }, [sessionManager, gitService, config, geminiClient, currentUserQueryRef, history, addItem, onDebugMessage]);
+  }, [sessionManager, gitService, config, currentUserQueryRef, history, addItem, onDebugMessage]);
+
+  /**
+   * 🎯 在工具完成后异步更新 Checkpoint 摘要
+   */
+  const updateCheckpointSummary = useCallback(async (completedToolCalls: TrackedToolCall[]) => {
+    if (!sessionManager || !currentCheckpointIdRef.current) return;
+
+    try {
+      // 从 AI 文本回复生成摘要（优先），如果没有则从工具调用生成
+      let summarySource = aiTextBeforeToolsRef.current.trim();
+
+      // 如果 AI 没有文本回复，降级到工具调用信息
+      if (!summarySource || summarySource.length < 5) {
+        summarySource = formatToolCallsForSummary(completedToolCalls);
+      } else {
+        // 限制 AI 文本长度（前 200 字符）
+        summarySource = summarySource.substring(0, 200);
+      }
+
+      console.log('[Checkpoint] Starting summary generation from:', summarySource.substring(0, 50));
+      const summary = await generateCheckpointSummary(geminiClient, summarySource);
+      console.log('[Checkpoint] Summary generated:', summary);
+
+      if (summary) {
+        // 更新 SessionManager 中的摘要
+        await sessionManager.updateSessionCheckpoint(config.getSessionId(), currentCheckpointIdRef.current, { summary });
+
+        // 🎯 新增：更新窗口标题（包含工作目录名）
+        if (settings) {
+          const workspaceName = path.basename(config.getProjectRoot());
+          updateWindowTitleWithSummary(summary, settings, workspaceName);
+        }
+
+        onDebugMessage(
+          `✅ Checkpoint 摘要已更新: "${summary}"`,
+        );
+      }
+    } catch (error) {
+      console.error('[Checkpoint] Failed to update summary:', error);
+    }
+  }, [sessionManager, config, geminiClient, settings, onDebugMessage]);
 
   const [toolCalls, originalScheduleToolCalls, markToolsAsSubmitted, handleConfirmationResponse] =
     useReactToolScheduler(
@@ -499,8 +516,8 @@ export const useGeminiStream = (
             completedToolCallsFromScheduler as TrackedToolCall[],
           );
 
-          // 🎯 在工具完成后创建 Checkpoint
-          await createCheckpointAfterTools(completedToolCallsFromScheduler as TrackedToolCall[]);
+          // 🎯 在工具完成后异步更新 Checkpoint 摘要
+          await updateCheckpointSummary(completedToolCallsFromScheduler as TrackedToolCall[]);
         }
       },
       config,
@@ -508,8 +525,18 @@ export const useGeminiStream = (
       getPreferredEditor,
     );
 
-  // Use the original scheduleToolCalls directly
-  const scheduleToolCalls = originalScheduleToolCalls;
+  // Use the original scheduleToolCalls but wrap it to create initial checkpoint
+  const scheduleToolCalls = useCallback(
+    async (request: ToolCallRequestInfo | ToolCallRequestInfo[], signal: AbortSignal) => {
+      const requests = Array.isArray(request) ? request : [request];
+      // 🎯 在调度工具前尝试创建 Checkpoint（等待创建完成以确保 Git 快照准确）
+      await createInitialCheckpoint(requests).catch(err => {
+        console.error('[Checkpoint] Initial creation failed:', err);
+      });
+      return originalScheduleToolCalls(request, signal);
+    },
+    [originalScheduleToolCalls, createInitialCheckpoint]
+  );
 
 
 
@@ -736,7 +763,7 @@ export const useGeminiStream = (
                 isClientInitiated: true,
                 prompt_id,
               };
-              scheduleToolCalls([toolCallRequest], abortSignal);
+              await scheduleToolCalls([toolCallRequest], abortSignal);
               return { queryToSend: null, shouldProceed: false };
             }
             case 'submit_prompt': {
@@ -1252,7 +1279,7 @@ export const useGeminiStream = (
       // 清空 reasoning 状态（思考过程仅在流式传输中显示）
       setReasoning(null);
       if (toolCallRequests.length > 0) {
-        scheduleToolCalls(toolCallRequests, signal);
+        await scheduleToolCalls(toolCallRequests, signal);
       }
       return StreamProcessingStatus.Completed;
     },

@@ -494,8 +494,9 @@ describe('InputPrompt', () => {
         .calls[0];
       expect(actualCall[0]).toBe(5); // start offset
       expect(actualCall[1]).toBe(5); // end offset
+      // 新代码会自动给路径加引号以支持 command+click
       expect(actualCall[2]).toBe(
-        ' @' + path.relative(path.join('test', 'project', 'src'), imagePath),
+        ' @"' + path.relative(path.join('test', 'project', 'src'), imagePath) + '"',
       );
       unmount();
     });

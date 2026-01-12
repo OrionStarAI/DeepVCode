@@ -124,7 +124,7 @@ export class AuthTemplates {
           possiblePaths.push(path.join(currentDir, 'bundled', 'auth', 'login', 'templates', filename));
           // 备用路径1: bundled/（直接在bundled目录下）
           possiblePaths.push(path.join(currentDir, 'bundled', filename));
-          // 备用路径2: bundle/login/templates/（老的路径结构）
+          // 备用路径2: bundle/login/templates/（CLI打包后的路径 - npm run dev和打包后都会用）
           possiblePaths.push(path.join(currentDir, 'bundle', 'login', 'templates', filename));
           // 备用路径3: auth/login/templates/（相对路径）
           possiblePaths.push(path.join(currentDir, 'auth', 'login', 'templates', filename));
@@ -137,6 +137,9 @@ export class AuthTemplates {
       if (typeof process !== 'undefined' && process.cwd) {
         try {
           const cwd = process.cwd();
+          // CLI开发环境优先路径: {project_root}/bundle/login/templates/
+          possiblePaths.push(path.join(cwd, 'bundle', 'login', 'templates', filename));
+          // VSCode扩展路径
           possiblePaths.push(path.join(cwd, 'dist', 'bundled', 'auth', 'login', 'templates', filename));
           possiblePaths.push(path.join(cwd, 'bundled', 'auth', 'login', 'templates', filename));
           possiblePaths.push(path.join(cwd, 'auth', 'login', 'templates', filename));

@@ -24,6 +24,7 @@ function parseDiffWithLineNumbers(diffContent: string): DiffLine[] {
   let currentOldLine = 0;
   let currentNewLine = 0;
   let inHunk = false;
+  let hasLineNumbers = false;
   const hunkHeaderRegex = /^@@ -(\d+),?\d* \+(\d+),?\d* @@/;
 
   for (const line of lines) {
@@ -32,6 +33,7 @@ function parseDiffWithLineNumbers(diffContent: string): DiffLine[] {
       currentOldLine = parseInt(hunkMatch[1], 10);
       currentNewLine = parseInt(hunkMatch[2], 10);
       inHunk = true;
+      hasLineNumbers = true;
       result.push({ type: 'hunk', content: line });
       // We need to adjust the starting point because the first line number applies to the *first* actual line change/context,
       // but we increment *before* pushing that line. So decrement here.
@@ -39,6 +41,15 @@ function parseDiffWithLineNumbers(diffContent: string): DiffLine[] {
       currentNewLine--;
       continue;
     }
+
+    // Support DeepV patch custom format hunks, e.g. "@@ <context>" (no line numbers)
+    if (line.startsWith('@@')) {
+      inHunk = true;
+      hasLineNumbers = false;
+      result.push({ type: 'hunk', content: line });
+      continue;
+    }
+
     if (!inHunk) {
       // Skip standard Git header lines more robustly
       if (
@@ -53,30 +64,44 @@ function parseDiffWithLineNumbers(diffContent: string): DiffLine[] {
         line.startsWith('deleted file mode')
       )
         continue;
-      // If it's not a hunk or header, skip (or handle as 'other' if needed)
+
+      // DeepV patch format metadata lines (keep them so we don't render "No changes detected")
+      if (line.startsWith('*** ')) {
+        result.push({ type: 'other', content: line });
+      }
+      // If it's not a hunk or header, skip
       continue;
     }
+
+    // DeepV patch format section boundary (end current hunk)
+    if (line.startsWith('*** ')) {
+      result.push({ type: 'other', content: line });
+      continue;
+    }
+
     if (line.startsWith('+')) {
-      currentNewLine++; // Increment before pushing
+      if (hasLineNumbers) currentNewLine++; // Increment before pushing
       result.push({
         type: 'add',
-        newLine: currentNewLine,
+        newLine: hasLineNumbers ? currentNewLine : undefined,
         content: line.substring(1),
       });
     } else if (line.startsWith('-')) {
-      currentOldLine++; // Increment before pushing
+      if (hasLineNumbers) currentOldLine++; // Increment before pushing
       result.push({
         type: 'del',
-        oldLine: currentOldLine,
+        oldLine: hasLineNumbers ? currentOldLine : undefined,
         content: line.substring(1),
       });
     } else if (line.startsWith(' ')) {
-      currentOldLine++; // Increment before pushing
-      currentNewLine++;
+      if (hasLineNumbers) {
+        currentOldLine++; // Increment before pushing
+        currentNewLine++;
+      }
       result.push({
         type: 'context',
-        oldLine: currentOldLine,
-        newLine: currentNewLine,
+        oldLine: hasLineNumbers ? currentOldLine : undefined,
+        newLine: hasLineNumbers ? currentNewLine : undefined,
         content: line.substring(1),
       });
     } else if (line.startsWith('\\')) {
@@ -85,6 +110,98 @@ function parseDiffWithLineNumbers(diffContent: string): DiffLine[] {
     }
   }
   return result;
+}
+
+/**
+ * 🎯 提取多文件 unified diff 中的单个文件 diff 块
+ * 支持三种格式：
+ * 1) DeepV patch 格式: "*** Update File: path/to/file" / "*** Add File" / "*** Delete File"
+ * 2) 标准 git diff: "diff --git a/path b/path" 标记
+ * 3) 标准 unified diff: "--- a/path" + "+++ b/path" 配对作为文件分界（非 SVN 风格）
+ *
+ * 只有当检测到**多个不同的文件**时，才会进行文件拆分。单文件不拆分。
+ */
+function splitMultiFileDiff(diffContent: string): Array<{ filename: string; diffBlock: string }> {
+  const lines = diffContent.split('\n');
+  const fileBlocks: Array<{ filename: string; diffBlock: string }> = [];
+  let currentBlock = '';
+  let currentFilename = '';
+  const detectedFiles = new Set<string>();
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // 检测 DeepV patch 格式文件头: "*** Update File: path/to/file"
+    if (line.startsWith('*** Update File:')) {
+      if (currentFilename && currentBlock) {
+        fileBlocks.push({ filename: currentFilename, diffBlock: currentBlock });
+      }
+      currentFilename = line.split(':')[1]?.trim() || 'Unknown';
+      detectedFiles.add(currentFilename);
+      currentBlock = '';
+      continue;
+    }
+
+    // 检测 DeepV patch 格式文件头: "*** Add File:" 或 "*** Delete File:"
+    if (line.startsWith('*** Add File:') || line.startsWith('*** Delete File:')) {
+      if (currentFilename && currentBlock) {
+        fileBlocks.push({ filename: currentFilename, diffBlock: currentBlock });
+      }
+      currentFilename = line.split(':')[1]?.trim() || 'Unknown';
+      detectedFiles.add(currentFilename);
+      currentBlock = '';
+      continue;
+    }
+
+    // 检测标准 git diff 格式: "diff --git a/path b/path"
+    if (line.startsWith('diff --git a/')) {
+      if (currentFilename && currentBlock) {
+        fileBlocks.push({ filename: currentFilename, diffBlock: currentBlock });
+      }
+      const match = line.match(/^diff --git a\/(.*) b\/.*$/);
+      currentFilename = match ? match[1] : 'Unknown';
+      detectedFiles.add(currentFilename);
+      currentBlock = line + '\n';
+      continue;
+    }
+
+    // 检测标准 unified diff 格式: "--- a/path" 紧跟 "+++ b/path"
+    // 排除 SVN 风格（包含 Current/Proposed 标记）
+    if (line.startsWith('--- ') && i + 1 < lines.length && lines[i + 1].startsWith('+++ ')) {
+      const nextLine = lines[i + 1];
+      const isSVNStyle = line.includes('Current') || line.includes('Proposed') || nextLine.includes('Current') || nextLine.includes('Proposed');
+
+      if (!isSVNStyle) {
+        // 是真实的 unified diff 文件头
+        if (currentFilename && currentBlock) {
+          fileBlocks.push({ filename: currentFilename, diffBlock: currentBlock });
+        }
+        let extractedPath = line.substring(4).trim();
+        if (extractedPath.startsWith('a/')) {
+          extractedPath = extractedPath.substring(2);
+        }
+        currentFilename = extractedPath;
+        detectedFiles.add(currentFilename);
+        currentBlock = line + '\n' + nextLine + '\n';
+        i++; // 跳过 +++ 行
+        continue;
+      }
+    }
+
+    currentBlock += line + '\n';
+  }
+
+  if (currentFilename && currentBlock) {
+    fileBlocks.push({ filename: currentFilename, diffBlock: currentBlock });
+  }
+
+  // 只有当真的有多个不同的文件时，才返回拆分结果
+  if (fileBlocks.length > 1 && detectedFiles.size > 1) {
+    return fileBlocks;
+  }
+
+  // 单文件或无法识别的格式，不拆分
+  return [];
 }
 
 interface DiffRendererProps {
@@ -108,6 +225,52 @@ export const DiffRenderer: React.FC<DiffRendererProps> = ({
 }) => {
   if (!diffContent || typeof diffContent !== 'string') {
     return <Text color={Colors.AccentYellow}>No diff content.</Text>;
+  }
+
+  // 🎯 检测是否为多文件 patch
+  const fileBlocks = splitMultiFileDiff(diffContent);
+  const isMultiFile = fileBlocks.length > 0; // 有结果说明检测到多个文件
+
+  // 如果是多文件，分别渲染每个文件的 diff，并加上分隔符
+  if (isMultiFile && fileBlocks.length > 1) {
+    return (
+      <Box flexDirection="column">
+        {fileBlocks.map((block, index) => (
+          <Box key={`file-block-${index}`} flexDirection="column">
+            {/* 文件名标题 */}
+            {index > 0 && (
+              <Box marginTop={1} marginBottom={1}>
+                <Text color={Colors.Gray} bold>
+                  📝 {block.filename}
+                </Text>
+              </Box>
+            )}
+            {index === 0 && (
+              <Box marginBottom={1}>
+                <Text color={Colors.Gray} bold>
+                  📝 {block.filename}
+                </Text>
+              </Box>
+            )}
+            {/* 该文件的 diff 内容 */}
+            <Box marginLeft={1}>
+              <DiffRenderer
+                diffContent={block.diffBlock}
+                filename={block.filename}
+                tabWidth={tabWidth}
+                availableTerminalHeight={
+                  availableTerminalHeight
+                    ? Math.floor((availableTerminalHeight - 4) / fileBlocks.length)
+                    : undefined
+                }
+                terminalWidth={terminalWidth - 2}
+                theme={theme}
+              />
+            </Box>
+          </Box>
+        ))}
+      </Box>
+    );
   }
 
   const parsedLines = parseDiffWithLineNumbers(diffContent);
@@ -178,7 +341,7 @@ const renderDiffContent = (
 
   // Filter out non-displayable lines (hunks, potentially 'other') using the normalized list
   const displayableLines = normalizedLines.filter(
-    (l) => l.type !== 'hunk' && l.type !== 'other',
+    (l) => l.type !== 'hunk',
   );
 
   if (displayableLines.length === 0) {

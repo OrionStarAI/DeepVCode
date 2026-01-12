@@ -9,6 +9,7 @@ import { Text, Box } from 'ink';
 import chalk from 'chalk';
 import { Colors } from '../../colors.js';
 import { isLongText, smartTruncateText, forceWrapText } from '../../utils/displayUtils.js';
+import { formatAttachmentReferencesForDisplay } from '../../utils/attachmentFormatter.js';
 
 
 interface UserMessageProps {
@@ -29,13 +30,16 @@ export const UserMessage: React.FC<UserMessageProps> = ({ text, terminalWidth })
   // 计算文本内容的最大宽度（消息框宽度 - 前缀 - 边框和padding）
   const maxTextWidth = Math.max(maxMessageBoxWidth - prefixWidth - 6, 20); // 6 = 边框(2) + padding(4)
 
-  // 处理文本：截断长文本，再强制换行
+  // 处理文本：先截断长文本，再格式化附件引用，最后强制换行
   let displayText = text;
 
   // 截断超长文本
   if (isLongText(text, 20)) {
     displayText = smartTruncateText(text, 15);
   }
+
+  // 格式化附件引用（@"path" -> [File #path]）
+  displayText = formatAttachmentReferencesForDisplay(displayText);
 
   // 强制换行，确保每行都不超过最大宽度
   displayText = forceWrapText(displayText, maxTextWidth);

@@ -8,14 +8,29 @@ workflow:
     - if: '$CI_COMMIT_TAG =~ /^cli-release-v\d+\.\d+\.\d+$/'
     - if: '$CI_COMMIT_TAG =~ /^vscode-release-v\d+\.\d+\.\d+$/'
 
+# npm 缓存配置
+cache:
+  key:
+    files:
+      - package-lock.json
+      - packages/vscode-ui-plugin/package-lock.json
+  paths:
+    - node_modules/
+    - packages/*/node_modules/
+    - packages/vscode-ui-plugin/webview/node_modules/
+    - .npm/
+  policy: pull-push
+
 release:
   stage: release
   tags:
     - deepvcode-release
   image: node:20
   script:
-    # 安装依赖
-    - npm install
+    # 配置 npm 缓存目录
+    - npm config set cache .npm --global
+    # 安装依赖（启用重试机制和缓存）
+    - npm install --retry=3 --retry-delay=1000 --prefer-offline
     # 提取版本号并更新 package.json
     - export NEW_VERSION=$(echo $CI_COMMIT_TAG | sed 's/^cli-release-v//')
     - npm version $NEW_VERSION --no-git-tag-version --force
@@ -40,8 +55,10 @@ release-vscode:
     - deepvcode-release
   image: node:20
   script:
-    # 安装依赖 (monorepo 根目录)
-    - npm install
+    # 配置 npm 缓存目录
+    - npm config set cache .npm --global
+    # 安装依赖 (monorepo 根目录，启用重试机制和缓存)
+    - npm install --retry=3 --retry-delay=1000 --prefer-offline
     # 提取版本号
     - export NEW_VERSION=$(echo $CI_COMMIT_TAG | sed 's/^vscode-release-v//')
     # 更新插件版本号 (在子目录中执行)

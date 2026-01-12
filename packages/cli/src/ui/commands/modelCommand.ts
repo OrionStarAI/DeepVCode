@@ -400,7 +400,8 @@ async function autoUpdateUserPreferredModel(
     console.log(`[ModelCommand] User's preferred model '${preferredModel}' no longer exists.`);
     console.log(`[ModelCommand] Auto-updating to: '${bestMatch}'`);
 
-    // 更新用户设置
+    // 🔧 修复：无论模糊匹配成功与否，都需要更新 preferredModel
+    // 这样可以避免无效的 displayName 或旧模型 ID 一直保留在 settings 中
     settings.setValue(SettingScope.User, 'preferredModel', bestMatch);
 
     // 更新config实例
