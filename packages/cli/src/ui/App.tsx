@@ -706,6 +706,17 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     cancelAuthentication: cancelLoginAuthentication,
   } = useLoginCommand(settings, setLoginError, config, setCurrentModel, customProxyUrl);
 
+  // Listen for authentication required events (e.g., from model dialog when not logged in)
+  useEffect(() => {
+    const handleAuthRequired = () => {
+      openAuthDialog();
+    };
+    appEvents.on(AppEvent.AuthenticationRequired, handleAuthRequired);
+    return () => {
+      appEvents.off(AppEvent.AuthenticationRequired, handleAuthRequired);
+    };
+  }, [openAuthDialog]);
+
   // BUG修复: 避免在初始化时显示认证错误，只在用户主动选择后验证
   // 修复策略: 移除自动验证逻辑，让用户在选择时才进行验证
   // 影响范围: packages/cli/src/ui/App.tsx:230-238

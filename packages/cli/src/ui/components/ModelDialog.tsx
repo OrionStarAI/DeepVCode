@@ -116,6 +116,10 @@ export function ModelDialog({
     if (key.escape) {
       onSelect(undefined);
     }
+    // When there's an auth error, pressing Enter should trigger auth dialog
+    if (error && key.return) {
+      onSelect('__trigger_auth__');
+    }
   });
 
   // 根据窗口大小调整显示项数
@@ -163,7 +167,7 @@ export function ModelDialog({
         <Box flexDirection="column" alignItems="center">
           <Text color={Colors.AccentRed}>{error}</Text>
           <Box marginTop={1}>
-            <Text color={Colors.Gray}>{t('model.dialog.hint.tiny')}</Text>
+            <Text bold color={Colors.AccentYellow}>{t('model.dialog.hint.login')}</Text>
           </Box>
         </Box>
       )}
