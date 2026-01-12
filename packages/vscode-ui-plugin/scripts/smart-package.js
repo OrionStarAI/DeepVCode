@@ -37,8 +37,9 @@ function smartPackage() {
 
     // Get command line arguments
     const args = process.argv.slice(2);
-    const shouldBumpVersion = !args.includes('--no-bump');
-    const versionType = args.find(arg => ['major', 'minor', 'patch'].includes(arg)) || 'patch';
+    // CHANGE: Default to NOT bump version (requires explicit version type argument)
+    const versionType = args.find(arg => ['major', 'minor', 'patch'].includes(arg));
+    const shouldBumpVersion = versionType !== undefined;
 
     console.log(`\n${COLORS.magenta}${COLORS.bright}🚀 DeepV Code VS Code Extension Packaging Process${COLORS.reset}`);
     console.log(`${COLORS.dim}═══════════════════════════════════════════════════════════════${COLORS.reset}`);
