@@ -961,6 +961,8 @@ export function useCompletion(
           newValue = `@"${cleanPrefix}${cleanSuggestion}" `;
         }
 
+        // replaceRangeByOffset 会自动将光标移到替换文本的末尾
+        // 不需要手动调用 moveToOffset，否则会覆盖正确的位置
         buffer.replaceRangeByOffset(atIndex, buffer.text.length, newValue);
       }
       resetCompletionState();
