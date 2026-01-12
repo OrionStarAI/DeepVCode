@@ -1,15 +1,21 @@
 /**
  * @license
- * Copyright 2025 Google LLC
+ * Copyright 2025 DeepV Code team
+ * https://github.com/OrionStarAI/DeepVCode
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { BaseTool, Icon, ToolResult } from './tools.js';
-import { Config } from '../config/config.js';
-import { EditTool } from './edit.js';
+
+import { BaseTool, Icon, ToolResult, ToolCallConfirmationDetails, ToolEditConfirmationDetails, ToolConfirmationOutcome } from './tools.js';
+import { Config, ApprovalMode } from '../config/config.js';
+import { EditTool, EditToolParams } from './edit.js';
 import { Type } from '@google/genai';
 import { SchemaValidator } from '../utils/schemaValidator.js';
 import * as path from 'node:path';
+import * as fs from 'node:fs';
+import * as Diff from 'diff';
+import { makeRelative, shortenPath } from '../utils/paths.js';
+import { DEFAULT_DIFF_OPTIONS } from './diffOptions.js';
 
 interface MultiEditToolParams {
     filePath: string;
@@ -57,19 +63,129 @@ export class MultiEditTool extends BaseTool<MultiEditToolParams, ToolResult> {
         );
     }
 
+    /**
+     * 🎯 规范化参数：处理 AI 可能将 edits 数组作为 JSON 字符串传递的情况
+     */
+    private normalizeParams(params: MultiEditToolParams): MultiEditToolParams {
+        let normalizedEdits = params.edits;
+
+        // 如果 edits 是字符串，尝试解析为数组
+        if (typeof params.edits === 'string') {
+            try {
+                normalizedEdits = JSON.parse(params.edits);
+                console.log('[MultiEditTool] Parsed edits from JSON string');
+            } catch (e) {
+                console.error('[MultiEditTool] Failed to parse edits string:', e);
+            }
+        }
+
+        return {
+            ...params,
+            edits: normalizedEdits
+        };
+    }
+
     validateToolParams(params: MultiEditToolParams): string | null {
-        const errors = SchemaValidator.validate(this.schema.parameters, params);
+        const normalizedParams = this.normalizeParams(params);
+        const errors = SchemaValidator.validate(this.schema.parameters, normalizedParams);
         if (errors) return errors;
-        if (!params.edits || params.edits.length === 0) return 'At least one edit is required.';
+        if (!normalizedParams.edits || normalizedParams.edits.length === 0) return 'At least one edit is required.';
         return null;
     }
 
+    /**
+     * 🎯 用户确认逻辑：计算所有编辑的合并 diff 并请求用户确认
+     */
+    async shouldConfirmExecute(
+        params: MultiEditToolParams,
+        _abortSignal: AbortSignal
+    ): Promise<ToolCallConfirmationDetails | false> {
+        // 🎯 规范化参数，处理字符串格式的 edits
+        const normalizedParams = this.normalizeParams(params);
+
+        if (this.config.getApprovalMode() === ApprovalMode.AUTO_EDIT) {
+            return false;
+        }
+
+        const validationError = this.validateToolParams(normalizedParams);
+        if (validationError) {
+            console.error(`[MultiEditTool] Invalid parameters: ${validationError}`);
+            return false;
+        }
+
+        // 收集所有文件的 diff 预览
+        const allDiffs: string[] = [];
+        const uniqueFiles = new Set<string>();
+
+        for (const edit of normalizedParams.edits) {
+            const targetFile = edit.filePath || params.filePath;
+            if (!targetFile) continue;
+
+            uniqueFiles.add(targetFile);
+
+            try {
+                let currentContent = '';
+                try {
+                    currentContent = fs.readFileSync(targetFile, 'utf8').replace(/\r\n/g, '\n');
+                } catch {
+                    // 新文件
+                }
+
+                const newContent = edit.oldString === ''
+                    ? edit.newString
+                    : currentContent.replaceAll(edit.oldString, edit.newString);
+
+                const fileName = path.basename(targetFile);
+                const fileDiff = Diff.createPatch(
+                    fileName,
+                    currentContent,
+                    newContent.replace(/\r\n/g, '\n'),
+                    'Current',
+                    'Proposed',
+                    DEFAULT_DIFF_OPTIONS
+                );
+                allDiffs.push(fileDiff);
+            } catch (e) {
+                console.error(`[MultiEditTool] Error calculating diff for ${targetFile}: ${e}`);
+            }
+        }
+
+        if (allDiffs.length === 0) {
+            return false;
+        }
+
+        const combinedDiff = allDiffs.join('\n');
+        const displayFileName = uniqueFiles.size === 1
+            ? path.basename(Array.from(uniqueFiles)[0]!)
+            : `${uniqueFiles.size} files`;
+
+        const confirmationDetails: ToolEditConfirmationDetails = {
+            type: 'edit',
+            title: `Confirm Multi-Edit: ${displayFileName}`,
+            fileName: displayFileName,
+            fileDiff: combinedDiff,
+            originalContent: null,
+            newContent: '',
+            onConfirm: async (outcome: ToolConfirmationOutcome) => {
+                if (outcome === ToolConfirmationOutcome.ProceedAlways) {
+                    this.config.setApprovalMode(ApprovalMode.AUTO_EDIT);
+                }
+            },
+        };
+
+        return confirmationDetails;
+    }
+
+
     async execute(params: MultiEditToolParams, signal: AbortSignal): Promise<ToolResult> {
+        // 🎯 规范化参数，处理字符串格式的 edits
+        const normalizedParams = this.normalizeParams(params);
+
         const editTool = new EditTool(this.config);
         const results: ToolResult[] = [];
         const executionLog: string[] = [];
 
-        for (const edit of params.edits) {
+        for (const edit of normalizedParams.edits) {
             // Use edit.filePath if provided, otherwise fallback to params.filePath
             const targetFile = edit.filePath || params.filePath;
 

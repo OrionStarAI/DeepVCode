@@ -12,6 +12,7 @@ import { useInputHistory } from '../hooks/useInputHistory.js';
 import { TextBuffer } from './shared/text-buffer.js';
 import { cpSlice, cpLen, hasRealLineBreaks, getRealLineCount } from '../utils/textUtils.js';
 import { sanitizePasteContent } from '../utils/displayUtils.js';
+import { formatAttachmentReferencesForDisplay, ensureQuotesAroundAttachments } from '../utils/attachmentFormatter.js';
 import chalk from 'chalk';
 import stringWidth from 'string-width';
 import { useShellHistory } from '../hooks/useShellHistory.js';
@@ -257,7 +258,10 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
       buffer.setText('');
 
       // 重构完整消息内容
-      const contentToSubmit = reconstructFullMessage(submittedValue);
+      let contentToSubmit = reconstructFullMessage(submittedValue);
+
+      // 为所有未引号的附件路径添加引号，以支持 command+click 打开文件
+      contentToSubmit = ensureQuotesAroundAttachments(contentToSubmit);
 
       // Restore pasted content if there are segments
       // (Paste content will be restored silently)
@@ -331,8 +335,9 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
           // Get relative path from current directory
           const relativePath = path.relative(config.getTargetDir(), imagePath);
 
-          // Insert @path reference at cursor position
-          const insertText = `@${relativePath}`;
+          // Insert @"path" reference at cursor position
+          // 使用引号包裹路径，防止终端（如 iTerm2）将其误识别为 URL
+          const insertText = `@"${relativePath}"`;
           const currentText = buffer.text;
           const [row, col] = buffer.cursor;
 
@@ -624,7 +629,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
           if (completion.activeSuggestionIndex > -1 && completion.suggestions.length > 0) {
             const selectedSuggestion = completion.suggestions[completion.activeSuggestionIndex];
 
-            // 检查是否需要自动执行（用于 /model 等参数补全命令）
+            // 检查是否需要自动执行（用于 /model 等参数补全命令，以及 /session select 等）
             if (selectedSuggestion?.willAutoExecute === true) {
               // 直接构造完整命令并执行，无需先补全到输入框
               const query = buffer.text;
@@ -634,11 +639,20 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
               if (query.trimStart().startsWith('/')) {
                 const parts = query.trimStart().substring(1).split(/\s+/).filter(Boolean);
                 const hasTrailingSpace = query.endsWith(' ');
+
+                // 🚀 核心修复：如果是 /session select 2 这种情况，'2' 可能已经被部分或完全输入了
+                // 我们需要替换掉当前的参数部分，而不是追加
+                // 如果没有尾随空格，说明最后一个部分正在输入中，需要被替换
                 const basePath = hasTrailingSpace ? parts : parts.slice(0, -1);
                 const finalCommand = `/${[...basePath, suggestion].join(' ')}`;
 
-                // 直接执行命令
-                inputHistory.handleSubmit(finalCommand);
+                // 关闭补全状态，避免渲染残留
+                completion.resetCompletionState();
+
+                // 🚀 延迟执行命令，确保补全 UI 有机会完全清除
+                setTimeout(() => {
+                  inputHistory.handleSubmit(finalCommand);
+                }, 10);
                 return;
               }
             }
@@ -649,8 +663,17 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
             const lastPart = parts[parts.length - 1];
 
             // 如果当前参数与建议值完全相等，说明用户已经输完了，按回车是想执行
+            // 特别是对于序号选择（如 "6"），用户输入 "6" 并选中 "6" 后按回车，意图是执行 "/session select 6"
             if (lastPart === selectedSuggestion.value) {
-               inputHistory.handleSubmit(buffer.text);
+               // 构造完整的命令字符串
+               const basePath = parts.slice(0, -1);
+               const finalCommand = `${basePath.join(' ')} ${selectedSuggestion.value}`;
+
+               // 关闭补全状态，避免渲染残留
+               completion.resetCompletionState();
+
+               // 直接执行命令
+               inputHistory.handleSubmit(finalCommand);
                return;
             }
 
@@ -986,46 +1009,52 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
     const cursorVisualRow = cursorVisualRowAbsolute - scrollVisualRow;
 
     return linesToRender.map((lineText, visualIdxInRenderedSet) => {
-      // 对于非常长的行，进行截断避免渲染性能问题
+      // 对于非常长的行，先基于原始文本进行截断避免渲染性能问题
       const maxDisplayLength = Math.min(inputWidth * 2, 1000); // 限制最大显示长度
       const truncatedLineText = cpLen(lineText) > maxDisplayLength
         ? cpSlice(lineText, 0, maxDisplayLength) + '...'
         : lineText;
 
-      let display = cpSlice(truncatedLineText, 0, inputWidth);
-      const currentVisualWidth = stringWidth(display);
+      let display: string;
 
-      // 只在需要时才补充空格
-      if (currentVisualWidth < inputWidth) {
-        display = display + ' '.repeat(inputWidth - currentVisualWidth);
+      // 检查是否需要在这一行显示光标
+      const needsCursor = focus && visualIdxInRenderedSet === cursorVisualRow;
+
+      if (needsCursor) {
+        // 有光标的情况：在原始文本上处理光标，再格式化
+        const relativeVisualColForHighlight = cursorVisualColAbsolute;
+        const originalLineLength = cpLen(truncatedLineText);
+
+        if (relativeVisualColForHighlight >= 0 && relativeVisualColForHighlight < originalLineLength) {
+          // 光标在行中间
+          const beforeCursor = cpSlice(truncatedLineText, 0, relativeVisualColForHighlight);
+          const charAtCursor = cpSlice(truncatedLineText, relativeVisualColForHighlight, relativeVisualColForHighlight + 1) || ' ';
+          const afterCursor = cpSlice(truncatedLineText, relativeVisualColForHighlight + 1);
+
+          // 格式化前后部分
+          const formattedBefore = formatAttachmentReferencesForDisplay(beforeCursor);
+          const formattedAfter = formatAttachmentReferencesForDisplay(afterCursor);
+          const highlighted = chalk.inverse(charAtCursor);
+
+          // 组合：格式化前 + 高亮字符 + 格式化后
+          display = formattedBefore + highlighted + formattedAfter;
+        } else if (relativeVisualColForHighlight >= originalLineLength) {
+          // 光标在行末
+          const formattedLine = formatAttachmentReferencesForDisplay(truncatedLineText);
+          display = formattedLine + chalk.inverse(' ');
+        } else {
+          // 不应该到这里
+          display = formatAttachmentReferencesForDisplay(truncatedLineText);
+        }
+      } else {
+        // 没有光标的情况：直接格式化
+        display = formatAttachmentReferencesForDisplay(truncatedLineText);
       }
 
-      if (focus && visualIdxInRenderedSet === cursorVisualRow) {
-        const relativeVisualColForHighlight = cursorVisualColAbsolute;
-
-        // 🔧 调试单行光标问题
-        // Removed debug logging for single line cursor
-
-        if (relativeVisualColForHighlight >= 0) {
-          if (relativeVisualColForHighlight < cpLen(display)) {
-            const charToHighlight =
-              cpSlice(
-                display,
-                relativeVisualColForHighlight,
-                relativeVisualColForHighlight + 1,
-              ) || ' ';
-            const highlighted = chalk.inverse(charToHighlight);
-            display =
-              cpSlice(display, 0, relativeVisualColForHighlight) +
-              highlighted +
-              cpSlice(display, relativeVisualColForHighlight + 1);
-          } else if (
-            relativeVisualColForHighlight === cpLen(display) &&
-            cpLen(display) === inputWidth
-          ) {
-            display = display + chalk.inverse(' ');
-          }
-        }
+      // 补充空格以填充行宽
+      const currentVisualWidth = stringWidth(display);
+      if (currentVisualWidth < inputWidth) {
+        display = display + ' '.repeat(inputWidth - currentVisualWidth);
       }
 
       return <Text key={visualIdxInRenderedSet}>{display}</Text>;

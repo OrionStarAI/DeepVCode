@@ -1,8 +1,10 @@
 /**
  * @license
- * Copyright 2025 Google LLC
+ * Copyright 2025 DeepV Code team
+ * https://github.com/OrionStarAI/DeepVCode
  * SPDX-License-Identifier: Apache-2.0
  */
+
 
 import {
   ToolCallRequestInfo,
@@ -631,14 +633,53 @@ export class ToolExecutionEngine {
 
       const { request: reqInfo, tool: toolInstance } = toolCall;
       try {
-        if (this.config.getApprovalMode() === ApprovalMode.YOLO) {
+        // 🚨 CRITICAL: Always check for dangerous commands, even in YOLO mode
+        // Dangerous commands MUST require confirmation regardless of approval mode
+        const confirmationDetails = await toolInstance.shouldConfirmExecute(
+          reqInfo.args,
+          signal,
+        );
+
+        // Check if this is a dangerous command (has warning field)
+        const isDangerousCommand =
+          confirmationDetails &&
+          (confirmationDetails as any).warning;
+
+        // If dangerous command, always require confirmation (skip YOLO mode)
+        if (isDangerousCommand) {
+          // 🎯 保存原始onConfirm以避免递归
+          const originalOnConfirm = confirmationDetails.onConfirm;
+
+          // 🎯 统一确认流程：包装onConfirm，保存原始函数引用
+          const wrappedConfirmationDetails: ToolCallConfirmationDetails = {
+            ...confirmationDetails,
+            // 🔑 将原始onConfirm保存为私有属性，避免递归
+            originalOnConfirm,
+            onConfirm: (
+              outcome: ToolConfirmationOutcome,
+              payload?: ToolConfirmationPayload,
+            ) =>
+              this.handleConfirmationResponse(
+                reqInfo.callId,
+                outcome,
+                payload,
+                signal,
+              ),
+          } as ToolCallConfirmationDetails & { originalOnConfirm: typeof originalOnConfirm };
+
+          // 🎯 统一设置awaiting_approval状态，通过onToolCallsUpdate通知外界
+          // Adapter层会在onToolCallsUpdate中检测到awaiting_approval状态并处理确认逻辑
+          this.setStatusInternal(
+            reqInfo.callId,
+            'awaiting_approval',
+            wrappedConfirmationDetails,
+            context,
+          );
+        } else if (this.config.getApprovalMode() === ApprovalMode.YOLO) {
+          // YOLO mode: skip confirmation for normal commands
           this.setStatusInternal(reqInfo.callId, 'scheduled', undefined, context);
         } else {
-          const confirmationDetails = await toolInstance.shouldConfirmExecute(
-            reqInfo.args,
-            signal,
-          );
-
+          // Non-YOLO mode: handle normal confirmation logic
           if (!confirmationDetails) {
             this.setStatusInternal(reqInfo.callId, 'scheduled', undefined, context);
           } else {

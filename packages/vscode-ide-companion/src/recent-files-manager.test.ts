@@ -1,8 +1,10 @@
 /**
  * @license
- * Copyright 2025 Google LLC
+ * Copyright 2025 DeepV Code team
+ * https://github.com/OrionStarAI/DeepVCode
  * SPDX-License-Identifier: Apache-2.0
  */
+
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import * as vscode from 'vscode';

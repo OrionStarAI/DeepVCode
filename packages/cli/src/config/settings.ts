@@ -148,6 +148,9 @@ export interface Settings {
 
   // Hook configuration
   hooks?: { [K in HookEventName]?: HookDefinition[] };
+
+  // 健康使用提醒开关
+  healthyUse?: boolean;
 }
 
 export interface SettingsError {
@@ -196,7 +199,6 @@ export class LoadedSettings {
       ...user,
       ...workspace,
       customThemes: {
-        ...(system.customThemes || {}),
         ...(user.customThemes || {}),
         ...(workspace.customThemes || {}),
       },
@@ -211,6 +213,9 @@ export class LoadedSettings {
         ...(workspace.hooks || {}),
       },
     };
+
+    // Theme setting should not be inherited from system settings
+    merged.theme = workspace.theme || user.theme;
 
     // 调试信息已关闭
 

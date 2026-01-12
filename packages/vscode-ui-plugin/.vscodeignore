@@ -7,15 +7,23 @@ webview/node_modules/**
 webview/package*.json
 webview/webpack.config.js
 webview/tsconfig.json
+webview/vitest.config.ts
+webview/.gitignore
+webview/.deepvcode/**
 tsconfig.json
 .gitignore
 .vscodeignore
+
+# Exclude user config directory (should not be in package)
+.deepvcode/**
 
 # Exclude build tools and scripts
 webpack.config.js
 webpack.core.config.js
 esbuild.config.js
+esbuild.config.mjs
 *.config.js
+*.config.mjs
 scripts/**
 
 # Exclude npm/node related files

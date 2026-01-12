@@ -1,6 +1,6 @@
 {
   "name": "deepv-code-core",
-  "version": "1.0.263",
+  "version": "1.0.271",
   "description": "DeepV Code Core - Core functionality for AI-powered coding assistant",
   "repository": {
     "type": "git",
@@ -20,15 +20,14 @@
     "dist"
   ],
   "dependencies": {
-    "@google/genai": "^1.30.0",
-    "@modelcontextprotocol/sdk": "^1.23.0",
+    "@google/genai": "1.35.0",
+    "@modelcontextprotocol/sdk": "1.25.2",
     "@opentelemetry/api": "^1.9.0",
     "@opentelemetry/exporter-logs-otlp-grpc": "^0.52.0",
     "@opentelemetry/exporter-metrics-otlp-grpc": "^0.52.0",
     "@opentelemetry/exporter-trace-otlp-grpc": "^0.52.0",
     "@opentelemetry/instrumentation-http": "^0.52.0",
     "@opentelemetry/sdk-node": "^0.52.0",
-    "@types/html-to-text": "^9.0.4",
     "@vscode/ripgrep": "^1.15.14",
     "ajv": "^8.17.1",
     "chardet": "^2.1.0",
@@ -40,6 +39,7 @@
     "iconv-lite": "^0.7.0",
     "ignore": "^7.0.0",
     "jimp": "^0.22.12",
+    "jszip": "^3.7.1",
     "mammoth": "^1.11.0",
     "micromatch": "^4.0.8",
     "open": "^10.1.2",
@@ -57,9 +57,10 @@
   "devDependencies": {
     "@types/diff": "^7.0.2",
     "@types/dotenv": "^6.1.1",
+    "@types/html-to-text": "^9.0.4",
     "@types/micromatch": "^4.0.8",
     "@types/minimatch": "^5.1.2",
-    "@types/node": "^24.1.0",
+    "@types/node": "^20.0.0",
     "@types/pdf-parse": "^1.1.5",
     "@types/ws": "^8.5.10",
     "glob": "^12.0.0",

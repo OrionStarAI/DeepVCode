@@ -505,7 +505,17 @@ export function useCompletion(
       return;
     }
 
-    const partialPath = buffer.text.substring(atIndex + 1);
+    let partialPath = buffer.text.substring(atIndex + 1);
+
+    // 🚀 修复：如果路径以引号开头（因为选中了自动补全的目录），去除引号以便继续匹配子目录
+    // 例如：@"path/to/dir/ -> path/to/dir/
+    if (partialPath.startsWith('"')) {
+      // 如果有闭合引号且光标在闭合引号后面，那就不应该是补全状态了（除非是在修改引号内的内容）
+      // 这里我们假设光标在引号内部或刚刚输入了内容
+      // 简单地去除所有引号来获取原始路径
+      partialPath = partialPath.replace(/"/g, '');
+    }
+
     const lastSlashIndex = partialPath.lastIndexOf('/');
     const baseDirRelative =
       lastSlashIndex === -1
@@ -859,9 +869,21 @@ export function useCompletion(
                 prefix = afterAt.substring(0, lastSlashIndex + 1);
               }
 
-              // 构建新值：保留 @ 之前的部分 + @ + 路径前缀 + 补全的文件名
-              const beforeAt = query.substring(0, lastAtIndex + 1); // 包含 @
-              const newValue = beforeAt + prefix + suggestion + ' ';
+              // 🚀 优化：使用引号包裹路径，防止终端（如 iTerm2）将其误识别为 URL
+              // 同时移除可能存在的引号和转义，统一处理
+              const cleanPrefix = prefix.startsWith('"') ? prefix.substring(1) : prefix;
+              const cleanSuggestion = unescapePath(suggestion);
+              const isDirectory = cleanSuggestion.endsWith('/');
+
+              const beforeAt = query.substring(0, lastAtIndex); // 不包含 @
+              let atContent: string;
+              if (isDirectory) {
+                atContent = `@"${cleanPrefix}${cleanSuggestion}`;
+              } else {
+                atContent = `@"${cleanPrefix}${cleanSuggestion}" `;
+              }
+
+              const newValue = beforeAt + atContent;
               buffer.setText(newValue);
               resetCompletionState();
               return;
@@ -930,17 +952,28 @@ export function useCompletion(
       } else {
         const atIndex = query.lastIndexOf('@');
         if (atIndex === -1) return;
+
         const pathPart = query.substring(atIndex + 1);
         const lastSlashIndexInPath = pathPart.lastIndexOf('/');
-        let autoCompleteStartIndex = atIndex + 1;
-        if (lastSlashIndexInPath !== -1) {
-          autoCompleteStartIndex += lastSlashIndexInPath + 1;
+        const prefix = lastSlashIndexInPath !== -1
+          ? pathPart.substring(0, lastSlashIndexInPath + 1)
+          : '';
+
+        // 🚀 优化：使用引号包裹路径，防止终端（如 iTerm2）将其误识别为 URL
+        const cleanPrefix = prefix.startsWith('"') ? prefix.substring(1) : prefix;
+        const cleanSuggestion = unescapePath(suggestion);
+        const isDirectory = cleanSuggestion.endsWith('/');
+
+        let newValue: string;
+        if (isDirectory) {
+          newValue = `@"${cleanPrefix}${cleanSuggestion}`;
+        } else {
+          newValue = `@"${cleanPrefix}${cleanSuggestion}" `;
         }
-        buffer.replaceRangeByOffset(
-          autoCompleteStartIndex,
-          buffer.text.length,
-          suggestion,
-        );
+
+        // replaceRangeByOffset 会自动将光标移到替换文本的末尾
+        // 不需要手动调用 moveToOffset，否则会覆盖正确的位置
+        buffer.replaceRangeByOffset(atIndex, buffer.text.length, newValue);
       }
       resetCompletionState();
     },

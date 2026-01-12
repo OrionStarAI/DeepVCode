@@ -355,7 +355,7 @@ export const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
 
               {/* 未使用session的视觉标识 */}
               {isSessionUnused && isSessionUnused(session.id) && (
-                <span className="session-switcher__tab-indicator">●</span>
+                <span className="session-switcher__tab-indicator">•</span>
               )}
             </button>
           ))}

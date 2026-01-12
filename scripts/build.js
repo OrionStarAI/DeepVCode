@@ -21,120 +21,143 @@ import { execSync } from 'child_process';
 import { existsSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
-import ora from 'ora';
-import chalk from 'chalk';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const root = join(__dirname, '..');
 
-// Fun build quotes
-const buildQuotes = [
-  "🚀 Building the future, one byte at a time...",
-  "⚡ Transforming coffee into code...",
-  "🎯 Assembling digital masterpiece...",
-  "💻 Compiling dreams into reality...",
-  "🔥 Forging the perfect codebase...",
-  "⭐ Crafting software excellence...",
-  "🛠️ Engineering digital magic...",
-  "🌟 Creating computational wonders..."
-];
+// Add support for --no-rebuild flag or DEEPV_SKIP_BUILD env var
+const skipRebuild = process.argv.includes('--no-rebuild') || process.env.DEEPV_SKIP_BUILD === '1';
 
-console.log(chalk.cyan('\n' + buildQuotes[Math.floor(Math.random() * buildQuotes.length)] + '\n'));
+// --- UI Utilities (ANSI Colors) ---
+const COLORS = {
+  reset: '\x1b[0m',
+  bright: '\x1b[1m',
+  dim: '\x1b[2m',
+  cyan: '\x1b[36m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  red: '\x1b[31m',
+  magenta: '\x1b[35m',
+  blue: '\x1b[34m',
+};
+
+const LOGO = `
+${COLORS.cyan}${COLORS.bright}DeepV Code Build System${COLORS.reset}
+`;
+
+function printHeader(title) {
+  console.log(`\n${COLORS.bright}${COLORS.blue}>>${COLORS.reset} ${COLORS.bright}${title}${COLORS.reset}`);
+}
+
+function printItem(status, name, info = '') {
+  const icon = status === 'success' ? `${COLORS.green}✅${COLORS.reset}` : status === 'failed' ? `${COLORS.red}❌${COLORS.reset}` : `${COLORS.yellow}⚠${COLORS.reset}`;
+  const label = info ? `${COLORS.dim}[${info}]${COLORS.reset}` : '';
+  console.log(`  ${icon} ${COLORS.cyan}${name.padEnd(25)}${COLORS.reset} ${label}`);
+}
+
+const startTime = Date.now();
+console.log(LOGO);
+console.log(`${COLORS.dim}Root directory: ${root}${COLORS.reset}`);
 
 // Check and install dependencies if needed
-const dependencySpinner = ora({
-  text: chalk.cyan('🔍 Checking dependencies...'),
-  spinner: 'dots'
-}).start();
-
 if (!existsSync(join(root, 'node_modules'))) {
-  dependencySpinner.text = chalk.cyan('📦 Installing dependencies...');
+  printHeader('Initializing dependencies');
   try {
-    execSync('npm install', { stdio: 'pipe', cwd: root });
-    dependencySpinner.succeed(chalk.green('✅ Dependencies installed!'));
+    execSync('npm install', { stdio: 'inherit', cwd: root });
+    printItem('success', 'NPM packages', 'Installed');
   } catch (error) {
-    dependencySpinner.fail(chalk.red('💥 Failed to install dependencies!'));
-    throw error;
+    printItem('failed', 'NPM packages', 'Failed to install');
+    process.exit(1);
   }
 } else {
-  dependencySpinner.succeed(chalk.green('✅ Dependencies check passed!'));
+  printHeader('Environment check');
+  printItem('success', 'Node modules', 'Verified');
 }
 
-// Generate files
-const generateSpinner = ora({
-  text: chalk.cyan('⚙️ Generating project files...'),
-  spinner: 'earth'
-}).start();
+// Build workspaces in specific order
+const workspaces = [
+  { path: 'packages/core', name: 'core' },
+  { path: 'packages/cli', name: 'cli' },
+  { path: 'packages/vscode-ui-plugin', name: 'vscode-ui-plugin' }
+];
 
-try {
-  execSync('npm run generate', { stdio: 'pipe', cwd: root });
-  generateSpinner.succeed(chalk.green('✨ File generation completed!'));
-} catch (error) {
-  generateSpinner.fail(chalk.red('💥 File generation failed!'));
-  throw error;
-}
+const results = [];
 
-// Build workspaces (exclude vscode-ui-plugin by default for faster builds, include only if INCLUDE_VSCODE_PLUGIN is set)
-const shouldIncludeVscodePlugin = process.env.INCLUDE_VSCODE_PLUGIN === 'true' || process.env.INCLUDE_VSCODE_PLUGIN === '1';
-const workspaceCommand = shouldIncludeVscodePlugin
-  ? 'npm run build --workspaces'
-  : 'npm run build --workspace=packages/cli --workspace=packages/core';
+// Determine which packages are required (critical) for build success
+// vscode-ui-plugin is optional and won't block the build process
+const criticalPackages = new Set(['core', 'cli']);
 
-const workspaceSpinner = ora({
-  text: chalk.cyan(shouldIncludeVscodePlugin
-    ? '🏗️ Building all workspaces (including vscode-ui-plugin)...'
-    : '🏗️ Building core workspaces (vscode-ui-plugin excluded for faster builds)...'),
-  spinner: 'bouncingBall'
-}).start();
+printHeader('Building workspaces');
 
-try {
-  execSync(workspaceCommand, { stdio: 'pipe', cwd: root });
-  workspaceSpinner.succeed(chalk.green(shouldIncludeVscodePlugin
-    ? '🎉 All workspaces built successfully!'
-    : '🎉 Core workspaces built successfully! (vscode-ui-plugin excluded for faster builds)'));
-} catch (error) {
-  workspaceSpinner.fail(chalk.red('💥 Workspace build failed!'));
-  throw error;
-}
+if (skipRebuild) {
+  console.log(`${COLORS.yellow}⏭️  Skipping build steps due to --no-rebuild flag${COLORS.reset}`);
+  workspaces.forEach(workspace => {
+    results.push({ ...workspace, status: 'SUCCESS' });
+  });
+} else {
+  try {
+    for (const workspace of workspaces) {
+      console.log(`\n${COLORS.dim}─ Workspace: ${workspace.name} ─${COLORS.reset}`);
+      const isCritical = criticalPackages.has(workspace.name);
+      try {
+        execSync(`npm run build --workspace=${workspace.path}`, { stdio: 'inherit', cwd: root });
+        results.push({ ...workspace, status: 'SUCCESS' });
+      } catch (error) {
+        results.push({ ...workspace, status: 'FAILED' });
 
-// Ensure CLI package is up to date
-const cliSpinner = ora({
-  text: chalk.cyan('🔧 Ensuring CLI package is up to date...'),
-  spinner: 'clock'
-}).start();
-
-try {
-  execSync('cd packages/cli && npx tsc --build ', { stdio: 'pipe', cwd: root });
-  cliSpinner.succeed(chalk.green('⚡ CLI package updated!'));
-} catch (error) {
-  cliSpinner.fail(chalk.red('💥 CLI package update failed!'));
-  throw error;
+        // Only throw error if it's a critical package
+        if (isCritical) {
+          throw error;
+        } else {
+          // For non-critical packages (vscode), log warning and continue
+          console.log(`\n${COLORS.yellow}⚠️  ${workspace.name} build failed, but continuing (non-critical package)${COLORS.reset}`);
+        }
+      }
+    }
+  } catch (error) {
+    printSummary(results);
+    console.error(`\n${COLORS.red}${COLORS.bright}[!] Build process interrupted due to critical workspace failure.${COLORS.reset}`);
+    process.exit(1);
+  }
 }
 
 // Build container image if sandboxing is enabled
-const sandboxSpinner = ora({
-  text: chalk.cyan('🐳 Checking sandbox configuration...'),
-  spinner: 'dots'
-}).start();
-
 try {
   execSync('node scripts/sandbox_command.js -q', {
-    stdio: 'pipe',
+    stdio: 'inherit',
     cwd: root,
   });
 
   if (process.env.BUILD_SANDBOX === '1' || process.env.BUILD_SANDBOX === 'true') {
-    sandboxSpinner.text = chalk.cyan('🐳 Building sandbox container...');
+    printHeader('Building sandbox container');
     execSync('node scripts/build_sandbox.js -s', {
-      stdio: 'pipe',
+      stdio: 'inherit',
       cwd: root,
     });
-    sandboxSpinner.succeed(chalk.green('🐳 Sandbox container built!'));
-  } else {
-    sandboxSpinner.info(chalk.cyan('ℹ️ Sandbox build skipped (not enabled)'));
+    printItem('success', 'Docker Image', 'Sandbox ready');
   }
 } catch {
-  sandboxSpinner.info(chalk.cyan('ℹ️ Sandbox not available'));
+  // Silent skip if sandbox not available
 }
 
-console.log(chalk.bold.green('\n🎉 Build completed successfully! Ready to deploy! 🚀\n'));
+printSummary(results);
+
+function printSummary(workspaceResults) {
+  const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+  const criticalPackages = new Set(['core', 'cli']);
+
+  console.log(`\n${COLORS.bright}${COLORS.blue}----------------------- Build Summary -----------------------${COLORS.reset}`);
+
+  workspaceResults.forEach(res => {
+    const isCritical = criticalPackages.has(res.name);
+    const statusColor = res.status === 'SUCCESS' ? COLORS.green : COLORS.red;
+    const icon = res.status === 'SUCCESS' ? '✅' : '❌';
+    const statusText = res.status === 'SUCCESS' ? 'SUCCESS' : 'FAILED';
+    const criticalLabel = !isCritical && res.status === 'FAILED' ? ` ${COLORS.yellow}(non-critical, skipped)${COLORS.reset}` : '';
+    console.log(`${icon} ${COLORS.cyan}${res.name.padEnd(35)}${COLORS.reset} [${statusColor}${statusText}${COLORS.reset}]${criticalLabel}`);
+  });
+
+  console.log(`${COLORS.bright}${COLORS.blue}-------------------------------------------------------------${COLORS.reset}`);
+  console.log(`\n${COLORS.green}${COLORS.bright}Build process completed in ${duration}s.${COLORS.reset}\n`);
+}
+

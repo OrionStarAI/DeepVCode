@@ -1,8 +1,10 @@
 /**
  * @license
- * Copyright 2025 Google LLC
+ * Copyright 2025 DeepV Code team
+ * https://github.com/OrionStarAI/DeepVCode
  * SPDX-License-Identifier: Apache-2.0
  */
+
 
 import React from 'react';
 import { Box, Text } from 'ink';
@@ -33,7 +35,7 @@ export const TodoDisplayRenderer: React.FC<{ data: TodoDisplay } & { titleEmphas
     <Box flexDirection="column">
       {/* Title with green dot */}
       <Box>
-        <Text color={Colors.AccentGreen}>● </Text>
+        <Text color={Colors.AccentGreen}>• </Text>
         <Text bold={titleEmphasis === 'strong'}>{data.title || 'Update Todos'}</Text>
       </Box>
 

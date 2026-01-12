@@ -1,8 +1,10 @@
 /**
  * @license
- * Copyright 2025 Google LLC
+ * Copyright 2025 DeepV Code team
+ * https://github.com/OrionStarAI/DeepVCode
  * SPDX-License-Identifier: Apache-2.0
  */
+
 
 /**
  * 代理模式认证管理器
@@ -68,6 +70,7 @@ export class ProxyAuthManager {
   private refreshPromise: Promise<string> | null = null;
   private cliVersion: string = 'unknown';
   private periodicStatusCheckIntervalId: NodeJS.Timeout | null = null;
+  private onLoginSuccessCallbacks: Array<() => void> = [];
 
   /**
    * 获取CLI版本号
@@ -404,6 +407,29 @@ export class ProxyAuthManager {
     this.userInfo = userInfo;
     this.saveUserInfo();
     console.log(`[Login Check] User info updated: ${userInfo.name} (${userInfo.email || userInfo.openId || 'N/A'})`);
+
+    // 触发登录成功回调（例如刷新云端模型列表）
+    this.triggerLoginSuccessCallbacks();
+  }
+
+  /**
+   * 注册登录成功回调
+   */
+  onLoginSuccess(callback: () => void): void {
+    this.onLoginSuccessCallbacks.push(callback);
+  }
+
+  /**
+   * 触发所有登录成功回调
+   */
+  private triggerLoginSuccessCallbacks(): void {
+    this.onLoginSuccessCallbacks.forEach(callback => {
+      try {
+        callback();
+      } catch (error) {
+        console.error('[ProxyAuthManager] Error in login success callback:', error);
+      }
+    });
   }
 
   /**

@@ -63,7 +63,7 @@ describe('handleValidate', () => {
     );
   });
 
-  it('should throw an error if the extension name is invalid', async () => {
+  it('should validate even if the extension name format is non-standard', async () => {
     createExtension({
       extensionsDir: tempWorkspaceDir,
       name: 'INVALID_NAME',
@@ -73,12 +73,10 @@ describe('handleValidate', () => {
     await handleValidate({
       path: 'INVALID_NAME',
     });
-    expect(debugLoggerErrorSpy).toHaveBeenCalledWith(
-      expect.stringContaining(
-        'Invalid extension name: "INVALID_NAME". Only letters (a-z, A-Z), numbers (0-9), and dashes (-) are allowed.',
-      ),
+    expect(debugLoggerErrorSpy).not.toHaveBeenCalled();
+    expect(debugLoggerLogSpy).toHaveBeenCalledWith(
+      'Extension INVALID_NAME has been successfully validated.',
     );
-    expect(processSpy).toHaveBeenCalledWith(1);
   });
 
   it('should warn if version is not formatted with semver', async () => {

@@ -28,7 +28,10 @@ import { DEFAULT_DIFF_OPTIONS } from './diffOptions.js';
 import { ReadFileTool } from './read-file.js';
 import { ModifiableTool, ModifyContext } from './modifiable-tool.js';
 import { isWithinRoot } from '../utils/fileUtils.js';
-import { postProcessTextByLanguage } from '../utils/languageAwareTextProcessor.js';
+import {
+  postProcessTextByLanguage,
+  detectLineEnding,
+} from '../utils/languageAwareTextProcessor.js';
 
 /**
  * Parameters for the Edit tool
@@ -74,8 +77,7 @@ interface CalculatedEdit {
  */
 export class EditTool
   extends BaseTool<EditToolParams, ToolResult>
-  implements ModifiableTool<EditToolParams>
-{
+  implements ModifiableTool<EditToolParams> {
   static readonly Name = 'replace';
 
   constructor(private readonly config: Config) {
@@ -161,6 +163,7 @@ Expectation for required parameters:
     newString: string,
     isNewFile: boolean,
     filePath?: string,
+    targetLineEnding?: string,
   ): string {
     let result: string;
 
@@ -180,7 +183,13 @@ Expectation for required parameters:
     if (filePath) {
       const projectSettings = this.config.getProjectSettingsManager().getSettings();
       const autoTrimTrailingSpaces = projectSettings.autoTrimTrailingSpaces;
-      result = postProcessTextByLanguage(result, filePath, isNewFile, autoTrimTrailingSpaces);
+      result = postProcessTextByLanguage(
+        result,
+        filePath,
+        isNewFile,
+        autoTrimTrailingSpaces,
+        targetLineEnding,
+      );
     }
 
     return result;
@@ -207,6 +216,17 @@ Expectation for required parameters:
 
     try {
       currentContent = fs.readFileSync(params.file_path, 'utf8');
+
+      // Detect line endings BEFORE normalization
+      const detectedLineEnding = detectLineEnding(currentContent);
+      // Only set targetLineEnding if one was clearly detected.
+      // If mixed or none, let postProcessTextByLanguage use its defaults (LF).
+      if (detectedLineEnding) {
+        // Pass this down to _applyReplacement -> postProcessTextByLanguage
+        // We'll need to store it in a variable accessible when calling _applyReplacement
+        (params as any)._detectedLineEnding = detectedLineEnding;
+      }
+
       // Normalize line endings to LF for consistent processing.
       currentContent = currentContent.replace(/\r\n/g, '\n');
       fileExists = true;
@@ -310,6 +330,7 @@ Expectation for required parameters:
       finalNewString,
       isNewFile,
       params.file_path,
+      (params as any)._detectedLineEnding,
     );
 
     return {
@@ -550,6 +571,7 @@ Expectation for required parameters:
             params.new_string,
             params.old_string === '' && currentContent === '',
             params.file_path,
+            (params as any)._detectedLineEnding,
           );
         } catch (err) {
           if (!isNodeError(err) || err.code !== 'ENOENT') throw err;

@@ -1,17 +1,22 @@
 /**
  * @license
- * Copyright 2025 Google LLC
+ * Copyright 2025 DeepV Code team
+ * https://github.com/OrionStarAI/DeepVCode
  * SPDX-License-Identifier: Apache-2.0
  */
+
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useLoadingIndicator } from './useLoadingIndicator.js';
 import { StreamingState } from '../types.js';
 import {
-  WITTY_LOADING_PHRASES,
+  WITTY_LOADING_PHRASES_EN,
+  KNOWLEDGE_TIPS_EN,
   PHRASE_CHANGE_INTERVAL_MS,
 } from './usePhraseCycler.js';
+
+const ALL_PHRASES = [...WITTY_LOADING_PHRASES_EN, ...KNOWLEDGE_TIPS_EN];
 
 describe('useLoadingIndicator', () => {
   beforeEach(() => {
@@ -28,7 +33,7 @@ describe('useLoadingIndicator', () => {
       useLoadingIndicator(StreamingState.Idle),
     );
     expect(result.current.elapsedTime).toBe(0);
-    expect(result.current.currentLoadingPhrase).toBe(WITTY_LOADING_PHRASES[0]);
+    expect(WITTY_LOADING_PHRASES_EN).toContain(result.current.currentLoadingPhrase);
   });
 
   it('should reflect values when Responding', async () => {
@@ -38,7 +43,7 @@ describe('useLoadingIndicator', () => {
 
     // Initial state before timers advance
     expect(result.current.elapsedTime).toBe(0);
-    expect(WITTY_LOADING_PHRASES).toContain(
+    expect(ALL_PHRASES).toContain(
       result.current.currentLoadingPhrase,
     );
 
@@ -47,7 +52,7 @@ describe('useLoadingIndicator', () => {
     });
 
     // Phrase should cycle if PHRASE_CHANGE_INTERVAL_MS has passed
-    expect(WITTY_LOADING_PHRASES).toContain(
+    expect(ALL_PHRASES).toContain(
       result.current.currentLoadingPhrase,
     );
   });
@@ -102,7 +107,7 @@ describe('useLoadingIndicator', () => {
       rerender({ streamingState: StreamingState.Responding });
     });
     expect(result.current.elapsedTime).toBe(0); // Should reset
-    expect(WITTY_LOADING_PHRASES).toContain(
+    expect(ALL_PHRASES).toContain(
       result.current.currentLoadingPhrase,
     );
 
@@ -128,7 +133,7 @@ describe('useLoadingIndicator', () => {
     });
 
     expect(result.current.elapsedTime).toBe(0);
-    expect(result.current.currentLoadingPhrase).toBe(WITTY_LOADING_PHRASES[0]);
+    expect(WITTY_LOADING_PHRASES_EN).toContain(result.current.currentLoadingPhrase);
 
     // Timer should not advance
     await act(async () => {

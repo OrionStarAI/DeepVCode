@@ -6,7 +6,7 @@
 
 import { type MutableRefObject } from 'react';
 import { render } from 'ink-testing-library';
-import { renderHook } from '@testing-library/react';
+import { renderHook, waitFor } from '@testing-library/react';
 import { act } from 'react-dom/test-utils';
 import {
   SessionStatsProvider,
@@ -15,6 +15,33 @@ import {
 } from './SessionContext.js';
 import { describe, it, expect, vi } from 'vitest';
 import { uiTelemetryService } from 'deepv-code-core';
+
+// Reset uiTelemetryService before each test to ensure a clean state
+vi.mock('deepv-code-core', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('deepv-code-core')>();
+  const EventEmitter = (await import('node:events')).EventEmitter;
+  const mockEmitter = new EventEmitter();
+
+  const mockMetrics = {
+    models: {},
+    tools: {
+      totalCalls: 0,
+      totalSuccess: 0,
+      totalFail: 0,
+      totalDurationMs: 0,
+      totalDecisions: { accept: 0, reject: 0, modify: 0 },
+      byName: {},
+    },
+  };
+
+  return {
+    ...actual,
+    uiTelemetryService: Object.assign(mockEmitter, {
+      getMetrics: vi.fn(() => mockMetrics),
+      getLastPromptTokenCount: vi.fn(() => 0),
+    }),
+  };
+});
 
 /**
  * A test harness component that uses the hook and exposes the context value
@@ -49,7 +76,7 @@ describe('SessionStatsContext', () => {
     expect(stats?.metrics.models).toEqual({});
   });
 
-  it('should update metrics when the uiTelemetryService emits an update', () => {
+  it('should update metrics when the uiTelemetryService emits an update', async () => {
     const contextRef: MutableRefObject<
       ReturnType<typeof useSessionStats> | undefined
     > = { current: undefined };
@@ -75,6 +102,13 @@ describe('SessionStatsContext', () => {
             cached: 50,
             thoughts: 20,
             tool: 10,
+          },
+          credits: {
+            total: 0.05,
+          },
+          subAgents: {
+            api: { totalRequests: 0, totalErrors: 0, totalLatencyMs: 0 },
+            tokens: { total: 0, prompt: 0, candidates: 0, cached: 0, thoughts: 0, tool: 0 },
           },
         },
       },
@@ -111,9 +145,11 @@ describe('SessionStatsContext', () => {
       });
     });
 
-    const stats = contextRef.current?.stats;
-    expect(stats?.metrics).toEqual(newMetrics);
-    expect(stats?.lastPromptTokenCount).toBe(100);
+    await waitFor(() => {
+      const stats = contextRef.current?.stats;
+      expect(stats?.metrics).toEqual(newMetrics);
+      expect(stats?.lastPromptTokenCount).toBe(100);
+    });
   });
 
   it('should throw an error when useSessionStats is used outside of a provider', () => {

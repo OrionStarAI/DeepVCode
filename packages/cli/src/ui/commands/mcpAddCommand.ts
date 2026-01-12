@@ -1,8 +1,10 @@
 /**
  * @license
- * Copyright 2025 Google LLC
+ * Copyright 2025 DeepV Code team
+ * https://github.com/OrionStarAI/DeepVCode
  * SPDX-License-Identifier: Apache-2.0
  */
+
 
 import {
   SlashCommand,
@@ -221,9 +223,9 @@ async function showInteractiveWizard(): Promise<SlashCommandActionReturn> {
 
 ${COLOR_YELLOW}${t('mcp.wizard.config.ways')}${RESET_COLOR}
 
-${COLOR_CYAN}● ${t('mcp.wizard.predefined')}${RESET_COLOR} - ${t('mcp.wizard.predefined.desc')}
-${COLOR_CYAN}● ${t('mcp.wizard.custom')}${RESET_COLOR} - ${t('mcp.wizard.custom.desc')}
-${COLOR_CYAN}● ${t('mcp.wizard.view.templates')}${RESET_COLOR} - ${t('mcp.wizard.view.templates.desc')}
+${COLOR_CYAN}• ${t('mcp.wizard.predefined')}${RESET_COLOR} - ${t('mcp.wizard.predefined.desc')}
+${COLOR_CYAN}• ${t('mcp.wizard.custom')}${RESET_COLOR} - ${t('mcp.wizard.custom.desc')}
+${COLOR_CYAN}• ${t('mcp.wizard.view.templates')}${RESET_COLOR} - ${t('mcp.wizard.view.templates.desc')}
 
 ${COLOR_BLUE}${t('mcp.wizard.available.templates')}${RESET_COLOR}
 ${getAllTemplates().map((template, index) =>

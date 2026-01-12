@@ -443,6 +443,13 @@ export const useSlashCommandProcessor = (
                     content: result.content,
                     silent: result.silent, // 🎯 传递静默模式
                   };
+                case 'select_session':
+                  setShowHelp(false);
+                  // 透传 select_session action
+                  return {
+                    type: 'select_session',
+                    sessions: result.sessions,
+                  } as any; // Temporary cast, need to update SlashCommandProcessorResult type
                 case 'refine_result':
                   setShowHelp(false);
                   return {

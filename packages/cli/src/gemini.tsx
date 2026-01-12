@@ -669,6 +669,24 @@ export async function main() {
 
   await config.initialize();
 
+  // 注册登录成功回调：刷新云端模型列表
+  if (!shouldEnableSilentMode) {
+    const { ProxyAuthManager } = await import('deepv-code-core');
+    const proxyAuthManager = ProxyAuthManager.getInstance();
+    proxyAuthManager.onLoginSuccess(() => {
+      // 异步刷新模型列表，不阻塞主流程
+      (async () => {
+        try {
+          const { refreshModelsInBackground } = await import('./ui/commands/modelCommand.js');
+          await refreshModelsInBackground(settings, config);
+          console.log('[Main] Cloud models refreshed after successful login');
+        } catch (error) {
+          console.warn('[Main] Failed to refresh models after login:', error);
+        }
+      })();
+    });
+  }
+
   // Check model compatibility and log diagnostics (only in debug mode)
   try {
     if (process.env.DEBUG) {

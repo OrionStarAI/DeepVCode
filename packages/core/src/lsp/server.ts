@@ -1,8 +1,10 @@
 /**
  * @license
- * Copyright 2025 Google LLC
+ * Copyright 2025 DeepV Code team
+ * https://github.com/OrionStarAI/DeepVCode
  * SPDX-License-Identifier: Apache-2.0
  */
+
 
 import * as path from 'node:path';
 import * as fs from 'node:fs';
@@ -86,27 +88,68 @@ export const RustAnalyzer = (projectRoot: string): LSPServer.Info => ({
   extensions: ['.rs'],
   root: NearestRoot(['Cargo.toml'], projectRoot),
   async spawn(root: string) {
-    const bin = await BinaryManager.ensureBinary('rust-analyzer',
-      await BinaryManager.githubInstaller('rust-lang', 'rust-analyzer', (platform, arch) => {
-        const p = platform === 'win32' ? 'windows' : platform === 'darwin' ? 'apple-darwin' : 'unknown-linux-gnu';
-        const a = arch === 'x64' ? 'x86_64' : 'aarch64';
-        // e.g. rust-analyzer-x86_64-pc-windows-msvc.zip or similar
-        // actually they are just binaries: rust-analyzer-x86_64-pc-windows-msvc.gz
-        const nameMap: Record<string, string> = {
-          'win32-x64': 'rust-analyzer-x86_64-pc-windows-msvc.gz',
-          'darwin-x64': 'rust-analyzer-x86_64-apple-darwin.gz',
-          'darwin-arm64': 'rust-analyzer-aarch64-apple-darwin.gz',
-          'linux-x64': 'rust-analyzer-x86_64-unknown-linux-gnu.gz',
-          'linux-arm64': 'rust-analyzer-aarch64-unknown-linux-gnu.gz',
-        };
-        return nameMap[`${platform}-${arch}`] || /rust-analyzer-.*gz/;
-      })
+    // 🎯 FIX: 正确处理 githubInstaller 的返回值
+    // githubInstaller 返回 Promise<Function>，不能直接 await 嵌套
+    const platform = process.platform;
+    const arch = process.arch;
+    console.log(`[LSP] Detecting platform for rust-analyzer: platform=${platform}, arch=${arch}`);
+
+    const installer = await BinaryManager.githubInstaller('rust-lang', 'rust-analyzer', (platform, arch) => {
+      // 🎯 对应 GitHub release 中实际的文件名
+      // Windows: rust-analyzer-x86_64-pc-windows-msvc.zip (不是 .gz!)
+      // macOS x64: rust-analyzer-x86_64-apple-darwin.gz
+      // macOS ARM64: rust-analyzer-aarch64-apple-darwin.gz
+      // Linux x64: rust-analyzer-x86_64-unknown-linux-gnu.gz
+      // Linux ARM64: rust-analyzer-aarch64-unknown-linux-gnu.gz
+
+      const nameMap: Record<string, string | RegExp> = {
+        'win32-x64': /rust-analyzer.*x86_64.*windows.*\.zip/i,
+        'win32-arm64': /rust-analyzer.*aarch64.*windows.*\.zip/i,
+        'darwin-x64': /rust-analyzer.*x86_64.*apple-darwin.*\.gz/i,
+        'darwin-arm64': /rust-analyzer.*aarch64.*apple-darwin.*\.gz/i,
+        'linux-x64': /rust-analyzer.*x86_64.*linux.*\.gz/i,
+        'linux-arm64': /rust-analyzer.*aarch64.*linux.*\.gz/i,
+      };
+
+      const key = `${platform}-${arch}`;
+      const result = nameMap[key] || /rust-analyzer-.*/;
+      console.log(`[LSP] Asset matcher for ${key}: ${result instanceof RegExp ? result.source : result}`);
+      return result;
+    });
+
+    // 等 installer 函数完全准备好后，再调用 ensureBinary
+    const bin = await BinaryManager.ensureBinary(
+      'rust-analyzer',
+      installer,
+      { maxRetries: 1 }
     );
 
-    // 注意：如果是 .gz 还需要解压，BinaryManager 里的 githubInstaller 还没做解压
-    // 简化起见，这里假设下载后就能用，实际需要根据后缀处理
+    console.log(`[LSP] RustAnalyzer binary path: ${bin}`);
+    console.log(`[LSP] RustAnalyzer binary exists: ${fs.existsSync(bin)}`);
+    if (fs.existsSync(bin)) {
+      const stats = fs.statSync(bin);
+      console.log(`[LSP] RustAnalyzer binary stats: size=${stats.size}, isFile=${stats.isFile()}, mode=${(stats.mode & parseInt('777', 8)).toString(8)}`);
+    }
+    console.log(`[LSP] RustAnalyzer spawning with cwd=${root}, args=[], shell=undefined`);
+    const proc = spawn(bin, [], { cwd: root });
+    console.log(`[LSP] RustAnalyzer spawn returned: pid=${proc.pid}`);
+
+    proc.on('error', (err) => {
+      console.error(`[LSP] RustAnalyzer process error:`, {
+        code: (err as any).code,
+        errno: (err as any).errno,
+        syscall: (err as any).syscall,
+        path: (err as any).path,
+        message: err.message
+      });
+    });
+
+    proc.on('exit', (code, signal) => {
+      console.log(`[LSP] RustAnalyzer process exited: code=${code}, signal=${signal}`);
+    });
+
     return {
-      process: spawn(bin, [], { cwd: root })
+      process: proc
     };
   }
 });
@@ -117,14 +160,24 @@ export const Gopls = (projectRoot: string): LSPServer.Info => ({
   extensions: ['.go'],
   root: NearestRoot(['go.mod', 'go.sum'], projectRoot),
   async spawn(root: string) {
-    const bin = await BinaryManager.ensureBinary('gopls',
-      await BinaryManager.githubInstaller('golang', 'tools', (platform, arch) => {
-        // gopls binaries are a bit different, often distributed via 'go install'
-        // but for小白 users, we can try to find them or use a precompiled source
-        // simplified here to use githubInstaller if available
-        return /gopls-.*\.gz/;
-      })
+    // Prefer user-provided path, then PATH, finally install via Go toolchain.
+    // Note: golang/tools GitHub releases often ship no prebuilt assets.
+    const envPath = process.env.DEEPV_GOPLS_PATH;
+    if (envPath && fs.existsSync(envPath)) {
+      return { process: spawn(envPath, [], { cwd: root }) };
+    }
+
+    const onPath = BinaryManager.findOnPath('gopls');
+    if (onPath) {
+      return { process: spawn(onPath, [], { cwd: root }) };
+    }
+
+    const bin = await BinaryManager.ensureBinary(
+      'gopls',
+      await BinaryManager.goInstaller('golang.org/x/tools/gopls', 'gopls'),
+      { maxRetries: 1 },
     );
+
     return {
       process: spawn(bin, [], { cwd: root })
     };
@@ -137,12 +190,14 @@ export const Clangd = (projectRoot: string): LSPServer.Info => ({
   extensions: ['.c', '.cpp', '.h', '.hpp', '.cc'],
   root: NearestRoot(['compile_commands.json', 'CMakeLists.txt', '.git'], projectRoot),
   async spawn(root: string) {
-    const bin = await BinaryManager.ensureBinary('clangd',
-      await BinaryManager.githubInstaller('clangd', 'clangd', (platform, arch) => {
-        // clangd release names: clangd-windows-18.1.3.zip, clangd-linux-18.1.3.zip, etc.
-        const p = platform === 'win32' ? 'windows' : platform === 'darwin' ? 'mac' : 'linux';
-        return new RegExp(`clangd-${p}-.*\\.zip`);
-      })
+    const installer = await BinaryManager.githubInstaller('clangd', 'clangd', (platform, arch) => {
+      const p = platform === 'win32' ? 'windows' : platform === 'darwin' ? 'mac' : 'linux';
+      return new RegExp(`clangd-${p}-.*\\.zip`);
+    });
+    const bin = await BinaryManager.ensureBinary(
+      'clangd',
+      installer,
+      { maxRetries: 1 }
     );
     return {
       process: spawn(bin, [], { cwd: root })
@@ -159,8 +214,6 @@ export const WebLSP = (projectRoot: string): LSPServer.Info => ({
     const bin = await BinaryManager.ensureBinary('vscode-langservers-extracted',
       await BinaryManager.npmInstaller(['vscode-langservers-extracted'], 'vscode-html-language-server')
     );
-    // 这里其实一个包里有多个 server，我们简单起见先启动 HTML 的，
-    // 实际实现中可能需要根据后缀动态选择启动哪一个子命令
     return {
       process: spawn(bin, ['--stdio'], { cwd: root, shell: true })
     };
@@ -223,4 +276,3 @@ export const DefaultServers = (projectRoot: string): LSPServer.Info[] => [
   DockerLSP(projectRoot),
   YamlLSP(projectRoot),
 ];
-

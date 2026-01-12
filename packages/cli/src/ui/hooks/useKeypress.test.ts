@@ -1,14 +1,18 @@
 /**
  * @license
- * Copyright 2025 Google LLC
+ * Copyright 2025 DeepV Code team
+ * https://github.com/OrionStarAI/DeepVCode
  * SPDX-License-Identifier: Apache-2.0
  */
 
+
 import { renderHook, act } from '@testing-library/react';
 import { useKeypress, Key } from './useKeypress.js';
+import { KeypressProvider } from '../contexts/KeypressContext.js';
 import { useStdin } from 'ink';
 import { EventEmitter } from 'events';
 import { PassThrough } from 'stream';
+import React from 'react';
 
 // Mock the 'ink' module to control stdin
 vi.mock('ink', async (importOriginal) => {
@@ -19,8 +23,7 @@ vi.mock('ink', async (importOriginal) => {
   };
 });
 
-// Mock the 'readline' module
-vi.mock('readline', () => {
+function createReadlineMock() {
   const mockedReadline = {
     createInterface: vi.fn().mockReturnValue({ close: vi.fn() }),
     // The paste workaround involves replacing stdin with a PassThrough stream.
@@ -30,14 +33,24 @@ vi.mock('readline', () => {
       if (stream instanceof PassThrough) {
         stream.on('data', (data) => {
           const str = data.toString();
-          for (const char of str) {
+          if (str === '\x1B\r') {
             stream.emit('keypress', null, {
-              name: char,
-              sequence: char,
+              name: 'return',
+              sequence: '\x1B\r',
               ctrl: false,
-              meta: false,
+              meta: true,
               shift: false,
             });
+          } else {
+            for (const char of str) {
+              stream.emit('keypress', null, {
+                name: char,
+                sequence: char,
+                ctrl: false,
+                meta: true,
+                shift: false,
+              });
+            }
           }
         });
       }
@@ -47,7 +60,11 @@ vi.mock('readline', () => {
     ...mockedReadline,
     default: mockedReadline,
   };
-});
+}
+
+// Mock the 'readline' module
+vi.mock('readline', () => createReadlineMock());
+vi.mock('node:readline', () => createReadlineMock());
 
 class MockStdin extends EventEmitter {
   isTTY = true;
@@ -56,6 +73,7 @@ class MockStdin extends EventEmitter {
   removeListener = this.removeListener;
   write = vi.fn();
   resume = vi.fn();
+  isRaw = false;
 
   private isLegacy = false;
 
@@ -65,33 +83,38 @@ class MockStdin extends EventEmitter {
 
   // Helper to simulate a full paste event.
   paste(text: string) {
-    if (this.isLegacy) {
-      const PASTE_START = '\x1B[200~';
-      const PASTE_END = '\x1B[201~';
-      this.emit('data', Buffer.from(`${PASTE_START}${text}${PASTE_END}`));
-    } else {
-      this.emit('keypress', null, { name: 'paste-start' });
-      this.emit('keypress', null, { sequence: text });
-      this.emit('keypress', null, { name: 'paste-end' });
+    const PASTE_START = '\x1B[200~';
+    const PASTE_END = '\x1B[201~';
+    this.emit('data', Buffer.from(`${PASTE_START}${text}${PASTE_END}`));
+    // Fast-forward to flush rapid paste buffer in KeypressProvider
+    if (typeof vi !== 'undefined' && vi.isFakeTimers()) {
+      vi.advanceTimersByTime(100);
     }
   }
 
   // Helper to simulate the start of a paste, without the end.
   startPaste(text: string) {
-    if (this.isLegacy) {
-      this.emit('data', Buffer.from('\x1B[200~' + text));
-    } else {
-      this.emit('keypress', null, { name: 'paste-start' });
-      this.emit('keypress', null, { sequence: text });
+    const PASTE_START = '\x1B[200~';
+    this.emit('data', Buffer.from(`${PASTE_START}${text}`));
+    // Fast-forward to flush rapid paste buffer in KeypressProvider
+    if (typeof vi !== 'undefined' && vi.isFakeTimers()) {
+      vi.advanceTimersByTime(100);
     }
   }
 
   // Helper to simulate a single keypress event.
   pressKey(key: Partial<Key>) {
-    if (this.isLegacy) {
-      this.emit('data', Buffer.from(key.sequence ?? ''));
+    // Always emit data to trigger handleRawKeypress in KeypressProvider
+    const sequence = key.sequence || '';
+    if (sequence) {
+      this.emit('data', Buffer.from(sequence));
     } else {
+      // Fallback for keys without sequence (though rare in these tests)
       this.emit('keypress', null, key);
+    }
+    // Fast-forward to flush rapid paste buffer in KeypressProvider
+    if (typeof vi !== 'undefined' && vi.isFakeTimers()) {
+      vi.advanceTimersByTime(100);
     }
   }
 }
@@ -104,6 +127,7 @@ describe('useKeypress', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers();
     stdin = new MockStdin();
     (useStdin as vi.Mock).mockReturnValue({
       stdin,
@@ -115,6 +139,7 @@ describe('useKeypress', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     Object.defineProperty(process.versions, 'node', {
       value: originalNodeVersion,
       configurable: true,
@@ -128,14 +153,18 @@ describe('useKeypress', () => {
     });
   };
 
+  const wrapper = ({ children }: { children: React.ReactNode }) => (
+    React.createElement(KeypressProvider, { disableRapidPaste: true }, children)
+  );
+
   it('should not listen if isActive is false', () => {
-    renderHook(() => useKeypress(onKeypress, { isActive: false }));
+    renderHook(() => useKeypress(onKeypress, { isActive: false }), { wrapper });
     act(() => stdin.pressKey({ name: 'a' }));
     expect(onKeypress).not.toHaveBeenCalled();
   });
 
   it('should listen for keypress when active', () => {
-    renderHook(() => useKeypress(onKeypress, { isActive: true }));
+    renderHook(() => useKeypress(onKeypress, { isActive: true }), { wrapper });
     const key = { name: 'a', sequence: 'a' };
     act(() => stdin.pressKey(key));
     expect(onKeypress).toHaveBeenCalledWith(expect.objectContaining(key));
@@ -144,6 +173,7 @@ describe('useKeypress', () => {
   it('should set and release raw mode', () => {
     const { unmount } = renderHook(() =>
       useKeypress(onKeypress, { isActive: true }),
+      { wrapper }
     );
     expect(mockSetRawMode).toHaveBeenCalledWith(true);
     unmount();
@@ -153,6 +183,7 @@ describe('useKeypress', () => {
   it('should stop listening after being unmounted', () => {
     const { unmount } = renderHook(() =>
       useKeypress(onKeypress, { isActive: true }),
+      { wrapper }
     );
     unmount();
     act(() => stdin.pressKey({ name: 'a' }));
@@ -160,7 +191,7 @@ describe('useKeypress', () => {
   });
 
   it('should correctly identify alt+enter (meta key)', () => {
-    renderHook(() => useKeypress(onKeypress, { isActive: true }));
+    renderHook(() => useKeypress(onKeypress, { isActive: true }), { wrapper });
     const key = { name: 'return', sequence: '\x1B\r' };
     act(() => stdin.pressKey(key));
     expect(onKeypress).toHaveBeenCalledWith(
@@ -194,7 +225,7 @@ describe('useKeypress', () => {
     });
 
     it('should process a paste as a single event', () => {
-      renderHook(() => useKeypress(onKeypress, { isActive: true }));
+      renderHook(() => useKeypress(onKeypress, { isActive: true }), { wrapper });
       const pasteText = 'hello world';
       act(() => stdin.paste(pasteText));
 
@@ -210,7 +241,7 @@ describe('useKeypress', () => {
     });
 
     it('should handle keypress interspersed with pastes', () => {
-      renderHook(() => useKeypress(onKeypress, { isActive: true }));
+      renderHook(() => useKeypress(onKeypress, { isActive: true }), { wrapper });
 
       const keyA = { name: 'a', sequence: 'a' };
       act(() => stdin.pressKey(keyA));
@@ -236,6 +267,7 @@ describe('useKeypress', () => {
     it('should emit partial paste content if unmounted mid-paste', () => {
       const { unmount } = renderHook(() =>
         useKeypress(onKeypress, { isActive: true }),
+        { wrapper }
       );
       const pasteText = 'incomplete paste';
 

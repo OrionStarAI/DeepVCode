@@ -5,32 +5,26 @@
  */
 
 import { execSync } from 'child_process';
-import { readFileSync, writeFileSync } from 'fs';
+import { readFileSync, writeFileSync, createReadStream } from 'fs';
 import { resolve } from 'path';
+import { createHash } from 'crypto';
 import ora from 'ora';
 import chalk from 'chalk';
 import cliProgress from 'cli-progress';
 
 /**
  * 🚀 New Package Script - Simplified Reliable Version
- * Features:
- * 1. Auto-increment patch version (modify root package.json only)
- * 2. Use standard build commands for reliability
- * 3. Package and generate tgz
- * 4. Optional installation (--install)
  */
 
-// Fun programmer quotes for the packaging process
-const packagingQuotes = [
-  "🚀 Launching into the packaging stratosphere...",
-  "⚡ Compressing dreams into reality...",
-  "🎯 Building the ultimate deployment package...",
-  "💻 Wrapping code with love and care...",
-  "🔥 Creating digital magic in a box...",
-  "⭐ Packaging excellence for the world...",
-  "🛠️ Crafting the perfect software bundle...",
-  "🌟 Making deployment dreams come true..."
-];
+function getFileHash(filePath) {
+  return new Promise((resolve, reject) => {
+    const hash = createHash('sha256');
+    const stream = createReadStream(filePath);
+    stream.on('data', (data) => hash.update(data));
+    stream.on('end', () => resolve(hash.digest('hex')));
+    stream.on('error', (err) => reject(err));
+  });
+}
 
 function run(command, options = {}) {
   console.log(chalk.cyan(`\n🔧 Executing: ${command}`));
@@ -86,12 +80,8 @@ function updateAllPackageVersions(newVersion) {
   });
 }
 
-function main() {
-  // Display a random packaging quote
-  const randomQuote = packagingQuotes[Math.floor(Math.random() * packagingQuotes.length)];
-  console.log(chalk.bold.cyan('\n' + randomQuote + '\n'));
-
-  console.log(chalk.bold.magenta('🚀 DeepV Code New Packaging Flow (Simplified Reliable Version)'));
+async function main() {
+  console.log(chalk.bold.magenta('\n🚀 DeepV Code CLI Packaging Process'));
   console.log(chalk.gray('═══════════════════════════════════════════════════════════════'));
   console.log(chalk.blue('📋 Process Overview:'));
   console.log(chalk.white('   1. Check current version'));
@@ -106,7 +96,8 @@ function main() {
   const allArgs = [...args, ...(npmConfigArgv?.original || [])];
 
   const shouldInstall = allArgs.includes('--install');
-  const noVersionBump = allArgs.includes('--no-version-bump');
+  // Check for no-version-bump flag OR production build environment
+  const noVersionBump = allArgs.includes('--no-version-bump') || process.env.BUILD_ENV === 'production';
 
   if (shouldInstall) {
     console.log(chalk.green('🔧 Mode: Full workflow (build + install + test)'));
@@ -114,7 +105,8 @@ function main() {
     console.log(chalk.blue('🔧 Mode: Build only (no installation)'));
   }
   if (noVersionBump) {
-    console.log(chalk.yellow('⚠️  Version bump: Disabled (using current version)'));
+    const reason = process.env.BUILD_ENV === 'production' ? '(production build)' : '(--no-version-bump flag)';
+    console.log(chalk.yellow(`⚠️  Version bump: Disabled ${reason}`));
   }
   console.log('');
 
@@ -178,9 +170,8 @@ function main() {
     }).start();
 
     try {
-      run('npm pack');
+      run('npm pack', { env: { ...process.env, DEEPV_SKIP_BUILD: '1' } });
       packingSpinner.succeed(chalk.green(`✨ Build and packaging completed: ${tgzFileName}`));
-      console.log(chalk.blue(`   📋 Final version: ${newVersion}`));
       progressBar.increment({ step: 'Build and package complete' });
     } catch (error) {
       packingSpinner.fail(chalk.red('💥 Build and packaging failed!'));
@@ -246,26 +237,31 @@ function main() {
       }
 
       progressBar.increment({ step: 'Installation and testing complete' });
-    } else {
-      console.log(chalk.cyan('\n💡 Skipping installation step'));
-      console.log(chalk.yellow('   Tip: Use --install parameter for automatic global installation'));
-      console.log(chalk.white(`   Manual install command: npm install -g ./${tgzFileName}`));
     }
 
     progressBar.stop();
 
-    console.log(chalk.bold.green('\n🎉 New packaging workflow completed!'));
-    console.log(chalk.gray('═══════════════════════════════════════════════════════════════'));
-    console.log(chalk.cyan(`📦 Generated file: ${tgzFileName}`));
-    console.log(chalk.cyan(`📋 Final version: ${newVersion}`));
+    // Calculate Hash
+    const fileHash = await getFileHash(resolve(process.cwd(), tgzFileName));
+
+    // Final Professional Summary
+    console.log(`\n${chalk.bold.blue('----------------------- Package Summary -----------------------')}`);
+    console.log(`${chalk.green('✅')} ${chalk.cyan('Artifact'.padEnd(15))} ${chalk.white(`[${tgzFileName}]`)}`);
+    console.log(`${chalk.green('✅')} ${chalk.cyan('Version'.padEnd(15))} ${chalk.white(`[${newVersion}]`)}`);
+    console.log(`${chalk.green('✅')} ${chalk.cyan('SHA-256'.padEnd(15))} ${chalk.dim(fileHash)}`);
+    console.log(`${chalk.green('✅')} ${chalk.cyan('Status'.padEnd(15))} ${chalk.green('[SUCCESS]')}`);
+
     if (shouldInstall) {
-      console.log(chalk.green('✅ Completed: Build → Install → Test'));
-      console.log(chalk.magenta('💡 You can now use the dvcode command'));
-    } else {
-      console.log(chalk.green('✅ Completed: Build and packaging'));
-      console.log(chalk.yellow(`💡 Install command: npm install -g ./${tgzFileName}`));
+      console.log(`${chalk.green('✅')} ${chalk.cyan('Integration'.padEnd(15))} ${chalk.green('[Installed & Verified]')}`);
     }
-    console.log(chalk.gray('═══════════════════════════════════════════════════════════════'));
+
+    console.log(`${chalk.bold.blue('---------------------------------------------------------------')}`);
+
+    if (!shouldInstall) {
+      console.log(`\n${chalk.yellow('💡 Hint:')} Run ${chalk.cyan.bold(`npm install -g ./${tgzFileName}`)} to install globally.\n`);
+    } else {
+      console.log(`\n${chalk.green('🎉')} ${chalk.bold('dvcode')} is now updated and ready for use!\n`);
+    }
 
   } catch (error) {
     console.error(chalk.red('\n❌ Packaging workflow failed!'));

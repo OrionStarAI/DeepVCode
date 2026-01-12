@@ -236,13 +236,13 @@ export function RadioButtonSelect<T>({
               {/* 紧凑模式：不显示数字时，选中状态用简化标记 */}
               {!showNumbers ? (
                 <Text color={isSelected ? Colors.AccentGreen : Colors.Foreground}>
-                  {isSelected ? '●' : '○'}
+                  {isSelected ? '•' : '◦'}
                 </Text>
               ) : (
                 <>
                   <Box minWidth={1} flexShrink={0}>
                     <Text color={isSelected ? Colors.AccentGreen : Colors.Foreground}>
-                      {isSelected ? '●' : '○'}
+                      {isSelected ? '•' : '◦'}
                     </Text>
                   </Box>
                   <Box marginLeft={1} marginRight={1} flexShrink={0}>
@@ -304,7 +304,7 @@ export function RadioButtonSelect<T>({
           <Box key={item.label} alignItems="center">
             <Box minWidth={2} flexShrink={0}>
               <Text color={isSelected ? Colors.AccentGreen : Colors.Foreground}>
-                {isSelected ? '●' : ' '}
+                {isSelected ? '•' : ' '}
               </Text>
             </Box>
             <Box

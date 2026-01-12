@@ -336,6 +336,27 @@
   overflow-y: auto;
 }
 
+/* 🎯 确认面板中的 Diff 预览 */
+.confirmation-diff-preview {
+  max-height: 300px;
+  overflow-y: auto;
+  border-radius: 4px;
+  background: var(--vscode-editor-background);
+  padding: 8px;
+  margin-bottom: 0;
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.confirmation-diff-preview .diff-container {
+  font-size: 12px;
+}
+
+/* 确认预览元信息 */
+.confirmation-preview-item .preview-meta {
+  padding: 2px 0;
+  color: var(--vscode-descriptionForeground);
+}
+
 .confirmation-preview pre {
   margin: 0;
   font-family: var(--vscode-editor-font-family, 'Menlo', 'Monaco', 'Courier New', monospace);

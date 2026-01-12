@@ -1,8 +1,10 @@
 /**
  * @license
- * Copyright 2025 Google LLC
+ * Copyright 2025 DeepV Code team
+ * https://github.com/OrionStarAI/DeepVCode
  * SPDX-License-Identifier: Apache-2.0
  */
+
 
 import {
   afterEach,
@@ -14,7 +16,7 @@ import {
   type MockedFunction,
 } from 'vitest';
 import { act } from 'react';
-import { renderHook } from '@testing-library/react';
+import { renderHook, waitFor } from '@testing-library/react';
 import { useEditorSettings } from './useEditorSettings.js';
 import { LoadedSettings, SettingScope } from '../../config/settings.js';
 import { MessageType, type HistoryItem } from '../types.js';
@@ -82,7 +84,7 @@ describe('useEditorSettings', () => {
     expect(result.current.isEditorDialogOpen).toBe(true);
   });
 
-  it('should close editor dialog when exitEditorDialog is called', () => {
+  it('should close editor dialog when exitEditorDialog is called', async () => {
     const { result } = renderHook(() =>
       useEditorSettings(mockLoadedSettings, mockSetEditorError, mockAddItem),
     );
@@ -90,10 +92,10 @@ describe('useEditorSettings', () => {
       result.current.openEditorDialog();
       result.current.exitEditorDialog();
     });
-    expect(result.current.isEditorDialogOpen).toBe(false);
+    await waitFor(() => expect(result.current.isEditorDialogOpen).toBe(false));
   });
 
-  it('should handle editor selection successfully', () => {
+  it('should handle editor selection successfully', async () => {
     const { result } = renderHook(() =>
       useEditorSettings(mockLoadedSettings, mockSetEditorError, mockAddItem),
     );
@@ -121,10 +123,10 @@ describe('useEditorSettings', () => {
     );
 
     expect(mockSetEditorError).toHaveBeenCalledWith(null);
-    expect(result.current.isEditorDialogOpen).toBe(false);
+    await waitFor(() => expect(result.current.isEditorDialogOpen).toBe(false));
   });
 
-  it('should handle clearing editor preference (undefined editor)', () => {
+  it('should handle clearing editor preference (undefined editor)', async () => {
     const { result } = renderHook(() =>
       useEditorSettings(mockLoadedSettings, mockSetEditorError, mockAddItem),
     );
@@ -151,7 +153,7 @@ describe('useEditorSettings', () => {
     );
 
     expect(mockSetEditorError).toHaveBeenCalledWith(null);
-    expect(result.current.isEditorDialogOpen).toBe(false);
+    await waitFor(() => expect(result.current.isEditorDialogOpen).toBe(false));
   });
 
   it('should handle different editor types', () => {

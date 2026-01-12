@@ -1,6 +1,6 @@
 {
   "name": "deepv-code",
-  "version": "1.0.263",
+  "version": "1.0.271",
   "engines": {
     "node": ">=20.0.0"
   },
@@ -8,8 +8,7 @@
   "workspaces": [
     "packages/cli",
     "packages/core",
-    "packages/vscode-ui-plugin",
-    "vsix_remote_build"
+    "packages/vscode-ui-plugin"
   ],
   "repository": {
     "type": "git",
@@ -49,17 +48,18 @@
     "build:packages": "npm run build --workspaces",
     "build:full": "cross-env INCLUDE_VSCODE_PLUGIN=true node scripts/build.js",
     "build:sandbox": "node scripts/build_sandbox.js --skip-npm-install-build",
-    "bundle": "npm run generate && npm run build && node esbuild.config.js && node scripts/copy_bundle_assets.js",
-    "bundle:dev": "cross-env BUILD_ENV=development npm run generate && npm run build && cross-env BUILD_ENV=development node esbuild.config.js && cross-env BUILD_ENV=development node scripts/copy_bundle_assets.js",
-    "bundle:prod": "cross-env BUILD_ENV=production npm run generate && npm run build && cross-env BUILD_ENV=production node esbuild.config.js && cross-env BUILD_ENV=production node scripts/copy_bundle_assets.js",
-    "bundle:full": "cross-env INCLUDE_VSCODE_PLUGIN=true npm run generate && npm run build:full && node esbuild.config.js && node scripts/copy_bundle_assets.js",
-    "bundle:cross-platform:dev": "cross-env BUILD_ENV=development DOWNLOAD_ALL_PLATFORMS=true npm run generate && npm run build && cross-env BUILD_ENV=development node esbuild.config.js && cross-env BUILD_ENV=development DOWNLOAD_ALL_PLATFORMS=true node scripts/copy_bundle_assets.js",
-    "bundle:cross-platform:prod": "cross-env BUILD_ENV=production DOWNLOAD_ALL_PLATFORMS=true npm run generate && npm run build && cross-env BUILD_ENV=production node esbuild.config.js && cross-env BUILD_ENV=production DOWNLOAD_ALL_PLATFORMS=true node scripts/copy_bundle_assets.js",
-    "bundle:cross-platform:full": "cross-env DOWNLOAD_ALL_PLATFORMS=true INCLUDE_VSCODE_PLUGIN=true npm run generate && npm run build:full && node esbuild.config.js && cross-env DOWNLOAD_ALL_PLATFORMS=true node scripts/copy_bundle_assets.js",
+    "bundle": "npm run build && node esbuild.config.js && node scripts/copy_bundle_assets.js",
+    "bundle:dev": "cross-env BUILD_ENV=development npm run build && cross-env BUILD_ENV=development node esbuild.config.js && cross-env BUILD_ENV=development node scripts/copy_bundle_assets.js",
+    "bundle:prod": "cross-env BUILD_ENV=production npm run build && cross-env BUILD_ENV=production node esbuild.config.js && cross-env BUILD_ENV=production node scripts/copy_bundle_assets.js",
+    "bundle:full": "cross-env INCLUDE_VSCODE_PLUGIN=true npm run build:full && node esbuild.config.js && node scripts/copy_bundle_assets.js",
+    "bundle:cross-platform:dev": "cross-env BUILD_ENV=development DOWNLOAD_ALL_PLATFORMS=true npm run build && cross-env BUILD_ENV=development node esbuild.config.js && cross-env BUILD_ENV=development DOWNLOAD_ALL_PLATFORMS=true node scripts/copy_bundle_assets.js",
+    "bundle:cross-platform:prod": "cross-env BUILD_ENV=production DOWNLOAD_ALL_PLATFORMS=true npm run build && cross-env BUILD_ENV=production node esbuild.config.js && cross-env BUILD_ENV=production DOWNLOAD_ALL_PLATFORMS=true node scripts/copy_bundle_assets.js",
+    "bundle:cross-platform:full": "cross-env DOWNLOAD_ALL_PLATFORMS=true INCLUDE_VSCODE_PLUGIN=true npm run build:full && node esbuild.config.js && cross-env DOWNLOAD_ALL_PLATFORMS=true node scripts/copy_bundle_assets.js",
     "pack:dev": "cross-env ENABLE_CHECKPOINTING=true npm run bundle:cross-platform:dev && cross-env BUILD_ENV=development ENABLE_CHECKPOINTING=true node scripts/newpack.js",
     "pack:prod": "cross-env ENABLE_CHECKPOINTING=true npm run bundle:cross-platform:prod && cross-env BUILD_ENV=production ENABLE_CHECKPOINTING=true node scripts/newpack.js",
     "pack:prod:ci": "cross-env ENABLE_CHECKPOINTING=true npm run bundle:cross-platform:prod && cross-env BUILD_ENV=production ENABLE_CHECKPOINTING=true node scripts/newpack.js -- --no-version-bump",
     "pack:full": "cross-env ENABLE_CHECKPOINTING=true npm run bundle:cross-platform:full && cross-env ENABLE_CHECKPOINTING=true node scripts/newpack.js",
+    "package": "npm run package --workspace=packages/vscode-ui-plugin",
     "pack:vscode": "npm run package --workspace=packages/vscode-ui-plugin && copy packages\\vscode-ui-plugin\\*.vsix .",
     "vsix-remote": "node vsix_remote_build/remote_build.js",
     "test": "npm run test --workspaces",
@@ -98,12 +98,14 @@
     "LICENSE"
   ],
   "devDependencies": {
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.1",
     "@types/fs-extra": "^11.0.4",
     "@types/micromatch": "^4.0.9",
     "@types/mime-types": "^3.0.1",
     "@types/minimatch": "^5.1.2",
     "@types/mock-fs": "^4.13.4",
-    "@types/node": "^24.1.0",
+    "@types/node": "^20.19.28",
     "@types/pidusage": "^2.0.5",
     "@types/shell-quote": "^1.7.5",
     "@vitest/coverage-v8": "^3.1.1",
@@ -120,16 +122,17 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "glob": "^10.4.5",
     "globals": "^16.0.0",
+    "ink": "npm:@jrichman/ink@6.4.7",
     "json": "^11.0.0",
     "lodash": "^4.17.21",
     "memfs": "^4.17.2",
     "mock-fs": "^5.5.0",
     "ora": "^9.0.0",
     "prettier": "^3.5.3",
-    "react-devtools-core": "^4.28.5",
+    "react-devtools-core": "^6.1.2",
     "typescript-eslint": "^8.30.1",
-    "vitest": "^3.2.4",
-    "yargs": "^17.7.2"
+    "vitest": "3.2.4",
+    "yargs": "17.7.2"
   },
   "dependencies": {
     "@vscode/ripgrep": "^1.15.14",
@@ -142,8 +145,14 @@
     "undici": "^7.10.0"
   },
   "overrides": {
+    "eslint": {
+      "ajv": "^6.12.6"
+    },
+    "@eslint/eslintrc": {
+      "ajv": "^6.12.6"
+    },
     "ajv": "^8.17.1",
-    "ink": "npm:@jrichman/ink@6.4.6",
+    "ink": "npm:@jrichman/ink@6.4.7",
     "wrap-ansi": "^7.0.0"
   }
 }

@@ -38,6 +38,7 @@ vi.mock('deepv-code-core', async () => {
 interface MockConfigInstanceShape {
   getApprovalMode: Mock<() => ApprovalMode>;
   setApprovalMode: Mock<(value: ApprovalMode) => void>;
+  setApprovalModeWithProjectSync: Mock<(value: ApprovalMode, sync: boolean) => void>;
   getCoreTools: Mock<() => string[]>;
   getToolDiscoveryCommand: Mock<() => string | undefined>;
   getTargetDir: Mock<() => string>;
@@ -76,6 +77,11 @@ describe('useAutoAcceptIndicator', () => {
         >,
         setApprovalMode: instanceSetApprovalModeMock as Mock<
           (value: ApprovalMode) => void
+        >,
+        setApprovalModeWithProjectSync: vi.fn().mockImplementation((value: ApprovalMode) => {
+          instanceGetApprovalModeMock.mockReturnValue(value);
+        }) as Mock<
+          (value: ApprovalMode, sync: boolean) => void
         >,
         getCoreTools: vi.fn().mockReturnValue([]) as Mock<() => string[]>,
         getToolDiscoveryCommand: vi.fn().mockReturnValue(undefined) as Mock<
@@ -165,48 +171,60 @@ describe('useAutoAcceptIndicator', () => {
     act(() => {
       capturedUseInputHandler('', { tab: true, shift: true } as InkKey);
     });
-    expect(mockConfigInstance.setApprovalMode).toHaveBeenCalledWith(
+    expect(mockConfigInstance.setApprovalModeWithProjectSync).toHaveBeenNthCalledWith(
+      1,
       ApprovalMode.AUTO_EDIT,
+      true
     );
     expect(result.current).toBe(ApprovalMode.AUTO_EDIT);
 
     act(() => {
       capturedUseInputHandler('y', { ctrl: true } as InkKey);
     });
-    expect(mockConfigInstance.setApprovalMode).toHaveBeenCalledWith(
+    expect(mockConfigInstance.setApprovalModeWithProjectSync).toHaveBeenNthCalledWith(
+      2,
       ApprovalMode.YOLO,
+      true
     );
     expect(result.current).toBe(ApprovalMode.YOLO);
 
     act(() => {
       capturedUseInputHandler('y', { ctrl: true } as InkKey);
     });
-    expect(mockConfigInstance.setApprovalMode).toHaveBeenCalledWith(
+    expect(mockConfigInstance.setApprovalModeWithProjectSync).toHaveBeenNthCalledWith(
+      3,
       ApprovalMode.DEFAULT,
+      true
     );
     expect(result.current).toBe(ApprovalMode.DEFAULT);
 
     act(() => {
       capturedUseInputHandler('y', { ctrl: true } as InkKey);
     });
-    expect(mockConfigInstance.setApprovalMode).toHaveBeenCalledWith(
+    expect(mockConfigInstance.setApprovalModeWithProjectSync).toHaveBeenNthCalledWith(
+      4,
       ApprovalMode.YOLO,
+      true
     );
     expect(result.current).toBe(ApprovalMode.YOLO);
 
     act(() => {
       capturedUseInputHandler('', { tab: true, shift: true } as InkKey);
     });
-    expect(mockConfigInstance.setApprovalMode).toHaveBeenCalledWith(
+    expect(mockConfigInstance.setApprovalModeWithProjectSync).toHaveBeenNthCalledWith(
+      5,
       ApprovalMode.AUTO_EDIT,
+      true
     );
     expect(result.current).toBe(ApprovalMode.AUTO_EDIT);
 
     act(() => {
       capturedUseInputHandler('', { tab: true, shift: true } as InkKey);
     });
-    expect(mockConfigInstance.setApprovalMode).toHaveBeenCalledWith(
+    expect(mockConfigInstance.setApprovalModeWithProjectSync).toHaveBeenNthCalledWith(
+      6,
       ApprovalMode.DEFAULT,
+      true
     );
     expect(result.current).toBe(ApprovalMode.DEFAULT);
   });

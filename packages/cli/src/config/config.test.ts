@@ -263,6 +263,22 @@ describe('loadCliConfig', () => {
     const config = await loadCliConfig(settings, [], 'test-session', argv);
     expect(config.getProxy()).toBe('http://localhost:7890');
   });
+
+  it('should set healthyUse from settings', async () => {
+    process.argv = ['node', 'script.js'];
+    const argv = await parseArguments();
+    const settings: Settings = { healthyUse: false };
+    const config = await loadCliConfig(settings, [], 'test-session', argv);
+    expect(config.getHealthyUseEnabled()).toBe(false);
+  });
+
+  it('should default healthyUse to true when not present in settings', async () => {
+    process.argv = ['node', 'script.js'];
+    const argv = await parseArguments();
+    const settings: Settings = {};
+    const config = await loadCliConfig(settings, [], 'test-session', argv);
+    expect(config.getHealthyUseEnabled()).toBe(true);
+  });
 });
 
 describe('loadCliConfig telemetry', () => {

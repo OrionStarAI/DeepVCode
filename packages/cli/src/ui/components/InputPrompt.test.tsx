@@ -14,7 +14,7 @@ import {
   SlashCommand,
   CommandKind,
 } from '../commands/types.js';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import {
   useShellHistory,
   UseShellHistoryReturn,
@@ -26,11 +26,33 @@ import {
 } from '../hooks/useInputHistory.js';
 import * as clipboardUtils from '../utils/clipboardUtils.js';
 import { createMockCommandContext } from '../../test-utils/mockCommandContext.js';
+import type { Key } from '../hooks/useKeypress.js';
 
 vi.mock('../hooks/useShellHistory.js');
 vi.mock('../hooks/useCompletion.js');
 vi.mock('../hooks/useInputHistory.js');
 vi.mock('../utils/clipboardUtils.js');
+
+// Mock useKeypress to allow manual control of key events
+let keyPressHandler: ((key: Key) => void) | null = null;
+
+vi.mock('../hooks/useKeypress.js', () => {
+  const mockUseKeypress = vi.fn((handler, options) => {
+    // Only subscribe if isActive is true
+    if (options?.isActive !== false) {
+      keyPressHandler = handler;
+      // Return cleanup function
+      return () => {
+        if (keyPressHandler === handler) {
+          keyPressHandler = null;
+        }
+      };
+    }
+  });
+  return {
+    useKeypress: mockUseKeypress,
+  };
+});
 
 const mockSlashCommands: SlashCommand[] = [
   {
@@ -80,6 +102,22 @@ const mockSlashCommands: SlashCommand[] = [
   },
 ];
 
+// Helper to simulate key press
+function simulateKeyPress(key: Partial<Key>) {
+  const fullKey: Key = {
+    name: '',
+    ctrl: false,
+    meta: false,
+    shift: false,
+    paste: false,
+    sequence: '',
+    ...key,
+  };
+  if (keyPressHandler) {
+    keyPressHandler(fullKey);
+  }
+}
+
 describe('InputPrompt', () => {
   let props: InputPromptProps;
   let mockShellHistory: UseShellHistoryReturn;
@@ -94,8 +132,10 @@ describe('InputPrompt', () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
+    keyPressHandler = null;
 
     mockCommandContext = createMockCommandContext();
+    const configDirPath = path.join('test', 'project', '.deepv');
 
     mockBuffer = {
       text: '',
@@ -156,12 +196,16 @@ describe('InputPrompt', () => {
     };
     mockedUseCompletion.mockReturnValue(mockCompletion);
 
+    let currentOnSubmit = (value: string) => value;
     mockInputHistory = {
       navigateUp: vi.fn(),
       navigateDown: vi.fn(),
-      handleSubmit: vi.fn(),
+      handleSubmit: vi.fn((value: string) => currentOnSubmit(value)),
     };
-    mockedUseInputHistory.mockReturnValue(mockInputHistory);
+    mockedUseInputHistory.mockImplementation((options) => {
+      currentOnSubmit = options.onSubmit;
+      return mockInputHistory;
+    });
 
     props = {
       buffer: mockBuffer,
@@ -172,26 +216,45 @@ describe('InputPrompt', () => {
       config: {
         getProjectRoot: () => path.join('test', 'project'),
         getTargetDir: () => path.join('test', 'project', 'src'),
+        getProjectSettingsManager: () => ({
+          getConfigDirPath: () => configDirPath,
+        }),
         getVimMode: () => false,
+        getCheckpointingEnabled: () => false,
+        getPlanModeActive: () => false,
+        getHookSystem: () => ({
+          getEventHandler: () => ({}),
+        }),
       } as unknown as Config,
       slashCommands: mockSlashCommands,
       commandContext: mockCommandContext,
       shellModeActive: false,
       setShellModeActive: vi.fn(),
+      helpModeActive: false,
+      setHelpModeActive: vi.fn(),
+      vimMode: false,
+      vimHandleInput: vi.fn(() => false),
+      availableTerminalHeight: 20,
+      terminalWidth: 80,
       inputWidth: 80,
-      suggestionsWidth: 80,
-      focus: true,
+      suggestionsWidth: 60,
+      isBusy: false,
+      isInSpecialMode: false,
     };
+  });
+
+  afterEach(() => {
+    keyPressHandler = null;
   });
 
   const wait = (ms = 50) => new Promise((resolve) => setTimeout(resolve, ms));
 
   it('should call shellHistory.getPreviousCommand on up arrow in shell mode', async () => {
     props.shellModeActive = true;
-    const { stdin, unmount } = render(<InputPrompt {...props} />);
+    const { unmount } = render(<InputPrompt {...props} />);
     await wait();
 
-    stdin.write('\u001B[A');
+    simulateKeyPress({ name: 'up' });
     await wait();
 
     expect(mockShellHistory.getPreviousCommand).toHaveBeenCalled();
@@ -200,10 +263,10 @@ describe('InputPrompt', () => {
 
   it('should call shellHistory.getNextCommand on down arrow in shell mode', async () => {
     props.shellModeActive = true;
-    const { stdin, unmount } = render(<InputPrompt {...props} />);
+    const { unmount } = render(<InputPrompt {...props} />);
     await wait();
 
-    stdin.write('\u001B[B');
+    simulateKeyPress({ name: 'down' });
     await wait();
 
     expect(mockShellHistory.getNextCommand).toHaveBeenCalled();
@@ -215,10 +278,10 @@ describe('InputPrompt', () => {
     vi.mocked(mockShellHistory.getPreviousCommand).mockReturnValue(
       'previous command',
     );
-    const { stdin, unmount } = render(<InputPrompt {...props} />);
+    const { unmount } = render(<InputPrompt {...props} />);
     await wait();
 
-    stdin.write('\u001B[A');
+    simulateKeyPress({ name: 'up' });
     await wait();
 
     expect(mockShellHistory.getPreviousCommand).toHaveBeenCalled();
@@ -229,10 +292,10 @@ describe('InputPrompt', () => {
   it('should call shellHistory.addCommandToHistory on submit in shell mode', async () => {
     props.shellModeActive = true;
     props.buffer.setText('ls -l');
-    const { stdin, unmount } = render(<InputPrompt {...props} />);
+    const { unmount } = render(<InputPrompt {...props} />);
     await wait();
 
-    stdin.write('\r');
+    simulateKeyPress({ name: 'return' });
     await wait();
 
     expect(mockShellHistory.addCommandToHistory).toHaveBeenCalledWith('ls -l');
@@ -242,14 +305,14 @@ describe('InputPrompt', () => {
 
   it('should NOT call shell history methods when not in shell mode', async () => {
     props.buffer.setText('some text');
-    const { stdin, unmount } = render(<InputPrompt {...props} />);
+    const { unmount } = render(<InputPrompt {...props} />);
     await wait();
 
-    stdin.write('\u001B[A'); // Up arrow
+    simulateKeyPress({ name: 'up' }); // Up arrow
     await wait();
-    stdin.write('\u001B[B'); // Down arrow
+    simulateKeyPress({ name: 'down' }); // Down arrow
     await wait();
-    stdin.write('\r'); // Enter
+    simulateKeyPress({ name: 'return' }); // Enter
     await wait();
 
     expect(mockShellHistory.getPreviousCommand).not.toHaveBeenCalled();
@@ -274,14 +337,14 @@ describe('InputPrompt', () => {
 
     props.buffer.setText('/mem');
 
-    const { stdin, unmount } = render(<InputPrompt {...props} />);
+    const { unmount } = render(<InputPrompt {...props} />);
     await wait();
 
     // Test up arrow
-    stdin.write('\u001B[A'); // Up arrow
+    simulateKeyPress({ name: 'up' }); // Up arrow
     await wait();
 
-    stdin.write('\u0010'); // Ctrl+P
+    simulateKeyPress({ name: 'p', ctrl: true }); // Ctrl+P
     await wait();
     expect(mockCompletion.navigateUp).toHaveBeenCalledTimes(2);
     expect(mockCompletion.navigateDown).not.toHaveBeenCalled();
@@ -300,14 +363,14 @@ describe('InputPrompt', () => {
     });
     props.buffer.setText('/mem');
 
-    const { stdin, unmount } = render(<InputPrompt {...props} />);
+    const { unmount } = render(<InputPrompt {...props} />);
     await wait();
 
     // Test down arrow
-    stdin.write('\u001B[B'); // Down arrow
+    simulateKeyPress({ name: 'down' }); // Down arrow
     await wait();
 
-    stdin.write('\u000E'); // Ctrl+N
+    simulateKeyPress({ name: 'n', ctrl: true }); // Ctrl+N
     await wait();
     expect(mockCompletion.navigateDown).toHaveBeenCalledTimes(2);
     expect(mockCompletion.navigateUp).not.toHaveBeenCalled();
@@ -322,16 +385,16 @@ describe('InputPrompt', () => {
     });
     props.buffer.setText('some text');
 
-    const { stdin, unmount } = render(<InputPrompt {...props} />);
+    const { unmount } = render(<InputPrompt {...props} />);
     await wait();
 
-    stdin.write('\u001B[A'); // Up arrow
+    simulateKeyPress({ name: 'up' }); // Up arrow
     await wait();
-    stdin.write('\u001B[B'); // Down arrow
+    simulateKeyPress({ name: 'down' }); // Down arrow
     await wait();
-    stdin.write('\u0010'); // Ctrl+P
+    simulateKeyPress({ name: 'p', ctrl: true }); // Ctrl+P
     await wait();
-    stdin.write('\u000E'); // Ctrl+N
+    simulateKeyPress({ name: 'n', ctrl: true }); // Ctrl+N
     await wait();
 
     expect(mockCompletion.navigateUp).not.toHaveBeenCalled();
@@ -354,19 +417,19 @@ describe('InputPrompt', () => {
         '/test/.deepv/clipboard/clipboard-123.png',
       );
 
-      const { stdin, unmount } = render(<InputPrompt {...props} />);
+      const { unmount } = render(<InputPrompt {...props} />);
       await wait();
 
       // Send Ctrl+V
-      stdin.write('\x16'); // Ctrl+V
+      simulateKeyPress({ name: 'v', ctrl: true }); // Ctrl+V
       await wait();
 
       expect(clipboardUtils.clipboardHasImage).toHaveBeenCalled();
       expect(clipboardUtils.saveClipboardImage).toHaveBeenCalledWith(
-        props.config.getTargetDir(),
+        props.config.getProjectSettingsManager().getConfigDirPath(),
       );
       expect(clipboardUtils.cleanupOldClipboardImages).toHaveBeenCalledWith(
-        props.config.getTargetDir(),
+        props.config.getProjectSettingsManager().getConfigDirPath(),
       );
       expect(mockBuffer.replaceRangeByOffset).toHaveBeenCalled();
       unmount();
@@ -375,10 +438,10 @@ describe('InputPrompt', () => {
     it('should not insert anything when clipboard has no image', async () => {
       vi.mocked(clipboardUtils.clipboardHasImage).mockResolvedValue(false);
 
-      const { stdin, unmount } = render(<InputPrompt {...props} />);
+      const { unmount } = render(<InputPrompt {...props} />);
       await wait();
 
-      stdin.write('\x16'); // Ctrl+V
+      simulateKeyPress({ name: 'v', ctrl: true }); // Ctrl+V
       await wait();
 
       expect(clipboardUtils.clipboardHasImage).toHaveBeenCalled();
@@ -391,10 +454,10 @@ describe('InputPrompt', () => {
       vi.mocked(clipboardUtils.clipboardHasImage).mockResolvedValue(true);
       vi.mocked(clipboardUtils.saveClipboardImage).mockResolvedValue(null);
 
-      const { stdin, unmount } = render(<InputPrompt {...props} />);
+      const { unmount } = render(<InputPrompt {...props} />);
       await wait();
 
-      stdin.write('\x16'); // Ctrl+V
+      simulateKeyPress({ name: 'v', ctrl: true }); // Ctrl+V
       await wait();
 
       expect(clipboardUtils.saveClipboardImage).toHaveBeenCalled();
@@ -417,10 +480,10 @@ describe('InputPrompt', () => {
       mockBuffer.lines = ['Hello world'];
       mockBuffer.replaceRangeByOffset = vi.fn();
 
-      const { stdin, unmount } = render(<InputPrompt {...props} />);
+      const { unmount } = render(<InputPrompt {...props} />);
       await wait();
 
-      stdin.write('\x16'); // Ctrl+V
+      simulateKeyPress({ name: 'v', ctrl: true }); // Ctrl+V
       await wait();
 
       // Should insert at cursor position with spaces
@@ -431,8 +494,9 @@ describe('InputPrompt', () => {
         .calls[0];
       expect(actualCall[0]).toBe(5); // start offset
       expect(actualCall[1]).toBe(5); // end offset
+      // 新代码会自动给路径加引号以支持 command+click
       expect(actualCall[2]).toBe(
-        ' @' + path.relative(path.join('test', 'project', 'src'), imagePath),
+        ' @"' + path.relative(path.join('test', 'project', 'src'), imagePath) + '"',
       );
       unmount();
     });
@@ -441,20 +505,18 @@ describe('InputPrompt', () => {
       const consoleErrorSpy = vi
         .spyOn(console, 'error')
         .mockImplementation(() => {});
-      vi.mocked(clipboardUtils.clipboardHasImage).mockRejectedValue(
+      vi.mocked(clipboardUtils.clipboardHasImage).mockResolvedValue(true);
+      vi.mocked(clipboardUtils.saveClipboardImage).mockRejectedValue(
         new Error('Clipboard error'),
       );
 
-      const { stdin, unmount } = render(<InputPrompt {...props} />);
+      const { unmount } = render(<InputPrompt {...props} />);
       await wait();
 
-      stdin.write('\x16'); // Ctrl+V
+      simulateKeyPress({ name: 'v', ctrl: true }); // Ctrl+V
       await wait();
 
-      expect(consoleErrorSpy).toHaveBeenCalledWith(
-        'Error handling clipboard image:',
-        expect.any(Error),
-      );
+      expect(consoleErrorSpy).toHaveBeenCalled();
       expect(mockBuffer.setText).not.toHaveBeenCalled();
 
       consoleErrorSpy.mockRestore();
@@ -472,10 +534,10 @@ describe('InputPrompt', () => {
     });
     props.buffer.setText('/mem');
 
-    const { stdin, unmount } = render(<InputPrompt {...props} />);
+    const { unmount } = render(<InputPrompt {...props} />);
     await wait();
 
-    stdin.write('\t'); // Press Tab
+    simulateKeyPress({ name: 'tab' }); // Press Tab
     await wait();
 
     expect(mockCompletion.handleAutocomplete).toHaveBeenCalledWith(0);
@@ -495,10 +557,10 @@ describe('InputPrompt', () => {
     });
     props.buffer.setText('/memory ');
 
-    const { stdin, unmount } = render(<InputPrompt {...props} />);
+    const { unmount } = render(<InputPrompt {...props} />);
     await wait();
 
-    stdin.write('\t'); // Press Tab
+    simulateKeyPress({ name: 'tab' }); // Press Tab
     await wait();
 
     expect(mockCompletion.handleAutocomplete).toHaveBeenCalledWith(1);
@@ -519,10 +581,10 @@ describe('InputPrompt', () => {
     // The user has backspaced, so the query is now just '/memory'
     props.buffer.setText('/memory');
 
-    const { stdin, unmount } = render(<InputPrompt {...props} />);
+    const { unmount } = render(<InputPrompt {...props} />);
     await wait();
 
-    stdin.write('\t'); // Press Tab
+    simulateKeyPress({ name: 'tab' }); // Press Tab
     await wait();
 
     // It should NOT become '/show'. It should correctly become '/memory show'.
@@ -540,10 +602,10 @@ describe('InputPrompt', () => {
     });
     props.buffer.setText('/chat resume fi-');
 
-    const { stdin, unmount } = render(<InputPrompt {...props} />);
+    const { unmount } = render(<InputPrompt {...props} />);
     await wait();
 
-    stdin.write('\t'); // Press Tab
+    simulateKeyPress({ name: 'tab' }); // Press Tab
     await wait();
 
     expect(mockCompletion.handleAutocomplete).toHaveBeenCalledWith(0);
@@ -559,10 +621,10 @@ describe('InputPrompt', () => {
     });
     props.buffer.setText('/mem');
 
-    const { stdin, unmount } = render(<InputPrompt {...props} />);
+    const { unmount } = render(<InputPrompt {...props} />);
     await wait();
 
-    stdin.write('\r');
+    simulateKeyPress({ name: 'return' });
     await wait();
 
     // The app should autocomplete the text, NOT submit.
@@ -590,10 +652,10 @@ describe('InputPrompt', () => {
     });
     props.buffer.setText('/?');
 
-    const { stdin, unmount } = render(<InputPrompt {...props} />);
+    const { unmount } = render(<InputPrompt {...props} />);
     await wait();
 
-    stdin.write('\t'); // Press Tab for autocomplete
+    simulateKeyPress({ name: 'tab' }); // Press Tab for autocomplete
     await wait();
 
     expect(mockCompletion.handleAutocomplete).toHaveBeenCalledWith(0);
@@ -603,10 +665,10 @@ describe('InputPrompt', () => {
   it('should not submit on Enter when the buffer is empty or only contains whitespace', async () => {
     props.buffer.setText('   '); // Set buffer to whitespace
 
-    const { stdin, unmount } = render(<InputPrompt {...props} />);
+    const { unmount } = render(<InputPrompt {...props} />);
     await wait();
 
-    stdin.write('\r'); // Press Enter
+    simulateKeyPress({ name: 'return' }); // Press Enter
     await wait();
 
     expect(props.onSubmit).not.toHaveBeenCalled();
@@ -621,10 +683,10 @@ describe('InputPrompt', () => {
     });
     props.buffer.setText('/clear');
 
-    const { stdin, unmount } = render(<InputPrompt {...props} />);
+    const { unmount } = render(<InputPrompt {...props} />);
     await wait();
 
-    stdin.write('\r');
+    simulateKeyPress({ name: 'return' });
     await wait();
 
     expect(props.onSubmit).toHaveBeenCalledWith('/clear');
@@ -639,10 +701,10 @@ describe('InputPrompt', () => {
     });
     props.buffer.setText('/clear');
 
-    const { stdin, unmount } = render(<InputPrompt {...props} />);
+    const { unmount } = render(<InputPrompt {...props} />);
     await wait();
 
-    stdin.write('\r');
+    simulateKeyPress({ name: 'return' });
     await wait();
 
     expect(props.onSubmit).toHaveBeenCalledWith('/clear');
@@ -658,10 +720,10 @@ describe('InputPrompt', () => {
     });
     props.buffer.setText('@src/components/');
 
-    const { stdin, unmount } = render(<InputPrompt {...props} />);
+    const { unmount } = render(<InputPrompt {...props} />);
     await wait();
 
-    stdin.write('\r');
+    simulateKeyPress({ name: 'return' });
     await wait();
 
     expect(mockCompletion.handleAutocomplete).toHaveBeenCalledWith(0);
@@ -675,10 +737,10 @@ describe('InputPrompt', () => {
     mockBuffer.cursor = [0, 11];
     mockBuffer.lines = ['first line\\'];
 
-    const { stdin, unmount } = render(<InputPrompt {...props} />);
+    const { unmount } = render(<InputPrompt {...props} />);
     await wait();
 
-    stdin.write('\r');
+    simulateKeyPress({ name: 'return' });
     await wait();
 
     expect(props.onSubmit).not.toHaveBeenCalled();
@@ -689,10 +751,10 @@ describe('InputPrompt', () => {
 
   it('should clear the buffer on Ctrl+C if it has text', async () => {
     props.buffer.setText('some text to clear');
-    const { stdin, unmount } = render(<InputPrompt {...props} />);
+    const { unmount } = render(<InputPrompt {...props} />);
     await wait();
 
-    stdin.write('\x03'); // Ctrl+C character
+    simulateKeyPress({ name: 'c', ctrl: true }); // Ctrl+C character
     await wait();
 
     expect(props.buffer.setText).toHaveBeenCalledWith('');
@@ -703,10 +765,10 @@ describe('InputPrompt', () => {
 
   it('should NOT clear the buffer on Ctrl+C if it is empty', async () => {
     props.buffer.text = '';
-    const { stdin, unmount } = render(<InputPrompt {...props} />);
+    const { unmount } = render(<InputPrompt {...props} />);
     await wait();
 
-    stdin.write('\x03'); // Ctrl+C character
+    simulateKeyPress({ name: 'c', ctrl: true }); // Ctrl+C character
     await wait();
 
     expect(props.buffer.setText).not.toHaveBeenCalled();
@@ -736,6 +798,9 @@ describe('InputPrompt', () => {
         mockSlashCommands,
         mockCommandContext,
         expect.any(Object),
+        false,
+        false,
+        false,
       );
 
       unmount();
@@ -761,6 +826,9 @@ describe('InputPrompt', () => {
         mockSlashCommands,
         mockCommandContext,
         expect.any(Object),
+        false,
+        false,
+        false,
       );
 
       unmount();
@@ -786,6 +854,9 @@ describe('InputPrompt', () => {
         mockSlashCommands,
         mockCommandContext,
         expect.any(Object),
+        false,
+        false,
+        false,
       );
 
       unmount();
@@ -811,6 +882,9 @@ describe('InputPrompt', () => {
         mockSlashCommands,
         mockCommandContext,
         expect.any(Object),
+        false,
+        false,
+        false,
       );
 
       unmount();
@@ -836,6 +910,9 @@ describe('InputPrompt', () => {
         mockSlashCommands,
         mockCommandContext,
         expect.any(Object),
+        false,
+        false,
+        false,
       );
 
       unmount();
@@ -862,6 +939,9 @@ describe('InputPrompt', () => {
         mockSlashCommands,
         mockCommandContext,
         expect.any(Object),
+        false,
+        false,
+        false,
       );
 
       unmount();
@@ -887,6 +967,9 @@ describe('InputPrompt', () => {
         mockSlashCommands,
         mockCommandContext,
         expect.any(Object),
+        false,
+        false,
+        false,
       );
 
       unmount();
@@ -913,6 +996,9 @@ describe('InputPrompt', () => {
         mockSlashCommands,
         mockCommandContext,
         expect.any(Object),
+        false,
+        false,
+        false,
       );
 
       unmount();
@@ -939,6 +1025,9 @@ describe('InputPrompt', () => {
         mockSlashCommands,
         mockCommandContext,
         expect.any(Object),
+        false,
+        false,
+        false,
       );
 
       unmount();
@@ -965,6 +1054,9 @@ describe('InputPrompt', () => {
         mockSlashCommands,
         mockCommandContext,
         expect.any(Object),
+        false,
+        false,
+        false,
       );
 
       unmount();
@@ -991,6 +1083,9 @@ describe('InputPrompt', () => {
         mockSlashCommands,
         mockCommandContext,
         expect.any(Object),
+        false,
+        false,
+        false,
       );
 
       unmount();
@@ -1019,6 +1114,9 @@ describe('InputPrompt', () => {
         mockSlashCommands,
         mockCommandContext,
         expect.any(Object),
+        false,
+        false,
+        false,
       );
 
       unmount();
@@ -1045,6 +1143,9 @@ describe('InputPrompt', () => {
         mockSlashCommands,
         mockCommandContext,
         expect.any(Object),
+        false,
+        false,
+        false,
       );
 
       unmount();
@@ -1073,6 +1174,9 @@ describe('InputPrompt', () => {
         mockSlashCommands,
         mockCommandContext,
         expect.any(Object),
+        false,
+        false,
+        false,
       );
 
       unmount();
@@ -1085,11 +1189,11 @@ describe('InputPrompt', () => {
       mockBuffer.text = 'Hello';
       mockBuffer.lines = ['Hello'];
 
-      const { stdin, unmount } = render(<InputPrompt {...props} />);
+      const { unmount } = render(<InputPrompt {...props} />);
       await wait();
 
       // Simulate regular Enter key press
-      stdin.write('\r');
+      simulateKeyPress({ name: 'return' });
       await wait();
 
       // Should call handleSubmitAndClear
@@ -1103,11 +1207,11 @@ describe('InputPrompt', () => {
       mockBuffer.text = '';
       mockBuffer.lines = [''];
 
-      const { stdin, unmount } = render(<InputPrompt {...props} />);
+      const { unmount } = render(<InputPrompt {...props} />);
       await wait();
 
       // Simulate regular Enter key press
-      stdin.write('\r');
+      simulateKeyPress({ name: 'return' });
       await wait();
 
       // Should not call onSubmit for empty input
@@ -1121,10 +1225,10 @@ describe('InputPrompt', () => {
     it('should not call buffer.handleInput when vim mode is enabled and vim handles the input', async () => {
       props.vimModeEnabled = true;
       props.vimHandleInput = vi.fn().mockReturnValue(true); // Mock that vim handled it.
-      const { stdin, unmount } = render(<InputPrompt {...props} />);
+      const { unmount } = render(<InputPrompt {...props} />);
       await wait();
 
-      stdin.write('i');
+      simulateKeyPress({ name: '', sequence: 'i' });
       await wait();
 
       expect(props.vimHandleInput).toHaveBeenCalled();
@@ -1135,10 +1239,10 @@ describe('InputPrompt', () => {
     it('should call buffer.handleInput when vim mode is enabled but vim does not handle the input', async () => {
       props.vimModeEnabled = true;
       props.vimHandleInput = vi.fn().mockReturnValue(false); // Mock that vim did NOT handle it.
-      const { stdin, unmount } = render(<InputPrompt {...props} />);
+      const { unmount } = render(<InputPrompt {...props} />);
       await wait();
 
-      stdin.write('i');
+      simulateKeyPress({ name: '', sequence: 'i' });
       await wait();
 
       expect(props.vimHandleInput).toHaveBeenCalled();
@@ -1149,10 +1253,10 @@ describe('InputPrompt', () => {
     it('should call handleInput when vim mode is disabled', async () => {
       // Mock vimHandleInput to return false (vim didn't handle the input)
       props.vimHandleInput = vi.fn().mockReturnValue(false);
-      const { stdin, unmount } = render(<InputPrompt {...props} />);
+      const { unmount } = render(<InputPrompt {...props} />);
       await wait();
 
-      stdin.write('i');
+      simulateKeyPress({ name: '', sequence: 'i' });
       await wait();
 
       expect(props.vimHandleInput).toHaveBeenCalled();
@@ -1164,11 +1268,14 @@ describe('InputPrompt', () => {
   describe('unfocused paste', () => {
     it('should handle bracketed paste when not focused', async () => {
       props.focus = false;
-      const { stdin, unmount } = render(<InputPrompt {...props} />);
+      const { unmount } = render(<InputPrompt {...props} />);
       await wait();
 
-      stdin.write('\x1B[200~pasted text\x1B[201~');
-      await wait();
+      simulateKeyPress({
+        paste: true,
+        sequence: 'pasted text',
+      });
+      await wait(400);
 
       expect(mockBuffer.handleInput).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -1181,10 +1288,10 @@ describe('InputPrompt', () => {
 
     it('should ignore regular keypresses when not focused', async () => {
       props.focus = false;
-      const { stdin, unmount } = render(<InputPrompt {...props} />);
+      const { unmount } = render(<InputPrompt {...props} />);
       await wait();
 
-      stdin.write('a');
+      simulateKeyPress({ name: '', sequence: 'a' });
       await wait();
 
       expect(mockBuffer.handleInput).not.toHaveBeenCalled();

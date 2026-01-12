@@ -1,16 +1,44 @@
 /**
  * @license
- * Copyright 2025 Google LLC
+ * Copyright 2025 DeepV Code team
+ * https://github.com/OrionStarAI/DeepVCode
  * SPDX-License-Identifier: Apache-2.0
  */
 
+
 import * as fs from 'fs';
 import * as path from 'path';
-import { fileURLToPath } from 'url';
 
-// Get the directory path for ES modules
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+/**
+ * NOTE: We intentionally do NOT use import.meta.url or fileURLToPath here.
+ *
+ * The issue: When webpack bundles code, it converts import.meta.url to a static
+ * string containing the build-time absolute path. This causes cross-platform failures:
+ * - Built on Linux: path becomes "file:///mnt/d/..." or "file:///app/..."
+ * - Run on Windows: fileURLToPath() fails with "[UriError]: Scheme contains illegal characters"
+ *
+ * Solution: For VSCode extension (webpack bundled), we rely entirely on:
+ * 1. customBasePath set via AuthTemplates.setBasePath(extensionPath)
+ * 2. process.cwd() as fallback
+ *
+ * For CLI (esbuild bundled), import.meta.url works because esbuild's banner
+ * computes it at runtime, not build-time.
+ */
+
+// This will be empty in webpack-bundled environments, which is intentional.
+// The AuthTemplates class uses customBasePath (set from extension.ts) instead.
+// We use a function to avoid TypeScript narrowing the type to literal ''
+function getCurrentDirname(): string {
+  // In CLI (esbuild), __dirname is available via the banner
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  if (typeof (globalThis as any).__dirname === 'string') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    return (globalThis as any).__dirname;
+  }
+  // In webpack bundle or other environments, return empty
+  return '';
+}
+const currentDirname = getCurrentDirname();
 
 /**
  * HTML模板管理类
@@ -78,31 +106,40 @@ export class AuthTemplates {
       }
 
       // 1. 当前目录（开发环境 - 源码中的templates目录）
-      possiblePaths.push(path.join(__dirname, filename));
+      // Only add if currentDirname is valid (non-empty and not a cross-platform mismatch)
+      if (currentDirname) {
+        possiblePaths.push(path.join(currentDirname, filename));
+      }
 
       // 2. VSCode扩展打包后的路径结构
       // 在VSCode扩展中，core被打包到 dist/bundled/，模板被复制到 dist/bundled/auth/login/templates/
-      // 需要从可能被打包的__dirname推导出实际的文件位置
+      // 需要从可能被打包的currentDirname推导出实际的文件位置
 
-      // 尝试从__dirname向上查找，构建多种可能的路径
-      let currentDir = __dirname;
-      for (let i = 0; i < 10; i++) {
-        // VSCode扩展的标准路径: dist/bundled/auth/login/templates/
-        possiblePaths.push(path.join(currentDir, 'bundled', 'auth', 'login', 'templates', filename));
-        // 备用路径1: bundled/（直接在bundled目录下）
-        possiblePaths.push(path.join(currentDir, 'bundled', filename));
-        // 备用路径2: bundle/login/templates/（老的路径结构）
-        possiblePaths.push(path.join(currentDir, 'bundle', 'login', 'templates', filename));
-        // 备用路径3: auth/login/templates/（相对路径）
-        possiblePaths.push(path.join(currentDir, 'auth', 'login', 'templates', filename));
+      // 尝试从currentDirname向上查找，构建多种可能的路径
+      // Only do this if currentDirname is valid (not empty from cross-platform mismatch)
+      if (currentDirname) {
+        let currentDir = currentDirname;
+        for (let i = 0; i < 10; i++) {
+          // VSCode扩展的标准路径: dist/bundled/auth/login/templates/
+          possiblePaths.push(path.join(currentDir, 'bundled', 'auth', 'login', 'templates', filename));
+          // 备用路径1: bundled/（直接在bundled目录下）
+          possiblePaths.push(path.join(currentDir, 'bundled', filename));
+          // 备用路径2: bundle/login/templates/（CLI打包后的路径 - npm run dev和打包后都会用）
+          possiblePaths.push(path.join(currentDir, 'bundle', 'login', 'templates', filename));
+          // 备用路径3: auth/login/templates/（相对路径）
+          possiblePaths.push(path.join(currentDir, 'auth', 'login', 'templates', filename));
 
-        currentDir = path.dirname(currentDir);
+          currentDir = path.dirname(currentDir);
+        }
       }
 
       // 3. 使用process.cwd()作为基准（CLI环境或Node进程根目录）
       if (typeof process !== 'undefined' && process.cwd) {
         try {
           const cwd = process.cwd();
+          // CLI开发环境优先路径: {project_root}/bundle/login/templates/
+          possiblePaths.push(path.join(cwd, 'bundle', 'login', 'templates', filename));
+          // VSCode扩展路径
           possiblePaths.push(path.join(cwd, 'dist', 'bundled', 'auth', 'login', 'templates', filename));
           possiblePaths.push(path.join(cwd, 'bundled', 'auth', 'login', 'templates', filename));
           possiblePaths.push(path.join(cwd, 'auth', 'login', 'templates', filename));
@@ -131,7 +168,8 @@ export class AuthTemplates {
         console.warn(`⚠️ [AuthTemplates] Template ${filename} not found in any location.`);
         console.warn(`   Tried ${possiblePaths.length} paths. First 5:`);
         possiblePaths.slice(0, 5).forEach((p, i) => console.warn(`   ${i + 1}. ${p}`));
-        console.warn(`   Current __dirname: ${__dirname}`);
+        console.warn(`   Current dirname: ${currentDirname || '(unavailable - cross-platform build)'}`);
+        console.warn(`   Custom base path: ${this.customBasePath || '(not set)'}`);
         if (typeof process !== 'undefined' && process.cwd) {
           try {
             console.warn(`   Process cwd: ${process.cwd()}`);

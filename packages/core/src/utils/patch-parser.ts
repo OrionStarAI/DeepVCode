@@ -1,11 +1,14 @@
 /**
  * @license
- * Copyright 2025 Google LLC
+ * Copyright 2025 DeepV Code team
+ * https://github.com/OrionStarAI/DeepVCode
  * SPDX-License-Identifier: Apache-2.0
  */
 
+
 import * as path from "node:path";
 import * as fs from "node:fs";
+import { detectLineEnding } from './languageAwareTextProcessor.js';
 
 export namespace PatchParser {
 
@@ -334,9 +337,14 @@ export namespace PatchParser {
     export function deriveNewContentsFromChunks(filePath: string, chunks: UpdateFileChunk[]): ApplyPatchFileUpdate {
         // Read original file content
         let originalContent: string
+        let detectedLineEnding: string | undefined = undefined;
         try {
             if (fs.existsSync(filePath)) {
-                originalContent = fs.readFileSync(filePath, "utf-8")
+                const rawContent = fs.readFileSync(filePath, "utf-8");
+                // 🎯 检测原始文件的行尾符
+                detectedLineEnding = detectLineEnding(rawContent);
+                // 规范化为 LF 进行处理
+                originalContent = rawContent.replace(/\r\n/g, "\n");
             } else {
                 throw new Error(`File does not exist: ${filePath}`);
             }
@@ -359,10 +367,12 @@ export namespace PatchParser {
             newLines.push("")
         }
 
-        const newContent = newLines.join("\n")
+        // 🎯 使用检测到的行尾符，如果未检测到则使用 LF
+        const lineEnding = detectedLineEnding || "\n";
+        const newContent = newLines.join(lineEnding)
 
         // Generate unified diff
-        const unifiedDiff = generateUnifiedDiff(originalContent, newContent)
+        const unifiedDiff = generateUnifiedDiff(originalContent, newContent.replace(/\r\n/g, "\n"))
 
         return {
             unified_diff: unifiedDiff,
@@ -379,13 +389,15 @@ export namespace PatchParser {
         let lineIndex = 0
 
         for (const chunk of chunks) {
-            // Handle context-based seeking
+            // Handle context-based seeking (optional hint, not required)
             if (chunk.change_context) {
                 const contextIdx = seekSequence(originalLines, [chunk.change_context], lineIndex)
-                if (contextIdx === -1) {
-                    throw new Error(`Failed to find context '${chunk.change_context}' in ${filePath}`)
+                if (contextIdx !== -1) {
+                    // Context found, update position hint
+                    lineIndex = contextIdx + 1
                 }
-                lineIndex = contextIdx + 1
+                // 🎯 如果 context 没找到，继续使用当前 lineIndex，不要报错
+                // context 只是一个提示，不是必须的
             }
 
             // Handle pure addition (no old lines)
@@ -403,13 +415,31 @@ export namespace PatchParser {
             let newSlice = chunk.new_lines
             let found = seekSequence(originalLines, pattern, lineIndex)
 
-            // Retry without trailing empty line if not found
+            // 🎯 策略1: 去除尾部空行重试
             if (found === -1 && pattern.length > 0 && pattern[pattern.length - 1] === "") {
                 pattern = pattern.slice(0, -1)
                 if (newSlice.length > 0 && newSlice[newSlice.length - 1] === "") {
                     newSlice = newSlice.slice(0, -1)
                 }
                 found = seekSequence(originalLines, pattern, lineIndex)
+            }
+
+            // 🎯 策略2: 从头开始搜索（忽略 lineIndex 位置提示）
+            if (found === -1) {
+                found = seekSequence(originalLines, chunk.old_lines, 0)
+                if (found !== -1) {
+                    pattern = chunk.old_lines
+                    newSlice = chunk.new_lines
+                }
+            }
+
+            // 🎯 策略3: 从头开始搜索，去除尾部空行
+            if (found === -1 && chunk.old_lines.length > 0 && chunk.old_lines[chunk.old_lines.length - 1] === "") {
+                pattern = chunk.old_lines.slice(0, -1)
+                newSlice = chunk.new_lines.length > 0 && chunk.new_lines[chunk.new_lines.length - 1] === ""
+                    ? chunk.new_lines.slice(0, -1)
+                    : chunk.new_lines
+                found = seekSequence(originalLines, pattern, 0)
             }
 
             if (found !== -1) {
@@ -448,12 +478,22 @@ export namespace PatchParser {
     function seekSequence(lines: string[], pattern: string[], startIndex: number): number {
         if (pattern.length === 0) return -1
 
+        // 🎯 预处理：规范化字符串以确保 emoji 和多字节 UTF-8 字符正确匹配
+        // 1. 去除行尾的 \r（Windows 兼容性）
+        // 2. 使用 Unicode NFC 规范化（确保 emoji 等字符的一致表示）
+        const normalizeString = (s: string): string => {
+            return s.replace(/\r$/, '').normalize('NFC').trimEnd();
+        };
+
+        const normalizedPattern = pattern.map(normalizeString);
+        const normalizedLines = lines.map(normalizeString);
+
         // Simple substring search implementation
-        for (let i = startIndex; i <= lines.length - pattern.length; i++) {
+        for (let i = startIndex; i <= normalizedLines.length - normalizedPattern.length; i++) {
             let matches = true
 
-            for (let j = 0; j < pattern.length; j++) {
-                if (lines[i + j] !== pattern[j]) {
+            for (let j = 0; j < normalizedPattern.length; j++) {
+                if (normalizedLines[i + j] !== normalizedPattern[j]) {
                     matches = false
                     break
                 }
@@ -466,6 +506,7 @@ export namespace PatchParser {
 
         return -1
     }
+
 
     function generateUnifiedDiff(oldContent: string, newContent: string): string {
         const oldLines = oldContent.split("\n")

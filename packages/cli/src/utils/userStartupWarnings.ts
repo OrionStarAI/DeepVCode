@@ -9,6 +9,7 @@ import * as os from 'os';
 import path from 'path';
 import { t, tp } from '../ui/utils/i18n.js';
 import { LoadedSettings } from '../config/settings.js';
+import { getCreditsService } from '../services/creditsService.js';
 
 type WarningCheck = {
   id: string;
@@ -60,11 +61,33 @@ const customProxyServerCheck: WarningCheck = {
   },
 };
 
+const lowCreditsCheck: WarningCheck = {
+  id: 'low-credits',
+  check: async (_workspaceRoot: string, _settings: LoadedSettings) => {
+    try {
+      // 异步获取积分信息，不阻塞启动
+      const creditsService = getCreditsService();
+      const creditsInfo = await creditsService.getCreditsInfo();
+
+      if (creditsInfo && creditsService.isCreditsLow(5)) {
+        const remainingPercentage = (100 - creditsInfo.usagePercentage).toFixed(1);
+        return tp('startup.warning.low.credits', { percentage: remainingPercentage });
+      }
+
+      return null;
+    } catch (_err: unknown) {
+      // 积分获取失败不应该阻塞启动，静默处理
+      return null;
+    }
+  },
+};
+
 // All warning checks
 const WARNING_CHECKS: readonly WarningCheck[] = [
   homeDirectoryCheck,
   rootDirectoryCheck,
   customProxyServerCheck,
+  lowCreditsCheck,
 ];
 
 export async function getUserStartupWarnings(

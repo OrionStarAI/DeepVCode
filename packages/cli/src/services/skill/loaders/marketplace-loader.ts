@@ -1,3 +1,9 @@
+/**
+ * @license
+ * Copyright 2025 DeepV Code team
+ * https://github.com/OrionStarAI/DeepVCode
+ * SPDX-License-Identifier: Apache-2.0
+ */
 import path from 'path';
 import fs from 'fs-extra';
 import { spawnSync } from 'child_process';

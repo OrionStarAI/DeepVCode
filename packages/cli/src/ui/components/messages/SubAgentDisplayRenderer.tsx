@@ -1,8 +1,10 @@
 /**
  * @license
- * Copyright 2025 Google LLC
+ * Copyright 2025 DeepV Code team
+ * https://github.com/OrionStarAI/DeepVCode
  * SPDX-License-Identifier: Apache-2.0
  */
+
 
 import React from 'react';
 import { Box, Text } from 'ink';
@@ -26,7 +28,7 @@ export const SubAgentDisplayRenderer: React.FC<SubAgentDisplayRendererProps> = (
     switch (data.status) {
       case 'starting':
       case 'running':
-        return { icon: '●', color: Colors.AccentBlue };
+        return { icon: '•', color: Colors.AccentBlue };
       case 'completed':
         return { icon: '✓', color: Colors.AccentGreen };
       case 'failed':
@@ -34,7 +36,7 @@ export const SubAgentDisplayRenderer: React.FC<SubAgentDisplayRendererProps> = (
       case 'cancelled':
         return { icon: '■', color: Colors.AccentYellow };
       default:
-        return { icon: '●', color: Colors.Foreground };
+        return { icon: '•', color: Colors.Foreground };
     }
   };
 
@@ -44,11 +46,11 @@ export const SubAgentDisplayRenderer: React.FC<SubAgentDisplayRendererProps> = (
   const getToolStatusIcon = (status: ToolCallStatus) => {
     switch (status) {
       case ToolCallStatus.Pending:
-        return '○';
+        return '◦';
       case ToolCallStatus.Executing:
         return '~';
       case ToolCallStatus.SubAgentRunning:
-        return '●';
+        return '•';
       case ToolCallStatus.Success:
         return '✓';
       case ToolCallStatus.Error:
