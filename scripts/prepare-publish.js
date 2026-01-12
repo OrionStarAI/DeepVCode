@@ -14,7 +14,6 @@ const rootDir = path.dirname(__dirname);
 
 function preparePublish() {
   const readmePath = path.join(rootDir, 'README.md');
-  const publishFlagFile = path.join(rootDir, '.npm-publish-in-progress');
 
   console.log(chalk.cyan('\n📦 Preparing publication package...\n'));
 
@@ -26,14 +25,6 @@ function preparePublish() {
 
   console.log(chalk.green('✅ README.md check passed'));
   console.log(chalk.dim('   (No README replacement needed)\n'));
-
-  // Create a flag file to signal that we're in publish mode
-  // This prevents the prepare hook from running redundant builds
-  try {
-    fs.writeFileSync(publishFlagFile, Date.now().toString());
-  } catch (err) {
-    console.warn(chalk.yellow('⚠️  Failed to create publish flag file:', err.message));
-  }
 }
 
 preparePublish();
