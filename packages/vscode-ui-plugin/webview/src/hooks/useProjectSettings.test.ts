@@ -199,7 +199,7 @@ describe('useProjectSettings', () => {
 
   describe('message service integration', () => {
     it('should handle missing message service gracefully', async () => {
-      vi.mocked(globalMessageServiceModule.getGlobalMessageService).mockReturnValue(null);
+      vi.mocked(globalMessageServiceModule.getGlobalMessageService).mockReturnValue(null as any);
 
       const { result } = renderHook(() => useYoloMode(), { wrapper });
 

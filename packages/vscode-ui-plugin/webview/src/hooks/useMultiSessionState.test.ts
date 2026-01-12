@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
 import { useMultiSessionState } from './useMultiSessionState';
-import { SessionStatus } from '../../../src/constants/sessionConstants';
+import { SessionStatus, SessionType } from '../../../src/constants/sessionConstants';
 
 describe('useMultiSessionState', () => {
   beforeEach(() => {
@@ -48,6 +48,7 @@ describe('useMultiSessionState', () => {
       const sessionInfo = {
         id: 'session-1',
         name: 'Test Session',
+        type: SessionType.CHAT,
         status: SessionStatus.ACTIVE,
         createdAt: Date.now(),
         lastActivity: Date.now(),
@@ -69,6 +70,7 @@ describe('useMultiSessionState', () => {
       const sessionInfo = {
         id: 'session-1',
         name: 'First Session',
+        type: SessionType.CHAT,
         status: SessionStatus.ACTIVE,
         createdAt: Date.now(),
         lastActivity: Date.now(),
@@ -88,6 +90,7 @@ describe('useMultiSessionState', () => {
       const sessionInfo = {
         id: 'session-1',
         name: 'Test Session',
+        type: SessionType.CHAT,
         status: SessionStatus.ACTIVE,
         createdAt: Date.now(),
         lastActivity: Date.now(),
@@ -115,7 +118,8 @@ describe('useMultiSessionState', () => {
         result.current.createSession({
           id: 'session-1',
           name: 'Session 1',
-          status: SessionStatus.ACTIVE,
+          type: SessionType.CHAT,
+        status: SessionStatus.ACTIVE,
           createdAt: Date.now(),
           lastActivity: Date.now(),
           messageCount: 0,
@@ -123,7 +127,8 @@ describe('useMultiSessionState', () => {
         result.current.createSession({
           id: 'session-2',
           name: 'Session 2',
-          status: SessionStatus.IDLE,
+          type: SessionType.CHAT,
+        status: SessionStatus.IDLE,
           createdAt: Date.now(),
           lastActivity: Date.now(),
           messageCount: 0,
@@ -146,7 +151,8 @@ describe('useMultiSessionState', () => {
         result.current.createSession({
           id: 'session-1',
           name: 'Session 1',
-          status: SessionStatus.ACTIVE,
+          type: SessionType.CHAT,
+        status: SessionStatus.ACTIVE,
           createdAt: Date.now(),
           lastActivity: Date.now(),
           messageCount: 0,
@@ -154,7 +160,8 @@ describe('useMultiSessionState', () => {
         result.current.createSession({
           id: 'session-2',
           name: 'Session 2',
-          status: SessionStatus.IDLE,
+          type: SessionType.CHAT,
+        status: SessionStatus.IDLE,
           createdAt: Date.now(),
           lastActivity: Date.now(),
           messageCount: 0,
@@ -175,7 +182,8 @@ describe('useMultiSessionState', () => {
         result.current.createSession({
           id: 'session-1',
           name: 'Original Name',
-          status: SessionStatus.ACTIVE,
+          type: SessionType.CHAT,
+        status: SessionStatus.ACTIVE,
           createdAt: Date.now(),
           lastActivity: Date.now(),
           messageCount: 0,
@@ -199,7 +207,8 @@ describe('useMultiSessionState', () => {
         result.current.createSession({
           id: 'session-1',
           name: 'Test Session',
-          status: SessionStatus.ACTIVE,
+          type: SessionType.CHAT,
+        status: SessionStatus.ACTIVE,
           createdAt: Date.now(),
           lastActivity: Date.now(),
           messageCount: 0,
@@ -229,7 +238,8 @@ describe('useMultiSessionState', () => {
         result.current.createSession({
           id: 'session-1',
           name: 'Test Session',
-          status: SessionStatus.ACTIVE,
+          type: SessionType.CHAT,
+        status: SessionStatus.ACTIVE,
           createdAt: Date.now(),
           lastActivity: Date.now(),
           messageCount: 0,
@@ -259,7 +269,8 @@ describe('useMultiSessionState', () => {
         result.current.createSession({
           id: 'session-1',
           name: 'Test Session',
-          status: SessionStatus.ACTIVE,
+          type: SessionType.CHAT,
+        status: SessionStatus.ACTIVE,
           createdAt: Date.now(),
           lastActivity: Date.now(),
           messageCount: 0,
@@ -343,7 +354,8 @@ describe('useMultiSessionState', () => {
         result.current.createSession({
           id: 'session-1',
           name: 'Test Session',
-          status: SessionStatus.ACTIVE,
+          type: SessionType.CHAT,
+        status: SessionStatus.ACTIVE,
           createdAt: Date.now(),
           lastActivity: Date.now(),
           messageCount: 0,
@@ -362,7 +374,8 @@ describe('useMultiSessionState', () => {
         result.current.createSession({
           id: 'session-1',
           name: 'Test Session',
-          status: SessionStatus.ACTIVE,
+          type: SessionType.CHAT,
+        status: SessionStatus.ACTIVE,
           createdAt: Date.now(),
           lastActivity: Date.now(),
           messageCount: 0,
@@ -381,7 +394,8 @@ describe('useMultiSessionState', () => {
         result.current.createSession({
           id: 'session-1',
           name: 'Test Session',
-          status: SessionStatus.ACTIVE,
+          type: SessionType.CHAT,
+        status: SessionStatus.ACTIVE,
           createdAt: Date.now(),
           lastActivity: Date.now(),
           messageCount: 0,
@@ -413,7 +427,8 @@ describe('useMultiSessionState', () => {
         result.current.createSession({
           id: 'session-1',
           name: 'Test Session',
-          status: SessionStatus.ACTIVE,
+          type: SessionType.CHAT,
+        status: SessionStatus.ACTIVE,
           createdAt: Date.now(),
           lastActivity: Date.now(),
           messageCount: 0,
@@ -437,7 +452,8 @@ describe('useMultiSessionState', () => {
         result.current.createSession({
           id: 'session-1',
           name: 'Session 1',
-          status: SessionStatus.ACTIVE,
+          type: SessionType.CHAT,
+        status: SessionStatus.ACTIVE,
           createdAt: Date.now(),
           lastActivity: Date.now(),
           messageCount: 0,
@@ -446,7 +462,8 @@ describe('useMultiSessionState', () => {
         result.current.createSession({
           id: 'session-2',
           name: 'Session 2',
-          status: SessionStatus.IDLE,
+          type: SessionType.CHAT,
+        status: SessionStatus.IDLE,
           createdAt: Date.now(),
           lastActivity: Date.now(),
           messageCount: 0,

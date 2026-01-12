@@ -14,7 +14,7 @@ describe('useMessageHistory', () => {
   describe('initial state', () => {
     it('should start with no history navigation', () => {
       const onHistoryNavigate = vi.fn();
-      const getCurrentInput = vi.fn(() => []);
+      const getCurrentInput = vi.fn((): MessageContent => []);
 
       const { result } = renderHook(() =>
         useMessageHistory({
@@ -31,7 +31,7 @@ describe('useMessageHistory', () => {
 
     it('should calculate history length from user messages', () => {
       const onHistoryNavigate = vi.fn();
-      const getCurrentInput = vi.fn(() => []);
+      const getCurrentInput = vi.fn((): MessageContent => []);
       const messages = [
         createMessage('1', 'user', 'First'),
         createMessage('2', 'assistant', 'Response'),
@@ -53,7 +53,7 @@ describe('useMessageHistory', () => {
   describe('navigateUp', () => {
     it('should navigate to most recent user message', () => {
       const onHistoryNavigate = vi.fn();
-      const getCurrentInput = vi.fn(() => [{ type: 'text', value: 'current' }]);
+      const getCurrentInput = vi.fn((): MessageContent => [{ type: 'text', value: 'current' }]);
       const messages = [
         createMessage('1', 'user', 'First'),
         createMessage('2', 'user', 'Second'),
@@ -79,7 +79,7 @@ describe('useMessageHistory', () => {
     it('should save current input on first navigate up', () => {
       const onHistoryNavigate = vi.fn();
       const currentInput: MessageContent = [{ type: 'text', value: 'typing...' }];
-      const getCurrentInput = vi.fn(() => currentInput);
+      const getCurrentInput = vi.fn((): MessageContent => currentInput);
       const messages = [createMessage('1', 'user', 'Previous')];
 
       const { result } = renderHook(() =>
@@ -99,7 +99,7 @@ describe('useMessageHistory', () => {
 
     it('should navigate through multiple messages', () => {
       const onHistoryNavigate = vi.fn();
-      const getCurrentInput = vi.fn(() => []);
+      const getCurrentInput = vi.fn((): MessageContent => []);
       const messages = [
         createMessage('1', 'user', 'First'),
         createMessage('2', 'user', 'Second'),
@@ -132,7 +132,7 @@ describe('useMessageHistory', () => {
 
     it('should not go beyond oldest message', () => {
       const onHistoryNavigate = vi.fn();
-      const getCurrentInput = vi.fn(() => []);
+      const getCurrentInput = vi.fn((): MessageContent => []);
       const messages = [createMessage('1', 'user', 'Only one')];
 
       const { result } = renderHook(() =>
@@ -154,7 +154,7 @@ describe('useMessageHistory', () => {
 
     it('should do nothing when no history available', () => {
       const onHistoryNavigate = vi.fn();
-      const getCurrentInput = vi.fn(() => []);
+      const getCurrentInput = vi.fn((): MessageContent => []);
 
       const { result } = renderHook(() =>
         useMessageHistory({
@@ -176,7 +176,7 @@ describe('useMessageHistory', () => {
   describe('navigateDown', () => {
     it('should navigate to newer message', () => {
       const onHistoryNavigate = vi.fn();
-      const getCurrentInput = vi.fn(() => []);
+      const getCurrentInput = vi.fn((): MessageContent => []);
       const messages = [
         createMessage('1', 'user', 'First'),
         createMessage('2', 'user', 'Second'),
@@ -213,7 +213,7 @@ describe('useMessageHistory', () => {
     it('should restore saved input when navigating to current', () => {
       const onHistoryNavigate = vi.fn();
       const savedInput: MessageContent = [{ type: 'text', value: 'my text' }];
-      const getCurrentInput = vi.fn(() => savedInput);
+      const getCurrentInput = vi.fn((): MessageContent => savedInput);
       const messages = [createMessage('1', 'user', 'Previous')];
 
       const { result } = renderHook(() =>
@@ -241,7 +241,7 @@ describe('useMessageHistory', () => {
 
     it('should do nothing when already at current input', () => {
       const onHistoryNavigate = vi.fn();
-      const getCurrentInput = vi.fn(() => []);
+      const getCurrentInput = vi.fn((): MessageContent => []);
       const messages = [createMessage('1', 'user', 'Previous')];
 
       const { result } = renderHook(() =>
@@ -264,7 +264,7 @@ describe('useMessageHistory', () => {
   describe('resetHistory', () => {
     it('should reset to current input state', () => {
       const onHistoryNavigate = vi.fn();
-      const getCurrentInput = vi.fn(() => []);
+      const getCurrentInput = vi.fn((): MessageContent => []);
       const messages = [createMessage('1', 'user', 'Previous')];
 
       const { result } = renderHook(() =>
@@ -293,7 +293,7 @@ describe('useMessageHistory', () => {
   describe('message filtering', () => {
     it('should only include user messages in history', () => {
       const onHistoryNavigate = vi.fn();
-      const getCurrentInput = vi.fn(() => []);
+      const getCurrentInput = vi.fn((): MessageContent => []);
       const messages = [
         createMessage('1', 'user', 'User 1'),
         createMessage('2', 'assistant', 'AI Response'),
@@ -320,7 +320,7 @@ describe('useMessageHistory', () => {
 
     it('should reverse message order (newest first)', () => {
       const onHistoryNavigate = vi.fn();
-      const getCurrentInput = vi.fn(() => []);
+      const getCurrentInput = vi.fn((): MessageContent => []);
       const messages = [
         createMessage('1', 'user', 'Oldest'),
         createMessage('2', 'user', 'Middle'),
@@ -352,7 +352,7 @@ describe('useMessageHistory', () => {
   describe('dynamic message updates', () => {
     it('should update history when messages change', () => {
       const onHistoryNavigate = vi.fn();
-      const getCurrentInput = vi.fn(() => []);
+      const getCurrentInput = vi.fn((): MessageContent => []);
       const messages = [createMessage('1', 'user', 'First')];
 
       const { result, rerender } = renderHook(
@@ -379,7 +379,7 @@ describe('useMessageHistory', () => {
 
     it('should adjust index when history shrinks', () => {
       const onHistoryNavigate = vi.fn();
-      const getCurrentInput = vi.fn(() => []);
+      const getCurrentInput = vi.fn((): MessageContent => []);
       const messages = [
         createMessage('1', 'user', 'First'),
         createMessage('2', 'user', 'Second'),

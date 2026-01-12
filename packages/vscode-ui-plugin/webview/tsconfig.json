@@ -23,6 +23,8 @@
   "exclude": [
     "node_modules",
     "build",
-    "dist"
+    "dist",
+    "src/**/*.test.ts",
+    "src/**/*.test.tsx"
   ]
 }
