@@ -70,6 +70,10 @@ DeepV Code (Monorepo)
 2. **禁止交互式启动**: 不要使用 `npm run dev` 或 `npm start`（会启动交互式 CLI）
 3. **临时脚本管理**: 可以编写临时测试脚本验证功能，但完成后必须清理
 4. **测试要求**: 对 cli 和 core 包的业务修改，必须同时更新对应的 test 文件。测试难度大时可先用 skip 占位
+5. **单文件测试优先**: ⚠️ 禁止运行全量测试（`npm run test`）！仅测试修改的文件：
+   - 使用 `npx vitest run <test-file-path>` 测试单个文件
+   - 例如：`npx vitest run packages/cli/src/ui/hooks/useCompletion.test.ts`
+   - 全量测试由 CI/CD 自动运行，本地开发节省时间
 
 #### 代码规范
 1. **i18n 国际化**: 所有面向最终用户的 UI 文案必须国际化
@@ -82,9 +86,15 @@ DeepV Code (Monorepo)
 - **测试覆盖**: 194+ 测试文件覆盖核心功能
 - **CI/CD**: `npm run test:ci` 自动化测试
 - **测试命令**:
-  - `npm run test` - 运行所有 workspace 测试
+  - ⚠️ `npm run test` - 全量测试（AI 禁止使用，仅用于 CI）
+  - ✅ `npx vitest run <file>` - 单文件测试（AI 推荐使用）
+  - ✅ `npx vitest run packages/cli/src/**/*.test.ts` - 按目录测试
   - `npm run test:ci` - CI 模式（含覆盖率）
   - `npm run test:scripts` - 脚本测试
+- **AI 测试策略**:
+  - 只测试你修改的文件及其对应的 test 文件
+  - 示例：修改了 `useCompletion.ts` → 运行 `npx vitest run packages/cli/src/ui/hooks/useCompletion.test.ts`
+  - 避免运行全量测试以节省开发时间和系统资源
 
 ### 用户偏好
 - ❌ 尽量不生成 .md 文件（除非用于 AI 任务记忆，且用完必须删除）
