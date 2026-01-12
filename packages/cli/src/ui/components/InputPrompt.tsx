@@ -331,8 +331,9 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
           // Get relative path from current directory
           const relativePath = path.relative(config.getTargetDir(), imagePath);
 
-          // Insert @path reference at cursor position
-          const insertText = `@${relativePath}`;
+          // Insert @"path" reference at cursor position
+          // 使用引号包裹路径，防止终端（如 iTerm2）将其误识别为 URL
+          const insertText = `@"${relativePath}"`;
           const currentText = buffer.text;
           const [row, col] = buffer.cursor;
 
