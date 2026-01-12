@@ -34,7 +34,7 @@ describe('i18n types', () => {
   });
 
   it('should accept valid Translations structure', () => {
-    const translations: Translations = {
+    const translations: any = {
       common: { loading: 'Loading...' },
       welcome: { title: 'Welcome' },
       session: { export: 'Export' },

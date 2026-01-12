@@ -39,7 +39,7 @@ describe('messageContentUtils', () => {
 
     it('should assemble image reference', () => {
       const content: MessageContent = [
-        { type: 'image_reference', value: { fileName: 'image.png', data: 'base64data' } }
+        { type: 'image_reference', value: { id: 'img1', fileName: 'image.png', data: 'base64data', mimeType: 'image/png', originalSize: 100, compressedSize: 100 } }
       ];
       expect(assembleForDisplay(content)).toBe('[IMAGE:image.png]');
     });
@@ -91,7 +91,7 @@ describe('messageContentUtils', () => {
 
     it('should assemble text file content', () => {
       const content: MessageContent = [
-        { type: 'text_file_content', value: { fileName: 'data.json', content: '{}' } }
+        { type: 'text_file_content', value: { fileName: 'data.json', content: '{}', size: 2 } }
       ];
       expect(assembleForDisplay(content)).toBe('@[data.json]');
     });
@@ -101,7 +101,7 @@ describe('messageContentUtils', () => {
         { type: 'text', value: 'Check this file: ' },
         { type: 'file_reference', value: { fileName: 'test.txt', filePath: '/test.txt' } },
         { type: 'text', value: ' and this image: ' },
-        { type: 'image_reference', value: { fileName: 'pic.png', data: 'data' } }
+        { type: 'image_reference', value: { id: 'img2', fileName: 'pic.png', data: 'data', mimeType: 'image/png', originalSize: 100, compressedSize: 100 } }
       ];
       expect(assembleForDisplay(content)).toBe('Check this file: @[test.txt] and this image: [IMAGE:pic.png]');
     });
@@ -143,7 +143,7 @@ describe('messageContentUtils', () => {
     });
 
     it('should collect image references', () => {
-      const imageData = { fileName: 'img.png', data: 'base64' };
+      const imageData = { id: 'img1', fileName: 'img.png', data: 'base64', mimeType: 'image/png', originalSize: 100, compressedSize: 100 };
       const content: MessageContent = [
         { type: 'image_reference', value: imageData }
       ];
@@ -172,7 +172,7 @@ describe('messageContentUtils', () => {
 
     it('should handle text file content', () => {
       const content: MessageContent = [
-        { type: 'text_file_content', value: { fileName: 'data.json', content: '{"key":"value"}' } }
+        { type: 'text_file_content', value: { fileName: 'data.json', content: '{"key":"value"}', size: 16 } }
       ];
       const result = assembleForLLM(content);
       expect(result.text).toBe('@[data.json]');
@@ -205,8 +205,8 @@ describe('messageContentUtils', () => {
 
   describe('createImageReferenceContent', () => {
     it('should create image reference content part', () => {
-      const imageData = { fileName: 'img.png', data: 'base64' };
-      const result = createImageReferenceContent(imageData);
+      const imageData = { id: 'img1', fileName: 'img.png', data: 'base64', mimeType: 'image/png', originalSize: 100, compressedSize: 100 };
+      const result = createImageReferenceContent(imageData as any);
       expect(result).toEqual({
         type: 'image_reference',
         value: imageData
@@ -257,7 +257,7 @@ describe('messageContentUtils', () => {
   describe('hasImageReferences', () => {
     it('should return true when image references exist', () => {
       const content: MessageContent = [
-        { type: 'image_reference', value: { fileName: 'img.png', data: 'data' } }
+        { type: 'image_reference', value: { id: 'img1', fileName: 'img.png', data: 'data', mimeType: 'image/png', originalSize: 100, compressedSize: 100 } }
       ];
       expect(hasImageReferences(content)).toBe(true);
     });
@@ -290,8 +290,8 @@ describe('messageContentUtils', () => {
 
   describe('extractImageReferences', () => {
     it('should extract all image references', () => {
-      const img1 = { fileName: 'a.png', data: 'data1' };
-      const img2 = { fileName: 'b.png', data: 'data2' };
+      const img1 = { id: 'a', fileName: 'a.png', data: 'data1', mimeType: 'image/png', originalSize: 100, compressedSize: 100 };
+      const img2 = { id: 'b', fileName: 'b.png', data: 'data2', mimeType: 'image/png', originalSize: 100, compressedSize: 100 };
       const content: MessageContent = [
         { type: 'image_reference', value: img1 },
         { type: 'text', value: ' and ' },
@@ -328,7 +328,7 @@ describe('messageContentUtils', () => {
 
     it('should return true for valid image reference', () => {
       const content: MessageContent = [
-        { type: 'image_reference', value: { fileName: 'img.png', data: 'data' } }
+        { type: 'image_reference', value: { id: 'img1', fileName: 'img.png', data: 'data', mimeType: 'image/png', originalSize: 100, compressedSize: 100 } }
       ];
       expect(isValidRawContent(content)).toBe(true);
     });
@@ -371,7 +371,7 @@ describe('messageContentUtils', () => {
       const content: MessageContent = [
         { type: 'text', value: 'Hello' },
         { type: 'file_reference', value: { fileName: 'test.txt', filePath: '/test.txt' } },
-        { type: 'image_reference', value: { fileName: 'img.png', data: 'data' } }
+        { type: 'image_reference', value: { id: 'img1', fileName: 'img.png', data: 'data', mimeType: 'image/png', originalSize: 100, compressedSize: 100 } }
       ];
       expect(isValidRawContent(content)).toBe(true);
     });
