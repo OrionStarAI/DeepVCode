@@ -267,6 +267,7 @@ export const translations = {
     'credits.used': 'Used',
     'credits.available': 'Available',
     'credits.fetching': 'Fetching latest credits...',
+    'command.quit.exiting': 'Exiting...',
 
     // Compact Model Stats Display
     'stats.compact.model.requests': 'Reqs',
@@ -1450,6 +1451,7 @@ export const translations = {
     'credits.used': '已用',
     'credits.available': '可用',
     'credits.fetching': '正在获取最新积分信息...',
+    'command.quit.exiting': '正在退出...',
 
     // Compact Model Stats Display
     'stats.compact.model.requests': '请求',
