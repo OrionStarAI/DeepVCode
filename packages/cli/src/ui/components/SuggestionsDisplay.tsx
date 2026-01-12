@@ -117,7 +117,7 @@ export function SuggestionsDisplay({
         };
 
         return (
-          <Box key={`${suggestion}-${originalIndex}`} width={width}>
+          <Box key={`suggestion-${originalIndex}`} width={width}>
             <Box flexDirection="row">
               {userInput.startsWith('/') ? (
                 // only use box model for (/) command mode with dynamic width
