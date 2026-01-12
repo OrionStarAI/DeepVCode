@@ -48,6 +48,98 @@ interface DiffRendererProps {
 }
 
 /**
+ * 🎯 提取多文件 unified diff 中的单个文件 diff 块
+ * 支持三种格式：
+ * 1) DeepV patch 格式: "*** Update File:" / "*** Add File:" / "*** Delete File:"
+ * 2) 标准 git diff: "diff --git a/path b/path" 标记
+ * 3) 标准 unified diff: "--- a/path" + "+++ b/path" 配对（非 SVN 风格）
+ *
+ * 只在**确实有多个不同文件**时才拆分，避免单文件误判。
+ */
+function splitMultiFileDiff(diffContent: string): Array<{ filename: string; diffBlock: string }> {
+  const lines = diffContent.split('\n');
+  const fileBlocks: Array<{ filename: string; diffBlock: string }> = [];
+  let currentBlock = '';
+  let currentFilename = '';
+  const detectedFiles = new Set<string>();
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+
+    // 检测 DeepV patch 格式文件头: "*** Update File: path/to/file"
+    if (line.startsWith('*** Update File:')) {
+      if (currentFilename && currentBlock) {
+        fileBlocks.push({ filename: currentFilename, diffBlock: currentBlock });
+      }
+      currentFilename = line.split(':')[1]?.trim() || 'Unknown';
+      detectedFiles.add(currentFilename);
+      currentBlock = '';
+      continue;
+    }
+
+    // 检测 DeepV patch 格式文件头: "*** Add File:" 或 "*** Delete File:"
+    if (line.startsWith('*** Add File:') || line.startsWith('*** Delete File:')) {
+      if (currentFilename && currentBlock) {
+        fileBlocks.push({ filename: currentFilename, diffBlock: currentBlock });
+      }
+      currentFilename = line.split(':')[1]?.trim() || 'Unknown';
+      detectedFiles.add(currentFilename);
+      currentBlock = '';
+      continue;
+    }
+
+    // 检测标准 git diff 格式: "diff --git a/path b/path"
+    if (line.startsWith('diff --git a/')) {
+      if (currentFilename && currentBlock) {
+        fileBlocks.push({ filename: currentFilename, diffBlock: currentBlock });
+      }
+      const match = line.match(/^diff --git a\/(.*) b\/.*$/);
+      currentFilename = match ? match[1] : 'Unknown';
+      detectedFiles.add(currentFilename);
+      currentBlock = line + '\n';
+      continue;
+    }
+
+    // 检测标准 unified diff 格式: "--- a/path" 紧跟 "+++ b/path"
+    // 排除 SVN 风格（包含 Current/Proposed 标记）
+    if (line.startsWith('--- ') && i + 1 < lines.length && lines[i + 1].startsWith('+++ ')) {
+      const nextLine = lines[i + 1];
+      const isSVNStyle = line.includes('Current') || line.includes('Proposed') || nextLine.includes('Current') || nextLine.includes('Proposed');
+
+      if (!isSVNStyle) {
+        // 是真实的 unified diff 文件头
+        if (currentFilename && currentBlock) {
+          fileBlocks.push({ filename: currentFilename, diffBlock: currentBlock });
+        }
+        let extractedPath = line.substring(4).trim();
+        if (extractedPath.startsWith('a/')) {
+          extractedPath = extractedPath.substring(2);
+        }
+        currentFilename = extractedPath;
+        detectedFiles.add(currentFilename);
+        currentBlock = line + '\n' + nextLine + '\n';
+        i++; // 跳过 +++ 行
+        continue;
+      }
+    }
+
+    currentBlock += line + '\n';
+  }
+
+  if (currentFilename && currentBlock) {
+    fileBlocks.push({ filename: currentFilename, diffBlock: currentBlock });
+  }
+
+  // 只有当真的有多个不同的文件时，才返回拆分结果
+  if (fileBlocks.length > 1 && detectedFiles.size > 1) {
+    return fileBlocks;
+  }
+
+  // 单文件或无法识别的格式，不拆分
+  return [];
+}
+
+/**
  * 解析diff内容
  */
 const parseDiffWithLineNumbers = (diffContent: string): DiffLine[] => {
@@ -351,22 +443,6 @@ export const DiffRenderer: React.FC<DiffRendererProps> = ({ data, simplified = f
   const { t } = useTranslation();
   const { fileDiff, fileName = t('unknownFile', {}, 'Unknown File') } = data;
 
-  // 处理在编辑器中查看diff的点击事件
-  const handleOpenInEditor = () => {
-    if (typeof window !== 'undefined' && window.vscode) {
-      window.vscode.postMessage({
-        type: 'openDiffInEditor',
-        payload: {
-          fileDiff,
-          fileName,
-          filePath: data.fileName, // 🎯 注意：这里如果 data 没传完整路径，就用 fileName
-          originalContent: data.originalContent || '',
-          newContent: data.newContent || ''
-        }
-      });
-    }
-  };
-
   if (!fileDiff || typeof fileDiff !== 'string') {
     return (
       <div className="diff-display-container">
@@ -374,6 +450,63 @@ export const DiffRenderer: React.FC<DiffRendererProps> = ({ data, simplified = f
       </div>
     );
   }
+
+  // 🎯 检测是否为多文件 patch
+  const fileBlocks = splitMultiFileDiff(fileDiff);
+  const isMultiFile = fileBlocks.length > 0 && fileBlocks.length > 1;
+
+  // 如果是多文件，分别渲染每个文件的 diff
+  if (isMultiFile) {
+    return (
+      <div className="diff-display-container multi-file">
+        {fileBlocks.map((block, index) => (
+          <div key={`file-block-${index}`} className="file-block">
+            {/* 文件名标题 */}
+            {index > 0 && (
+              <div className="diff-file-separator">
+                <span className="diff-file-icon modified">📝</span>
+                <span className="diff-filename">{block.filename}</span>
+              </div>
+            )}
+            {index === 0 && (
+              <div className="diff-file-header-multi">
+                <span className="diff-file-icon modified">📝</span>
+                <span className="diff-filename">{block.filename}</span>
+              </div>
+            )}
+            {/* 该文件的 diff 内容 */}
+            <div className="file-diff-content">
+              <DiffRenderer
+                data={{
+                  ...data,
+                  fileDiff: block.diffBlock,
+                  fileName: block.filename
+                }}
+                simplified={simplified}
+              />
+            </div>
+          </div>
+        ))}
+        {!simplified && renderLintStatus(data.lintStatus, data.lintDiagnostics)}
+      </div>
+    );
+  }
+
+  // 单文件渲染
+  const handleOpenInEditor = () => {
+    if (typeof window !== 'undefined' && window.vscode) {
+      window.vscode.postMessage({
+        type: 'openDiffInEditor',
+        payload: {
+          fileDiff,
+          fileName,
+          filePath: data.fileName,
+          originalContent: data.originalContent || '',
+          newContent: data.newContent || ''
+        }
+      });
+    }
+  };
 
   const parsedLines = parseDiffWithLineNumbers(fileDiff);
 
