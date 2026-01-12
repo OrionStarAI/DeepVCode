@@ -64,7 +64,8 @@ import { tokenUsageEventManager, IDEConnectionStatus, type BackgroundTask, getBa
 import { HistoryItemDisplay } from './components/HistoryItemDisplay.js';
 import { ImagePollingSpinner } from './components/ImagePollingSpinner.js';
 import { appEvents, AppEvent } from '../utils/events.js';
-import { getCreditsService, type UserCreditsInfo } from '../services/creditsService.js';
+import { getCreditsService } from '../services/creditsService.js';
+import { formatCreditsWithColor } from './utils/creditsFormatter.js';
 import { ContextSummaryDisplay } from './components/ContextSummaryDisplay.js';
 import { IDEContextDetailDisplay } from './components/IDEContextDetailDisplay.js';
 import { ReasoningDisplay } from './components/ReasoningDisplay.js';
@@ -408,20 +409,6 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
 
   // Display memory files info on initialization
   useEffect(() => {
-    const memoryFilePaths = config.getGeminiMdFilePaths();
-    if (memoryFilePaths.length > 0) {
-      const fileList = memoryFilePaths.map(f => `  - ${f}`).join('\n');
-      addItem(
-        {
-          type: MessageType.INFO,
-          text: `Using: ${memoryFilePaths.length} memory file${memoryFilePaths.length > 1 ? 's' : ''}\n${fileList}`,
-        },
-        Date.now(),
-      );
-    }
-  }, []); // Run only once on mount
-
-  useEffect(() => {
     const consolePatcher = new ConsolePatcher({
       onNewMessage: handleNewMessage,
       debugMode: config.getDebugMode(),
@@ -540,23 +527,8 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     return () => clearInterval(intervalId);
   }, [config, lastHealthyUseReminderDismissedAt, showHealthyUseReminder]);
 
-  // 🆕 预加载用户积分信息
-  useEffect(() => {
-    const fetchCredits = async () => {
-      try {
-        const creditsService = getCreditsService();
-        const info = await creditsService.getCreditsInfo();
-        setCreditsInfo(info);
-      } catch (error) {
-        // 静默处理错误
-      }
-    };
-    fetchCredits();
-  }, []);
-
   const [openFiles, setOpenFiles] = useState<OpenFiles | undefined>();
   const [logoShows, setLogoShows] = useState<boolean>(true);
-  const [creditsInfo, setCreditsInfo] = useState<UserCreditsInfo | null>(null);
   const [refineResult, setRefineResult] = useState<{
     original: string; // 完整原文（用于再次润色）
     refined: string; // 完整润色结果（用于发送给 AI）
@@ -582,6 +554,50 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   useEffect(() => {
     console.log('[App] refineResult 状态变化:', refineResult ? '有值' : 'null', refineResult ? { originalLength: refineResult.original.length, refinedLength: refineResult.refined.length } : null);
   }, [refineResult]);
+
+  // 🆕 预加载用户积分信息和内存文件路径，初始化时显示
+  // 注意：火发即忘(fire-and-forget)模式，5秒超时，不会阻塞 UI 启动
+  useEffect(() => {
+    const fetchCredits = async () => {
+      try {
+        const creditsService = getCreditsService();
+        // 异步获取积分，不等待
+        const info = await creditsService.getCreditsInfo();
+
+        // 如果有积分信息，显示它
+        if (info) {
+          const creditsText = formatCreditsWithColor(info.totalCredits, info.usedCredits, info.usagePercentage);
+          if (creditsText) {
+            addItem(
+              {
+                type: MessageType.INFO,
+                text: creditsText,
+              },
+              Date.now(),
+            );
+          }
+        }
+      } catch (error) {
+        // 静默处理错误，不影响 UI
+      }
+    };
+
+    // 立即触发异步加载，但不等待
+    fetchCredits();
+
+    // 同步处理内存文件路径（快速，不阻塞）
+    const memoryFilePaths = config.getGeminiMdFilePaths();
+    if (memoryFilePaths.length > 0) {
+      const pathsText = `Memory files (${memoryFilePaths.length}):\n${memoryFilePaths.map(f => `  - ${f}`).join('\n')}`;
+      addItem(
+        {
+          type: MessageType.INFO,
+          text: pathsText,
+        },
+        Date.now(),
+      );
+    }
+  }, []);
 
   /**
    * 渲染带有黄色省略提示的文本
@@ -1845,11 +1861,13 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
             config={config}
             version={version}
             customProxyUrl={customProxyUrl}
-            creditsInfo={creditsInfo}
           />
         )}
       </Box>
     ];
+
+    // 注：积分信息现在通过初始化消息显示，而不是在这里
+    // 这样可以避免与其他组件的布局竞争
 
     // Linus fix: 显示完整历史，移除虚拟化复杂性
     // 现代终端和计算机完全可以处理几百条消息的渲染

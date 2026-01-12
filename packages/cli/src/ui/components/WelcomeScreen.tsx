@@ -14,13 +14,11 @@ import { t } from '../utils/i18n.js';
 import path from 'path';
 import { cuteVLogo } from './AsciiArt.js';
 import { getShortModelName } from '../utils/footerUtils.js';
-import { getCreditsService, formatCredits, type UserCreditsInfo } from '../../services/creditsService.js';
 
 interface WelcomeScreenProps {
   config: Config;
   version: string;
   customProxyUrl?: string;
-  creditsInfo?: UserCreditsInfo | null;
 }
 
 interface RecentSessionDisplay {
@@ -78,7 +76,6 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   config,
   version,
   customProxyUrl,
-  creditsInfo: propCreditsInfo,
 }) => {
   // 直接同步获取用户名，不使用 state
   const userName = useMemo(() => {
@@ -112,28 +109,6 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   }, [config]);
 
   const [recentSessions, setRecentSessions] = useState<RecentSessionDisplay[]>([]);
-
-  // 使用传入的 creditsInfo，如果没有则尝试自己获取（fallback）
-  const [localCreditsInfo, setLocalCreditsInfo] = useState<UserCreditsInfo | null>(null);
-  const creditsInfo = propCreditsInfo || localCreditsInfo;
-
-  // 如果没有传入 creditsInfo，则自己获取
-  useEffect(() => {
-    if (!propCreditsInfo) {
-      const fetchCredits = async () => {
-        try {
-          console.log('📊 WelcomeScreen: Fetching credits info (fallback)...');
-          const creditsService = getCreditsService();
-          const info = await creditsService.getCreditsInfo();
-          console.log('📊 WelcomeScreen: Credits info received:', info);
-          setLocalCreditsInfo(info);
-        } catch (error) {
-          console.error('❌ WelcomeScreen: Error fetching credits:', error);
-        }
-      };
-      fetchCredits();
-    }
-  }, [propCreditsInfo]);
 
   // 获取最近会话
   useEffect(() => {
@@ -197,27 +172,6 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
       <Box>
         <Text color={Colors.AccentGreen}>{welcomeMessage}</Text>
       </Box>
-
-      {/* 用户积分信息 */}
-      {creditsInfo && (
-        <Box flexDirection="row" marginBottom={1}>
-          <Text color={Colors.AccentCyan}>
-            💳 Credits:{' '}
-          </Text>
-          <Text color={Colors.AccentBlue} bold>
-            {formatCredits(creditsInfo.totalCredits)}
-          </Text>
-          <Text color={Colors.AccentCyan}>
-            {' | Used: '}
-          </Text>
-          <Text color={creditsInfo.usagePercentage > 95 ? Colors.AccentRed : Colors.AccentOrange} bold>
-            {formatCredits(creditsInfo.usedCredits)}
-          </Text>
-          <Text color={Colors.AccentCyan}>
-            {' '}({creditsInfo.usagePercentage.toFixed(1)}%)
-          </Text>
-        </Box>
-      )}
 
       {/* 主内容区 - 左对齐布局 */}
       <Box flexDirection="column">
