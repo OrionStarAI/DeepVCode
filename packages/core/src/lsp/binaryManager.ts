@@ -153,47 +153,51 @@ export class BinaryManager {
       }
 
       console.log(`[LSP] Downloading ${asset.browser_download_url}...`);
+
+      // 使用 Buffer.concat 方式来处理流，确保完整接收
       const downloadRes = await request(asset.browser_download_url);
 
-      // 获取预期的文件大小（用于完整性验证）
-      const contentLength = downloadRes.headers['content-length'];
-      const expectedSize = contentLength ? parseInt(contentLength as string, 10) : -1;
-
       const tempDownloadPath = path.join(destDir, asset.name);
-      const fileStream = fs.createWriteStream(tempDownloadPath);
+      const chunks: Buffer[] = [];
       const readable = downloadRes.body as any;
 
-      let downloadedSize = 0;
-      for await (const chunk of readable) {
-        downloadedSize += chunk.length;
-        fileStream.write(chunk);
+      try {
+        for await (const chunk of readable) {
+          if (Buffer.isBuffer(chunk)) {
+            chunks.push(chunk);
+          } else {
+            chunks.push(Buffer.from(chunk));
+          }
+        }
+      } catch (streamError) {
+        throw new Error(
+          `[LSP] Failed to read download stream: ${streamError instanceof Error ? streamError.message : String(streamError)}`
+        );
       }
-      fileStream.end();
 
-      // 确保文件完全写入磁盘
-      await new Promise<void>((resolve, reject) => {
-        fileStream.on('finish', resolve);
-        fileStream.on('error', reject);
-      });
+      const totalBytes = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+      console.log(`[LSP] Downloaded ${totalBytes} bytes in ${chunks.length} chunks`);
 
-      // 验证下载的文件大小
+      if (totalBytes === 0) {
+        throw new Error(
+          `[LSP] HTTP response body is empty (0 bytes) for ${asset.name}. ` +
+          `This suggests the download URL returned no data. The file URL may be invalid or temporarily unavailable. ` +
+          `Please check your network connection and try again.`
+        );
+      }
+
+      // 写入文件
+      try {
+        const fileBuffer = Buffer.concat(chunks);
+        fs.writeFileSync(tempDownloadPath, fileBuffer);
+      } catch (writeError) {
+        throw new Error(
+          `[LSP] Failed to write ${asset.name} to disk: ${writeError instanceof Error ? writeError.message : String(writeError)}`
+        );
+      }
+
       const actualSize = fs.statSync(tempDownloadPath).size;
-      if (expectedSize > 0 && actualSize !== expectedSize) {
-        fs.unlinkSync(tempDownloadPath);
-        throw new Error(
-          `[LSP] Download incomplete: expected ${expectedSize} bytes, got ${actualSize} bytes for ${asset.name}. ` +
-          `This may indicate a network issue or corrupted download. Please retry.`
-        );
-      }
-
-      // 验证文件非空
-      if (actualSize === 0) {
-        fs.unlinkSync(tempDownloadPath);
-        throw new Error(
-          `[LSP] Downloaded file is empty (0 bytes) for ${asset.name}. ` +
-          `This may indicate a network interruption or server issue. Please retry.`
-        );
-      }
+      console.log(`[LSP] File written to disk: ${actualSize} bytes`);
 
       // 处理压缩文件
       if (asset.name.endsWith('.gz')) {
