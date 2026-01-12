@@ -47,7 +47,8 @@ function smartPackage() {
     console.log(`   1. Type check (Safety check)`);
     console.log(`   2. Version upgrade (if not skipped)`);
     console.log(`   3. Production build (Minification enabled)`);
-    console.log(`   4. Extension packaging (VSIX)`);
+    console.log(`   4. Clean npm artifacts (Security)`);
+    console.log(`   5. Extension packaging (VSIX)`);
     console.log(`${COLORS.dim}═══════════════════════════════════════════════════════════════${COLORS.reset}\n`);
 
     try {
@@ -111,7 +112,20 @@ function smartPackage() {
             process.exit(1);
         }
 
-        // 3. VS Code extension packaging
+        // 3. Clean npm artifacts (CRITICAL for security)
+        printHeader('Cleaning npm artifacts');
+        try {
+            execSync('node scripts/clean-npm-artifacts.js', {
+                stdio: 'inherit',
+                cwd: path.join(__dirname, '..')
+            });
+            console.log(`  ${COLORS.green}✅${COLORS.reset} ${COLORS.cyan}npm artifacts cleaned${COLORS.reset}`);
+        } catch (error) {
+            console.error(`  ${COLORS.yellow}⚠️${COLORS.reset} ${COLORS.yellow}Failed to clean npm artifacts: ${error.message}${COLORS.reset}`);
+            // Don't fail the build, just warn
+        }
+
+        // 4. VS Code extension packaging
         printHeader('Extension packaging');
 
         // Temporarily swap README.md with MARKETPLACE.md for packaging
