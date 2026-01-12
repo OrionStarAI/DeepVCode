@@ -1952,12 +1952,18 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
 
 
   // Helper function to render debug panel with scrolling display
+  // 🔧 优化：使用固定高度防止内部内容变化导致外层布局重排
   const renderDebugPanel = () => {
     if (!showErrorDetails) {
       return null;
     }
     return (
-      <Box flexDirection="column">
+      <Box
+        flexDirection="column"
+        height={debugPanelHeight}
+        width={inputWidth}
+        overflow="hidden"
+      >
         <ScrollingDebugConsole
           messages={filteredConsoleMessages}
           height={debugPanelHeight}
