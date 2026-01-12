@@ -52,6 +52,14 @@ export const useModelCommand = (
           return;
         }
 
+        // Check if this is a trigger to open auth dialog
+        if (modelName === '__trigger_auth__') {
+          setIsModelDialogOpen(false);
+          // Trigger auth dialog
+          appEvents.emit(AppEvent.AuthenticationRequired);
+          return;
+        }
+
         // Immediately close the dialog to show the switching/compressing message below
         // Don't delay here - we want the user to see the status updates immediately
         setIsModelDialogOpen(false);

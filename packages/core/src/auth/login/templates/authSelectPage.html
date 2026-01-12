@@ -170,7 +170,7 @@
       background: white;
       border-radius: 12px;
       padding: 32px;
-      max-width: 400px;
+      max-width: 500px;
       width: 90%;
       text-align: center;
       box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
@@ -381,9 +381,15 @@
       color: white;
     }
 
-    .btn-primary:hover {
+    .btn-primary:hover:not(:disabled) {
       background: linear-gradient(135deg, #e55a2b 0%, #de831a 100%);
       transform: translateY(-1px);
+    }
+
+    .btn-primary:disabled {
+      background: linear-gradient(135deg, #d1d5db 0%, #9ca3af 100%);
+      cursor: not-allowed;
+      opacity: 0.6;
     }
 
     .btn-secondary {
@@ -392,9 +398,16 @@
       border: 1px solid #e2e8f0;
     }
 
-    .btn-secondary:hover {
+    .btn-secondary:hover:not(:disabled) {
       background: #e2e8f0;
       color: #475569;
+    }
+
+    .btn-secondary:disabled {
+      background: #f8fafc;
+      color: #cbd5e1;
+      cursor: not-allowed;
+      opacity: 0.6;
     }
 
     @media (max-width: 480px) {
@@ -521,12 +534,27 @@
         'auth.cheetah.form.password': 'Password',
         'auth.cheetah.form.cancel': 'Cancel',
         'auth.cheetah.form.submit': 'Login',
+        'auth.cheetah.form.submitting': 'Logging in...',
         'auth.page.instruction': 'Choose your authentication method and we will guide you through the secure login process',
         'auth.loading.text': 'Checking access permissions...',
         'auth.china.restriction.title': 'Access Restricted',
         'auth.feishu.start.error': 'Failed to start Feishu authentication, please try again',
         'auth.deepvlab.start.error': 'Failed to start DeepVlab authentication, please try again',
-        'auth.cheetah.start.error': 'Failed to login with Cheetah OA, please check your credentials'
+        'auth.cheetah.start.error': 'Failed to login with Cheetah OA, please check your credentials',
+        'auth.message.success.title': 'Login Successful!',
+        'auth.message.success.content': 'You have successfully logged in with Cheetah OA. You can now close this window and continue using DeepV Code.',
+        'auth.message.success.button': 'Close',
+        'auth.message.error.login.title': 'Login Failed',
+        'auth.message.error.login.content': 'Cheetah OA authentication failed. Please check your credentials and try again.',
+        'auth.message.error.login.button': 'Try Again',
+        'auth.message.error.input.title': 'Input Required',
+        'auth.message.error.input.content': 'Please fill in both email and password fields.',
+        'auth.message.error.input.button': 'OK',
+        'auth.message.error.connection.title': 'Connection Error',
+        'auth.message.error.connection.content': 'Unable to connect to authentication server. Please check your network connection and try again.',
+        'auth.message.error.connection.button': 'Retry',
+        'auth.message.error.feishu.content': 'Unable to start Feishu authentication. Please check your network connection and try again.',
+        'auth.message.error.deepvlab.content': 'Unable to start DeepVlab authentication. Please check your network connection and try again.'
       },
       zh: {
         'auth.page.title': '选择认证方式',
@@ -539,12 +567,27 @@
         'auth.cheetah.form.password': '密码',
         'auth.cheetah.form.cancel': '取消',
         'auth.cheetah.form.submit': '登录',
+        'auth.cheetah.form.submitting': '登录中...',
         'auth.page.instruction': '选择您的认证方式，我们将引导您完成安全的登录流程',
         'auth.loading.text': '正在检查访问权限...',
         'auth.china.restriction.title': '访问受限',
         'auth.feishu.start.error': '飞书认证启动失败，请重试',
         'auth.deepvlab.start.error': 'DeepVlab认证启动失败，请重试',
-        'auth.cheetah.start.error': '猎豹OA登录失败，请检查您的凭据'
+        'auth.cheetah.start.error': '猎豹OA登录失败，请检查您的凭据',
+        'auth.message.success.title': '登录成功！',
+        'auth.message.success.content': '您已成功使用猎豹OA登录。现在可以关闭此窗口并继续使用DeepV Code。',
+        'auth.message.success.button': '关闭',
+        'auth.message.error.login.title': '登录失败',
+        'auth.message.error.login.content': '猎豹OA认证失败。请检查您的凭据并重试。',
+        'auth.message.error.login.button': '重试',
+        'auth.message.error.input.title': '需要输入',
+        'auth.message.error.input.content': '请填写邮箱和密码字段。',
+        'auth.message.error.input.button': '确定',
+        'auth.message.error.connection.title': '连接错误',
+        'auth.message.error.connection.content': '无法连接到认证服务器。请检查您的网络连接并重试。',
+        'auth.message.error.connection.button': '重试',
+        'auth.message.error.feishu.content': '无法启动飞书认证。请检查您的网络连接并重试。',
+        'auth.message.error.deepvlab.content': '无法启动DeepVlab认证。请检查您的网络连接并重试。'
       }
     };
 
@@ -573,7 +616,9 @@
     }
 
     // 消息提示函数
-    function showMessage(type, title, content, buttonText = 'OK') {
+    function showMessage(type, title, content, buttonText = 'OK', options = {}) {
+      const { closable = true } = options;
+
       // 创建消息覆盖层
       const overlay = document.createElement('div');
       overlay.className = 'message-overlay';
@@ -597,30 +642,35 @@
       contentEl.className = 'message-content';
       contentEl.textContent = content;
 
-      // 按钮
-      const button = document.createElement('button');
-      button.className = 'message-button';
-      button.textContent = buttonText;
-      button.onclick = () => {
-        document.body.removeChild(overlay);
-      };
-
       // 组装消息框
       messageBox.appendChild(icon);
       messageBox.appendChild(titleEl);
       messageBox.appendChild(contentEl);
-      messageBox.appendChild(button);
+
+      // 按钮（仅在允许关闭时显示）
+      if (closable) {
+        const button = document.createElement('button');
+        button.className = 'message-button';
+        button.textContent = buttonText;
+        button.onclick = () => {
+          document.body.removeChild(overlay);
+        };
+        messageBox.appendChild(button);
+      }
+
       overlay.appendChild(messageBox);
 
       // 添加到页面
       document.body.appendChild(overlay);
 
-      // 点击覆盖层关闭
-      overlay.onclick = (e) => {
-        if (e.target === overlay) {
-          document.body.removeChild(overlay);
-        }
-      };
+      // 点击覆盖层关闭（仅在允许关闭时）
+      if (closable) {
+        overlay.onclick = (e) => {
+          if (e.target === overlay) {
+            document.body.removeChild(overlay);
+          }
+        };
+      }
     }
 
     // 页面加载时初始化i18n和检查登录权限
@@ -768,7 +818,7 @@
         })
         .catch(error => {
           console.error('飞书认证启动失败:', error);
-          showMessage('error', 'Connection Error', 'Unable to start Feishu authentication. Please check your network connection and try again.', 'Retry');
+          showMessage('error', t('auth.message.error.connection.title'), t('auth.message.error.feishu.content'), t('auth.message.error.connection.button'));
         });
     }
 
@@ -786,7 +836,7 @@
         })
         .catch(error => {
           console.error('DeepVlab认证启动失败:', error);
-          showMessage('error', 'Connection Error', 'Unable to start DeepVlab authentication. Please check your network connection and try again.', 'Retry');
+          showMessage('error', t('auth.message.error.connection.title'), t('auth.message.error.deepvlab.content'), t('auth.message.error.connection.button'));
         });
     }
 
@@ -824,7 +874,7 @@
       const password = document.getElementById('cheetah-password').value;
 
       if (!email || !password) {
-        showMessage('error', 'Input Required', 'Please fill in both email and password fields.', 'OK');
+        showMessage('error', t('auth.message.error.input.title'), t('auth.message.error.input.content'), t('auth.message.error.input.button'));
         return;
       }
 
@@ -832,7 +882,7 @@
       const submitBtn = event.target.querySelector('button[type="submit"]');
       if (submitBtn) {
         submitBtn.disabled = true;
-        submitBtn.textContent = '登录中...';
+        submitBtn.textContent = t('auth.cheetah.form.submitting');
       }
 
       fetch('/start-cheetah-auth', {
@@ -845,17 +895,17 @@
         .then(response => response.json())
         .then(data => {
           if (data.success) {
-            // 登录成功，显示成功消息
-            showMessage('success', 'Login Successful!', 'You have successfully logged in with Cheetah OA. You can now close this window and continue using DeepCode.', 'Close');
+            // 登录成功，显示成功消息（不允许关闭）
+            showMessage('success', t('auth.message.success.title'), t('auth.message.success.content'), t('auth.message.success.button'), { closable: false });
             // 隐藏表单，显示按钮
             cancelCheetahAuth();
           } else {
-            showMessage('error', 'Login Failed', data.message || 'Cheetah OA authentication failed. Please check your credentials and try again.', 'Try Again');
+            showMessage('error', t('auth.message.error.login.title'), data.message || t('auth.message.error.login.content'), t('auth.message.error.login.button'));
           }
         })
         .catch(error => {
           console.error('猎豹OA登录失败:', error);
-          showMessage('error', 'Connection Error', 'Unable to connect to authentication server. Please check your network connection and try again.', 'Retry');
+          showMessage('error', t('auth.message.error.connection.title'), t('auth.message.error.connection.content'), t('auth.message.error.connection.button'));
         })
         .finally(() => {
           // 恢复提交按钮

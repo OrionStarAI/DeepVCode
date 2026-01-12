@@ -427,7 +427,7 @@ export const translations = {
 
     // Checkpoint messages
     'checkpoint.creating': 'Creating auto checkpoint...',
-    'checkpoint.created.success': 'Checkpoint created.\n   Use /restore {checkpointId} to restore to this checkpoint\n',
+    'checkpoint.created.success': 'Checkpoint created.\n   Use \x1b[36m/restore {checkpointId}\x1b[32m to restore to this checkpoint\n',
     'checkpoint.created.failed': 'Failed to create checkpoint: {error}',
     'checkpoint.creation.skipped': 'Subsequent auto checkpoint attempts will be skipped for this conversation',
 
@@ -513,6 +513,7 @@ export const translations = {
     'model.dialog.details.unavailable': 'Unavailable',
     'model.dialog.hint.tiny': '(Enter to select, ESC to exit)',
     'model.dialog.hint.normal': '(Press Enter to select model, ESC to exit)',
+    'model.dialog.hint.login': '(Press Enter to login, ESC to exit)',
     'model.dialog.set.failed': 'Failed to set model: {error}',
 
     // Tips Component Messages
@@ -1604,7 +1605,7 @@ export const translations = {
 
     // Checkpoint messages
     'checkpoint.creating': '正在执行自动检查点...',
-    'checkpoint.created.success': '检查点已建立。\n  使用 /restore {checkpointId} 恢复到此检查点\n',
+    'checkpoint.created.success': '检查点已建立。\n  使用 \x1b[36m/restore {checkpointId}\x1b[32m 恢复到此检查点\n',
     'checkpoint.created.failed': '检查点创建失败: {error}',
     'checkpoint.creation.skipped': '本次对话将跳过后续的自动检查点尝试',
 
@@ -1690,6 +1691,7 @@ export const translations = {
     'model.dialog.details.unavailable': '不可用',
     'model.dialog.hint.tiny': '(回车选择，ESC退出)',
     'model.dialog.hint.normal': '(按回车键选择模型，按 ESC 键退出)',
+    'model.dialog.hint.login': '(按回车键登录，按 ESC 键退出)',
     'model.dialog.set.failed': '设置模型失败: {error}',
 
     // Tips Component Messages
