@@ -63,6 +63,7 @@ import { tokenUsageEventManager, IDEConnectionStatus, type BackgroundTask, getBa
 import { HistoryItemDisplay } from './components/HistoryItemDisplay.js';
 import { ImagePollingSpinner } from './components/ImagePollingSpinner.js';
 import { appEvents, AppEvent } from '../utils/events.js';
+import { getCreditsService, type UserCreditsInfo } from '../services/creditsService.js';
 import { ContextSummaryDisplay } from './components/ContextSummaryDisplay.js';
 import { IDEContextDetailDisplay } from './components/IDEContextDetailDisplay.js';
 import { ReasoningDisplay } from './components/ReasoningDisplay.js';
@@ -536,8 +537,24 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
 
     return () => clearInterval(intervalId);
   }, [config, lastHealthyUseReminderDismissedAt, showHealthyUseReminder]);
+
+  // 🆕 预加载用户积分信息
+  useEffect(() => {
+    const fetchCredits = async () => {
+      try {
+        const creditsService = getCreditsService();
+        const info = await creditsService.getCreditsInfo();
+        setCreditsInfo(info);
+      } catch (error) {
+        // 静默处理错误
+      }
+    };
+    fetchCredits();
+  }, []);
+
   const [openFiles, setOpenFiles] = useState<OpenFiles | undefined>();
   const [logoShows, setLogoShows] = useState<boolean>(true);
+  const [creditsInfo, setCreditsInfo] = useState<UserCreditsInfo | null>(null);
   const [refineResult, setRefineResult] = useState<{
     original: string; // 完整原文（用于再次润色）
     refined: string; // 完整润色结果（用于发送给 AI）
@@ -1820,6 +1837,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
             config={config}
             version={version}
             customProxyUrl={customProxyUrl}
+            creditsInfo={creditsInfo}
           />
         )}
       </Box>
