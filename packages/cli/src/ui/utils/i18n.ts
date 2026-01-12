@@ -262,6 +262,12 @@ export const translations = {
     'stats.compact.credits': 'Credits',
     'stats.compact.cache.hit.rate': 'Cache Hit Rate',
 
+    // Credits display labels
+    'credits.limit': 'Credit Limit',
+    'credits.used': 'Used',
+    'credits.available': 'Available',
+    'credits.fetching': 'Fetching latest credits...',
+
     // Compact Model Stats Display
     'stats.compact.model.requests': 'Reqs',
     'stats.compact.model.errors': 'Errors',
@@ -1438,6 +1444,12 @@ export const translations = {
     'stats.compact.total': '总计',
     'stats.compact.credits': '积分',
     'stats.compact.cache.hit.rate': '缓存命中率',
+
+    // Credits display labels
+    'credits.limit': '积分限额',
+    'credits.used': '已用',
+    'credits.available': '可用',
+    'credits.fetching': '正在获取最新积分信息...',
 
     // Compact Model Stats Display
     'stats.compact.model.requests': '请求',

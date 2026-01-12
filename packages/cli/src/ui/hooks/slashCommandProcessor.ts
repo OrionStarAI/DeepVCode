@@ -426,14 +426,40 @@ export const useSlashCommandProcessor = (
                 case 'quit':
                   setShowHelp(false);
                   setQuittingMessages(result.messages);
+                  // 智能退出机制：
+                  // 1. 显示统计面板（即刻）
+                  // 2. 等待 1 秒后开始获取最新积分
+                  // 3. 数据加载完成后立即标记 __creditsLoadComplete = true
+                  // 4. 检测到标记后立即退出（不用再等）
+                  // 5. 最多等 6 秒（1s延迟 + 5s超时），如果没完成就强制退出
+
+                  const exitTimer = setInterval(() => {
+                    const creditsLoadComplete = (window as any).__creditsLoadComplete;
+                    if (creditsLoadComplete) {
+                      clearInterval(exitTimer);
+                      // 积分加载完成，立即退出
+                      setTimeout(async () => {
+                        try {
+                          await runExitCleanup();
+                        } catch (error) {
+                          // 忽略清理错误
+                        }
+                        process.exit(0);
+                      }, 100); // 给 UI 100ms 时间渲染最后的内容
+                    }
+                  }, 100); // 每 100ms 检查一次
+
+                  // 6 秒后如果还没完成，强制退出
                   setTimeout(async () => {
+                    clearInterval(exitTimer);
                     try {
                       await runExitCleanup();
                     } catch (error) {
-                      // 忽略清理错误，避免影响正常退出
+                      // 忽略清理错误
                     }
                     process.exit(0);
-                  }, 100);
+                  }, 6000);
+
                   return { type: 'handled' };
 
                 case 'submit_prompt':

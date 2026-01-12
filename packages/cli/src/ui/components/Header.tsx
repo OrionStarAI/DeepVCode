@@ -9,7 +9,6 @@ import { Box, Text } from 'ink';
 import { Colors } from '../colors.js';
 import { t } from '../utils/i18n.js';
 import { cuteVLogo } from './AsciiArt.js';
-import { formatCredits, type UserCreditsInfo } from '../../services/creditsService.js';
 
 interface HeaderProps {
   customAsciiArt?: string; // For user-defined ASCII art
@@ -17,7 +16,6 @@ interface HeaderProps {
   version: string;
   nightly: boolean;
   feishuServerPort?: number; // 飞书认证服务器端口号
-  creditsInfo?: UserCreditsInfo | null; // 从父组件传递的积分信息
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -26,7 +24,6 @@ export const Header: React.FC<HeaderProps> = ({
   version,
   nightly,
   feishuServerPort,
-  creditsInfo,
 }) => {
 
   // 如果用户自定义了 ASCII art，则使用它
@@ -54,27 +51,6 @@ export const Header: React.FC<HeaderProps> = ({
           </Text>
         </Box>
       </Box>
-
-      {/* 积分信息显示 */}
-      {creditsInfo && (
-        <Box flexDirection="row" paddingX={1} marginTop={1}>
-          <Text color={Colors.AccentCyan}>
-            💳 Credits:{' '}
-          </Text>
-          <Text color={Colors.AccentBlue} bold>
-            {formatCredits(creditsInfo.totalCredits)}
-          </Text>
-          <Text color={Colors.AccentCyan}>
-            {' | Used: '}
-          </Text>
-          <Text color={creditsInfo.usagePercentage > 95 ? Colors.AccentRed : Colors.AccentOrange} bold>
-            {formatCredits(creditsInfo.usedCredits)}
-          </Text>
-          <Text color={Colors.AccentCyan}>
-            {' '}({creditsInfo.usagePercentage.toFixed(1)}%)
-          </Text>
-        </Box>
-      )}
     </Box>
   );
 };
