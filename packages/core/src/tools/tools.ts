@@ -399,6 +399,8 @@ export interface ToolExecuteConfirmationDetails {
   onConfirm: (outcome: ToolConfirmationOutcome) => Promise<void>;
   command: string;
   rootCommand: string;
+  /** 可选的警告消息，用于危险命令提示 */
+  warning?: string;
 }
 
 export interface ToolMcpConfirmationDetails {

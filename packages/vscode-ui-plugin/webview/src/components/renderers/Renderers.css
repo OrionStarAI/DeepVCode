@@ -230,6 +230,56 @@
   line-height: 1.4;
 }
 
+/* 多文件模式样式 */
+.diff-display-container.multi-file {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.diff-display-container.multi-file .file-block {
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.diff-file-separator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--vscode-editor-background);
+  border-top: 1px solid var(--vscode-panel-border);
+  border-bottom: 1px solid var(--vscode-panel-border);
+  margin-top: 4px;
+}
+
+.diff-file-header-multi {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--vscode-editor-background);
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.diff-file-header-multi .diff-file-icon,
+.diff-file-separator .diff-file-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.diff-file-header-multi .diff-filename,
+.diff-file-separator .diff-filename {
+  color: var(--vscode-descriptionForeground);
+  font-family: monospace;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.file-diff-content {
+  margin: 0;
+}
+
 /* 简化模式样式 */
 .diff-display-container.simplified {
   background: transparent;

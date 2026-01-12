@@ -83,6 +83,10 @@ const workspaces = [
 
 const results = [];
 
+// Determine which packages are required (critical) for build success
+// vscode-ui-plugin is optional and won't block the build process
+const criticalPackages = new Set(['core', 'cli']);
+
 printHeader('Building workspaces');
 
 if (skipRebuild) {
@@ -94,17 +98,25 @@ if (skipRebuild) {
   try {
     for (const workspace of workspaces) {
       console.log(`\n${COLORS.dim}─ Workspace: ${workspace.name} ─${COLORS.reset}`);
+      const isCritical = criticalPackages.has(workspace.name);
       try {
         execSync(`npm run build --workspace=${workspace.path}`, { stdio: 'inherit', cwd: root });
         results.push({ ...workspace, status: 'SUCCESS' });
       } catch (error) {
         results.push({ ...workspace, status: 'FAILED' });
-        throw error;
+
+        // Only throw error if it's a critical package
+        if (isCritical) {
+          throw error;
+        } else {
+          // For non-critical packages (vscode), log warning and continue
+          console.log(`\n${COLORS.yellow}⚠️  ${workspace.name} build failed, but continuing (non-critical package)${COLORS.reset}`);
+        }
       }
     }
   } catch (error) {
     printSummary(results);
-    console.error(`\n${COLORS.red}${COLORS.bright}[!] Build process interrupted due to workspace failure.${COLORS.reset}`);
+    console.error(`\n${COLORS.red}${COLORS.bright}[!] Build process interrupted due to critical workspace failure.${COLORS.reset}`);
     process.exit(1);
   }
 }
@@ -132,14 +144,17 @@ printSummary(results);
 
 function printSummary(workspaceResults) {
   const duration = ((Date.now() - startTime) / 1000).toFixed(2);
+  const criticalPackages = new Set(['core', 'cli']);
 
   console.log(`\n${COLORS.bright}${COLORS.blue}----------------------- Build Summary -----------------------${COLORS.reset}`);
 
   workspaceResults.forEach(res => {
+    const isCritical = criticalPackages.has(res.name);
     const statusColor = res.status === 'SUCCESS' ? COLORS.green : COLORS.red;
     const icon = res.status === 'SUCCESS' ? '✅' : '❌';
     const statusText = res.status === 'SUCCESS' ? 'SUCCESS' : 'FAILED';
-    console.log(`${icon} ${COLORS.cyan}${res.name.padEnd(35)}${COLORS.reset} [${statusColor}${statusText}${COLORS.reset}]`);
+    const criticalLabel = !isCritical && res.status === 'FAILED' ? ` ${COLORS.yellow}(non-critical, skipped)${COLORS.reset}` : '';
+    console.log(`${icon} ${COLORS.cyan}${res.name.padEnd(35)}${COLORS.reset} [${statusColor}${statusText}${COLORS.reset}]${criticalLabel}`);
   });
 
   console.log(`${COLORS.bright}${COLORS.blue}-------------------------------------------------------------${COLORS.reset}`);

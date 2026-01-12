@@ -763,7 +763,7 @@ function getMcpPromptsContext(promptRegistry?: PromptRegistry): string {
   }
 }
 
-export function getCoreSystemPrompt(userMemory?: string, isVSCode?: boolean, promptRegistry?: PromptRegistry, agentStyle: AgentStyle = 'default'): string {
+export function getCoreSystemPrompt(userMemory?: string, isVSCode?: boolean, promptRegistry?: PromptRegistry, agentStyle: AgentStyle = 'default', modelId?: string): string {
   // if GEMINI_SYSTEM_MD is set (and not 0|false), override system prompt from file
   // default path is .deepv/system.md but can be modified via custom path in GEMINI_SYSTEM_MD
   let systemMdEnabled = false;
@@ -823,7 +823,10 @@ export function getCoreSystemPrompt(userMemory?: string, isVSCode?: boolean, pro
 
   const mcpPromptsContext = getMcpPromptsContext(promptRegistry);
 
-  let finalPrompt = `${basePrompt}\n\n${dynamicPrompt}`;
+  // Inject current model ID if provided
+  const modelIdContext = modelId ? `\n\n---\n\n**Current Model:** \`${modelId}\`` : '';
+
+  let finalPrompt = `${basePrompt}\n\n${dynamicPrompt}${modelIdContext}`;
   if (mcpPromptsContext) {
     finalPrompt += mcpPromptsContext;
   }

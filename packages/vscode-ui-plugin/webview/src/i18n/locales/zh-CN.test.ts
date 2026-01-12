@@ -1,7 +1,8 @@
-import { describe, it } from "vitest";
+import { zhCN } from './zh-CN';
 
-describe("zh-CN.ts", () => {
-  it.skip("should be implemented", () => {
-    // TODO
+describe('zh-CN locale', () => {
+  it('defines common strings', () => {
+    expect(zhCN.common.loading.length).toBeGreaterThan(0);
+    expect(zhCN.welcome.titleMain).toContain('DeepV Code');
   });
 });
