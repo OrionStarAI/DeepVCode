@@ -2956,6 +2956,22 @@ function setupMultiSessionHandlers() {
     }
   });
 
+  // 🎯 处理系统消息注入请求
+  communicationService.addMessageHandler('inject_system_message', async (payload: { sessionId: string, content: string }) => {
+    try {
+      logger.info(`Received inject_system_message request for session: ${payload.sessionId}`);
+      const aiService = await sessionManager.getInitializedAIService(payload.sessionId);
+      if (aiService) {
+        await aiService.addSystemMessageToHistory(payload.content);
+        logger.info(`✅ Successfully injected system message to session ${payload.sessionId}`);
+      } else {
+        logger.warn(`⚠️ AIService not found for session ${payload.sessionId}, cannot inject message`);
+      }
+    } catch (error) {
+      logger.error('Failed to inject system message', error instanceof Error ? error : undefined);
+    }
+  });
+
   // 🎯 处理规则保存请求
   communicationService.onRulesSave(async (payload) => {
     try {

@@ -145,7 +145,9 @@ export interface MultiSessionMessageToExtension {
        'open_mcp_settings' |
        // 🎯 后台任务管理
        'background_task_request' |
-       'background_task_move_to_background';
+       'background_task_move_to_background' |
+       // 🎯 注入系统消息到 AI 历史（不显示在 UI）
+       'inject_system_message';
   payload: Record<string, unknown> & {
     sessionId?: string; // 大部分消息都包含sessionId
   };
@@ -1069,6 +1071,16 @@ export class MultiSessionMessageService {
     creditsDeducted?: number;
   }) => void) {
     this.addMessageHandler('nanobanana_status_update', callback);
+  }
+
+  /**
+   * 🎯 注入系统消息到 AI 历史（不显示在 UI）
+   */
+  sendInjectSystemMessage(sessionId: string, content: string) {
+    this.sendMessage({
+      type: 'inject_system_message',
+      payload: { sessionId, content }
+    });
   }
 
   /**
