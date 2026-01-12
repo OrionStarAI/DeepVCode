@@ -10,7 +10,7 @@ import * as path from 'node:path';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as zlib from 'node:zlib';
-import { spawn } from 'node:child_process';
+import { spawn, execSync } from 'node:child_process';
 import { request } from 'undici';
 import JSZip from 'jszip';
 
@@ -154,50 +154,43 @@ export class BinaryManager {
 
       console.log(`[LSP] Downloading ${asset.browser_download_url}...`);
 
-      // 使用 Buffer.concat 方式来处理流，确保完整接收
-      const downloadRes = await request(asset.browser_download_url);
-
       const tempDownloadPath = path.join(destDir, asset.name);
-      const chunks: Buffer[] = [];
-      const readable = downloadRes.body as any;
 
+      // 使用 curl 下载，原生支持重定向和各种网络条件
       try {
-        for await (const chunk of readable) {
-          if (Buffer.isBuffer(chunk)) {
-            chunks.push(chunk);
-          } else {
-            chunks.push(Buffer.from(chunk));
-          }
+        const curlCmd = process.platform === 'win32'
+          ? `curl.exe -L --fail --silent --show-error -o "${tempDownloadPath}" "${asset.browser_download_url}"`
+          : `curl -L --fail --silent --show-error -o "${tempDownloadPath}" "${asset.browser_download_url}"`;
+
+        execSync(curlCmd, { stdio: 'pipe' });
+      } catch (curlError) {
+        if (fs.existsSync(tempDownloadPath)) {
+          fs.unlinkSync(tempDownloadPath);
         }
-      } catch (streamError) {
+        const errorMsg = curlError instanceof Error ? curlError.message : String(curlError);
         throw new Error(
-          `[LSP] Failed to read download stream: ${streamError instanceof Error ? streamError.message : String(streamError)}`
+          `[LSP] curl download failed: ${errorMsg}. ` +
+          `This may indicate a network issue or the download URL is temporarily unavailable. Please retry.`
         );
       }
 
-      const totalBytes = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
-      console.log(`[LSP] Downloaded ${totalBytes} bytes in ${chunks.length} chunks`);
-
-      if (totalBytes === 0) {
+      // 验证文件是否成功下载
+      if (!fs.existsSync(tempDownloadPath)) {
         throw new Error(
-          `[LSP] HTTP response body is empty (0 bytes) for ${asset.name}. ` +
-          `This suggests the download URL returned no data. The file URL may be invalid or temporarily unavailable. ` +
-          `Please check your network connection and try again.`
-        );
-      }
-
-      // 写入文件
-      try {
-        const fileBuffer = Buffer.concat(chunks);
-        fs.writeFileSync(tempDownloadPath, fileBuffer);
-      } catch (writeError) {
-        throw new Error(
-          `[LSP] Failed to write ${asset.name} to disk: ${writeError instanceof Error ? writeError.message : String(writeError)}`
+          `[LSP] Downloaded file not found at ${tempDownloadPath}. curl may have failed silently.`
         );
       }
 
       const actualSize = fs.statSync(tempDownloadPath).size;
-      console.log(`[LSP] File written to disk: ${actualSize} bytes`);
+      if (actualSize === 0) {
+        fs.unlinkSync(tempDownloadPath);
+        throw new Error(
+          `[LSP] Downloaded file is empty (0 bytes) for ${asset.name}. ` +
+          `The download URL may be invalid or temporarily unavailable. Please retry.`
+        );
+      }
+
+      console.log(`[LSP] Downloaded ${actualSize} bytes`);
 
       // 处理压缩文件
       if (asset.name.endsWith('.gz')) {
