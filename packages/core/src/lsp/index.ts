@@ -45,6 +45,7 @@ export class LSPManager {
         try {
           console.log(`[LSP] Starting ${serverInfo.id} for root ${root}`);
           const { process } = await serverInfo.spawn(root);
+          console.log(`[LSP] Process spawned: pid=${process.pid}, stdio=${JSON.stringify(process.stdio)}`);
           const client = await createLSPClient({
             serverID: serverInfo.id,
             server: { process },
@@ -54,7 +55,22 @@ export class LSPManager {
           this.freshClients.add(client.serverID); // 🎯 标记为新客户端
           results.push(client);
         } catch (e) {
-          console.error(`[LSP] Failed to start ${serverInfo.id}:`, e);
+          const errorDetails = e instanceof Error ? {
+            message: e.message,
+            stack: e.stack,
+            code: (e as any).code,
+            errno: (e as any).errno,
+            syscall: (e as any).syscall,
+            path: (e as any).path
+          } : String(e);
+          console.error(`[LSP] Failed to start ${serverInfo.id}:`, errorDetails);
+
+          // 🎯 Windows errno -4094 通常表示二进制文件损坏或格式不对
+          // 此时应该删除坏的二进制文件并提示用户重新初始化
+          const err = e as any;
+          if (err.errno === -4094 || err.code === 'UNKNOWN') {
+            console.error(`[LSP] Binary file may be corrupted (errno=${err.errno}). Suggest deleting ${serverInfo.id} cache and reinitializing.`);
+          }
         }
       }
     }
