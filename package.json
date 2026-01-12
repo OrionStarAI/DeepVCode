@@ -77,7 +77,7 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "preflight": "npm run clean && npm ci && npm run format && npm run lint:ci && npm run build && npm run typecheck && npm run test:ci",
     "prepare": "node scripts/prepare.js",
-    "prepublishOnly": "node scripts/prepare-publish.js && cross-env BUILD_ENV=production NPM_PUBLISH_MODE=1 IN_PUBLISH=1 npm run bundle:prod",
+    "prepublishOnly": "node scripts/prepare-publish.js && cross-env BUILD_ENV=production NPM_PUBLISH_MODE=1 npm run bundle:prod",
     "postpublish": "node scripts/restore-after-publish.js",
     "prepare:package": "node scripts/prepare-package.js",
     "postinstall": "node -e \"const fs = require('fs'); const path = 'bundle/fix-binary-permissions.js'; if (fs.existsSync(path)) { require('child_process').execSync('node ' + path + ' --all', {stdio: 'inherit'}); } else { console.log('⏭️  Skipping binary permissions fix (bundle not built yet)'); }\"",

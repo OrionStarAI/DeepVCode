@@ -67,7 +67,10 @@ remote-client/build
 # Temporary backup during publish
 .publish-backup
 
+# NPM publish flag file
+.npm-publish-in-progress
+
 # Build artifacts
 *.tgz
 
-packages/cli/clipboard/  
+packages/cli/clipboard/
