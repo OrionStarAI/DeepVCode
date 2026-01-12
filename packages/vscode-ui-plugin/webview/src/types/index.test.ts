@@ -1,7 +1,8 @@
-import { describe, it } from "vitest";
+import { ToolCallStatus } from './index';
 
-describe("index.ts", () => {
-  it.skip("should be implemented", () => {
-    // TODO
+describe('types index', () => {
+  it('exposes tool call status values', () => {
+    expect(ToolCallStatus.Success).toBe('success');
+    expect(ToolCallStatus.Executing).toBe('executing');
   });
 });

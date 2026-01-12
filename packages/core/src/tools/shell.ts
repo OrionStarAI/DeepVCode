@@ -29,6 +29,10 @@ import {
 import { execSync } from 'child_process';
 import iconv from 'iconv-lite';
 import { t } from '../utils/simpleI18n.js';
+import {
+  getDangerousCommandInfo,
+  shouldAlwaysConfirmCommand,
+} from '../utils/dangerous-command-detector.js';
 
 export interface ShellToolParams {
   command: string;
@@ -408,6 +412,27 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
     }
 
     const command = stripShellWrapper(params.command);
+
+    // 🚨 第一步：检查是否是危险命令（跳过YOLO，强制确认）
+    const dangerousInfo = getDangerousCommandInfo(command);
+
+    if (dangerousInfo) {
+      const confirmationDetails: ToolExecuteConfirmationDetails = {
+        type: 'exec',
+        title: '⚠️ 危险命令 - 必须确认',
+        command: params.command,
+        rootCommand: dangerousInfo.rule.id,
+        warning: dangerousInfo.warning,
+        // ⭐ 危险命令不能添加到allowlist（即使选择ProceedAlways也不行）
+        onConfirm: async (outcome: ToolConfirmationOutcome) => {
+          // 危险命令每次都必须确认，不能whiteklist
+          // 所以这里不做任何操作
+        },
+      };
+      return confirmationDetails;
+    }
+
+    // 第二步：常规命令确认（考虑用户的YOLO模式设置和allowlist）
     const rootCommands = [...new Set(getCommandRoots(command))];
     const commandsToConfirm = rootCommands.filter(
       (command) => !this.allowlist.has(command),

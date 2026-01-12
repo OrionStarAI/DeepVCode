@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { vi } from 'vitest';
+import type { BackgroundTaskInfo } from '../../../src/types/messages';
 import BackgroundTasksBar from './BackgroundTasksBar';
 
 vi.mock('../hooks/useTranslation', () => ({
@@ -12,12 +13,14 @@ vi.mock('../hooks/useTranslation', () => ({
 describe('BackgroundTasksBar', () => {
   it('renders tasks and handles kill', () => {
     const onKillTask = vi.fn();
-    const tasks = [
+    const tasks: BackgroundTaskInfo[] = [
       {
         id: '1',
         command: 'npm run build',
         status: 'running',
         startTime: Date.now() - 1000,
+        output: '',
+        stderr: '',
       },
       {
         id: '2',
@@ -25,6 +28,8 @@ describe('BackgroundTasksBar', () => {
         status: 'completed',
         startTime: Date.now() - 2000,
         endTime: Date.now() - 1000,
+        output: 'Tests passed',
+        stderr: '',
       },
     ];
 
@@ -36,7 +41,9 @@ describe('BackgroundTasksBar', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Click to view background tasks' }));
+    // Find the button by its title attribute (since name comes from title in the component)
+    const button = screen.getByRole('button');
+    fireEvent.click(button);
     expect(screen.getByText('npm run build')).toBeInTheDocument();
 
     fireEvent.click(screen.getByLabelText('Stop this task'));
