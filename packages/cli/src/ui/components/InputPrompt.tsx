@@ -629,7 +629,7 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
           if (completion.activeSuggestionIndex > -1 && completion.suggestions.length > 0) {
             const selectedSuggestion = completion.suggestions[completion.activeSuggestionIndex];
 
-            // 检查是否需要自动执行（用于 /model 等参数补全命令）
+            // 检查是否需要自动执行（用于 /model 等参数补全命令，以及 /session select 等）
             if (selectedSuggestion?.willAutoExecute === true) {
               // 直接构造完整命令并执行，无需先补全到输入框
               const query = buffer.text;
@@ -639,11 +639,20 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
               if (query.trimStart().startsWith('/')) {
                 const parts = query.trimStart().substring(1).split(/\s+/).filter(Boolean);
                 const hasTrailingSpace = query.endsWith(' ');
+
+                // 🚀 核心修复：如果是 /session select 2 这种情况，'2' 可能已经被部分或完全输入了
+                // 我们需要替换掉当前的参数部分，而不是追加
+                // 如果没有尾随空格，说明最后一个部分正在输入中，需要被替换
                 const basePath = hasTrailingSpace ? parts : parts.slice(0, -1);
                 const finalCommand = `/${[...basePath, suggestion].join(' ')}`;
 
-                // 直接执行命令
-                inputHistory.handleSubmit(finalCommand);
+                // 关闭补全状态，避免渲染残留
+                completion.resetCompletionState();
+
+                // 🚀 延迟执行命令，确保补全 UI 有机会完全清除
+                setTimeout(() => {
+                  inputHistory.handleSubmit(finalCommand);
+                }, 10);
                 return;
               }
             }
@@ -654,8 +663,17 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
             const lastPart = parts[parts.length - 1];
 
             // 如果当前参数与建议值完全相等，说明用户已经输完了，按回车是想执行
+            // 特别是对于序号选择（如 "6"），用户输入 "6" 并选中 "6" 后按回车，意图是执行 "/session select 6"
             if (lastPart === selectedSuggestion.value) {
-               inputHistory.handleSubmit(buffer.text);
+               // 构造完整的命令字符串
+               const basePath = parts.slice(0, -1);
+               const finalCommand = `${basePath.join(' ')} ${selectedSuggestion.value}`;
+
+               // 关闭补全状态，避免渲染残留
+               completion.resetCompletionState();
+
+               // 直接执行命令
+               inputHistory.handleSubmit(finalCommand);
                return;
             }
 

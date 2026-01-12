@@ -7,25 +7,11 @@
  * Provides commands for listing, selecting, creating, and rebuilding sessions
  */
 
-import { CommandContext, SlashCommand, MessageActionReturn, SwitchSessionActionReturn, CommandKind } from './types.js';
+import { CommandContext, SlashCommand, MessageActionReturn, SwitchSessionActionReturn, CommandKind, SelectSessionActionReturn, SessionOption } from './types.js';
 import { SessionManager } from 'deepv-code-core';
 import { HistoryItemWithoutId } from '../types.js';
 import type { Suggestion } from '../components/SuggestionsDisplay.js';
 import { t } from '../utils/i18n.js';
-
-// Interface for session metadata and display information
-interface SessionOption {
-  sessionId: string;
-  title: string;
-  createdAt: string;
-  lastActiveAt: string;
-  messageCount: number;
-  totalTokens: number;
-  model?: string;
-  hasCheckpoint: boolean;
-  firstUserMessage?: string;
-  lastAssistantMessage?: string;
-}
 
 // Command for listing all available sessions
 const listSessionsCommand: SlashCommand = {
@@ -106,7 +92,7 @@ const selectSessionCommand: SlashCommand = {
     const sessionArg = args.trim();
 
     if (!sessionArg) {
-      // 没有参数时，显示可选择的session列表
+      // 没有参数时，进入交互式选择模式
       try {
         const sessionManager = new SessionManager(config?.getProjectRoot() || process.cwd());
         const sessions = await sessionManager.listSessionsByWorkdir(process.cwd());
@@ -124,31 +110,11 @@ const selectSessionCommand: SlashCommand = {
           new Date(b.lastActiveAt).getTime() - new Date(a.lastActiveAt).getTime()
         );
 
-        let message = '📋 可选择的会话:\n\n';
-
-        sortedSessions.forEach((session, index) => {
-          const checkpointIcon = session.hasCheckpoint ? ' [📍]' : '';
-
-          // 获取用户首条消息作为描述
-          let description = '';
-          if (session.firstUserMessage) {
-            const preview = session.firstUserMessage.substring(0, 50);
-            const ellipsis = session.firstUserMessage.length > 50 ? '...' : '';
-            description = ` - 💭 "${preview}${ellipsis}"`;
-          } else {
-            description = ' - 无用户消息';
-          }
-
-          message += `${index + 1}. \u001b[36m${session.title}${checkpointIcon}\u001b[0m${description}\n`;
-        });
-
-        message += `\n💡 使用 /session select <编号> 来选择会话`;
-
+        // 返回交互式选择 Action
         return {
-          type: 'message',
-          messageType: 'info',
-          content: message,
-        };
+          type: 'select_session',
+          sessions: sortedSessions,
+        } as SelectSessionActionReturn;
       } catch (error) {
         return {
           type: 'message',
@@ -236,7 +202,8 @@ const selectSessionCommand: SlashCommand = {
 
     try {
       const sessionManager = new SessionManager(config?.getProjectRoot() || process.cwd());
-      const sessions = await sessionManager.listSessions();
+      // 使用 listSessionsByWorkdir 确保只列出当前目录的会话
+      const sessions = await sessionManager.listSessionsByWorkdir(process.cwd());
 
       const sortedSessions = sessions.sort((a, b) =>
         new Date(b.lastActiveAt).getTime() - new Date(a.lastActiveAt).getTime()
@@ -244,44 +211,38 @@ const selectSessionCommand: SlashCommand = {
 
       const completions: Suggestion[] = [];
 
-      // 添加编号补全 - 带有助手回复作为描述
-      if (partialArg === '' || /^\d+$/.test(partialArg)) {
-        const maxNumber = Math.min(sortedSessions.length, 10); // 限制补全数量
-        for (let i = 1; i <= maxNumber; i++) {
-          const session = sortedSessions[i - 1];
-          if (session) {
-            const checkpointIcon = session.hasCheckpoint ? ' [📍]' : '';
-            const description = session.firstUserMessage
-              ? `${session.firstUserMessage.substring(0, 50)}${session.firstUserMessage.length > 50 ? '...' : ''}`
-              : '无用户消息';
-
-            completions.push({
-              label: `${i}`,
-              value: `${i}`,
-              description: `${session.title}${checkpointIcon} - 💭 "${description}"`
-            });
-          }
-        }
-      }
-
-      // 添加session ID补全（如果输入看起来像UUID）
-      if (partialArg.includes('-') || partialArg.length >= 8) {
-        const matchingIds = sortedSessions
-          .filter(session => session.sessionId.startsWith(partialArg))
-          .slice(0, 5); // 限制补全数量
-
-        matchingIds.forEach(session => {
+      // 无论用户输入什么，总是提供前10个会话作为建议
+      // 如果 partialArg 是空的，或者匹配数字，或者匹配ID，都展示这些建议
+      const maxNumber = Math.min(sortedSessions.length, 10); // 限制补全数量
+      for (let i = 1; i <= maxNumber; i++) {
+        const session = sortedSessions[i - 1];
+        if (session) {
           const checkpointIcon = session.hasCheckpoint ? ' [📍]' : '';
           const description = session.firstUserMessage
             ? `${session.firstUserMessage.substring(0, 50)}${session.firstUserMessage.length > 50 ? '...' : ''}`
             : '无用户消息';
 
-          completions.push({
-            label: session.sessionId,
-            value: session.sessionId,
-            description: `${session.title}${checkpointIcon} - 💭 "${description}"`
-          });
-        });
+          // 仅当建议匹配输入时才添加 (模糊匹配)
+          // 这里的匹配逻辑：
+          // 1. 如果没有输入，全部匹配
+          // 2. 如果输入数字，匹配序号
+          // 3. 如果输入文本，匹配 Session ID 或 标题 或 描述
+          const indexStr = `${i}`;
+          const shouldAdd =
+            partialArg === '' ||
+            indexStr.startsWith(partialArg) ||
+            session.sessionId.toLowerCase().startsWith(partialArg.toLowerCase()) ||
+            session.title.toLowerCase().includes(partialArg.toLowerCase());
+
+          if (shouldAdd) {
+            completions.push({
+              label: `${i}`,
+              value: `${i}`, // 补全值仍然是序号，方便用户快速选择
+              description: `${session.title}${checkpointIcon} - 💭 "${description}" (ID: ${session.sessionId.substring(0, 8)}...)`,
+              willAutoExecute: true // 🚀 启用自动执行：选中后回车直接执行命令
+            });
+          }
+        }
       }
 
       return completions;

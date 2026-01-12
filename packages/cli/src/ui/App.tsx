@@ -50,6 +50,7 @@ import { AuthDialog } from './components/AuthDialog.js';
 import { LoginDialog } from './components/LoginDialog.js';
 import { AuthInProgress } from './components/AuthInProgress.js';
 import { EditorSettingsDialog } from './components/EditorSettingsDialog.js';
+import { SessionSelectDialog } from './components/SessionSelectDialog.js';
 import { Colors } from './colors.js';
 import { Help } from './components/Help.js';
 import { loadHierarchicalGeminiMemory } from '../config/config.js';
@@ -122,6 +123,7 @@ import { PaginatedDebugConsole } from './components/PaginatedDebugConsole.js';
 import { ScrollingDebugConsole } from './components/ScrollingDebugConsole.js';
 import { PrivacyNotice } from './privacy/PrivacyNotice.js';
 import { AudioNotification } from '../utils/audioNotification.js';
+import { SessionOption } from './commands/types.js';
 
 
 const CTRL_EXIT_PROMPT_DURATION_MS = 1000;
@@ -785,6 +787,8 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     exitEditorDialog,
   } = useEditorSettings(settings, setEditorError, addItem);
 
+  const [sessionSelectData, setSessionSelectData] = useState<SessionOption[] | null>(null);
+
   const toggleCorgiMode = useCallback(() => {
     setCorgiMode((prev) => !prev);
   }, []);
@@ -1356,6 +1360,10 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
               return;
             } else if (slashCommandResult.type === 'schedule_tool') {
               // Slash命令要求执行工具，这里可以扩展处理
+              return;
+            } else if (slashCommandResult.type === 'select_session') {
+              // 开启 Session 选择对话框
+              setSessionSelectData(slashCommandResult.sessions);
               return;
             } else if (slashCommandResult.type === 'refine_result') {
               // 润色结果，显示确认界面
@@ -2167,6 +2175,19 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                 onSelect={handleEditorSelect}
                 settings={settings}
                 onExit={exitEditorDialog}
+              />
+            </Box>
+          ) : sessionSelectData ? (
+            <Box flexDirection="column">
+              <SessionSelectDialog
+                sessions={sessionSelectData}
+                onSelect={(sessionId) => {
+                  setSessionSelectData(null);
+                  if (sessionId) {
+                    // 使用 select 命令选择
+                    handleSlashCommand(`/session select ${sessionId}`);
+                  }
+                }}
               />
             </Box>
           ) : showPrivacyNotice ? (
