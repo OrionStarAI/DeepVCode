@@ -1952,18 +1952,12 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
 
 
   // Helper function to render debug panel with scrolling display
-  // 🔧 优化：使用固定高度防止内部内容变化导致外层布局重排
   const renderDebugPanel = () => {
     if (!showErrorDetails) {
       return null;
     }
     return (
-      <Box
-        flexDirection="column"
-        height={debugPanelHeight}
-        width={inputWidth}
-        overflow="hidden"
-      >
+      <Box flexDirection="column">
         <ScrollingDebugConsole
           messages={filteredConsoleMessages}
           height={debugPanelHeight}
@@ -2031,7 +2025,17 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
           />
         ) : null}
 
-        <Box flexDirection="column" ref={mainControlsRef}>
+        {/*
+          🔧 关键优化：给 mainControlsRef 设定 maxHeight = 残余空间
+          这样做的目的是防止 Debug Console 展开时导致 mainControlsRef 高度超出预期
+          由于 overflow="hidden"，Debug Console 的扩展会被裁剪，不会推动整体布局
+        */}
+        <Box
+          flexDirection="column"
+          ref={mainControlsRef}
+          maxHeight={Math.max(10, availableTerminalHeight - debugPanelHeight - 5)}
+          overflow="hidden"
+        >
           {startupWarnings.length > 0 ? (
             <Box
               borderStyle="round"
