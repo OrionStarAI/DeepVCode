@@ -10,7 +10,7 @@ import * as path from 'node:path';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as zlib from 'node:zlib';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { request } from 'undici';
 import JSZip from 'jszip';
 
@@ -33,6 +33,33 @@ function removeDirectoryRecursive(dirPath: string) {
 
 export class BinaryManager {
   private static readonly LSP_DIR = path.join(os.homedir(), '.deepv', 'lsp');
+
+  /**
+   * Find an executable on PATH.
+   *
+   * Returns the first resolved absolute path or null.
+   */
+  static findOnPath(command: string): string | null {
+    const cmd = process.platform === 'win32' ? 'where.exe' : 'which';
+    const result = spawnSync(cmd, [command], {
+      shell: true,
+      encoding: 'utf8',
+      windowsHide: true,
+    });
+
+    const out = (result.stdout || '').toString().trim();
+    if (!out) return null;
+
+    // where/which can return multiple lines; prefer the first existing file.
+    for (const line of out
+      .split(/\r?\n/)
+      .map((s) => s.trim())
+      .filter(Boolean)) {
+      if (fs.existsSync(line)) return line;
+    }
+
+    return null;
+  }
 
   /**
    * 清理坏的二进制文件缓存
@@ -119,6 +146,97 @@ export class BinaryManager {
           else reject(new Error(`npm install failed with code ${code}`));
         });
       });
+
+      return binPath;
+    };
+  }
+
+  /**
+   * Go installer: installs a Go-based tool into destDir using `go install`.
+   *
+   * This is used for gopls because upstream GitHub releases may not ship prebuilt assets.
+   */
+  static async goInstaller(
+    modulePath: string,
+    binName: string,
+    version: string = 'latest',
+  ): Promise<(destDir: string) => Promise<string>> {
+    return async (destDir: string) => {
+      const platform = process.platform;
+      const binPath = path.join(destDir, binName + (platform === 'win32' ? '.exe' : ''));
+
+      if (fs.existsSync(binPath)) {
+        return binPath;
+      }
+
+      const goBin = this.findOnPath('go');
+      if (!goBin) {
+        throw new Error(
+          `[LSP] Go toolchain not found in PATH (required to install ${binName}). ` +
+            `Please install Go from https://go.dev/dl/ and ensure "go" is available in your PATH, ` +
+            `or configure a preinstalled gopls via PATH/DEEPV_GOPLS_PATH.`,
+        );
+      }
+
+      console.log(`[LSP] Installing ${binName} via go install (${modulePath}@${version})...`);
+
+      await new Promise<void>((resolve, reject) => {
+        // Direct the resulting binary into destDir for predictable caching.
+        // NOTE: Do NOT use shell=true on Windows when go.exe path contains spaces (e.g. "C:\\Program Files\\...").
+        const child = spawn(goBin, ['install', `${modulePath}@${version}`], {
+          cwd: destDir,
+          shell: false,
+          windowsHide: true,
+          stdio: ['ignore', 'pipe', 'pipe'],
+          env: {
+            ...process.env,
+            GOBIN: destDir,
+          },
+        });
+
+        let stderrBuf = '';
+        child.stdout?.on('data', (d) => {
+          process.stdout.write(d);
+        });
+        child.stderr?.on('data', (d) => {
+          const s = d.toString();
+          stderrBuf += s;
+          // Keep last ~16KB to avoid huge errors.
+          if (stderrBuf.length > 16_384) {
+            stderrBuf = stderrBuf.slice(stderrBuf.length - 16_384);
+          }
+          process.stderr.write(d);
+        });
+
+        child.on('close', (code) => {
+          if (code === 0) resolve();
+          else {
+            const detail = stderrBuf.trim();
+            reject(
+              new Error(
+                `[LSP] go install failed with code ${code}` +
+                  (detail ? `\n${detail}` : ''),
+              ),
+            );
+          }
+        });
+
+        child.on('error', (err) => {
+          reject(
+            new Error(
+              `[LSP] Failed to spawn go (${goBin}): ${err.message}. ` +
+                `Please ensure Go is installed and available in PATH.`,
+            ),
+          );
+        });
+      });
+
+      if (!fs.existsSync(binPath)) {
+        throw new Error(
+          `[LSP] ${binName} installation completed but binary not found at ${binPath}. ` +
+            `This usually means Go did not honor GOBIN or the install failed silently.`,
+        );
+      }
 
       return binPath;
     };

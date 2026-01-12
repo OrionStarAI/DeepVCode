@@ -71,10 +71,12 @@ describe('DangerousCommandDetector', () => {
       expect(rule?.id).toBe('robocopy-mirror-delete');
     });
 
-    it('should detect robocopy /MIRROR command on Windows', () => {
-      const rule = detectDangerousCommand('robocopy C:\\source C:\\dest /MIRROR', 'win32');
-      expect(rule).not.toBeNull();
-      expect(rule?.id).toBe('robocopy-mirror-delete');
+    it('should not detect robocopy /MIRROR command on Windows (not a real robocopy switch)', () => {
+      const rule = detectDangerousCommand(
+        'robocopy C:\\source C:\\dest /MIRROR',
+        'win32'
+      );
+      expect(rule).toBeNull();
     });
 
     it('should detect takeown command on Windows', () => {
@@ -99,6 +101,11 @@ describe('DangerousCommandDetector', () => {
       const rule = detectDangerousCommand('attrib -r -s -h C:\\file.txt', 'win32');
       expect(rule).not.toBeNull();
       expect(rule?.id).toBe('attrib-hide-system');
+    });
+
+    it('should not detect attrib when no +/- attribute switch is present', () => {
+      const rule = detectDangerousCommand('attrib C:\\file.txt', 'win32');
+      expect(rule).toBeNull();
     });
 
     it('should detect mkfs command on Linux', () => {
@@ -145,6 +152,22 @@ describe('DangerousCommandDetector', () => {
       const rule = detectDangerousCommand('git checkout -- *');
       expect(rule).not.toBeNull();
       expect(rule?.id).toBe('git-checkout-without-stash');
+    });
+
+    it('should detect git checkout -- "*"', () => {
+      const rule = detectDangerousCommand('git checkout -- "*"');
+      expect(rule).not.toBeNull();
+      expect(rule?.id).toBe('git-checkout-without-stash');
+    });
+
+    it('should not detect regular git checkout branch switch', () => {
+      const rule = detectDangerousCommand('git checkout main');
+      expect(rule).toBeNull();
+    });
+
+    it('should not detect git checkout -- file path', () => {
+      const rule = detectDangerousCommand('git checkout -- src/index.ts');
+      expect(rule).toBeNull();
     });
 
     it('should detect git reset --hard', () => {
@@ -203,6 +226,18 @@ describe('DangerousCommandDetector', () => {
       expect(rule?.id).toBe('rm-multiple-files');
     });
 
+    it('should detect rm with multiple files even with -f option', () => {
+      const rule = detectDangerousCommand('rm -f file1 file2 file3');
+      expect(rule).not.toBeNull();
+      expect(rule?.id).toBe('rm-multiple-files');
+    });
+
+    it('should not detect rm-multiple-files when wildcard is present in any file arg', () => {
+      const rule = detectDangerousCommand('rm file1 dir/*/file2 file3');
+      expect(rule).not.toBeNull();
+      expect(rule?.id).toBe('rm-with-wildcard');
+    });
+
     it('should detect del with wildcard on Windows', () => {
       const rule = detectDangerousCommand('del *.txt', 'win32');
       expect(rule).not.toBeNull();
@@ -236,6 +271,11 @@ describe('DangerousCommandDetector', () => {
       const rule = detectDangerousCommand('ri -r C:\\temp', 'win32');
       expect(rule).not.toBeNull();
       expect(rule?.id).toBe('powershell-remove-item-recurse');
+    });
+
+    it('should not detect PowerShell Remove-Item -Force as recursive', () => {
+      const rule = detectDangerousCommand('Remove-Item -Path C:\\temp -Force', 'win32');
+      expect(rule).toBeNull();
     });
 
     it('should detect PowerShell Remove-Item with wildcard', () => {
