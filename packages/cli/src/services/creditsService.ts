@@ -60,20 +60,19 @@ class CreditsService {
    * 从服务器获取积分信息
    */
   private async fetchCreditsFromServer(): Promise<UserCreditsInfo | null> {
+    // 使用 AbortController 实现超时机制
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
     try {
       const authManager = ProxyAuthManager.getInstance();
       const token = await authManager.getAccessToken();
       const proxyServerUrl = authManager.getProxyServerUrl();
 
-      console.log('🔑 CreditsService: token exists?', !!token);
-      console.log('🌐 CreditsService: proxyServerUrl =', proxyServerUrl);
-
       if (!token) {
-        console.warn('⚠️ No authentication token available for credits fetch');
         return null;
       }
 
-      console.log('📡 CreditsService: Fetching from', `${proxyServerUrl}/web-api/user/stats`);
       const response = await fetch(`${proxyServerUrl}/web-api/user/stats`, {
         method: 'GET',
         headers: {
@@ -82,9 +81,10 @@ class CreditsService {
           'Content-Type': 'application/json',
           'User-Agent': 'DeepVCode-CLI'
         },
-        // @ts-ignore - timeout is supported in node-fetch
-        timeout: 10000
+        signal: controller.signal
       });
+
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         console.warn(`⚠️ Failed to fetch credits info: ${response.status} ${response.statusText}`);
@@ -92,8 +92,6 @@ class CreditsService {
       }
 
       const result = await response.json() as any;
-
-      console.log('📦 CreditsService: API response:', JSON.stringify(result, null, 2));
 
       if (!result.success || !result.data) {
         console.warn('⚠️ Invalid credits API response');
@@ -105,8 +103,6 @@ class CreditsService {
       const usedCredits = result.data.creditsUsage?.totalCreditsUsed || 0;
       const remainingCredits = totalCredits - usedCredits;
       const usagePercentage = totalCredits > 0 ? (usedCredits / totalCredits) * 100 : 0;
-
-      console.log('✅ CreditsService: Parsed - Total:', totalCredits, 'Used:', usedCredits, 'Percentage:', usagePercentage.toFixed(1) + '%');
 
       const creditsInfo: UserCreditsInfo = {
         totalCredits,
@@ -121,6 +117,14 @@ class CreditsService {
 
       return creditsInfo;
     } catch (error) {
+      clearTimeout(timeoutId);
+
+      // 超时错误特殊处理
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.warn('⚠️ Credits fetch timeout after 10s');
+        return null;
+      }
+
       console.warn('⚠️ Error fetching credits info:', error instanceof Error ? error.message : String(error));
       return null;
     }

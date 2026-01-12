@@ -859,9 +859,21 @@ export function useCompletion(
                 prefix = afterAt.substring(0, lastSlashIndex + 1);
               }
 
-              // 构建新值：保留 @ 之前的部分 + @ + 路径前缀 + 补全的文件名
-              const beforeAt = query.substring(0, lastAtIndex + 1); // 包含 @
-              const newValue = beforeAt + prefix + suggestion + ' ';
+              // 🚀 优化：使用引号包裹路径，防止终端（如 iTerm2）将其误识别为 URL
+              // 同时移除可能存在的引号和转义，统一处理
+              const cleanPrefix = prefix.startsWith('"') ? prefix.substring(1) : prefix;
+              const cleanSuggestion = unescapePath(suggestion);
+              const isDirectory = cleanSuggestion.endsWith('/');
+
+              const beforeAt = query.substring(0, lastAtIndex); // 不包含 @
+              let atContent: string;
+              if (isDirectory) {
+                atContent = `@"${cleanPrefix}${cleanSuggestion}`;
+              } else {
+                atContent = `@"${cleanPrefix}${cleanSuggestion}" `;
+              }
+
+              const newValue = beforeAt + atContent;
               buffer.setText(newValue);
               resetCompletionState();
               return;
@@ -930,17 +942,26 @@ export function useCompletion(
       } else {
         const atIndex = query.lastIndexOf('@');
         if (atIndex === -1) return;
+
         const pathPart = query.substring(atIndex + 1);
         const lastSlashIndexInPath = pathPart.lastIndexOf('/');
-        let autoCompleteStartIndex = atIndex + 1;
-        if (lastSlashIndexInPath !== -1) {
-          autoCompleteStartIndex += lastSlashIndexInPath + 1;
+        const prefix = lastSlashIndexInPath !== -1
+          ? pathPart.substring(0, lastSlashIndexInPath + 1)
+          : '';
+
+        // 🚀 优化：使用引号包裹路径，防止终端（如 iTerm2）将其误识别为 URL
+        const cleanPrefix = prefix.startsWith('"') ? prefix.substring(1) : prefix;
+        const cleanSuggestion = unescapePath(suggestion);
+        const isDirectory = cleanSuggestion.endsWith('/');
+
+        let newValue: string;
+        if (isDirectory) {
+          newValue = `@"${cleanPrefix}${cleanSuggestion}`;
+        } else {
+          newValue = `@"${cleanPrefix}${cleanSuggestion}" `;
         }
-        buffer.replaceRangeByOffset(
-          autoCompleteStartIndex,
-          buffer.text.length,
-          suggestion,
-        );
+
+        buffer.replaceRangeByOffset(atIndex, buffer.text.length, newValue);
       }
       resetCompletionState();
     },
