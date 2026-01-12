@@ -513,6 +513,7 @@ export const translations = {
     'model.dialog.details.unavailable': 'Unavailable',
     'model.dialog.hint.tiny': '(Enter to select, ESC to exit)',
     'model.dialog.hint.normal': '(Press Enter to select model, ESC to exit)',
+    'model.dialog.hint.login': '(Press Enter to login, ESC to exit)',
     'model.dialog.set.failed': 'Failed to set model: {error}',
 
     // Tips Component Messages
@@ -1690,6 +1691,7 @@ export const translations = {
     'model.dialog.details.unavailable': '不可用',
     'model.dialog.hint.tiny': '(回车选择，ESC退出)',
     'model.dialog.hint.normal': '(按回车键选择模型，按 ESC 键退出)',
+    'model.dialog.hint.login': '(按回车键登录，按 ESC 键退出)',
     'model.dialog.set.failed': '设置模型失败: {error}',
 
     // Tips Component Messages
