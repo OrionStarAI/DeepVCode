@@ -160,14 +160,24 @@ export const Gopls = (projectRoot: string): LSPServer.Info => ({
   extensions: ['.go'],
   root: NearestRoot(['go.mod', 'go.sum'], projectRoot),
   async spawn(root: string) {
-    const installer = await BinaryManager.githubInstaller('golang', 'tools', (platform, arch) => {
-      return /gopls-.*\.gz/;
-    });
+    // Prefer user-provided path, then PATH, finally install via Go toolchain.
+    // Note: golang/tools GitHub releases often ship no prebuilt assets.
+    const envPath = process.env.DEEPV_GOPLS_PATH;
+    if (envPath && fs.existsSync(envPath)) {
+      return { process: spawn(envPath, [], { cwd: root }) };
+    }
+
+    const onPath = BinaryManager.findOnPath('gopls');
+    if (onPath) {
+      return { process: spawn(onPath, [], { cwd: root }) };
+    }
+
     const bin = await BinaryManager.ensureBinary(
       'gopls',
-      installer,
-      { maxRetries: 1 }
+      await BinaryManager.goInstaller('golang.org/x/tools/gopls', 'gopls'),
+      { maxRetries: 1 },
     );
+
     return {
       process: spawn(bin, [], { cwd: root })
     };

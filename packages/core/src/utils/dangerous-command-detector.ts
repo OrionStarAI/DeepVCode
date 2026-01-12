@@ -30,11 +30,13 @@ export interface DangerousCommandRule {
  */
 const DANGEROUS_COMMAND_RULES: DangerousCommandRule[] = [
   // ============== 规则1: 递归删除文件 ==============
+  // 🔧 所有规则使用 (?:^|[;&|]\s*) 或其变体，尽量确保匹配命令开头，避免误匹配命令参数中的内容。
+  //    注意：为了兼容常见链式写法（如 && / ||），部分规则会使用更严格的分隔符变体。
   {
     id: 'recursive-rm-command',
     description: '递归删除文件命令 (rm -rf)',
     // 匹配: rm -rf / rm -r / rm --recursive 等
-    pattern: /\brm\s+(?:-[a-z]*[rR][a-z]*|--recursive)/i,
+    pattern: /(?:^|[;&|]\s*)rm\s+(?:-[a-z]*[rR][a-z]*|--recursive)/i,
     crossPlatform: true,
     warningMessage:
       '⚠️ 这是一个递归删除命令。可能导致大量文件丢失。必须确认。',
@@ -44,7 +46,7 @@ const DANGEROUS_COMMAND_RULES: DangerousCommandRule[] = [
     id: 'del-recurse-command',
     description: '递归删除文件命令 (del /s)',
     // 匹配: del /s /q 等 Windows命令
-    pattern: /\bdel(?:ete)?\s+(?:.*\/[sS]|\/[sS])/i,
+    pattern: /(?:^|[;&|]\s*)del(?:ete)?\s+(?:[^;&|]*\/[sS]|\/[sS])/i,
     crossPlatform: false,
     platforms: ['win32'],
     warningMessage:
@@ -55,7 +57,7 @@ const DANGEROUS_COMMAND_RULES: DangerousCommandRule[] = [
     id: 'rd-recurse-command',
     description: '递归删除目录命令 (rd /s 或 rmdir /s)',
     // 匹配: rd /s / rmdir /s / rd /s /q 等 Windows命令
-    pattern: /\b(?:rd|rmdir)\s+(?:.*\/[sS]|\/[sS])/i,
+    pattern: /(?:^|[;&|]\s*)(?:rd|rmdir)\s+(?:[^;&|]*\/[sS]|\/[sS])/i,
     crossPlatform: false,
     platforms: ['win32'],
     warningMessage:
@@ -66,7 +68,7 @@ const DANGEROUS_COMMAND_RULES: DangerousCommandRule[] = [
     id: 'diskpart-clean',
     description: '磁盘分区格式化命令',
     // 匹配: diskpart ... clean 等（支持多行）
-    pattern: /\bdiskpart\b[\s\S]*\bclean\b/i,
+    pattern: /(?:^|[;&|]\s*)diskpart\b[\s\S]*\bclean\b/i,
     crossPlatform: false,
     platforms: ['win32'],
     warningMessage:
@@ -77,7 +79,7 @@ const DANGEROUS_COMMAND_RULES: DangerousCommandRule[] = [
     id: 'mkfs-command',
     description: '文件系统格式化命令 (mkfs)',
     // 匹配: mkfs, mkfs.ext4 等
-    pattern: /\bmkfs(?:\.\w+)?\b/i,
+    pattern: /(?:^|[;&|]\s*)mkfs(?:\.\w+)?\s/i,
     crossPlatform: false,
     platforms: ['linux', 'darwin'],
     warningMessage:
@@ -88,7 +90,7 @@ const DANGEROUS_COMMAND_RULES: DangerousCommandRule[] = [
     id: 'format-command',
     description: '磁盘格式化命令 (format)',
     // 匹配: format C: / format D: 等
-    pattern: /\bformat\s+[A-Z]:/i,
+    pattern: /(?:^|[;&|]\s*)format\s+[A-Z]:/i,
     crossPlatform: false,
     platforms: ['win32'],
     warningMessage:
@@ -99,7 +101,7 @@ const DANGEROUS_COMMAND_RULES: DangerousCommandRule[] = [
     id: 'cipher-wipe-command',
     description: 'cipher /w 命令覆盖删除',
     // 匹配: cipher /w:C: 或 cipher /w 等（覆盖写入，破坏数据恢复）
-    pattern: /\bcipher\s+(?:.*\/[wW]|\/[wW])/i,
+    pattern: /(?:^|[;&|]\s*)cipher\s+(?:[^;&|]*\/[wW]|\/[wW])/i,
     crossPlatform: false,
     platforms: ['win32'],
     warningMessage:
@@ -110,7 +112,8 @@ const DANGEROUS_COMMAND_RULES: DangerousCommandRule[] = [
     id: 'robocopy-mirror-delete',
     description: 'robocopy /MIR 镜像删除命令',
     // 匹配: robocopy source dest /MIR 等（删除dest中source不存在的文件）
-    pattern: /\brobocopy\b.*\/(?:MIR|MIRROR)/i,
+    // 🔧 仅匹配真实存在且危险的 /MIR，并限制在同一条子命令内，减少跨命令误报
+    pattern: /(?:^|(?:;|&&|\|\||\||&)\s*)robocopy\b[^;&|]*\s\/MIR\b/i,
     crossPlatform: false,
     platforms: ['win32'],
     warningMessage:
@@ -121,7 +124,7 @@ const DANGEROUS_COMMAND_RULES: DangerousCommandRule[] = [
     id: 'takeown-command',
     description: 'takeown 命令修改文件所有权',
     // 匹配: takeown /f 等（修改文件所有权，可能导致无法访问）
-    pattern: /\btakeown\b/i,
+    pattern: /(?:^|[;&|]\s*)takeown\s/i,
     crossPlatform: false,
     platforms: ['win32'],
     warningMessage:
@@ -132,7 +135,7 @@ const DANGEROUS_COMMAND_RULES: DangerousCommandRule[] = [
     id: 'icacls-reset-acl',
     description: 'icacls 命令修改文件权限',
     // 匹配: icacls * /grant 或 icacls * /remove 等（递归修改权限）
-    pattern: /\bicacls\b(?:.*\/(?:grant|deny|remove|reset|inheritance))/i,
+    pattern: /(?:^|[;&|]\s*)icacls\s[^;&|]*\/(?:grant|deny|remove|reset|inheritance)/i,
     crossPlatform: false,
     platforms: ['win32'],
     warningMessage:
@@ -143,19 +146,22 @@ const DANGEROUS_COMMAND_RULES: DangerousCommandRule[] = [
     id: 'attrib-hide-system',
     description: 'attrib 命令修改文件属性',
     // 匹配: attrib -r -s -h 等（移除文件属性）
-    pattern: /\battrib\b.*(?:\s+-[rsh]|\s+[rsh])/i,
+    // 🔧 仅在同一条子命令内匹配，并要求出现明确的 +/- 属性参数，减少误报
+    pattern: /(?:^|(?:;|&&|\|\||\||&)\s*)attrib\b[^;&|]*(?:\s[+-][rsh]\b)/i,
     crossPlatform: false,
     platforms: ['win32'],
     warningMessage:
       '⚠️ 这是一个attrib命令，会修改文件的系统属性。必须确认。',
   },
 
-  // ============== 规则2: git checkout大量文件且未stash ==============
+  // ============== 规则2: git 危险操作 ==============
   {
     id: 'git-checkout-without-stash',
     description: 'git checkout 大量文件且未先stash',
     // 匹配: git checkout -- . 或 git checkout -- * 等
-    pattern: /\bgit\s+checkout\s+(?:--\s+)?[.*]/i,
+    // 🔧 精确匹配 pathspec 为 "." 或 "*"（可带引号），避免把普通分支切换误判为危险操作
+    pattern:
+      /(?:^|(?:;|&&|\|\||\||&)\s*)git\s+checkout\s+(?:--\s+)?(?:(?:"[.*]"|'[.*]'|[.*]))(?=\s|$|[;&|])/i,
     crossPlatform: true,
     warningMessage:
       '⚠️ 这是一个git checkout命令，将丢弃本地修改。建议先运行 git stash 保存你的修改。必须确认。',
@@ -165,7 +171,7 @@ const DANGEROUS_COMMAND_RULES: DangerousCommandRule[] = [
     id: 'git-reset-hard',
     description: 'git reset --hard 命令',
     // 匹配: git reset --hard 等
-    pattern: /\bgit\s+reset\s+--hard\b/i,
+    pattern: /(?:^|[;&|]\s*)git\s+reset\s+--hard\b/i,
     crossPlatform: true,
     warningMessage:
       '⚠️ 这是一个git reset --hard命令，将丢弃所有本地修改。必须确认。',
@@ -175,7 +181,7 @@ const DANGEROUS_COMMAND_RULES: DangerousCommandRule[] = [
     id: 'git-clean-force',
     description: 'git clean -f 强制删除未追踪文件',
     // 匹配: git clean -f / git clean -fd / git clean -fdx 等
-    pattern: /\bgit\s+clean\s+(?:-[a-z]*[fF][a-z]*|--force)/i,
+    pattern: /(?:^|[;&|]\s*)git\s+clean\s+(?:-[a-z]*[fF][a-z]*|--force)/i,
     crossPlatform: true,
     warningMessage:
       '⚠️ 这是一个git clean -f命令，将删除未追踪的文件。必须确认。',
@@ -183,12 +189,19 @@ const DANGEROUS_COMMAND_RULES: DangerousCommandRule[] = [
 
   // ============== 规则3: 一次性删除多个文件、或使用正则、通配符删除 ==============
   // 注意：顺序很重要，rm-multiple-files 要在 rm-with-wildcard 之前
+  // 🔧 修复：使用 ^ 或 (?:^|[;&|]\s*) 确保匹配的是命令开头，而不是命令参数中的字符串
 
   {
     id: 'rm-multiple-files',
     description: 'rm 命令删除多个文件路径（无通配符）',
     // 匹配: rm /path/file1 /path/file2 /path/file3 等（至少3个不含通配符的参数）
-    pattern: /\brm\b(?:\s+[^\s*?[\]][^\s;]*){3,}/,
+    // 🔧 修复：要求 rm 在命令开头或管道/分隔符之后
+    // 🔧 进一步修复：
+    //  - 允许前置 rm 选项（如 -f）但不把选项计入文件数量
+    //  - 文件参数中禁止出现 *, ?, [, ]（任意位置），避免与 rm-with-wildcard 重叠
+    //  - 限制在同一条子命令内（避免 rm ... && echo ... 导致跨命令误判）
+    pattern:
+      /(?:^|(?:;|&&|\|\||\||&)\s*)rm\b(?:\s+-[^\s;&|]+)*\s+(?!-)[^\s;&|*?\[\]]+\s+(?!-)[^\s;&|*?\[\]]+\s+(?!-)[^\s;&|*?\[\]]+/i,
     crossPlatform: true,
     warningMessage:
       '⚠️ 这个rm命令删除多个文件。必须确认。',
@@ -197,9 +210,10 @@ const DANGEROUS_COMMAND_RULES: DangerousCommandRule[] = [
   {
     id: 'rm-with-wildcard',
     description: 'rm 命令使用通配符删除多个文件',
-    // 匹配: rm [pattern]/*.ext 等含有通配符
+    // 匹配: rm *.ext / rm ./dir/*.js 等含有通配符
     // 通配符: *, ?, [...]
-    pattern: /\brm\b[^;]*[*?[\]]/,
+    // 🔧 修复：要求 rm 在命令开头或管道/分隔符之后，避免误匹配命令参数中的内容
+    pattern: /(?:^|[;&|]\s*)rm\s[^;&|]*[*?[\]]/,
     crossPlatform: true,
     warningMessage:
       '⚠️ 这是一个使用通配符的rm命令。可能导致大量文件丢失。必须确认。',
@@ -209,7 +223,8 @@ const DANGEROUS_COMMAND_RULES: DangerousCommandRule[] = [
     id: 'del-with-wildcard',
     description: 'del 命令使用通配符删除多个文件',
     // 匹配: del *.ext 等
-    pattern: /\bdel(?:ete)?\b[^;]*[*?]/i,
+    // 🔧 修复：要求 del 在命令开头或管道/分隔符之后
+    pattern: /(?:^|[;&|]\s*)del(?:ete)?\s[^;&|]*[*?]/i,
     crossPlatform: false,
     platforms: ['win32'],
     warningMessage:
@@ -220,7 +235,10 @@ const DANGEROUS_COMMAND_RULES: DangerousCommandRule[] = [
     id: 'find-exec-rm',
     description: 'find ... -exec rm 删除匹配文件',
     // 匹配: find . -name "*.js" -exec rm 等
-    pattern: /\bfind\b.*(?:-exec\s+rm|-delete)/i,
+    // 🔧 修复：要求 find 在命令开头或管道/分隔符之后
+    // 🔧 限制在同一条子命令内，减少跨命令误报
+    pattern:
+      /(?:^|(?:;|&&|\|\||\||&)\s*)find\b[^;&|]*(?:-exec\s+rm\b|-delete\b)/i,
     crossPlatform: true,
     warningMessage:
       '⚠️ 这是一个find命令配合rm执行，将删除符合条件的文件。必须确认。',
@@ -230,7 +248,10 @@ const DANGEROUS_COMMAND_RULES: DangerousCommandRule[] = [
     id: 'powershell-remove-item-recurse',
     description: 'PowerShell Remove-Item 递归删除',
     // 匹配: Remove-Item -Path ... -Recurse 或 ri -r 等（包括简写-r）
-    pattern: /\b(?:Remove-Item|ri)\b.*(?:-[a-zA-Z]*[rR](?:ecurse)?|-Recurse)/i,
+    // 🔧 修复：要求 Remove-Item/ri 在命令开头或管道/分隔符之后
+    // 🔧 进一步修复：仅匹配 -Recurse / -r（可带 :$true 形式），避免把 -Force 等误判为递归
+    pattern:
+      /(?:^|(?:;|&&|\|\||\||&)\s*)(?:Remove-Item|ri)\b[^;&|]*(?:\s-(?:recurse|r)(?:\b|:))/i,
     crossPlatform: false,
     platforms: ['win32'],
     warningMessage:
@@ -241,7 +262,8 @@ const DANGEROUS_COMMAND_RULES: DangerousCommandRule[] = [
     id: 'powershell-remove-item-wildcard',
     description: 'PowerShell Remove-Item 使用通配符',
     // 匹配: Remove-Item -Path "*.ext" 等
-    pattern: /\b(?:Remove-Item|ri)\b.*[*?]/i,
+    // 🔧 修复：要求 Remove-Item/ri 在命令开头或管道/分隔符之后
+    pattern: /(?:^|[;&|]\s*)(?:Remove-Item|ri)\s[^;&|]*[*?]/i,
     crossPlatform: false,
     platforms: ['win32'],
     warningMessage:
