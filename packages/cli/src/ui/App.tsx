@@ -1745,17 +1745,30 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   const mainControlsRef = useRef<DOMElement>(null);
   const pendingHistoryItemRef = useRef<DOMElement>(null);
   const rootUiRef = useRef<DOMElement>(null);
+  const measureTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    if (mainControlsRef.current) {
-      const fullFooterMeasurement = measureElement(mainControlsRef.current);
-      setFooterHeight(fullFooterMeasurement.height);
+    // 🔧 关键优化：延迟测量并去抖动
+    // 防止频繁的高度变化导致过多的 measureElement 调用
+    // 这样即使 Debug Console 频繁展开/折叠，也只会每 300ms 测量一次
+    if (measureTimeoutRef.current) {
+      clearTimeout(measureTimeoutRef.current);
     }
-    // ⚠️ 关键优化：移除 showErrorDetails 和 debugPanelExpanded 依赖
-    // 原因：这两个状态变化会导致频繁的 measureElement 调用，进而导致整个布局重排和闪烁
-    // Debug Console 的高度变化应该被 Box 的 flexDirection="column" 自然吸收
-    // 而不应该影响 Static 区域和其他组件的高度计算
-  }, [terminalHeight, terminalWidth]);
+
+    measureTimeoutRef.current = setTimeout(() => {
+      if (mainControlsRef.current) {
+        const fullFooterMeasurement = measureElement(mainControlsRef.current);
+        setFooterHeight(fullFooterMeasurement.height);
+      }
+      measureTimeoutRef.current = null;
+    }, 300);
+
+    return () => {
+      if (measureTimeoutRef.current) {
+        clearTimeout(measureTimeoutRef.current);
+      }
+    };
+  }, [terminalHeight, terminalWidth, showErrorDetails, debugPanelExpanded]);
 
   // Detect UI flickering (renders taller than terminal)
   // Debug console expansion no longer relies on unconstrained overflow.
@@ -1952,24 +1965,17 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
 
 
   // Helper function to render debug panel with scrolling display
-  // 🔧 关键优化：总是返回一个高度恒定的 Box，防止显示/隐藏时的高度变化
-  // 当 showErrorDetails 为 false 时，Box 仍然占用空间（debugConsoleMaxHeight）
-  // 这样 Static 组件不会因为 Debug Console 的显示/隐藏而重新渲染
   const renderDebugPanel = () => {
+    if (!showErrorDetails) {
+      return null;
+    }
     return (
-      <Box
-        flexDirection="column"
-        height={debugConsoleMaxHeight}
-        width={inputWidth}
-        overflow="hidden"
-      >
-        {showErrorDetails ? (
-          <ScrollingDebugConsole
-            messages={filteredConsoleMessages}
-            height={debugPanelHeight}
-            width={inputWidth}
-          />
-        ) : null}
+      <Box flexDirection="column">
+        <ScrollingDebugConsole
+          messages={filteredConsoleMessages}
+          height={debugPanelHeight}
+          width={inputWidth}
+        />
       </Box>
     );
   };
