@@ -131,7 +131,22 @@ export class LSPManager {
   /**
    * 执行 LSP 请求的通用包装
    */
-  async run<T>(file: string, task: (client: LSPClient.Info) => Promise<T>): Promise<T[]> {
+  async run<T>(
+    file: string,
+    task: (client: LSPClient.Info) => Promise<T>,
+    options?: { timeoutMs?: number; operationName?: string },
+  ): Promise<T[]> {
+    const debug =
+      process.env.DEEPV_LSP_DEBUG === '1' ||
+      process.env.DEEPV_LSP_DEBUG === 'true';
+    const timeoutMsFromEnv = Number(process.env.DEEPV_LSP_REQUEST_TIMEOUT_MS);
+    const timeoutMs =
+      options?.timeoutMs ??
+      (Number.isFinite(timeoutMsFromEnv) && timeoutMsFromEnv > 0
+        ? timeoutMsFromEnv
+        : 15_000);
+    const operationName = options?.operationName ?? 'request';
+
     // 🎯 统一路径格式，防止 Windows 大小写问题
     const normalizedFile = path.normalize(file);
     const clients = await this.getClientsForFile(normalizedFile);
@@ -147,9 +162,33 @@ export class LSPManager {
         }
 
         try {
-          return await task(client);
+          const result = await Promise.race([
+            task(client),
+            new Promise<never>((_, reject) => {
+              const t = setTimeout(() => {
+                clearTimeout(t);
+                reject(
+                  new Error(
+                    `[LSP][${client.serverID}] ${operationName} timed out after ${timeoutMs}ms`,
+                  ),
+                );
+              }, timeoutMs);
+            }),
+          ]);
+          return result;
         } catch (err) {
-          console.error(`[LSP][${client.serverID}] Request failed:`, err);
+          // 超时/异常都不应该阻塞整个 tool 调用。
+          // 对于超时场景，记录必要日志并跳过该 client。
+          if (debug) {
+            console.error(`[LSP][${client.serverID}] Request failed:`, err);
+          } else {
+            const message = err instanceof Error ? err.message : String(err);
+            if (message.includes('timed out after')) {
+              console.warn(message);
+            } else {
+              console.error(`[LSP][${client.serverID}] Request failed:`, message);
+            }
+          }
           return null;
         }
       })
@@ -167,20 +206,26 @@ export class LSPManager {
   // 具体的 LSP 功能 API
 
   async getHover(file: string, line: number, character: number) {
-    return this.run(file, (client) =>
-      client.connection.sendRequest('textDocument/hover', {
-        textDocument: { uri: this.getUri(file) },
-        position: { line, character }
-      })
+    return this.run(
+      file,
+      (client) =>
+        client.connection.sendRequest('textDocument/hover', {
+          textDocument: { uri: this.getUri(file) },
+          position: { line, character },
+        }),
+      { operationName: 'textDocument/hover' },
     );
   }
 
   async getDefinition(file: string, line: number, character: number) {
-    return this.run(file, (client) =>
-      client.connection.sendRequest('textDocument/definition', {
-        textDocument: { uri: this.getUri(file) },
-        position: { line, character }
-      })
+    return this.run(
+      file,
+      (client) =>
+        client.connection.sendRequest('textDocument/definition', {
+          textDocument: { uri: this.getUri(file) },
+          position: { line, character },
+        }),
+      { operationName: 'textDocument/definition' },
     );
   }
 
@@ -200,7 +245,7 @@ export class LSPManager {
         result = await client.connection.sendRequest('textDocument/references', params);
       }
       return result;
-    });
+    }, { operationName: 'textDocument/references' });
   }
 
   async getImplementation(file: string, line: number, character: number) {
@@ -218,14 +263,17 @@ export class LSPManager {
         result = await client.connection.sendRequest('textDocument/implementation', params);
       }
       return result;
-    });
+    }, { operationName: 'textDocument/implementation' });
   }
 
   async getDocumentSymbols(file: string) {
-    return this.run(file, (client) =>
-      client.connection.sendRequest('textDocument/documentSymbol', {
-        textDocument: { uri: this.getUri(file) }
-      })
+    return this.run(
+      file,
+      (client) =>
+        client.connection.sendRequest('textDocument/documentSymbol', {
+          textDocument: { uri: this.getUri(file) },
+        }),
+      { operationName: 'textDocument/documentSymbol' },
     );
   }
 

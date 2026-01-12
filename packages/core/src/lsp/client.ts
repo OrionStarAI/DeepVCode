@@ -20,10 +20,19 @@ export async function createLSPClient(input: {
   server: { process: any };
   root: string;
 }): Promise<LSPClient.Info> {
+  // 🎯 Windows 兼容性：确保驱动器盘符为小写 (file:///D:/ -> file:///d:/)
+  // 注意：部分 LSP（如 Pyright）会在 initialize 过程中立刻发起 workspace/workspaceFolders 请求。
+  // 若 normalizeUri 尚未初始化，会触发 TDZ ReferenceError，导致 initialize Promise 永远不 resolve（表现为“卡住”）。
+  const normalizeUri = (uri: string) =>
+    uri.replace(/^file:\/\/\/([A-Z]):\//, (match, drive) =>
+      `file:///${drive.toLowerCase()}:/`,
+    );
+  const rootUri = normalizeUri(pathToFileURL(input.root).href);
+
   // 1. 建立基于 Stdio 的连接
   const connection = createMessageConnection(
     new StreamMessageReader(input.server.process.stdout),
-    new StreamMessageWriter(input.server.process.stdin)
+    new StreamMessageWriter(input.server.process.stdin),
   );
 
   // 2. 监听错误和关闭
@@ -36,6 +45,23 @@ export async function createLSPClient(input: {
   });
 
   // 🎯 注册服务端请求处理器
+  // 注意：一些 LSP（尤其是 Pyright）会在初始化或处理首个请求时向 client 发起额外 request。
+  // 如果 client 不响应，这些 server 可能会阻塞后续响应，表现为“卡住”。
+
+  // 打印 server stderr（协议数据通常在 stdout；日志通常在 stderr）
+  // 仅在开启 DEEPV_LSP_DEBUG 时输出，避免默认刷屏。
+  const debug =
+    process.env.DEEPV_LSP_DEBUG === '1' ||
+    process.env.DEEPV_LSP_DEBUG === 'true';
+  if (debug && input.server.process?.stderr) {
+    input.server.process.stderr.on('data', (buf: Buffer) => {
+      const msg = buf.toString('utf8').trimEnd();
+      if (msg) {
+        console.log(`[LSP][${input.serverID}][stderr] ${msg}`);
+      }
+    });
+  }
+
   // 处理 workspace/configuration 请求，返回空配置
   connection.onRequest('workspace/configuration', (params: any) => {
     return (params.items || []).map(() => ({}));
@@ -46,29 +72,65 @@ export async function createLSPClient(input: {
     return {};
   });
 
+  // 处理 client/unregisterCapability 请求
+  connection.onRequest('client/unregisterCapability', () => {
+    return {};
+  });
+
+  // 处理 window/workDoneProgress/create 请求（常见于 Pyright / Rust Analyzer 等）
+  connection.onRequest('window/workDoneProgress/create', () => {
+    return null;
+  });
+
+  // 一些 server 会主动请求 refresh（客户端无需处理具体逻辑，返回成功即可）
+  connection.onRequest('workspace/semanticTokens/refresh', () => {
+    return null;
+  });
+  connection.onRequest('workspace/inlayHint/refresh', () => {
+    return null;
+  });
+  connection.onRequest('workspace/codeLens/refresh', () => {
+    return null;
+  });
+  connection.onRequest('workspace/diagnostic/refresh', () => {
+    return null;
+  });
+
+  // 处理 window/showMessageRequest（避免 server 等待用户交互而阻塞）
+  connection.onRequest('window/showMessageRequest', (params: any) => {
+    const actions = params?.actions;
+    if (Array.isArray(actions) && actions.length > 0) {
+      return actions[0];
+    }
+    return null;
+  });
+
+  // 处理 workspace/applyEdit（部分 server 会尝试修复/整理 import 等）
+  connection.onRequest('workspace/applyEdit', () => {
+    return { applied: true };
+  });
+
   // 处理 workspace/workspaceFolders 请求
   connection.onRequest('workspace/workspaceFolders', () => {
     return [
       {
-        uri: normalizeUri(pathToFileURL(input.root).href),
+        uri: rootUri,
         name: path.basename(input.root),
-      }
+      },
     ];
   });
 
   // 3. 启动监听
   connection.listen();
 
-  // 🎯 Windows 兼容性：确保驱动器盘符为小写 (file:///D:/ -> file:///d:/)
-  // 这对于 tsserver 正确识别项目至关重要
-  const normalizeUri = (uri: string) => uri.replace(/^file:\/\/\/([A-Z]):\//, (match, drive) => `file:///${drive.toLowerCase()}:/`);
-  const rootUri = normalizeUri(pathToFileURL(input.root).href);
-
   // 4. 发送初始化请求 (Capabilities 交涉)
   const initializeParams = {
     processId: process.pid,
     rootUri: rootUri,
     capabilities: {
+      window: {
+        workDoneProgress: true,
+      },
       textDocument: {
         synchronization: {
           dynamicRegistration: true,
@@ -85,8 +147,11 @@ export async function createLSPClient(input: {
           dynamicRegistration: true,
           hierarchicalDocumentSymbolSupport: true,
           symbolKind: {
-            valueSet: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26]
-          }
+            valueSet: [
+              1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18,
+              19, 20, 21, 22, 23, 24, 25, 26,
+            ],
+          },
         },
         implementation: { dynamicRegistration: true, linkSupport: true },
         typeDefinition: { dynamicRegistration: true, linkSupport: true },
@@ -98,20 +163,26 @@ export async function createLSPClient(input: {
         symbol: {
           dynamicRegistration: true,
           symbolKind: {
-            valueSet: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26]
-          }
-        }
-      }
+            valueSet: [
+              1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,
+              18, 19, 20, 21, 22, 23, 24, 25, 26,
+            ],
+          },
+        },
+      },
     },
     workspaceFolders: [
       {
         uri: rootUri,
         name: path.basename(input.root),
-      }
-    ]
+      },
+    ],
   };
 
-  const result = await connection.sendRequest('initialize', initializeParams) as any;
+  const result = (await connection.sendRequest(
+    'initialize',
+    initializeParams,
+  )) as any;
   await connection.sendNotification('initialized', {});
 
   return {
