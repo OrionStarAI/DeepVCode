@@ -1,6 +1,6 @@
 {
   "name": "deepv-webview",
-  "version": "1.0.0",
+  "version": "1.0.271",
   "private": true,
   "dependencies": {
     "@lexical/plain-text": "^0.12.2",

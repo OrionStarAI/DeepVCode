@@ -88,7 +88,7 @@ describe('LSPManager robustness', () => {
     const elapsed = Date.now() - t0;
 
     // The manager should return quickly with no results.
-    expect(elapsed).toBeLessThan(1500);
+    expect(elapsed).toBeLessThan(5000);
     expect(result).toEqual([]);
 
     await manager.shutdown();

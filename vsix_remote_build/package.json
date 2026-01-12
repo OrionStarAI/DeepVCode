@@ -1,6 +1,6 @@
 {
   "name": "vsix-trigger-service",
-  "version": "1.0.0",
+  "version": "1.0.271",
   "description": "用户机上的VSIX构建触发服务",
   "main": "trigger_cli.js",
   "type": "module",

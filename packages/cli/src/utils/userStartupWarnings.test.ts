@@ -20,6 +20,14 @@ vi.mock('os', async (importOriginal) => {
   };
 });
 
+// Mock creditsService to avoid ProxyAuthManager initialization errors
+vi.mock('../services/creditsService.js', () => ({
+  getCreditsService: vi.fn(() => ({
+    getCreditsInfo: vi.fn().mockResolvedValue(null),
+    isCreditsLow: vi.fn().mockReturnValue(false),
+  })),
+}));
+
 describe('getUserStartupWarnings', () => {
   let testRootDir: string;
   let homeDir: string;

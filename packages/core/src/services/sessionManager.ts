@@ -834,6 +834,27 @@ export class SessionManager {
   }
 
   /**
+   * 更新session检查点
+   */
+  async updateSessionCheckpoint(sessionId: string, checkpointId: string, updates: Partial<any>): Promise<void> {
+    const sessionDir = this.getSessionDir(sessionId);
+    const checkpointsFile = path.join(sessionDir, 'checkpoints.json');
+
+    try {
+      const content = await fs.readFile(checkpointsFile, 'utf-8');
+      let checkpoints: any[] = JSON.parse(content);
+
+      const index = checkpoints.findIndex(cp => cp.id === checkpointId);
+      if (index !== -1) {
+        checkpoints[index] = { ...checkpoints[index], ...updates };
+        await fs.writeFile(checkpointsFile, JSON.stringify(checkpoints, null, 2));
+      }
+    } catch (error) {
+      console.warn(`[SessionManager] Failed to update checkpoint ${checkpointId}:`, getErrorMessage(error));
+    }
+  }
+
+  /**
    * 保存AI请求日志
    */
   async saveRequestLog(sessionId: string, logData: {
