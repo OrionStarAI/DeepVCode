@@ -37,11 +37,12 @@ export const UserMessage: React.FC<UserMessageProps> = ({ text, terminalWidth })
   displayText = formatAttachmentReferencesForDisplay(displayText);
 
   // 根据主题类型选择背景色和文本颜色
-  // 深色主题：使用中灰色背景 + 纯白文本（反色效果）
-  // 浅色主题：使用深灰色背景 + 白色文本（反色效果）
+  // 为了获得高对比度效果（类似 Claude Code）：
+  // 深色主题：使用白色背景 + 黑色文本
+  // 浅色主题：使用黑色背景 + 白色文本
   const isDarkTheme = Colors.type === 'dark';
-  const backgroundColor = isDarkTheme ? 'gray' : 'blackBright';
-  const textColor = isDarkTheme ? 'white' : 'white';
+  const backgroundColor = isDarkTheme ? 'white' : 'black';
+  const textColor = isDarkTheme ? 'black' : 'white';
 
   return (
     <Box flexDirection="row" width="100%">

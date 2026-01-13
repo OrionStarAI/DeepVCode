@@ -19,6 +19,7 @@ import {
 import { StreamingState, type HistoryItem, MessageType, ToolCallStatus, type IndividualToolCallDisplay } from './types.js';
 import { useTerminalSize } from './hooks/useTerminalSize.js';
 import { useGeminiStream } from './hooks/useGeminiStream.js';
+import { useAnimatedTitleIcon } from './hooks/useAnimatedTitleIcon.js';
 import { t, tp } from './utils/i18n.js';
 import { useLoadingIndicator } from './hooks/useLoadingIndicator.js';
 import { useTaskCompletionSummary } from './hooks/useTaskCompletionSummary.js';
@@ -56,6 +57,7 @@ import { SettingsMenuDialog } from './components/SettingsMenuDialog.js';
 import { Colors } from './colors.js';
 import { Help } from './components/Help.js';
 import { loadHierarchicalGeminiMemory } from '../config/config.js';
+import { updateWindowTitleIcon } from '../gemini.js';
 import { LoadedSettings } from '../config/settings.js';
 import { Tips } from './components/Tips.js';
 import { ConsolePatcher } from './utils/ConsolePatcher.js';
@@ -1080,6 +1082,12 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     settings, // 传递设置对象以支持异步模型配置更新
     customProxyUrl,
   );
+
+  // 🎯 动画标题图标 - AI繁忙时循环显示 ✱ ✻ ✳️，空闲时显示 🚀
+  const currentTitleIcon = useAnimatedTitleIcon(streamingState);
+  useEffect(() => {
+    updateWindowTitleIcon(currentTitleIcon);
+  }, [currentTitleIcon]);
 
   // 🎯 监听后台任务完成事件
   useBackgroundTaskNotifications({

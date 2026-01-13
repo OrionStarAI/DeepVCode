@@ -306,6 +306,9 @@ function processWorkdirParameter(workdirPath: string | undefined): string | null
 }
 
 export async function main() {
+  // Clear screen at startup for clean interface
+  console.clear();
+
   setupUnhandledRejectionHandler();
 
   // Setup Git error monitoring early to catch initialization errors
@@ -591,7 +594,7 @@ export async function main() {
       logIfNotSilent('warn', `⚠️  Session ${argv.session} not found, creating new session`);
       const newSession = await sessionManager.createNewSession();
       finalSessionId = newSession.sessionId as any;
-      logIfNotSilent('log', `📝 Created new session: ${finalSessionId}`);
+      // logIfNotSilent('log', `📝 Created new session: ${finalSessionId}`);
     }
   } else if (argv.continue) {
     // 用户明确要求继续上一个会话
@@ -604,7 +607,7 @@ export async function main() {
     logIfNotSilent('log', ``);
     const newSession = await sessionManager.createNewSession();
     finalSessionId = newSession.sessionId as any;
-    logIfNotSilent('log', `📝 Created new session: ${finalSessionId}`);
+    // logIfNotSilent('log', `📝 Created new session: ${finalSessionId}`);
   }
 
   // Perform session cleanup after creating/selecting current session (runs in background)
@@ -978,9 +981,9 @@ export function updateWindowTitleWithSummary(
   // 3. 获取工作目录名
   const workspace = workspaceName || basename(process.cwd());
 
-  // 4. 构造新标题：🚀 <summary> - DeepV Code - <工作目录名>
+  // 4. 构造新标题：🚀 <summary> | DeepV Code - <工作目录名>
   const cleanSummary = summary.trim();
-  const newTitle = `🚀 ${cleanSummary} - DeepV Code - ${workspace}`;
+  const newTitle = `🚀 ${cleanSummary} | DeepV Code - ${workspace}`;
 
   // 5. 更新全局变量（标题保护机制会自动使用这个值）
   currentWindowTitle = newTitle;
@@ -990,6 +993,35 @@ export function updateWindowTitleWithSummary(
   process.stdout.write(`\x1b]2;${newTitle}\x07`);
 
   console.log(`[Title] Updated to: ${newTitle}`);
+}
+
+/**
+ * Update the window title icon (first character) without changing the text content
+ * Used for animating the title icon when AI is busy
+ * @param icon The new icon character (emoji)
+ */
+export function updateWindowTitleIcon(icon: string): void {
+  if (!currentWindowTitle) {
+    return;
+  }
+
+  // Split the title to replace the first character (icon)
+  // Format: 🚀 summary - DeepV Code - workspace
+  // or:     🚀 DeepV Code - workspace
+  const titleParts = currentWindowTitle.split(' ');
+
+  if (titleParts.length > 0) {
+    // Replace the first element (the icon)
+    titleParts[0] = icon;
+    const newTitle = titleParts.join(' ');
+
+    // Update global variable
+    currentWindowTitle = newTitle;
+    process.env.CLI_TITLE = newTitle;
+
+    // Set terminal title using ANSI escape sequence
+    process.stdout.write(`\x1b]2;${newTitle}\x07`);
+  }
 }
 
 // 导出恢复函数供其他模块使用
