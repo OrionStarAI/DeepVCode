@@ -15,8 +15,13 @@ import { HookEventName, HookDefinition } from '../hooks/types.js';
  * Agent 风格类型
  * - default: Claude-style，强调计划、解释、todo 管理（默认）
  * - codex: Codex-style，快速确认后静默执行，减少过程输出
+ * - cursor: Cursor-style，强调语义搜索、高并发工具调用、详细代码规范
+ * - augment: Augment-style，强调任务列表驱动、严格的版本管理和验证
+ * - claude-code: Claude Code-style，极简、直接、高性能 CLI 风格
+ * - antigravity: Antigravity-style，强调知识库（KI）优先、高端美学、系统化工作流
+ * - windsurf: Windsurf-style，基于 AI Flow 范式，强调独立与协作平衡
  */
-export type AgentStyle = 'default' | 'codex';
+export type AgentStyle = 'default' | 'codex' | 'cursor' | 'augment' | 'claude-code' | 'antigravity' | 'windsurf';
 
 /**
  * 项目级配置接口
@@ -84,11 +89,12 @@ export class ProjectSettingsManager {
       const parsed = JSON.parse(content) as ProjectSettings;
 
       // 验证配置格式
+      const validAgentStyles: AgentStyle[] = ['default', 'codex', 'cursor', 'augment', 'claude-code', 'antigravity', 'windsurf'];
       this.settings = {
         yolo: typeof parsed.yolo === 'boolean' ? parsed.yolo : undefined,
         autoTrimTrailingSpaces: typeof parsed.autoTrimTrailingSpaces === 'boolean' ? parsed.autoTrimTrailingSpaces : undefined,
         hooks: parsed.hooks ? JSON.parse(JSON.stringify(parsed.hooks)) : undefined,
-        agentStyle: (parsed.agentStyle === 'default' || parsed.agentStyle === 'codex') ? parsed.agentStyle : undefined,
+        agentStyle: validAgentStyles.includes(parsed.agentStyle as any) ? parsed.agentStyle : undefined,
       };
 
       return this.settings;

@@ -5,9 +5,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+/**
+ * @vitest-environment jsdom
+ */
 
 import { act, renderHook } from '@testing-library/react';
-import { vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { useConsoleMessages } from './useConsoleMessages';
 import { useCallback } from 'react';
 

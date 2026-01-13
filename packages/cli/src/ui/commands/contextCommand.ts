@@ -73,7 +73,14 @@ export const contextCommand: SlashCommand = {
       const enc = getEncoding('cl100k_base');
       // 获取完整的 system prompt (包含 memory)
       const agentStyle = context.services.config?.getAgentStyle() ?? 'default';
-      const fullSystemPrompt = getCoreSystemPrompt(context.services.config?.getUserMemory(), false, undefined, agentStyle);
+      const fullSystemPrompt = getCoreSystemPrompt(
+    context.services.config?.getUserMemory(),
+    false,
+    undefined,
+    agentStyle,
+    undefined,
+    context.services.config?.getPreferredLanguage()
+  );
       const totalSystemTokens = enc.encode(fullSystemPrompt).length;
 
       // 扣除 memory

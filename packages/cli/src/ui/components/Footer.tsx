@@ -114,10 +114,20 @@ export const Footer: React.FC<FooterProps> = ({
 
       {/* Right Section: Version, Context Info and Console Summary */}
       <Box alignItems="center">
-        {/* Codex Style Indicator */}
-        {agentStyle === 'codex' ? (
+        {/* Agent Style Indicator */}
+        {agentStyle !== 'default' ? (
           <Box>
-            <Text color={Colors.AccentYellow}>⚡</Text>
+            <Text color={Colors.AccentYellow}>{(function () {
+              switch (agentStyle) {
+                case 'codex': return '⚡';
+                case 'cursor': return '🎯';
+                case 'augment': return '🚀';
+                case 'claude-code': return '⌨️';
+                case 'antigravity': return '💎';
+                case 'windsurf': return '🌊';
+                default: return '';
+              }
+            })()}</Text>
             <Text color={Colors.Gray}> | </Text>
           </Box>
         ) : null}

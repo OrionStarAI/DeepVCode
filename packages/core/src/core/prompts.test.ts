@@ -101,6 +101,12 @@ describe('Core System Prompt (prompts.ts)', () => {
     expect(prompt).toMatchSnapshot();
   });
 
+  it('should include language preference when provided', () => {
+    const lang = 'Japanese';
+    const prompt = getCoreSystemPrompt(undefined, false, undefined, 'default', undefined, lang);
+    expect(prompt).toContain(`**Language Preference:** Please always use "${lang}" to reply to the user.`);
+  });
+
   it('should include git instructions when in a git repo', () => {
     vi.stubEnv('SANDBOX', undefined);
     vi.mocked(isGitRepository).mockReturnValue(true);

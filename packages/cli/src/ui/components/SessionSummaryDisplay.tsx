@@ -35,9 +35,10 @@ export const SessionSummaryDisplay: React.FC<SessionSummaryDisplayProps> = ({
     const loadCredits = async () => {
       try {
         const creditsService = getCreditsService();
-        // 强制刷新，直接从服务器获取最新数据（不使用缓存）
-        // 有5秒超时保护，不会让用户等太久
-        const info = await creditsService.getCreditsInfo(true);
+        // 🎯 优化：不再总是强制刷新。
+        // getCreditsInfo 默认带有 1 分钟缓存。
+        // 如果用户刚按过一次 Ctrl+C，这里的 getCreditsInfo 将直接使用缓存。
+        const info = await creditsService.getCreditsInfo();
         if (info) {
           const creditsText = formatCreditsWithColor(
             info.totalCredits,
@@ -62,23 +63,25 @@ export const SessionSummaryDisplay: React.FC<SessionSummaryDisplayProps> = ({
 
   return (
     <>
+      <Box flexDirection="column" marginBottom={1}>
+        {/* 立即显示退出消息 */}
+        <Text>
+          {isLoading ? '•' : '👋'} {isLoading ? t('command.quit.exiting') : t('command.quit.goodbye')}
+        </Text>
+
+        {showLatestCredits && latestCreditsInfo ? (
+          <Box marginTop={0}>
+            <Text>{latestCreditsInfo}</Text>
+          </Box>
+        ) : null}
+      </Box>
+
       <StatsDisplay
         title={t('agent.powering.down')}
         duration={duration}
         totalCredits={credits}
         config={config}
       />
-      <Box marginTop={1}>
-        {/* 立即显示退出消息 */}
-        <Text>
-          {isLoading ? '•' : '👋'} {isLoading ? t('command.quit.exiting') : t('command.quit.goodbye')}
-        </Text>
-      </Box>
-      {showLatestCredits && latestCreditsInfo ? (
-        <Box marginTop={1}>
-          <Text>{latestCreditsInfo}</Text>
-        </Box>
-      ) : null}
     </>
   );
 };

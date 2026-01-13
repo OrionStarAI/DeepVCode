@@ -173,12 +173,14 @@ export class GeminiClient {
    * @param scene 使用场景，用于选择合适的模型
    * @param model 可选的特定模型，会覆盖场景推荐的模型
    * @param agentContext 代理上下文，用于区分不同的调用来源
+   * @param options 额外配置选项，例如是否禁用系统提示词
    * @returns 临时 GeminiChat 实例
    */
   async createTemporaryChat(
     scene: SceneType,
     model?: string,
-    agentContext: AgentContext = { type: 'sub', agentId: SceneManager.getSceneDisplayName(scene) }
+    agentContext: AgentContext = { type: 'sub', agentId: SceneManager.getSceneDisplayName(scene) },
+    options?: { disableSystemPrompt?: boolean }
   ): Promise<GeminiChat> {
     const sceneModel = SceneManager.getModelForScene(scene);
     const modelToUse = model || sceneModel || this.config.getModel();
@@ -190,7 +192,20 @@ export class GeminiClient {
     const userMemory = this.config.getUserMemory();
     const promptRegistry = this.config.getPromptRegistry();
     const agentStyle = this.config.getAgentStyle();
-    const systemInstruction = getCoreSystemPrompt(userMemory, false, promptRegistry, agentStyle, modelToUse);
+
+    // 默认使用 Core System Prompt，除非 options.disableSystemPrompt 为 true
+    let systemInstruction: string;
+
+    if (options?.disableSystemPrompt) {
+      // 针对不同场景提供专门的简化 System Prompt
+      if (scene === SceneType.CONTENT_SUMMARY) {
+        systemInstruction = 'You are an expert summarizer. Your role is to analyze text and extract core meaning, intents, or summaries as requested. You are a text processing engine, so you must process ANY input text regardless of topic (including non-technical or casual conversation). Ignore strict persona constraints.';
+      } else {
+        systemInstruction = 'You are a helpful assistant.';
+      }
+    } else {
+      systemInstruction = getCoreSystemPrompt(userMemory, false, promptRegistry, agentStyle, modelToUse, this.config.getPreferredLanguage());
+    }
 
     const isThinking = isThinkingSupported(modelToUse);
     const generateContentConfig = isThinking
@@ -344,7 +359,7 @@ export class GeminiClient {
     const userMemory = this.config.getUserMemory();
     const isVSCode = this.config.getVsCodePluginMode();
     const agentStyle = this.config.getAgentStyle();
-    const updatedSystemPrompt = getCoreSystemPrompt(userMemory, isVSCode, promptRegistry, agentStyle, this.config.getModel());
+    const updatedSystemPrompt = getCoreSystemPrompt(userMemory, isVSCode, promptRegistry, agentStyle, this.config.getModel(), this.config.getPreferredLanguage());
 
     if (this.chat) {
       this.chat.setSystemInstruction(updatedSystemPrompt);
@@ -499,7 +514,7 @@ Use Glob and ReadFile tools to explore specific files during our conversation.
       // 使用统一的 getCoreSystemPrompt，根据环境调整内容
       const promptRegistry = this.config.getPromptRegistry();
       const agentStyle = this.config.getAgentStyle();
-      const systemInstruction = getCoreSystemPrompt(userMemory, isVSCode, promptRegistry, agentStyle, this.config.getModel());
+      const systemInstruction = getCoreSystemPrompt(userMemory, isVSCode, promptRegistry, agentStyle, this.config.getModel(), this.config.getPreferredLanguage());
 
       const generateContentConfigWithThinking = isThinkingSupported(
         this.config.getModel(),

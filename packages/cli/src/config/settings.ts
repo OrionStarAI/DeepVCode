@@ -151,6 +151,9 @@ export interface Settings {
 
   // 健康使用提醒开关
   healthyUse?: boolean;
+
+  // 语言偏好设置
+  preferredLanguage?: string;
 }
 
 export interface SettingsError {

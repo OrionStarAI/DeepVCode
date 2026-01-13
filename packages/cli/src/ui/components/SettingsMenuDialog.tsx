@@ -8,9 +8,9 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { RadioButtonSelect, type RadioSelectItem } from './shared/RadioButtonSelect.js';
 import { SettingScope, type LoadedSettings } from '../../config/settings.js';
-import { Config, ApprovalMode, getCoreSystemPrompt } from 'deepv-code-core';
+import { Config, ApprovalMode, getCoreSystemPrompt, AgentStyle } from 'deepv-code-core';
 import { Colors } from '../colors.js';
-import { t } from '../utils/i18n.js';
+import { t, tp } from '../utils/i18n.js';
 import { getModelDisplayName } from '../../utils/modelUtils.js';
 
 interface SettingsMenuDialogProps {
@@ -53,9 +53,24 @@ export const SettingsMenuDialog = React.memo(function SettingsMenuDialog({
     { label: t('config.menu.editor'), value: 'editor', rightText: `(${editorValue})` },
     { label: t('config.menu.model'), value: 'model', rightText: `(${modelValue})` },
     { label: `${settings.merged.vimMode ? '✅' : '❌'} ${t('config.menu.vim')}`, value: 'vim', rightText: settings.merged.vimMode ? `(${t('config.value.on')})` : `(${t('config.value.off')})` },
-    { label: `${config.getAgentStyle() === 'codex' ? '⚡' : '🧠'} ${t('config.menu.agent.style')}`, value: 'agent-style', rightText: config.getAgentStyle() === 'codex' ? `(${t('config.value.codex')})` : `(${t('config.value.default')})` },
+    {
+      label: `${(function () {
+        switch (config.getAgentStyle()) {
+          case 'codex': return '⚡';
+          case 'cursor': return '🎯';
+          case 'augment': return '🚀';
+          case 'claude-code': return '⌨️';
+          case 'antigravity': return '💎';
+          case 'windsurf': return '🌊';
+          default: return '🧠';
+        }
+      })()} ${t('config.menu.agent.style')}`,
+      value: 'agent-style',
+      rightText: `(${t(`agentStyle.style.${config.getAgentStyle()}.label` as any)})`
+    },
     { label: `${config.getApprovalMode() === ApprovalMode.YOLO ? '🚀' : '🛡️'} ${t('config.menu.yolo')}`, value: 'yolo', rightText: config.getApprovalMode() === ApprovalMode.YOLO ? `(${t('config.value.on')})` : `(${t('config.value.off')})` },
     { label: `${config.getHealthyUseEnabled() ? '✅' : '❌'} ${t('config.menu.healthy.use')}`, value: 'healthy-use', rightText: config.getHealthyUseEnabled() ? `(${t('config.value.on')})` : `(${t('config.value.off')})` },
+    { label: t('config.menu.language'), value: 'language', rightText: settings.merged.preferredLanguage ? `(${settings.merged.preferredLanguage})` : `(${t('config.value.default')})` },
   ];
 
   // YOLO 模式选项
@@ -68,6 +83,11 @@ export const SettingsMenuDialog = React.memo(function SettingsMenuDialog({
   const agentStyleItems: RadioSelectItem<string>[] = [
     { label: t('config.option.agent.style.default'), value: 'default' },
     { label: t('config.option.agent.style.codex'), value: 'codex' },
+    { label: t('config.option.agent.style.cursor'), value: 'cursor' },
+    { label: t('config.option.agent.style.augment'), value: 'augment' },
+    { label: t('config.option.agent.style.claudeCode'), value: 'claude-code' },
+    { label: t('config.option.agent.style.antigravity'), value: 'antigravity' },
+    { label: t('config.option.agent.style.windsurf'), value: 'windsurf' },
   ];
 
   // Healthy Use 选项
@@ -77,9 +97,11 @@ export const SettingsMenuDialog = React.memo(function SettingsMenuDialog({
   ];
 
   // 菜单状态
-  type MenuView = 'main' | 'yolo' | 'agent-style' | 'healthy-use';
+  type MenuView = 'main' | 'yolo' | 'agent-style' | 'healthy-use' | 'language';
   const [currentView, setCurrentView] = useState<MenuView>('main');
   const [selectedMain, setSelectedMain] = useState<string>('theme');
+
+  const [languageInput, setLanguageInput] = useState(settings.merged.preferredLanguage || '');
 
   // 🆕 当进入子菜单前记录当前选择，返回时恢复
   const handleEnterSubMenu = (subMenu: MenuView, selectedValue: string) => {
@@ -91,7 +113,7 @@ export const SettingsMenuDialog = React.memo(function SettingsMenuDialog({
     config.getApprovalMode() === ApprovalMode.YOLO ? 'on' : 'off'
   );
   const [selectedAgentStyle, setSelectedAgentStyle] = useState<string>(
-    config.getAgentStyle() === 'default' ? 'default' : 'codex'
+    config.getAgentStyle()
   );
   const [selectedHealthyUse, setSelectedHealthyUse] = useState<string>(
     config.getHealthyUseEnabled() ? 'on' : 'off'
@@ -124,9 +146,12 @@ export const SettingsMenuDialog = React.memo(function SettingsMenuDialog({
         handleEnterSubMenu('agent-style', value);
       } else if (value === 'healthy-use') {
         handleEnterSubMenu('healthy-use', value);
+      } else if (value === 'language') {
+        setLanguageInput(settings.merged.preferredLanguage || '');
+        handleEnterSubMenu('language', value);
       }
     },
-    [settings]
+    [settings, onOpenTheme, onOpenEditor, onOpenModel, handleEnterSubMenu]
   );
 
   // 处理 YOLO 模式选择
@@ -152,8 +177,8 @@ export const SettingsMenuDialog = React.memo(function SettingsMenuDialog({
   const handleAgentStyleSelect = useCallback(
     async (value: string) => {
       setSelectedAgentStyle(value);
-      const newStyle = value === 'default' ? 'default' : 'codex';
-      config.setAgentStyle(newStyle as any);
+      const newStyle = value as AgentStyle;
+      config.setAgentStyle(newStyle);
 
       // Codex 模式自动启用 YOLO
       if (newStyle === 'codex') {
@@ -171,7 +196,9 @@ export const SettingsMenuDialog = React.memo(function SettingsMenuDialog({
             userMemory,
             isVSCode,
             undefined,
-            newStyle as any
+            newStyle,
+            undefined, // modelId
+            config.getPreferredLanguage()
           );
           chat.setSystemInstruction(updatedSystemPrompt);
         }
@@ -179,9 +206,7 @@ export const SettingsMenuDialog = React.memo(function SettingsMenuDialog({
 
       const yoloNote = newStyle === 'codex' ? t('config.status.agent.style.yolo.note') : '';
       setStatusMessage(
-        newStyle === 'default'
-          ? `${t('config.status.agent.style.default')}${yoloNote}`
-          : `${t('config.status.agent.style.codex')}${yoloNote}`
+        `${tp('config.status.agent.style.switched', { style: t(`agentStyle.style.${newStyle}.label` as any) })}${yoloNote}`
       );
       setTimeout(() => {
         setCurrentView('main');
@@ -211,8 +236,63 @@ export const SettingsMenuDialog = React.memo(function SettingsMenuDialog({
     [settings, config]
   );
 
+  // 处理语言提交
+  const handleLanguageSubmit = useCallback(
+    async (value: string) => {
+      const normalizedValue = value.trim();
+      settings.setValue(SettingScope.User, 'preferredLanguage', normalizedValue || undefined);
+
+      // 刷新 system prompt 以立即生效
+      const geminiClient = await config.getGeminiClient();
+      if (geminiClient) {
+        const chat = geminiClient.getChat();
+        if (chat) {
+          const isVSCode = config.getVsCodePluginMode();
+          const userMemory = config.getUserMemory();
+          const agentStyle = config.getAgentStyle();
+          const updatedSystemPrompt = getCoreSystemPrompt(
+            userMemory,
+            isVSCode,
+            undefined,
+            agentStyle,
+            undefined,
+            normalizedValue || undefined
+          );
+          chat.setSystemInstruction(updatedSystemPrompt);
+        }
+      }
+
+      setStatusMessage(
+        normalizedValue
+          ? tp('config.status.language.updated', { language: normalizedValue })
+          : t('config.status.language.cleared')
+      );
+
+      setTimeout(() => {
+        setCurrentView('main');
+        setStatusMessage('');
+      }, 1000);
+    },
+    [settings, config]
+  );
+
   // 处理键盘输入
   useInput((input, key) => {
+    if (currentView === 'language') {
+      if (key.return) {
+        handleLanguageSubmit(languageInput);
+        return;
+      }
+      if (key.backspace || key.delete) {
+        setLanguageInput(prev => prev.slice(0, -1));
+        return;
+      }
+      if (input && !key.ctrl && !key.meta && !key.escape && !key.tab) {
+        setLanguageInput(prev => prev + input);
+        return;
+      }
+    }
+
     // Only handle ESC here, let RadioButtonSelect handle Enter/Return/Arrows
     if (key.escape) {
       if (currentView === 'main') {
@@ -226,7 +306,6 @@ export const SettingsMenuDialog = React.memo(function SettingsMenuDialog({
   });
 
   const dialogWidth = Math.min(terminalWidth - 4, 60);
-  const dialogHeight = availableTerminalHeight || 20;
 
   return (
     <Box flexDirection="column" borderStyle="round" borderColor={Colors.Gray} padding={1} width={dialogWidth}>
@@ -310,6 +389,36 @@ export const SettingsMenuDialog = React.memo(function SettingsMenuDialog({
           <Box marginTop={1}>
             <Text color={Colors.Foreground}>
               {t('config.hint.press.esc')}
+            </Text>
+          </Box>
+        </Box>
+      )}
+
+      {/* Language Input View */}
+      {currentView === 'language' && (
+        <Box flexDirection="column" marginBottom={1}>
+          <Box marginBottom={1}>
+            <Text bold color={Colors.AccentCyan}>
+              {t('config.submenu.language.title')}
+            </Text>
+          </Box>
+
+          <Box flexDirection="row" marginBottom={1}>
+            <Text color={Colors.AccentCyan}>{'> '}</Text>
+            {languageInput ? (
+              <Text color={Colors.Foreground}>{languageInput}</Text>
+            ) : (
+              <Text color={Colors.Gray}>{t('config.hint.language.placeholder')}</Text>
+            )}
+            <Text backgroundColor={Colors.Gray} color={Colors.Foreground}> </Text>
+          </Box>
+
+          <Box flexDirection="column" marginTop={1}>
+            <Text color={Colors.Gray}>
+              {t('config.hint.language.help')}
+            </Text>
+            <Text color={Colors.Gray}>
+              {t('config.hint.confirm.cancel')}
             </Text>
           </Box>
         </Box>
