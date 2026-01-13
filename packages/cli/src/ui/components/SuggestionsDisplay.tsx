@@ -89,7 +89,7 @@ export function SuggestionsDisplay({
         const originalIndex = startIndex + index;
         const isActive = originalIndex === activeIndex;
         const baseColor = isActive ? Colors.AccentOrange : Colors.Gray;
-        const highlightColor = isActive ? Colors.AccentYellow : Colors.Foreground;
+        const highlightColor = isActive ? Colors.Foreground : Colors.AccentOrange;
 
         // 🎯 渲染带高亮的标签
         const renderLabel = () => {
