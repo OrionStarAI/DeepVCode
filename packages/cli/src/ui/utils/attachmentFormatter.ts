@@ -35,13 +35,30 @@ export function formatAttachmentReferencesForDisplay(text: string): string {
 
 /**
  * Ensure all attachment references have quotes for command+click support
- * Converts @path to @"path" so terminal can properly detect file paths
+ * Handles multiple formats:
+ * 1. @[File #"path"] or @[Image #"path"] -> @"path"
+ * 2. @clipboard -> @"clipboard"
+ * 3. @path -> @"path"
+ * 4. @"path" -> @"path" (already quoted, no change)
  */
 export function ensureQuotesAroundAttachments(text: string): string {
-  // 已经是 @"path" 格式的，直接返回
-  // 如果是 @path 形式，添加引号变成 @"path"
-  // 匹配文件路径字符（字母、数字、点、斜杠、下划线、连字符）
-  return text.replace(/@([a-zA-Z0-9_\-./\\]+)(?=\s|$|[，,;；:：!！?？、。\)\]）】》>])/g, (match, path) => {
+  let result = text;
+
+  // 1. 处理显示格式 @[File #"path"] 或 @[Image #"path"]（可能来自粘贴）
+  // 提取引号内的路径，转换为标准 @"path" 格式
+  result = result.replace(/@\[(File|Image)\s*#"([^"]*)"\]/g, (match, type, path) => {
     return `@"${path}"`;
   });
+
+  // 2. 处理 @clipboard 特殊格式（需要保持原样，因为它是特殊值）
+  // 这个不需要修改，但我们要确保在处理其他 @... 时不匹配它
+  // 所以在下面的正则中添加负向先行断言
+
+  // 3. 处理 @path 形式（不含引号，不是 @[...] 格式，不是 @clipboard）
+  // 匹配文件路径字符（字母、数字、点、斜杠、下划线、连字符）
+  result = result.replace(/@(?!clipboard)(?!\[)([a-zA-Z0-9_\-./\\]+)(?=\s|$|[，,;；:：!！?？、。\)\]）】》>])/g, (match, path) => {
+    return `@"${path}"`;
+  });
+
+  return result;
 }
