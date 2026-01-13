@@ -444,7 +444,8 @@ export const useSlashCommandProcessor = (
                   // 在下一个事件循环显示退出消息，确保UI已更新
                   setImmediate(() => {
                     setQuittingMessages(result.messages);
-                    // Node.js CLI 环境：等待 2.5 秒让 SessionSummaryDisplay 获取最新积分，然后清理和退出
+                    // Node.js CLI 环境：给UI一点时间渲染SessionSummaryDisplay，然后清理和退出
+                    // 之前的2.5秒等待太长了，SessionSummaryDisplay会自己处理积分加载
                     setTimeout(async () => {
                       try {
                         await runExitCleanup();
@@ -452,7 +453,7 @@ export const useSlashCommandProcessor = (
                         // 忽略清理错误
                       }
                       process.exit(0);
-                    }, 2500);
+                    }, 1200);
                   });
 
                   return { type: 'handled' };
