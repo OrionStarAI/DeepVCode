@@ -51,7 +51,7 @@ describe('creditsFormatter', () => {
   describe('formatCreditsWithColor', () => {
     it('should include credits icon and labels', () => {
       const result = formatCreditsWithColor(10000, 2000, 20);
-      expect(result).toContain('💳');
+      expect(result).toContain('💰');
       // Labels will be internationalized, so just check the structure
       expect(result).toContain(':');  // Should have colon-separated labels
     });
