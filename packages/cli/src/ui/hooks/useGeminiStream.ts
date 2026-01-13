@@ -170,18 +170,26 @@ async function generateCheckpointSummary(
   geminiClient: GeminiClient,
   summarySource: string
 ): Promise<string> {
-  const summaryPrompt = `用"动词+名词"格式提取核心任务，必须包含具体项目/功能名称，不超过10字：
+  const targetLanguage = isChineseLocale() ? 'Chinese' : 'English';
+  const lengthLimit = isChineseLocale() ? '8 Chinese characters' : '3 English words';
 
-示例：
-- 创建小蜜蜂游戏
-- 优化登录性能
-- 修复注册Bug
-- 重构支付模块
+  const summaryPrompt = `Extract the core task in "Verb + Noun" format.
+Must include the specific project/feature name.
+Length limit: Max ${lengthLimit}.
+CRITICAL: Use the most concise expression and the shortest possible words.
+Avoid articles (a, an, the) and unnecessary adjectives.
 
-现在总结：
+Examples:
+- Create Game
+- Optimize Login
+- Fix Auth Bug
+- Refactor Payment
+
+Now summarize:
 "${summarySource}"
 
-只返回摘要。`;
+Output must be in ${targetLanguage}.
+Return only the summary text.`;
 
   // 使用 Flash Lite 模型（超快速且成本更低）
   const models = ['gemini-2.5-flash-lite'];
@@ -218,11 +226,7 @@ async function generateCheckpointSummary(
 
         let summary = summaryText.trim();
 
-        // 限制 10 字
-        if (summary.length > 10) {
-          summary = summary.substring(0, 10);
-        }
-
+        // 不再进行强制截断，完全信任 AI 的输出
         return summary;
       })();
 
@@ -318,6 +322,8 @@ export const useGeminiStream = (
   const currentUserQueryRef = useRef<string>('');
   // 🎯 用于保存 AI 在调用工具前的文本回复，供 checkpoint 摘要使用
   const aiTextBeforeToolsRef = useRef<string>('');
+  // 🎯 用于保存当前会话的摘要，避免重复生成
+  const currentSessionSummaryRef = useRef<string | null>(null);
   const { startNewPrompt, getPromptCount } = useSessionStats();
   const logger = useLogger();
   const [gitService, setGitService] = useState<GitService | undefined>();
@@ -464,20 +470,25 @@ export const useGeminiStream = (
     if (!sessionManager || !currentCheckpointIdRef.current) return;
 
     try {
-      // 从 AI 文本回复生成摘要（优先），如果没有则从工具调用生成
-      let summarySource = aiTextBeforeToolsRef.current.trim();
+      let summary = currentSessionSummaryRef.current;
 
-      // 如果 AI 没有文本回复，降级到工具调用信息
-      if (!summarySource || summarySource.length < 5) {
-        summarySource = formatToolCallsForSummary(completedToolCalls);
-      } else {
-        // 限制 AI 文本长度（前 200 字符）
-        summarySource = summarySource.substring(0, 200);
+      if (!summary) {
+        // Fallback: 从 AI 文本回复生成摘要（优先），如果没有则从工具调用生成
+        let summarySource = aiTextBeforeToolsRef.current.trim();
+
+        // 如果 AI 没有文本回复，降级到工具调用信息
+        if (!summarySource || summarySource.length < 5) {
+          summarySource = formatToolCallsForSummary(completedToolCalls);
+        } else {
+          // 限制 AI 文本长度（前 200 字符）
+          summarySource = summarySource.substring(0, 200);
+        }
+
+        console.log('[Checkpoint] Starting summary generation from:', summarySource.substring(0, 50));
+        summary = await generateCheckpointSummary(geminiClient, summarySource);
       }
 
-      console.log('[Checkpoint] Starting summary generation from:', summarySource.substring(0, 50));
-      const summary = await generateCheckpointSummary(geminiClient, summarySource);
-      console.log('[Checkpoint] Summary generated:', summary);
+      console.log('[Checkpoint] Summary generated/used:', summary);
 
       if (summary) {
         // 更新 SessionManager 中的摘要
@@ -1370,6 +1381,8 @@ User question: ${queryStr}`;
         currentUserQueryRef.current = '';
         // 🔄 清除上一次的 AI 文本回复记录
         aiTextBeforeToolsRef.current = '';
+        // 🔄 清除上一次的摘要记录
+        currentSessionSummaryRef.current = null;
       }
 
       abortControllerRef.current = new AbortController();
@@ -1383,6 +1396,47 @@ User question: ${queryStr}`;
       // 🎯 保存当前用户输入供 checkpoint 创建时使用
       if (typeof query === 'string' && !options?.isContinuation) {
         currentUserQueryRef.current = query.trim();
+
+        // 🎯 立即生成会话摘要并更新窗口标题（基于用户消息）
+        (async () => {
+           try {
+             const trimmedQuery = query.trim();
+             // 限制输入长度，避免过长
+             const summarySource = trimmedQuery.substring(0, 500);
+
+             if (summarySource.length > 0) {
+                let summary: string | undefined;
+
+                // 智能阈值判断：
+                // 1. 如果是中文，超过 10 个字触发摘要
+                // 2. 如果是英文，超过 5 个单词触发摘要
+                // 否则直接使用原文，节省 AI 调用
+                const hasChinese = /[\u4e00-\u9fa5]/.test(summarySource);
+                const wordCount = summarySource.split(/\s+/).length;
+
+                const shouldSummarize = hasChinese
+                    ? summarySource.length > 10
+                    : wordCount > 5;
+
+                if (!shouldSummarize) {
+                   // 直接使用原文，但去除换行符以适应标题显示
+                   summary = summarySource.replace(/[\r\n]+/g, ' ');
+                } else {
+                   summary = await generateCheckpointSummary(geminiClient, summarySource);
+                }
+
+                if (summary) {
+                  currentSessionSummaryRef.current = summary;
+                  if (settings) {
+                    const workspaceName = path.basename(config.getProjectRoot());
+                    updateWindowTitleWithSummary(summary, settings, workspaceName);
+                  }
+                }
+             }
+           } catch (e) {
+             console.error('[Summary] Failed to generate immediate summary:', e);
+           }
+        })();
       }
 
       const { queryToSend, shouldProceed, silent: resultSilent } = await prepareQueryForGemini(

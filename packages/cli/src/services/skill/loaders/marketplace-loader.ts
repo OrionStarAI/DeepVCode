@@ -133,7 +133,8 @@ export class MarketplaceLoader implements IPluginLoader {
     // 0. 优先使用 installPath（如果已安装）
     const installedInfo = await this.settingsManager.getInstalledPlugin(id);
     if (installedInfo?.installPath && await fs.pathExists(installedInfo.installPath)) {
-      console.log(`[MarketplaceLoader] Using installPath from installed plugin: ${installedInfo.installPath}`);
+      // Startup log suppressed for clean CLI output
+      // console.log(`[MarketplaceLoader] Using installPath from installed plugin: ${installedInfo.installPath}`);
       pluginDir = installedInfo.installPath;
     } else if (this.isRemoteGitSource(source)) {
       // 1. 远程 Git source（需要缓存）
@@ -142,7 +143,8 @@ export class MarketplaceLoader implements IPluginLoader {
 
       // 检查缓存是否存在
       if (await fs.pathExists(cachePath)) {
-        console.log(`[MarketplaceLoader] Using cached plugin: ${cachePath}`);
+        // Startup log suppressed for clean CLI output
+        // console.log(`[MarketplaceLoader] Using cached plugin: ${cachePath}`);
         pluginDir = cachePath;
       } else {
         // 克隆到缓存目录
