@@ -6,6 +6,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import matter from 'gray-matter';
+import { getProjectSkillsDir } from '../utils/paths.js';
 import type {
   SkillsSettings,
   InstalledPlugins,
@@ -17,11 +19,15 @@ import type {
 export class SkillsContextBuilder {
   private readonly skillsDir: string;
   private readonly marketplaceDir: string;
+  private readonly userGlobalSkillsDir: string;
+  private readonly projectSkillsDir: string;
 
-  constructor() {
+  constructor(projectRoot?: string) {
     const homeDir = os.homedir();
     this.skillsDir = path.join(homeDir, '.deepv', 'skills');
     this.marketplaceDir = path.join(homeDir, '.deepv', 'marketplace');
+    this.userGlobalSkillsDir = path.join(homeDir, '.deepv', 'skills');
+    this.projectSkillsDir = getProjectSkillsDir(projectRoot || process.cwd());
   }
 
   /**
@@ -57,9 +63,27 @@ export class SkillsContextBuilder {
   }
 
   /**
-   * Get all available and enabled skills
+   * Get all available and enabled skills from all sources
    */
   private getAvailableSkills(): SkillInfo[] {
+    const allSkills: SkillInfo[] = [];
+
+    // 1. Load marketplace/plugin skills
+    allSkills.push(...this.getMarketplaceSkills());
+
+    // 2. Load user global skills
+    allSkills.push(...this.getUserGlobalSkills());
+
+    // 3. Load project skills
+    allSkills.push(...this.getProjectSkills());
+
+    return allSkills;
+  }
+
+  /**
+   * Get marketplace skills (original logic)
+   */
+  private getMarketplaceSkills(): SkillInfo[] {
     const settingsPath = path.join(this.skillsDir, 'settings.json');
     const installedPath = path.join(this.skillsDir, 'installed_plugins.json');
 
@@ -293,17 +317,64 @@ export class SkillsContextBuilder {
       '',
     ];
 
-    // Group skills by plugin
-    const skillsByPlugin = new Map<string, SkillInfo[]>();
+    // Group skills by source/plugin
+    const userGlobalSkills: SkillInfo[] = [];
+    const projectSkills: SkillInfo[] = [];
+    const marketplaceSkillsByPlugin = new Map<string, SkillInfo[]>();
+
     for (const skill of skills) {
-      if (!skillsByPlugin.has(skill.pluginId)) {
-        skillsByPlugin.set(skill.pluginId, []);
+      if (skill.marketplaceId === 'user-global') {
+        userGlobalSkills.push(skill);
+      } else if (skill.marketplaceId === 'user-project') {
+        projectSkills.push(skill);
+      } else {
+        if (!marketplaceSkillsByPlugin.has(skill.pluginId)) {
+          marketplaceSkillsByPlugin.set(skill.pluginId, []);
+        }
+        marketplaceSkillsByPlugin.get(skill.pluginId)!.push(skill);
       }
-      skillsByPlugin.get(skill.pluginId)!.push(skill);
     }
 
-    // Generate output for each plugin
-    for (const [pluginId, pluginSkills] of skillsByPlugin) {
+    // Output user global skills
+    if (userGlobalSkills.length > 0) {
+      lines.push(`### User Global Skills (~/.deepv/skills/)`);
+      lines.push(`*Custom skills installed globally for this user*`);
+      lines.push('');
+
+      for (const skill of userGlobalSkills) {
+        lines.push(`- **${skill.name}** (ID: \`${skill.id}\`)`);
+        lines.push(`  - 📍 **Skill Path**: \`${skill.path}\``);
+        lines.push(`  - 📖 **Documentation**: \`${skill.skillMdPath}\``);
+        lines.push(`  - 🔧 **Usage Instructions**:`);
+        lines.push(`    1. Read the COMPLETE skill.md: \`read_file("${skill.skillMdPath}")\` (NO offset/limit!)`);
+        lines.push(`    2. Follow ALL instructions, workflows, and requirements in skill.md`);
+        lines.push(`    3. Execute the scripts specified in the documentation`);
+        lines.push(`    4. DO NOT create your own implementation`);
+        lines.push('');
+      }
+    }
+
+    // Output project skills
+    if (projectSkills.length > 0) {
+      lines.push(`### Project Skills (.deepvcode/skills/)`);
+      lines.push(`*Custom skills specific to this project*`);
+      lines.push('');
+
+      for (const skill of projectSkills) {
+        lines.push(`- **${skill.name}** (ID: \`${skill.id}\`)`);
+        lines.push(`  - 📍 **Skill Path**: \`${skill.path}\``);
+        lines.push(`  - 📖 **Documentation**: \`${skill.skillMdPath}\``);
+        lines.push(`  - 🔧 **Usage Instructions**:`);
+        lines.push(`    1. Read the COMPLETE skill.md: \`read_file("${skill.skillMdPath}")\` (NO offset/limit!)`);
+        lines.push(`    2. Follow ALL instructions, workflows, and requirements in skill.md`);
+        lines.push(`    3. Execute the scripts specified in the documentation`);
+        lines.push(`    4. DO NOT create your own implementation`);
+        lines.push('');
+      }
+    }
+
+    // Output marketplace/plugin skills
+    for (const [pluginId, pluginSkills] of marketplaceSkillsByPlugin) {
       const firstSkill = pluginSkills[0];
       lines.push(`### ${pluginId}`);
       lines.push(`*${firstSkill.description}*`);
@@ -362,6 +433,80 @@ export class SkillsContextBuilder {
   public getSkillDetails(skillId: string): SkillInfo | null {
     const skills = this.getAvailableSkills();
     return skills.find((s) => s.id === skillId) || null;
+  }
+
+  /**
+   * Get user global skills (from ~/.deepv/skills/)
+   */
+  private getUserGlobalSkills(): SkillInfo[] {
+    return this.scanCustomSkills(this.userGlobalSkillsDir, 'user-global');
+  }
+
+  /**
+   * Get project skills (from {project}/.deepvcode/skills/)
+   */
+  private getProjectSkills(): SkillInfo[] {
+    return this.scanCustomSkills(this.projectSkillsDir, 'user-project');
+  }
+
+  /**
+   * Scan custom skill directories (user global or project level)
+   * 从 SKILL.md 的 frontmatter 中提取描述
+   */
+  private scanCustomSkills(rootDir: string, source: string): SkillInfo[] {
+    const skills: SkillInfo[] = [];
+
+    if (!fs.existsSync(rootDir)) {
+      return skills;
+    }
+
+    try {
+      const entries = fs.readdirSync(rootDir, { withFileTypes: true });
+
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+
+        const skillDir = path.join(rootDir, entry.name);
+        const skillMdPath = path.join(skillDir, 'SKILL.md');
+
+        if (!fs.existsSync(skillMdPath)) {
+          continue;
+        }
+
+        const skillName = entry.name;
+        const skillId = `${source}:${skillName}`;
+
+        // 从 SKILL.md 的 frontmatter 中提取描述
+        let description = `Skill from ${source}`;
+        try {
+          const content = fs.readFileSync(skillMdPath, 'utf-8');
+          const parsed = matter(content);
+
+          // 使用 frontmatter 中的 description
+          if (parsed.data.description && typeof parsed.data.description === 'string') {
+            description = parsed.data.description;
+          }
+        } catch (error) {
+          console.warn(`[SkillsContextBuilder] Failed to parse frontmatter from ${skillMdPath}:`, error);
+          // 降级：使用默认描述
+        }
+
+        skills.push({
+          id: skillId,
+          name: skillName,
+          pluginId: source,
+          marketplaceId: source,
+          description,
+          path: skillDir,
+          skillMdPath: skillMdPath,
+          enabled: true,
+        });
+      }
+    } catch (error) {
+      console.warn(`[SkillsContextBuilder] Failed to scan ${source} skills at ${rootDir}:`, error);
+    }
+
+    return skills;
   }
 
   /**
