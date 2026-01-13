@@ -40,10 +40,10 @@ export const SessionSummaryDisplay: React.FC<SessionSummaryDisplayProps> = ({
   const [spinnerFrame, setSpinnerFrame] = useState(0);
 
   useEffect(() => {
-    // 显示旧统计面板后，等待 1 秒，然后尝试获取最新积分数据
-    // 数据加载完成后立即标记，由 slashCommandProcessor 检测这个标记决定何时退出
-    const delayTimer = setTimeout(async () => {
-      setIsLoading(true);
+    // 🆕 立即开始加载积分，不要延迟 1 秒
+    // 这样 "Exiting..." 消息会立即显示，同时后台加载积分
+    setIsLoading(true);
+    const loadCredits = async () => {
       try {
         const creditsService = getCreditsService();
         // 强制刷新，直接从服务器获取最新数据（不使用缓存）
@@ -67,9 +67,8 @@ export const SessionSummaryDisplay: React.FC<SessionSummaryDisplayProps> = ({
         // 标记加载完成（无论成功还是失败），允许程序退出
         setCreditsLoadComplete(true);
       }
-    }, 1000); // 等待 1 秒后再获取新数据
-
-    return () => clearTimeout(delayTimer);
+    };
+    loadCredits();
   }, []);
 
   // 加载动画效果
@@ -83,8 +82,6 @@ export const SessionSummaryDisplay: React.FC<SessionSummaryDisplayProps> = ({
     return () => clearInterval(animationInterval);
   }, [isLoading]);
 
-
-
   return (
     <>
       <StatsDisplay
@@ -94,14 +91,16 @@ export const SessionSummaryDisplay: React.FC<SessionSummaryDisplayProps> = ({
         config={config}
       />
       <Box marginTop={1}>
-        {isLoading ? (
-          <Text>
-            {loadingSpinners[spinnerFrame]} {t('command.quit.exiting')}
-          </Text>
-        ) : showLatestCredits && latestCreditsInfo ? (
-          <Text>{latestCreditsInfo}</Text>
-        ) : null}
+        {/* 立即显示加载动画，完成后显示友好的告别消息 */}
+        <Text>
+          {isLoading ? loadingSpinners[spinnerFrame] : '👋'} {isLoading ? t('command.quit.exiting') : t('command.quit.goodbye')}
+        </Text>
       </Box>
+      {showLatestCredits && latestCreditsInfo ? (
+        <Box marginTop={1}>
+          <Text>{latestCreditsInfo}</Text>
+        </Box>
+      ) : null}
     </>
   );
 };

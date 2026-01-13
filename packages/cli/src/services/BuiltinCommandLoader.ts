@@ -13,6 +13,7 @@ import { loginCommand } from '../ui/commands/loginCommand.js';
 // import { chatCommand } from '../ui/commands/chatCommand.js'; // 已被 /session 替代
 import { clearCommand } from '../ui/commands/clearCommand.js';
 import { compressCommand } from '../ui/commands/compressCommand.js';
+import { configCommand } from '../ui/commands/configCommand.js';
 import { copyCommand } from '../ui/commands/copyCommand.js';
 // import { corgiCommand } from '../ui/commands/corgiCommand.js'; // 已禁用
 // import { docsCommand } from '../ui/commands/docsCommand.js'; // 已禁用
@@ -72,6 +73,7 @@ export class BuiltinCommandLoader implements ICommandLoader {
       // chatCommand, // 已被 /session 替代
       clearCommand,
       compressCommand,
+      configCommand,
       copyCommand,
       // corgiCommand, // 已禁用柯基模式命令
       // docsCommand, // 已禁用文档命令

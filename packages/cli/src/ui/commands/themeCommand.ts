@@ -11,6 +11,7 @@ export const themeCommand: SlashCommand = {
   name: 'theme',
   description: t('theme.name'),
   kind: CommandKind.BUILT_IN,
+  hidden: true,
   action: (_context, _args): OpenDialogActionReturn => ({
     type: 'dialog',
     dialog: 'theme',

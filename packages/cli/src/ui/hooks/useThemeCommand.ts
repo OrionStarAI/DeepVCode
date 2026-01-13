@@ -29,6 +29,7 @@ export const useThemeCommand = (
   const [isThemeDialogOpen, setIsThemeDialogOpen] = useState(false);
 
   // Check for theme configuration on startup
+  // Use empty dependency array to prevent re-triggering when loadedSettings.merged.theme changes
   useEffect(() => {
     // 只要用户级别没有设置过主题，就视为“初次启动”，需要提示设置
     const userTheme = loadedSettings.user.settings.theme;
@@ -67,7 +68,7 @@ export const useThemeCommand = (
     } else {
       setThemeError(null);
     }
-  }, [loadedSettings.merged.theme, setThemeError, addItem]);
+  }, []);
 
   const openThemeDialog = useCallback(() => {
     if (process.env.NO_COLOR) {
@@ -106,6 +107,15 @@ export const useThemeCommand = (
   const handleThemeSelect = useCallback(
     (themeName: string | undefined, scope: SettingScope) => {
       try {
+        // 处理 ESC 或取消操作 - themeName 为 undefined 时直接关闭对话框
+        if (themeName === undefined) {
+          setThemeError(null);
+          setImmediate(() => {
+            setIsThemeDialogOpen(false);
+          });
+          return;
+        }
+
         // Merge user and workspace custom themes (workspace takes precedence)
         const mergedCustomThemes = {
           ...(loadedSettings.user.settings.customThemes || {}),

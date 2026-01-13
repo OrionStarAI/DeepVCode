@@ -51,7 +51,8 @@ function revealFile(filePath: string): Promise<void> {
 export async function exportDebugToMarkdown(
   debugMessages: ConsoleMessageItem[],
   projectRoot: string,
-  sessionId: string
+  sessionId: string,
+  includeAll: boolean = false
 ): Promise<string> {
   // Check write permission before processing
   try {
@@ -68,7 +69,7 @@ export async function exportDebugToMarkdown(
     throw new Error('No debug messages to export.');
   }
 
-  // Filter for errors and warnings only, validate each message item
+  // Filter messages based on includeAll flag
   const validatedMessages = debugMessages.filter((msg) => {
     if (!msg || typeof msg !== 'object') {
       console.warn('Skipping invalid debug message item.');
@@ -78,7 +79,10 @@ export async function exportDebugToMarkdown(
       console.warn(`Skipping debug message with missing type or content. Message:`, msg);
       return false;
     }
-    // Only include errors and warnings, skip log and debug messages
+    // If includeAll, include everything; otherwise only errors and warnings
+    if (includeAll) {
+      return true;
+    }
     return msg.type === 'error' || msg.type === 'warn';
   });
 
@@ -91,6 +95,7 @@ export async function exportDebugToMarkdown(
   markdown += '- **Date:** ' + new Date().toLocaleString() + n;
   markdown += '- **Platform:** ' + process.platform + n;
   markdown += '- **Architecture:** ' + process.arch + n;
+  markdown += '- **Mode:** ' + (includeAll ? 'ALL MESSAGES' : 'ERRORS & WARNINGS ONLY') + n;
   markdown += '- **Total Messages:** ' + validatedMessages.length + n + n;
   markdown += '---' + n + n;
 
@@ -102,7 +107,8 @@ export async function exportDebugToMarkdown(
   }
 
   const timestamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
-  const fileName = 'debug_export_' + sessionId.substring(0, 8) + '_' + timestamp + '.md';
+  const modeStr = includeAll ? 'all_' : '';
+  const fileName = 'debug_export_' + modeStr + sessionId.substring(0, 8) + '_' + timestamp + '.md';
   const exportPath = path.resolve(projectRoot, fileName);
 
   try {
