@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+// @vitest-environment jsdom
 
 const { mockProcessExit } = vi.hoisted(() => ({
   mockProcessExit: vi.fn((_code?: number): never => undefined as never),
@@ -374,8 +375,18 @@ describe('useSlashCommandProcessor', () => {
             await result.current.handleSlashCommand('/exit');
           });
 
+          // Should not exit yet (at 0ms)
+          expect(mockProcessExit).not.toHaveBeenCalled();
+
+          // Advance 1000ms - still shouldn't exit
           await act(async () => {
-            await vi.advanceTimersByTimeAsync(200);
+            await vi.advanceTimersByTimeAsync(1000);
+          });
+          expect(mockProcessExit).not.toHaveBeenCalled();
+
+          // Advance another 250ms (total 1250ms) - should exit
+          await act(async () => {
+            await vi.advanceTimersByTimeAsync(250);
           });
 
           expect(mockSetQuittingMessages).toHaveBeenCalledWith([]);

@@ -41,39 +41,39 @@ export const SettingsMenuDialog = React.memo(function SettingsMenuDialog({
 }: SettingsMenuDialogProps) {
 
   // Calculate display values
-  const themeValue = settings.merged.theme || 'Default';
-  const editorValue = settings.merged.preferredEditor || 'Auto';
+  const themeValue = settings.merged.theme || t('config.value.default');
+  const editorValue = settings.merged.preferredEditor || t('config.value.auto');
   const modelValue = settings.merged.preferredModel
     ? getModelDisplayName(settings.merged.preferredModel, config)
-    : 'Auto';
+    : t('config.value.auto');
 
   // 主菜单选项
   const menuItems: RadioSelectItem<string>[] = [
-    { label: '🎨 Theme', value: 'theme', rightText: `(${themeValue})` },
-    { label: '✏️  Editor', value: 'editor', rightText: `(${editorValue})` },
-    { label: '🤖 AI Model', value: 'model', rightText: `(${modelValue})` },
-    { label: `${settings.merged.vimMode ? '✅' : '❌'} Vim Mode`, value: 'vim', rightText: settings.merged.vimMode ? '(On)' : '(Off)' },
-    { label: `${config.getAgentStyle() === 'codex' ? '⚡' : '🧠'} Agent Style`, value: 'agent-style', rightText: config.getAgentStyle() === 'codex' ? '(Codex)' : '(Default)' },
-    { label: `${config.getApprovalMode() === ApprovalMode.YOLO ? '🚀' : '🛡️'} YOLO Mode`, value: 'yolo', rightText: config.getApprovalMode() === ApprovalMode.YOLO ? '(On)' : '(Off)' },
-    { label: `${config.getHealthyUseEnabled() ? '✅' : '❌'} Healthy Use`, value: 'healthy-use', rightText: config.getHealthyUseEnabled() ? '(On)' : '(Off)' },
+    { label: t('config.menu.theme'), value: 'theme', rightText: `(${themeValue})` },
+    { label: t('config.menu.editor'), value: 'editor', rightText: `(${editorValue})` },
+    { label: t('config.menu.model'), value: 'model', rightText: `(${modelValue})` },
+    { label: `${settings.merged.vimMode ? '✅' : '❌'} ${t('config.menu.vim')}`, value: 'vim', rightText: settings.merged.vimMode ? `(${t('config.value.on')})` : `(${t('config.value.off')})` },
+    { label: `${config.getAgentStyle() === 'codex' ? '⚡' : '🧠'} ${t('config.menu.agent.style')}`, value: 'agent-style', rightText: config.getAgentStyle() === 'codex' ? `(${t('config.value.codex')})` : `(${t('config.value.default')})` },
+    { label: `${config.getApprovalMode() === ApprovalMode.YOLO ? '🚀' : '🛡️'} ${t('config.menu.yolo')}`, value: 'yolo', rightText: config.getApprovalMode() === ApprovalMode.YOLO ? `(${t('config.value.on')})` : `(${t('config.value.off')})` },
+    { label: `${config.getHealthyUseEnabled() ? '✅' : '❌'} ${t('config.menu.healthy.use')}`, value: 'healthy-use', rightText: config.getHealthyUseEnabled() ? `(${t('config.value.on')})` : `(${t('config.value.off')})` },
   ];
 
   // YOLO 模式选项
   const yoloModeItems: RadioSelectItem<string>[] = [
-    { label: '🚀 Enable (Auto-approve all)', value: 'on' },
-    { label: '🛡️  Disable (Manual confirm)', value: 'off' },
+    { label: t('config.option.yolo.enable'), value: 'on' },
+    { label: t('config.option.yolo.disable'), value: 'off' },
   ];
 
   // Agent Style 选项
   const agentStyleItems: RadioSelectItem<string>[] = [
-    { label: '🧠 Default (Plan & explain)', value: 'default' },
-    { label: '⚡ Codex (Fast & silent)', value: 'codex' },
+    { label: t('config.option.agent.style.default'), value: 'default' },
+    { label: t('config.option.agent.style.codex'), value: 'codex' },
   ];
 
   // Healthy Use 选项
   const healthyUseItems: RadioSelectItem<string>[] = [
-    { label: '✅ Enable (Show reminders)', value: 'on' },
-    { label: '❌ Disable (No reminders)', value: 'off' },
+    { label: t('config.option.healthy.use.enable'), value: 'on' },
+    { label: t('config.option.healthy.use.disable'), value: 'off' },
   ];
 
   // 菜单状态
@@ -115,7 +115,7 @@ export const SettingsMenuDialog = React.memo(function SettingsMenuDialog({
         // Toggle vim mode
         const newValue = !settings.merged.vimMode;
         settings.setValue(SettingScope.User, 'vimMode', newValue);
-        setStatusMessage(newValue ? '✅ Vim mode enabled' : '❌ Vim mode disabled');
+        setStatusMessage(newValue ? t('config.status.vim.enabled') : t('config.status.vim.disabled'));
         // 重新渲染主菜单
         setTimeout(() => setStatusMessage(''), 1500);
       } else if (value === 'yolo') {
@@ -137,8 +137,8 @@ export const SettingsMenuDialog = React.memo(function SettingsMenuDialog({
       config.setApprovalModeWithProjectSync(newMode, true);
       setStatusMessage(
         value === 'on'
-          ? '🚀 YOLO mode enabled (auto-approve enabled)'
-          : '🛡️  YOLO mode disabled (manual confirm)'
+          ? t('config.status.yolo.enabled')
+          : t('config.status.yolo.disabled')
       );
       setTimeout(() => {
         setCurrentView('main');
@@ -177,11 +177,11 @@ export const SettingsMenuDialog = React.memo(function SettingsMenuDialog({
         }
       }
 
-      const yoloNote = newStyle === 'codex' ? ' (YOLO auto-enabled)' : '';
+      const yoloNote = newStyle === 'codex' ? t('config.status.agent.style.yolo.note') : '';
       setStatusMessage(
         newStyle === 'default'
-          ? `🧠 Default style activated${yoloNote}`
-          : `⚡ Codex style activated${yoloNote}`
+          ? `${t('config.status.agent.style.default')}${yoloNote}`
+          : `${t('config.status.agent.style.codex')}${yoloNote}`
       );
       setTimeout(() => {
         setCurrentView('main');
@@ -200,8 +200,8 @@ export const SettingsMenuDialog = React.memo(function SettingsMenuDialog({
 
       setStatusMessage(
         value === 'on'
-          ? '✅ Healthy use reminders enabled'
-          : '❌ Healthy use reminders disabled'
+          ? t('config.status.healthy.use.enabled')
+          : t('config.status.healthy.use.disabled')
       );
       setTimeout(() => {
         setCurrentView('main');
@@ -233,7 +233,7 @@ export const SettingsMenuDialog = React.memo(function SettingsMenuDialog({
       {/* Header */}
       <Box marginBottom={1}>
         <Text bold color={Colors.AccentBlue}>
-          ⚙️  Settings Menu
+          {t('config.menu.title')}
         </Text>
       </Box>
 
@@ -254,7 +254,7 @@ export const SettingsMenuDialog = React.memo(function SettingsMenuDialog({
         <Box flexDirection="column" marginBottom={1}>
           <Box marginBottom={1}>
             <Text color={Colors.AccentCyan}>
-              YOLO Mode - Auto-approve tool calls
+              {t('config.submenu.yolo.title')}
             </Text>
           </Box>
           <RadioButtonSelect<string>
@@ -265,7 +265,7 @@ export const SettingsMenuDialog = React.memo(function SettingsMenuDialog({
           />
           <Box marginTop={1}>
             <Text color={Colors.Foreground}>
-              Press ESC to back
+              {t('config.hint.press.esc')}
             </Text>
           </Box>
         </Box>
@@ -276,7 +276,7 @@ export const SettingsMenuDialog = React.memo(function SettingsMenuDialog({
         <Box flexDirection="column" marginBottom={1}>
           <Box marginBottom={1}>
             <Text color={Colors.AccentCyan}>
-              Agent Style - Choose your assistant behavior
+              {t('config.submenu.agent.style.title')}
             </Text>
           </Box>
           <RadioButtonSelect<string>
@@ -287,7 +287,7 @@ export const SettingsMenuDialog = React.memo(function SettingsMenuDialog({
           />
           <Box marginTop={1}>
             <Text color={Colors.Foreground}>
-              Press ESC to back
+              {t('config.hint.press.esc')}
             </Text>
           </Box>
         </Box>
@@ -298,7 +298,7 @@ export const SettingsMenuDialog = React.memo(function SettingsMenuDialog({
         <Box flexDirection="column" marginBottom={1}>
           <Box marginBottom={1}>
             <Text color={Colors.AccentCyan}>
-              Healthy Use - Night work reminders
+              {t('config.submenu.healthy.use.title')}
             </Text>
           </Box>
           <RadioButtonSelect<string>
@@ -309,7 +309,7 @@ export const SettingsMenuDialog = React.memo(function SettingsMenuDialog({
           />
           <Box marginTop={1}>
             <Text color={Colors.Foreground}>
-              Press ESC to back
+              {t('config.hint.press.esc')}
             </Text>
           </Box>
         </Box>
@@ -326,8 +326,8 @@ export const SettingsMenuDialog = React.memo(function SettingsMenuDialog({
       <Box marginTop={1} justifyContent="space-between">
         <Text color={Colors.Gray}>
           {currentView === 'main'
-            ? '↑↓ Navigate | Enter Confirm | ESC Close'
-            : '↑↓ Navigate | Enter Confirm | ESC Back'}
+            ? t('config.hint.navigate')
+            : t('config.hint.back')}
         </Text>
       </Box>
     </Box>
