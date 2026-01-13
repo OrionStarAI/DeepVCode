@@ -446,12 +446,10 @@ export const useSlashCommandProcessor = (
                     setQuittingMessages(result.messages);
                     // Node.js CLI 环境：给UI一点时间渲染SessionSummaryDisplay，然后清理和退出
                     // 之前的2.5秒等待太长了，SessionSummaryDisplay会自己处理积分加载
-                    setTimeout(async () => {
-                      try {
-                        await runExitCleanup();
-                      } catch (error) {
-                        // 忽略清理错误
-                      }
+                    setTimeout(() => {
+                      // Fire and forget cleanup to prevent hanging
+                      // 积分请求等操作不应阻塞退出，确保可靠退出
+                      runExitCleanup().catch(() => {});
                       process.exit(0);
                     }, 1200);
                   });
