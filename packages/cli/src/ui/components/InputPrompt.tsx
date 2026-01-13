@@ -12,7 +12,12 @@ import { useInputHistory } from '../hooks/useInputHistory.js';
 import { TextBuffer } from './shared/text-buffer.js';
 import { cpSlice, cpLen, hasRealLineBreaks, getRealLineCount } from '../utils/textUtils.js';
 import { sanitizePasteContent } from '../utils/displayUtils.js';
-import { formatAttachmentReferencesForDisplay, ensureQuotesAroundAttachments } from '../utils/attachmentFormatter.js';
+import {
+  formatAttachmentReferencesForDisplay,
+  ensureQuotesAroundAttachments,
+  getAttachmentSegments,
+  formatAttachmentSegment
+} from '../utils/attachmentFormatter.js';
 import chalk from 'chalk';
 import stringWidth from 'string-width';
 import { useShellHistory } from '../hooks/useShellHistory.js';
@@ -1021,31 +1026,30 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
       const needsCursor = focus && visualIdxInRenderedSet === cursorVisualRow;
 
       if (needsCursor) {
-        // 有光标的情况：在原始文本上处理光标，再格式化
-        const relativeVisualColForHighlight = cursorVisualColAbsolute;
-        const originalLineLength = cpLen(truncatedLineText);
+        // 有光标的情况：使用片段解析来正确处理附件框内的光标，避免分割导致的渲染错误
+        const segments = getAttachmentSegments(truncatedLineText);
+        let currentIdx = 0;
+        let renderedLine = '';
+        let cursorFound = false;
 
-        if (relativeVisualColForHighlight >= 0 && relativeVisualColForHighlight < originalLineLength) {
-          // 光标在行中间
-          const beforeCursor = cpSlice(truncatedLineText, 0, relativeVisualColForHighlight);
-          const charAtCursor = cpSlice(truncatedLineText, relativeVisualColForHighlight, relativeVisualColForHighlight + 1) || ' ';
-          const afterCursor = cpSlice(truncatedLineText, relativeVisualColForHighlight + 1);
-
-          // 格式化前后部分
-          const formattedBefore = formatAttachmentReferencesForDisplay(beforeCursor);
-          const formattedAfter = formatAttachmentReferencesForDisplay(afterCursor);
-          const highlighted = chalk.inverse(charAtCursor);
-
-          // 组合：格式化前 + 高亮字符 + 格式化后
-          display = formattedBefore + highlighted + formattedAfter;
-        } else if (relativeVisualColForHighlight >= originalLineLength) {
-          // 光标在行末
-          const formattedLine = formatAttachmentReferencesForDisplay(truncatedLineText);
-          display = formattedLine + chalk.inverse(' ');
-        } else {
-          // 不应该到这里
-          display = formatAttachmentReferencesForDisplay(truncatedLineText);
+        for (const segment of segments) {
+          const segmentLen = cpLen(segment.text);
+          if (!cursorFound && cursorVisualColAbsolute >= currentIdx && cursorVisualColAbsolute < currentIdx + segmentLen) {
+            // 光标在这个片段内
+            const relativePos = cursorVisualColAbsolute - currentIdx;
+            renderedLine += formatAttachmentSegment(segment, relativePos);
+            cursorFound = true;
+          } else {
+            renderedLine += formatAttachmentSegment(segment);
+          }
+          currentIdx += segmentLen;
         }
+
+        // 如果光标在行末（超出所有片段）
+        if (!cursorFound) {
+          renderedLine += chalk.inverse(' ');
+        }
+        display = renderedLine;
       } else {
         // 没有光标的情况：直接格式化
         display = formatAttachmentReferencesForDisplay(truncatedLineText);

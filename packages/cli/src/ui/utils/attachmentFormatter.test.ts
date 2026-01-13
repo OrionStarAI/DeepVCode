@@ -29,6 +29,13 @@ describe('attachmentFormatter', () => {
       expect(output).toContain('@[File #');
       expect(output).toContain('@[Image #');
     });
+
+    it('should handle Windows drive letters without quotes', () => {
+      const input = '@D:\\projects\\file.ts';
+      const output = formatAttachmentReferencesForDisplay(input);
+      expect(output).toContain('@[File #');
+      expect(output).toContain('D:\\projects\\file.ts');
+    });
   });
 
   describe('ensureQuotesAroundAttachments', () => {

@@ -225,6 +225,7 @@ export interface ConfigParameters {
   memoryTokenCount?: number; // 新增
   hooks?: { [K in HookEventName]?: HookDefinition[] };
   healthyUse?: boolean;
+  preferredLanguage?: string;
 }
 
 export class Config {
@@ -296,6 +297,7 @@ export class Config {
   private planModeActive: boolean = false;
   private readonly hooks: { [K in HookEventName]?: HookDefinition[] };
   private readonly healthyUse: boolean;
+  private readonly preferredLanguage: string | undefined;
 
   constructor(params: ConfigParameters) {
     this.sessionId = params.sessionId;
@@ -366,6 +368,7 @@ export class Config {
     this.vsCodePluginMode = params.vsCodePluginMode ?? false;
     this.hooks = params.hooks ?? {};
     this.healthyUse = params.healthyUse ?? true;
+    this.preferredLanguage = params.preferredLanguage;
 
     if (params.contextFileName) {
       setGeminiMdFilename(params.contextFileName);
@@ -724,6 +727,10 @@ export class Config {
 
   getHealthyUseEnabled(): boolean {
     return this.healthyUse;
+  }
+
+  getPreferredLanguage(): string | undefined {
+    return this.preferredLanguage;
   }
 
   /**

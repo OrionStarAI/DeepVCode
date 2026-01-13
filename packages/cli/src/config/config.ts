@@ -584,6 +584,7 @@ export async function loadCliConfig(
     silentMode: isNonInteractiveMode,
     hooks: settings.hooks,
     healthyUse: settings.healthyUse ?? true,
+    preferredLanguage: settings.preferredLanguage,
   });
 
   // Set memory file paths for display in UI

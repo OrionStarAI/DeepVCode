@@ -26,6 +26,7 @@ import { getUserStartupWarnings } from './utils/userStartupWarnings.js';
 import { runNonInteractive } from './nonInteractiveCli.js';
 import { loadExtensions, Extension } from './config/extension.js';
 import { cleanupCheckpoints, registerCleanup, runExitCleanup } from './utils/cleanup.js';
+import { getIsQuitting } from './utils/quitState.js';
 import { getCliVersion } from './utils/version.js';
 import { checkForUpdates, executeUpdateCommand } from './ui/utils/updateCheck.js';
 import {
@@ -211,6 +212,56 @@ async function askUserForUpdate(): Promise<boolean> {
   });
 }
 
+// -------------------------------------------------------------------------
+// Startup Animation Logic
+// -------------------------------------------------------------------------
+let startupTimer: NodeJS.Timeout | null = null;
+
+function startStartupAnimation() {
+  if (!process.stdout.isTTY || process.env.CI || process.env.DEEPV_SILENT_MODE === 'true' || process.env.NO_COLOR) {
+    return;
+  }
+
+  let count = 0;
+  const maxChars = 20; // Maximum number of '=' chars
+
+  // Hide cursor to prevent flickering
+  process.stdout.write('\x1b[?25l');
+
+  // Print the static message first with a newline
+  process.stdout.write('DeepV Code is starting...\n');
+
+  const renderFrame = () => {
+    // \x1b[2K: Clear entire line
+    // \r: Return to start of line
+    // Only animate the second line
+    process.stdout.write(`\x1b[2K\r${'='.repeat(count)}`);
+  };
+
+  // Render first frame immediately
+  renderFrame();
+
+  startupTimer = setInterval(() => {
+    count = (count + 1) % (maxChars + 1);
+    renderFrame();
+  }, 100);
+}
+
+function stopStartupAnimation() {
+  if (startupTimer) {
+    clearInterval(startupTimer);
+    startupTimer = null;
+
+    if (process.stdout.isTTY) {
+      // Clear the animation line (current line)
+      // Then move up one line (\x1b[1A) and clear the text line
+      // Finally restore cursor (\x1b[?25h)
+      process.stdout.write('\x1b[2K\r\x1b[1A\x1b[2K\r\x1b[?25h');
+    }
+  }
+}
+// -------------------------------------------------------------------------
+
 /**
  * Check if checkpoint history size exceeds 2GB and prompt for cleanup
  */
@@ -309,6 +360,9 @@ export async function main() {
   // Clear screen at startup for clean interface
   console.clear();
 
+  // Start simple loading animation
+  startStartupAnimation();
+
   setupUnhandledRejectionHandler();
 
   // Setup Git error monitoring early to catch initialization errors
@@ -364,6 +418,7 @@ export async function main() {
 
   // Handle --update flag
   if (argv.update) {
+    stopStartupAnimation();
     console.log(t('update.force.checking'));
     const updateMessage = await checkForUpdates(true, true);
 
@@ -500,6 +555,7 @@ export async function main() {
 
   // Early check for list-sessions to avoid unnecessary session management
   if (argv.listSessions) {
+    stopStartupAnimation();
     const tempConfig = await loadCliConfig(
       settings.merged,
       extensions,
@@ -512,6 +568,7 @@ export async function main() {
 
   // Handle --export-session flag
   if (argv.exportSession) {
+    stopStartupAnimation();
     try {
       const sessionId = argv.exportSession;
       console.log(tp('export.exporting', { sessionId }));
@@ -526,6 +583,7 @@ export async function main() {
 
   // Handle --test-audio flag
   if (argv.testAudio) {
+    stopStartupAnimation();
     console.log('🎵 Testing audio notifications...');
     console.log('This will test all three notification sounds with a 1-second delay between each.');
     console.log('Make sure your speakers/headphones are on and volume is audible.\n');
@@ -550,23 +608,43 @@ export async function main() {
   const sessionManager = new SessionManager(workspaceRoot);
 
   // 添加进程信号处理器，确保在意外退出时也能清理空会话
+  let isExiting = false;
+
   const handleExit = async () => {
+    // 1. 如果已经在退出中，不重复执行
+    if (isExiting) return;
+    isExiting = true;
+
+    // 🎯 macOS 优化：如果正在通过 /quit 优雅退出，快速 Ctrl+C 直接 exit 不执行 JS 清理
+    // 这避免了多个信号处理器同时执行导致的内存积累和 OOM
+    if (getIsQuitting()) {
+      process.exit(0);
+      return;
+    }
+
+    // 2. 立即移除所有现有的 SIGINT/SIGTERM 监听器（关键：防止第三方库如Ink或用户继续按Ctrl+C导致的重入）
+    process.removeAllListeners('SIGINT');
+    process.removeAllListeners('SIGTERM');
+
+    // 3. 注册“自杀”监听器：如果用户再次按 Ctrl+C，直接强制退出，不执行任何 JS 逻辑
+    const forceExit = () => process.exit(1);
+    process.on('SIGINT', forceExit);
+    process.on('SIGTERM', forceExit);
+
+    // 4. 设置安全网：5秒后如果还没退完，强制退出（防止清理逻辑死锁或 OOM）
+    setTimeout(forceExit, 5000).unref();
+
     try {
       await runExitCleanup();
+      process.exit(0);
     } catch (error) {
-      // 忽略清理错误，避免影响正常退出
+      // 忽略清理错误，避免影响退出
+      process.exit(1);
     }
   };
 
-  process.on('SIGINT', async () => {
-    await handleExit();
-    process.exit(0);
-  });
-
-  process.on('SIGTERM', async () => {
-    await handleExit();
-    process.exit(0);
-  });
+  process.on('SIGINT', handleExit);
+  process.on('SIGTERM', handleExit);
 
   // Perform session cleanup based on settings (runs in background)
   const sessionCleanupConfig = settings.merged.sessionCleanup || {
@@ -649,6 +727,7 @@ export async function main() {
   }
 
   if (config.getListExtensions()) {
+    stopStartupAnimation();
     logIfNotSilent('log', 'Installed extensions:');
     for (const extension of extensions) {
       logIfNotSilent('log', `- ${extension.config.name}`);
@@ -780,6 +859,7 @@ export async function main() {
 
   // Check for cloud mode
   if (argv.cloudMode) {
+    stopStartupAnimation();
     const { startCloudMode } = await import('./remote/remoteServer.js');
     const { maskServerUrl } = await import('./utils/urlMask.js');
     const cloudServerUrl = argv.cloudServer || 'https://api-code.deepvlab.ai';
@@ -806,6 +886,8 @@ export async function main() {
 
   // Render UI, passing necessary config values. Check that there is no command line question.
   if (shouldBeInteractive) {
+    stopStartupAnimation();
+
     // 检查历史记录大小并提示清理
     await checkAndPromptHistoryCleanup(settings);
 
@@ -817,6 +899,9 @@ export async function main() {
 
     // 🚀 启动优化：给事件循环一个喘息机会，确保之前的初始化任务（如 Git, 进程检测）不会挤占首屏渲染
     await new Promise(resolve => setImmediate(resolve));
+
+    // Clear screen again before rendering Welcome UI to ensure cleanliness
+    console.clear();
 
     const instance = render(
       <React.StrictMode>
@@ -832,7 +917,12 @@ export async function main() {
       { exitOnCtrlC: false },
     );
 
-    registerCleanup(() => instance.unmount());
+    registerCleanup(async () => {
+      instance.unmount();
+      // 等待 Ink/Yoga 清理资源，防止 WASM 内存访问错误
+      // Wait for Ink/React to finish unmounting and Yoga to release resources
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    });
 
     // 注册会话清理函数，在程序退出时清理空会话
     registerCleanup(async () => {
@@ -882,6 +972,7 @@ export async function main() {
   });
 
   // Non-interactive mode handled by runNonInteractive
+  stopStartupAnimation(); // Ensure stopped before non-interactive mode
   const nonInteractiveConfig = await loadNonInteractiveConfig(
     config,
     extensions,

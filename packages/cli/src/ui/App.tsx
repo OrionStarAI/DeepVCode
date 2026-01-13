@@ -68,7 +68,11 @@ import { tokenUsageEventManager, IDEConnectionStatus, type BackgroundTask, getBa
 import { HistoryItemDisplay } from './components/HistoryItemDisplay.js';
 import { ImagePollingSpinner } from './components/ImagePollingSpinner.js';
 import { appEvents, AppEvent } from '../utils/events.js';
-import { getCreditsService } from '../services/creditsService.js';
+import {
+  getCreditsService,
+  UserCreditsInfo,
+} from '../services/creditsService.js';
+import { getIsQuitting } from '../utils/quitState.js';
 import { formatCreditsWithColor } from './utils/creditsFormatter.js';
 import { ContextSummaryDisplay } from './components/ContextSummaryDisplay.js';
 import { IDEContextDetailDisplay } from './components/IDEContextDetailDisplay.js';
@@ -1521,6 +1525,12 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
       setPressedOnce: (value: boolean) => void,
       timerRef: React.MutableRefObject<NodeJS.Timeout | null>,
     ) => {
+      // 🎯 优化：如果已经处于退出状态（正在显示 Goodbye），
+      // 此时再按 Ctrl+C 直接强制退出进程，不再走任何 React 逻辑
+      if (getIsQuitting()) {
+        process.exit(0);
+      }
+
       if (pressedOnce) {
         if (timerRef.current) {
           clearTimeout(timerRef.current);
@@ -1529,6 +1539,11 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
         handleSlashCommand('/quit');
       } else {
         setPressedOnce(true);
+
+        // 🎯 优化：第一次按下 Ctrl+C 时，预加载积分信息
+        // 这样在 /quit 命令执行并显示 SessionSummaryDisplay 时，积分信息可能已经缓存好了
+        getCreditsService().getCreditsInfo().catch(() => {});
+
         timerRef.current = setTimeout(() => {
           setPressedOnce(false);
           timerRef.current = null;
