@@ -12,16 +12,6 @@ import { Config } from 'deepv-code-core';
 import { getCreditsService } from '../../services/creditsService.js';
 import { formatCreditsWithColor } from '../utils/creditsFormatter.js';
 
-// 简单的加载动画
-const loadingSpinners = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
-let spinnerIndex = 0;
-
-function getLoadingSpinner(): string {
-  const spinner = loadingSpinners[spinnerIndex % loadingSpinners.length];
-  spinnerIndex++;
-  return spinner;
-}
-
 interface SessionSummaryDisplayProps {
   duration: string;
   credits?: number;
@@ -37,7 +27,6 @@ export const SessionSummaryDisplay: React.FC<SessionSummaryDisplayProps> = ({
   const [showLatestCredits, setShowLatestCredits] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [creditsLoadComplete, setCreditsLoadComplete] = useState(false);
-  const [spinnerFrame, setSpinnerFrame] = useState(0);
 
   useEffect(() => {
     // 🆕 立即开始加载积分，不要延迟 1 秒
@@ -71,17 +60,6 @@ export const SessionSummaryDisplay: React.FC<SessionSummaryDisplayProps> = ({
     loadCredits();
   }, []);
 
-  // 加载动画效果
-  useEffect(() => {
-    if (!isLoading) return;
-
-    const animationInterval = setInterval(() => {
-      setSpinnerFrame((prev) => (prev + 1) % loadingSpinners.length);
-    }, 100);
-
-    return () => clearInterval(animationInterval);
-  }, [isLoading]);
-
   return (
     <>
       <StatsDisplay
@@ -91,9 +69,9 @@ export const SessionSummaryDisplay: React.FC<SessionSummaryDisplayProps> = ({
         config={config}
       />
       <Box marginTop={1}>
-        {/* 立即显示加载动画，完成后显示友好的告别消息 */}
+        {/* 立即显示退出消息 */}
         <Text>
-          {isLoading ? loadingSpinners[spinnerFrame] : '👋'} {isLoading ? t('command.quit.exiting') : t('command.quit.goodbye')}
+          {isLoading ? '•' : '👋'} {isLoading ? t('command.quit.exiting') : t('command.quit.goodbye')}
         </Text>
       </Box>
       {showLatestCredits && latestCreditsInfo ? (
