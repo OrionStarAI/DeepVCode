@@ -48,7 +48,8 @@ export class HookSystem {
 
     await this.hookRegistry.initialize();
     this.initialized = true;
-    debugLogger.debug('Hook system initialized successfully');
+    // Startup log suppressed for clean CLI output
+    // debugLogger.debug('Hook system initialized successfully');
   }
 
   /**

@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { vi } from 'vitest';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as path from 'path';
@@ -91,12 +91,12 @@ describe('loadExtensions', () => {
       EXTENSIONS_DIRECTORY_NAME,
     );
     fs.mkdirSync(workspaceExtensionsDir, { recursive: true });
-    
+
     // Create extension without specifying contextFileName to use defaults
     createExtension(workspaceExtensionsDir, 'ext1', '1.0.0');
-    
+
     const extDir = path.join(workspaceExtensionsDir, 'ext1');
-    
+
     // Create multiple config files, AGENTS.md should have highest priority
     fs.writeFileSync(path.join(extDir, 'DEEPV.md'), 'deepv content');
     fs.writeFileSync(path.join(extDir, 'GEMINI.md'), 'gemini content');
@@ -118,12 +118,12 @@ describe('loadExtensions', () => {
       EXTENSIONS_DIRECTORY_NAME,
     );
     fs.mkdirSync(workspaceExtensionsDir, { recursive: true });
-    
+
     // Create extension without specifying contextFileName to use defaults
     createExtension(workspaceExtensionsDir, 'ext1', '1.0.0');
-    
+
     const extDir = path.join(workspaceExtensionsDir, 'ext1');
-    
+
     // Only create GEMINI.md, AGENTS.md and DEEPV.md don't exist
     fs.writeFileSync(path.join(extDir, 'GEMINI.md'), 'gemini content');
     fs.writeFileSync(path.join(extDir, 'CLAUDE.md'), 'claude content');
