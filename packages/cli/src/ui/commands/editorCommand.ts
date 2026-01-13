@@ -15,6 +15,7 @@ export const editorCommand: SlashCommand = {
   name: 'editor',
   description: t('command.editor.description'),
   kind: CommandKind.BUILT_IN,
+  hidden: true,
   action: (): OpenDialogActionReturn => ({
     type: 'dialog',
     dialog: 'editor',
