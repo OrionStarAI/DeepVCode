@@ -13,6 +13,7 @@ import {
 } from './tools.js';
 import { Type } from '@google/genai';
 import { SkillsContextBuilder } from '../skills/skills-context-builder.js';
+import { Config } from '../config/config.js';
 
 interface GetSkillDetailsParams {
   /** The skill ID to get details for */
@@ -25,7 +26,7 @@ interface GetSkillDetailsParams {
 export class GetSkillDetailsTool extends BaseTool<GetSkillDetailsParams, ToolResult> {
   private contextBuilder: SkillsContextBuilder;
 
-  constructor() {
+  constructor(private readonly config: Config) {
     super(
       'get_skill_details',
       'Get Skill Details',
@@ -45,7 +46,7 @@ export class GetSkillDetailsTool extends BaseTool<GetSkillDetailsParams, ToolRes
       false, // canUpdateOutput
     );
 
-    this.contextBuilder = new SkillsContextBuilder();
+    this.contextBuilder = new SkillsContextBuilder(this.config.getProjectRoot());
   }
 
   override validateToolParams(params: GetSkillDetailsParams): string | null {
