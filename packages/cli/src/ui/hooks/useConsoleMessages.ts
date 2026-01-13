@@ -23,13 +23,15 @@ type Action =
   | { type: 'ADD_MESSAGES'; payload: ConsoleMessageItem[] }
   | { type: 'CLEAR' };
 
+const MAX_CONSOLE_MESSAGES = 1000;
+
 function consoleMessagesReducer(
   state: ConsoleMessageItem[],
   action: Action,
 ): ConsoleMessageItem[] {
   switch (action.type) {
     case 'ADD_MESSAGES': {
-      const newMessages = [...state];
+      let newMessages = [...state];
       for (const queuedMessage of action.payload) {
         const lastMessage = newMessages[newMessages.length - 1];
         if (
@@ -47,6 +49,12 @@ function consoleMessagesReducer(
           newMessages.push({ ...queuedMessage, count: 1 });
         }
       }
+
+      // Enforce limit to prevent OOM
+      if (newMessages.length > MAX_CONSOLE_MESSAGES) {
+        newMessages = newMessages.slice(-MAX_CONSOLE_MESSAGES);
+      }
+
       return newMessages;
     }
     case 'CLEAR':

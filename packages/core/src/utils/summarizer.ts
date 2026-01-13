@@ -71,7 +71,7 @@ export async function summarizeToolOutput(
   }
 
   console.log(`[Summarizer] Attempting to summarize ${textToSummarize.length} characters to ${maxOutputTokens} tokens`);
-  
+
   const prompt = SUMMARIZE_TOOL_OUTPUT_PROMPT.replace(
     '{maxOutputTokens}',
     String(maxOutputTokens),
@@ -79,18 +79,19 @@ export async function summarizeToolOutput(
 
   try {
     console.log(`[Summarizer] Using temporary chat for summarization with full monitoring`);
-    
+
     // 使用统一架构通过 sceneManager 进行摘要，获得完整的API日志、Token统计、错误处理等功能
     const temporaryChat = await geminiClient.createTemporaryChat(
-      SceneType.CONTENT_SUMMARY, 
+      SceneType.CONTENT_SUMMARY,
       SceneManager.getModelForScene(SceneType.CONTENT_SUMMARY),
-      { type: 'sub', agentId: 'Summarizer' }
+      { type: 'sub', agentId: 'Summarizer' },
+      { disableSystemPrompt: true }
     );
-    
+
     const response = await temporaryChat.sendMessage(
-      { 
+      {
         message: prompt,
-        config: { 
+        config: {
           maxOutputTokens,
           abortSignal
         }
@@ -98,7 +99,7 @@ export async function summarizeToolOutput(
       `summarize-${Date.now()}`,
       SceneType.CONTENT_SUMMARY
     );
-    
+
     const result = getResponseText(response) || textToSummarize;
     console.log(`[Summarizer] Successfully summarized to ${result.length} characters`);
     return result;

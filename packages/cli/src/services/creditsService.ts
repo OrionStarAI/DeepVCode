@@ -51,33 +51,49 @@ class CreditsService {
    * - 1 分钟缓存，快速重复调用不会多次请求
    * - 请求去重：同时的多个调用会共用一个请求
    *
-   * @param forceRefresh 是否强制刷新（跳过缓存）
-   *   - false（默认）：如果缓存未过期（1分钟内），返回缓存数据
-   *   - true：无条件从服务器获取最新数据，用于退出时获取最新积分
+   * @param forceRefresh 是否强制刷新（跳过缓存和正在进行的请求）
+   *   - false（默认）：
+   *     1. 如果缓存未过期（1分钟内），返回缓存数据
+   *     2. 如果有正在进行的请求，共用该请求
+   *   - true：
+   *     1. 无条件发起新请求（不使用缓存，不共用正在进行的请求）
+   *     2. 用于退出等需要绝对最新数据的场景
    * @returns 积分信息或 null（失败/超时时）
    */
   async getCreditsInfo(forceRefresh: boolean = false): Promise<UserCreditsInfo | null> {
     const now = Date.now();
 
-    // 如果有缓存且未过期，直接返回
-    if (!forceRefresh && this.creditsInfo && (now - this.lastFetchTime < this.CACHE_DURATION)) {
-      return this.creditsInfo;
+    // 如果不强制刷新
+    if (!forceRefresh) {
+      // 1. 如果有缓存且未过期，直接返回
+      if (this.creditsInfo && (now - this.lastFetchTime < this.CACHE_DURATION)) {
+        return this.creditsInfo;
+      }
+
+      // 2. 如果已经有正在进行的请求，返回该Promise实现共用
+      if (this.fetchPromise) {
+        return this.fetchPromise;
+      }
     }
 
-    // 如果已经有正在进行的请求，返回该Promise
-    if (this.fetchPromise) {
-      return this.fetchPromise;
-    }
+    // 发起新的请求 (forceRefresh 为 true 或 无缓存/无正在进行请求)
+    const currentFetchPromise = this.fetchCreditsFromServer();
 
-    // 发起新的请求
-    this.fetchPromise = this.fetchCreditsFromServer();
+    // 只有在非强制刷新模式下，才记录到 fetchPromise 以便共用
+    if (!forceRefresh) {
+      this.fetchPromise = currentFetchPromise;
+    }
 
     try {
-      const result = await this.fetchPromise;
-      this.fetchPromise = null;
+      const result = await currentFetchPromise;
+      if (!forceRefresh) {
+        this.fetchPromise = null;
+      }
       return result;
     } catch (error) {
-      this.fetchPromise = null;
+      if (!forceRefresh) {
+        this.fetchPromise = null;
+      }
       throw error;
     }
   }

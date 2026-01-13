@@ -206,7 +206,9 @@ Return only the summary text.`;
       const summaryPromise = (async () => {
         const chat = await geminiClient.createTemporaryChat(
           SceneType.CONTENT_SUMMARY,
-          model
+          model,
+          { type: 'sub', agentId: 'CheckpointSummarizer' },
+          { disableSystemPrompt: true }
         );
 
         const response = await chat.sendMessage(
