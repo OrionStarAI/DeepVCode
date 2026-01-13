@@ -147,7 +147,14 @@ export const memoryCommand: SlashCommand = {
                 if (geminiClient && (geminiClient as any).chat) {
                   const isVSCode = config.getVsCodePluginMode();
                   const agentStyle = config.getAgentStyle();
-                  const updatedSystemInstruction = getCoreSystemPrompt(memoryContent, isVSCode, undefined, agentStyle);
+                  const updatedSystemInstruction = getCoreSystemPrompt(
+      memoryContent,
+      isVSCode,
+      undefined,
+      agentStyle,
+      undefined,
+      context.services.config?.getPreferredLanguage()
+    );
                   (geminiClient as any).chat.generationConfig.systemInstruction = updatedSystemInstruction;
                 }
               } catch (updateError) {
@@ -242,7 +249,14 @@ export const memoryCommand: SlashCommand = {
               if (geminiClient && (geminiClient as any).chat) {
                 const isVSCode = config.getVsCodePluginMode();
                 const agentStyle = config.getAgentStyle();
-                const updatedSystemInstruction = getCoreSystemPrompt(memoryContent, isVSCode, undefined, agentStyle);
+                const updatedSystemInstruction = getCoreSystemPrompt(
+      memoryContent,
+      isVSCode,
+      undefined,
+      agentStyle,
+      undefined,
+      context.services.config?.getPreferredLanguage()
+    );
                 (geminiClient as any).chat.generationConfig.systemInstruction = updatedSystemInstruction;
               }
             } catch (updateError) {

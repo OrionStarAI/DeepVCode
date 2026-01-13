@@ -14,15 +14,23 @@ export function registerCleanup(fn: () => void | Promise<void>) {
   cleanupFunctions.push(fn);
 }
 
+let isCleaningUp = false;
+
 export async function runExitCleanup() {
-  for (const fn of cleanupFunctions) {
+  if (isCleaningUp) return;
+  isCleaningUp = true;
+
+  // Create a copy of the functions to iterate over, in case the array is modified during cleanup
+  const functionsToRun = [...cleanupFunctions];
+  cleanupFunctions.length = 0; // Clear the array immediately to prevent re-execution
+
+  for (const fn of functionsToRun) {
     try {
       await fn();
     } catch (_) {
       // Ignore errors during cleanup.
     }
   }
-  cleanupFunctions.length = 0; // Clear the array
 }
 
 export async function cleanupCheckpoints() {

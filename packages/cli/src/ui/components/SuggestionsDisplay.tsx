@@ -88,8 +88,9 @@ export function SuggestionsDisplay({
       {visibleSuggestions.map((suggestion, index) => {
         const originalIndex = startIndex + index;
         const isActive = originalIndex === activeIndex;
-        const baseColor = isActive ? Colors.AccentOrange : Colors.Gray;
-        const highlightColor = isActive ? Colors.AccentYellow : Colors.Foreground;
+        const baseColor = isActive ? Colors.AccentOrange : Colors.Foreground;
+        const secondaryColor = isActive ? Colors.AccentOrange : Colors.Gray;
+        const highlightColor = isActive ? Colors.Foreground : Colors.AccentOrange;
 
         // 🎯 渲染带高亮的标签
         const renderLabel = () => {
@@ -155,7 +156,7 @@ export function SuggestionsDisplay({
 
             return (
               <Box flexDirection="row">
-                {displayLabel(dirPart, Colors.Gray, true)}
+                {displayLabel(dirPart, secondaryColor)}
                 {displayLabel(filePart, baseColor)}
               </Box>
             );
@@ -172,7 +173,7 @@ export function SuggestionsDisplay({
               </Box>
               {suggestion.description ? (
                 <Box flexGrow={1} marginLeft={1}>
-                  <Text color={baseColor} wrap="truncate-end" inverse={isActive}>
+                  <Text color={secondaryColor} wrap="truncate-end" inverse={isActive}>
                     {suggestion.description}
                   </Text>
                 </Box>

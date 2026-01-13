@@ -62,8 +62,8 @@ describe('configCommand', () => {
     expect(configCommand.kind).toBe(CommandKind.BUILT_IN);
   });
 
-  it('should have 7 subcommands', () => {
-    expect(configCommand.subCommands).toHaveLength(7);
+  it('should have 8 subcommands', () => {
+    expect(configCommand.subCommands).toHaveLength(8);
     const names = configCommand.subCommands!.map(cmd => cmd.name);
     expect(names).toContain('theme');
     expect(names).toContain('editor');
@@ -72,6 +72,7 @@ describe('configCommand', () => {
     expect(names).toContain('agent-style');
     expect(names).toContain('yolo');
     expect(names).toContain('healthy-use');
+    expect(names).toContain('language');
   });
 
   it('should open settings menu dialog when no args provided', async () => {
@@ -162,5 +163,12 @@ describe('configCommand', () => {
     const result = await configCommand.action!(mockContext as CommandContext, 'healthy-use off');
     expect(result).toBeDefined();
     expect(result.type).toBe('message');
+  });
+
+  it('should handle agent-style switch to cursor', async () => {
+    const result = await configCommand.action!(mockContext as CommandContext, 'agent-style cursor');
+    expect(result).toBeDefined();
+    expect(result.type).toBe('message');
+    expect(mockConfig.setAgentStyle).toHaveBeenCalledWith('cursor');
   });
 });

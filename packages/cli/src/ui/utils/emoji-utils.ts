@@ -19,10 +19,10 @@ export function isEmoji(char: string): boolean {
   if (char.length > 1) {
     return true;
   }
-  
+
   const codePoint = char.codePointAt(0);
   if (!codePoint) return false;
-  
+
   // 常见emoji Unicode范围
   return (
     // 基本emoji和符号
@@ -75,7 +75,7 @@ export function isEmoji(char: string): boolean {
  * 检测字符是否为常见的符号（如💡🚀等）
  */
 export function isCommonSymbol(char: string): boolean {
-  const commonSymbols = ['💡', '🚀', '⚡', '🔥', '⭐', '✨', '🎯', '🎉', '🎊', '🌟', '💯', '🔧', '⚙️', '🛠️', '🔨', '⚒️', '🧰'];
+  const commonSymbols = ['💡', '🚀', '⚡', '🔥', '⭐', '✨', '🎯', '🎉', '🎊', '🌟', '💯', '🔧', '⚙️', '🛠️', '🔨', '⚒️', '🧰', '✌️', '🆅', 'Ⓥ'];
   return commonSymbols.includes(char);
 }
 
@@ -95,7 +95,7 @@ export interface FilteredChar {
 export function analyzeTextForHighlight(text: string): FilteredChar[] {
   return Array.from(text).map((char, index) => {
     const isEmojiChar = isEmoji(char) || isCommonSymbol(char);
-    
+
     return {
       char,
       index,

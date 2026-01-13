@@ -37,12 +37,15 @@ export const UserMessage: React.FC<UserMessageProps> = ({ text, terminalWidth })
   displayText = formatAttachmentReferencesForDisplay(displayText);
 
   // 根据主题类型选择背景色和文本颜色
-  // 为了获得高对比度效果（类似 Claude Code）：
-  // 深色主题：使用白色背景 + 黑色文本
-  // 浅色主题：使用黑色背景 + 白色文本
+  // 使用深灰色背景 + 白色文本（深色模式），模仿 Claude Code 的样式，
+  // 避免使用纯白色背景导致在部分终端（如 iTerm2）上显示刺眼或不清晰的问题。
+  // 2025-01-14: 调整深色背景为 #707070，进一步提高与深色终端背景的对比度
+  // 2025-01-14: 调整浅色背景为 #C0C0C0，提高在浅色终端下的可见性
+  // 2025-01-14: 文本颜色使用纯白 #FFFFFF 并加粗，确保在灰色背景下的清晰度
   const isDarkTheme = Colors.type === 'dark';
-  const backgroundColor = isDarkTheme ? 'white' : 'black';
-  const textColor = isDarkTheme ? 'black' : 'white';
+  // Claude Code style: Lighter gray background for dark mode visibility
+  const backgroundColor = isDarkTheme ? '#707070' : '#C0C0C0';
+  const textColor = isDarkTheme ? '#FFFFFF' : 'black';
 
   return (
     <Box flexDirection="row" width="100%">
@@ -55,7 +58,7 @@ export const UserMessage: React.FC<UserMessageProps> = ({ text, terminalWidth })
         maxWidth={maxMessageBoxWidth}
         backgroundColor={backgroundColor}
       >
-        <Text color={textColor} wrap="wrap">
+        <Text color={textColor} wrap="wrap" bold={isDarkTheme}>
           {prefix}{displayText}
         </Text>
       </Box>

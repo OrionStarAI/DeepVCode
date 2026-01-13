@@ -75,7 +75,7 @@ export function formatCreditsWithColor(totalCredits: number, usedCredits: number
 
   // 显示：限额 | 已用 (使用百分比%) | 可用
   return (
-    `💳 ${CYAN}${t('credits.limit')}:${RESET} ${BLUE}${totalStr}${RESET} | ` +
+    `💰 ${CYAN}${t('credits.limit')}:${RESET} ${BLUE}${totalStr}${RESET} | ` +
     `${CYAN}${t('credits.used')}:${RESET} ${usedColor}${usedStr}${RESET} ${CYAN}(${percentStr}%)${RESET} | ` +
     `${CYAN}${t('credits.available')}:${RESET} ${BLUE}${remainingStr}${RESET}`
   );
