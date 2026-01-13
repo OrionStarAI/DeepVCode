@@ -18,6 +18,7 @@ export interface RadioSelectItem<T> {
   disabled?: boolean;
   themeNameDisplay?: string;
   themeTypeDisplay?: string;
+  rightText?: string;
 }
 
 /**
@@ -301,28 +302,37 @@ export function RadioButtonSelect<T>({
         )}.`;
 
         return (
-          <Box key={item.label} alignItems="center">
-            <Box minWidth={2} flexShrink={0}>
-              <Text color={isSelected ? Colors.AccentGreen : Colors.Foreground}>
-                {isSelected ? '•' : ' '}
-              </Text>
+          <Box key={item.label} alignItems="center" justifyContent="space-between" width="100%">
+            <Box flexDirection="row" alignItems="center" flexGrow={1} minWidth={0}>
+              <Box minWidth={2} flexShrink={0}>
+                <Text color={isSelected ? Colors.AccentGreen : Colors.Foreground}>
+                  {isSelected ? '•' : ' '}
+                </Text>
+              </Box>
+              <Box
+                marginRight={1}
+                flexShrink={0}
+                minWidth={itemNumberText.length}
+              >
+                <Text color={numberColor}>{itemNumberText}</Text>
+              </Box>
+              {item.themeNameDisplay && item.themeTypeDisplay ? (
+                <Text color={textColor} wrap="truncate">
+                  {item.themeNameDisplay}{' '}
+                  <Text color={Colors.Gray}>{item.themeTypeDisplay}</Text>
+                </Text>
+              ) : (
+                <Text color={textColor} wrap="truncate">
+                  {item.label}
+                </Text>
+              )}
             </Box>
-            <Box
-              marginRight={1}
-              flexShrink={0}
-              minWidth={itemNumberText.length}
-            >
-              <Text color={numberColor}>{itemNumberText}</Text>
-            </Box>
-            {item.themeNameDisplay && item.themeTypeDisplay ? (
-              <Text color={textColor} wrap="truncate">
-                {item.themeNameDisplay}{' '}
-                <Text color={Colors.Gray}>{item.themeTypeDisplay}</Text>
-              </Text>
-            ) : (
-              <Text color={textColor} wrap="truncate">
-                {item.label}
-              </Text>
+            {item.rightText && (
+              <Box marginLeft={2} flexShrink={0}>
+                <Text color={isSelected ? Colors.AccentGreen : Colors.Gray}>
+                  {item.rightText}
+                </Text>
+              </Box>
             )}
           </Box>
         );
