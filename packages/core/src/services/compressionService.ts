@@ -108,6 +108,11 @@ export class CompressionService {
   private readonly compressionPreserveThreshold: number;
   private readonly skipEnvironmentMessages: number;
 
+  /**
+   * 受保护的工具列表
+   */
+  private static readonly PROTECTED_TOOLS = ['skill', 'use_skill'];
+
   constructor(config: CompressionServiceConfig = {}) {
     this.compressionTokenThreshold = config.compressionTokenThreshold ?? 0.8;
     this.compressionPreserveThreshold = config.compressionPreserveThreshold ?? 0.3;
@@ -130,12 +135,34 @@ export class CompressionService {
 
     console.log(`[findToolCallBoundary] Searching from index ${startIndex} to ${history.length - 1}, total history length: ${history.length}`);
 
+    // Helper function to check if a part contains a protected tool
+    const isProtectedTool = (part: any): boolean => {
+      const toolName = part.functionResponse?.name || part.functionCall?.name;
+      return toolName && CompressionService.PROTECTED_TOOLS.includes(toolName);
+    };
+
     // 策略1：首先寻找user消息作为首选边界
     // 从startIndex开始寻找第一个user消息
     // 同时确保不会在tool_use和tool_result之间切割
     for (let i = startIndex; i < history.length; i++) {
       const msg = history[i];
       const msgInfo = `[${i}] role=${msg.role}`;
+
+      // 🛡️ 检查是否包含受保护的工具
+      if (msg.parts) {
+        const protectedToolPart = msg.parts.find(isProtectedTool);
+        const hasProtectedTool = !!protectedToolPart;
+
+        if (hasProtectedTool) {
+          const toolName = protectedToolPart.functionResponse?.name || protectedToolPart.functionCall?.name;
+          console.log(`${msgInfo} - PROTECTED TOOL FOUND: ${toolName}, skipping this boundary`);
+        }
+
+        // 如果包含受保护工具，跳过这条消息作为边界
+        if (hasProtectedTool) {
+          continue;
+        }
+      }
 
       if (msg.role === 'user') {
         // 检查i-1处是否有未完成的tool调用
