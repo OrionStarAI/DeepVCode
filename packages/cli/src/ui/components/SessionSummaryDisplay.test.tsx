@@ -12,8 +12,13 @@ import { SessionMetrics } from '../contexts/SessionContext.js';
 import { getExpectedText, withMockedLocale } from '../utils/testI18n.js';
 import { WindowSizeLevel } from '../hooks/useSmallWindowOptimization.js';
 import { _clearLocaleCache } from '../utils/i18n.js';
+import { getCreditsService } from '../../services/creditsService.js';
 
 const clearCache = _clearLocaleCache;
+
+const { mockGetCreditsInfo } = vi.hoisted(() => {
+  return { mockGetCreditsInfo: vi.fn() };
+});
 
 // Mock small window optimization to return normal size by default
 vi.mock('../hooks/useSmallWindowOptimization.js', () => ({
@@ -30,6 +35,13 @@ vi.mock('../hooks/useSmallWindowOptimization.js', () => ({
     SMALL: 'small',
     TINY: 'tiny',
   },
+}));
+
+// Mock creditsService
+vi.mock('../../services/creditsService.js', () => ({
+  getCreditsService: () => ({
+    getCreditsInfo: mockGetCreditsInfo,
+  }),
 }));
 
 vi.mock('../contexts/SessionContext.js', async (importOriginal) => {
@@ -204,5 +216,55 @@ describe('<SessionSummaryDisplay />', () => {
     });
 
     expect(result).toContain(expectedText.zh);
+  });
+
+  it('shows loading state then goodbye message', async () => {
+    // Mock credits service to return a promise we can control
+    let resolveCredits: (value: any) => void;
+    const creditsPromise = new Promise((resolve) => {
+      resolveCredits = resolve;
+    });
+    mockGetCreditsInfo.mockReturnValue(creditsPromise);
+
+    const metrics: SessionMetrics = {
+      models: {},
+      tools: {
+        totalCalls: 0,
+        totalSuccess: 0,
+        totalFail: 0,
+        totalDurationMs: 0,
+        totalDecisions: { accept: 0, reject: 0, modify: 0 },
+        byName: {},
+      },
+    };
+
+    const { lastFrame, unmount } = withMockedLocale('en', () => {
+      return renderWithMockedStats(metrics);
+    });
+
+    // Check if mock was called
+    await vi.waitFor(() => {
+        expect(mockGetCreditsInfo).toHaveBeenCalled();
+    });
+
+    // Wait for the loading state to appear (triggered by useEffect)
+    await vi.waitFor(() => {
+        expect(lastFrame()).toContain('•');
+        expect(lastFrame()).toContain('Exiting...'); // "command.quit.exiting" in en
+    });
+
+    // Resolve the credits promise
+    await vi.waitFor(() => {
+        resolveCredits({ totalCredits: 100, usedCredits: 10, usagePercentage: 10 });
+    })
+
+    // Force a re-render/wait for effects
+    await new Promise(resolve => setTimeout(resolve, 0));
+
+    // Should now show done state (👋 and goodbye message)
+    expect(lastFrame()).toContain('👋');
+    expect(lastFrame()).toContain('Goodbye'); // "command.quit.goodbye" in en
+
+    unmount();
   });
 });
