@@ -117,7 +117,7 @@ export interface MessageActionReturn {
  */
 export interface OpenDialogActionReturn {
   type: 'dialog';
-  dialog: 'help' | 'auth' | 'login' | 'theme' | 'editor' | 'privacy' | 'model';
+  dialog: 'help' | 'auth' | 'login' | 'theme' | 'editor' | 'privacy' | 'model' | 'settings-menu';
 }
 
 /**
@@ -218,4 +218,7 @@ export interface SlashCommand {
   ) => Promise<string[] | Suggestion[]>;
 
   subCommands?: SlashCommand[];
+
+  // Whether the command should be hidden from the autocomplete list.
+  hidden?: boolean;
 }

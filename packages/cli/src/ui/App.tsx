@@ -28,6 +28,7 @@ import { useModelCommand } from './hooks/useModelCommand.js';
 import { useAuthCommand } from './hooks/useAuthCommand.js';
 import { useLoginCommand } from './hooks/useLoginCommand.js';
 import { useEditorSettings } from './hooks/useEditorSettings.js';
+import { useSettingsMenu } from './hooks/useSettingsMenu.js';
 import { useSlashCommandProcessor } from './hooks/slashCommandProcessor.js';
 import { useAutoAcceptIndicator } from './hooks/useAutoAcceptIndicator.js';
 import { useConsoleMessages } from './hooks/useConsoleMessages.js';
@@ -51,6 +52,7 @@ import { LoginDialog } from './components/LoginDialog.js';
 import { AuthInProgress } from './components/AuthInProgress.js';
 import { EditorSettingsDialog } from './components/EditorSettingsDialog.js';
 import { SessionSelectDialog } from './components/SessionSelectDialog.js';
+import { SettingsMenuDialog } from './components/SettingsMenuDialog.js';
 import { Colors } from './colors.js';
 import { Help } from './components/Help.js';
 import { loadHierarchicalGeminiMemory } from '../config/config.js';
@@ -725,6 +727,12 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   } = useModelCommand(settings, config, setModelError, addItem, lastTokenUsage);
 
   const {
+    isSettingsMenuDialogOpen,
+    openSettingsMenuDialog,
+    closeSettingsMenuDialog,
+  } = useSettingsMenu();
+
+  const {
     isAuthDialogOpen,
     openAuthDialog,
     handleAuthSelect,
@@ -1040,6 +1048,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     totalSessionCredits, // 🆕 传递 totalSessionCredits
     consoleMessages,
     lastTokenUsage,
+    openSettingsMenuDialog, // 🆕 传递 openSettingsMenuDialog
   );
 
   const {
@@ -2193,6 +2202,19 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                 onSelect={handleEditorSelect}
                 settings={settings}
                 onExit={exitEditorDialog}
+              />
+            </Box>
+          ) : isSettingsMenuDialogOpen ? (
+            <Box flexDirection="column">
+              <SettingsMenuDialog
+                onClose={closeSettingsMenuDialog}
+                settings={settings}
+                config={config!}
+                terminalWidth={mainAreaWidth}
+                availableTerminalHeight={terminalHeight - staticExtraHeight}
+                onOpenTheme={openThemeDialog}
+                onOpenEditor={openEditorDialog}
+                onOpenModel={openModelDialog}
               />
             </Box>
           ) : sessionSelectData ? (

@@ -12,9 +12,10 @@ export const exportDebugCommand: SlashCommand = {
   name: 'export-debug',
   description: t('command.export_debug.description'),
   kind: CommandKind.BUILT_IN,
-  action: async (context): Promise<MessageActionReturn> => {
+  action: async (context, args): Promise<MessageActionReturn> => {
     const { config } = context.services;
     const { debugMessages } = context.ui;
+    const includeAll = args && args.trim().toLowerCase() === 'all';
 
     if (!config) {
       return {
@@ -36,7 +37,7 @@ export const exportDebugCommand: SlashCommand = {
     const projectRoot = config.getProjectRoot() || process.cwd();
 
     try {
-      const exportPath = await exportDebugToMarkdown(debugMessages, projectRoot, sessionId);
+      const exportPath = await exportDebugToMarkdown(debugMessages, projectRoot, sessionId, includeAll || false);
 
       return {
         type: 'message',
