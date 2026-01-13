@@ -29,6 +29,10 @@ import {
 import { execSync } from 'child_process';
 import iconv from 'iconv-lite';
 import { t } from '../utils/simpleI18n.js';
+import {
+  getDangerousCommandInfo,
+  shouldAlwaysConfirmCommand,
+} from '../utils/dangerous-command-detector.js';
 
 export interface ShellToolParams {
   command: string;
@@ -408,6 +412,27 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
     }
 
     const command = stripShellWrapper(params.command);
+
+    // 🚨 第一步：检查是否是危险命令（跳过YOLO，强制确认）
+    const dangerousInfo = getDangerousCommandInfo(command);
+
+    if (dangerousInfo) {
+      const confirmationDetails: ToolExecuteConfirmationDetails = {
+        type: 'exec',
+        title: '⚠️ 危险命令 - 必须确认',
+        command: params.command,
+        rootCommand: dangerousInfo.rule.id,
+        warning: dangerousInfo.warning,
+        // ⭐ 危险命令不能添加到allowlist（即使选择ProceedAlways也不行）
+        onConfirm: async (outcome: ToolConfirmationOutcome) => {
+          // 危险命令每次都必须确认，不能whiteklist
+          // 所以这里不做任何操作
+        },
+      };
+      return confirmationDetails;
+    }
+
+    // 第二步：常规命令确认（考虑用户的YOLO模式设置和allowlist）
     const rootCommands = [...new Set(getCommandRoots(command))];
     const commandsToConfirm = rootCommands.filter(
       (command) => !this.allowlist.has(command),
@@ -437,6 +462,39 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
     updateOutput?: (output: string) => void,
   ): Promise<ToolResult> {
     const strippedCommand = stripShellWrapper(params.command);
+
+    // 🚨 保护措施：防止在CLI环境下杀死所有node.exe进程
+    // 检测危险的批量结束nodejs进程的命令（仅在非Bun运行时环境下）
+    const isBunRuntime = typeof (globalThis as any).Bun !== 'undefined';
+    const isVSCode = process.env.VSCODE_PLUGIN === '1';
+
+    if (!isBunRuntime && !isVSCode) {
+      const isWindows = os.platform() === 'win32';
+      const dangerousPatterns = isWindows
+        ? [
+            /taskkill.*\/IM\s+node\.exe/i,
+            /taskkill.*\/F.*\/IM\s+node\.exe/i,
+          ]
+        : [
+            /killall\s+node/i,
+            /pkill\s+node/i,
+            /kill\s+-9.*\$\(pgrep\s+node\)/i,
+          ];
+
+      const isDangerous = dangerousPatterns.some(pattern => pattern.test(strippedCommand));
+
+      if (isDangerous) {
+        const errorMsg = isWindows
+          ? t('shell.error.dangerous_node_kill_windows')
+          : t('shell.error.dangerous_node_kill_unix');
+
+        return {
+          llmContent: errorMsg,
+          returnDisplay: errorMsg,
+        };
+      }
+    }
+
     const validationError = this.validateToolParams({
       ...params,
       command: strippedCommand,

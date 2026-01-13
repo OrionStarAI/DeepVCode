@@ -1,8 +1,10 @@
 /**
  * @license
- * Copyright 2025 Google LLC
+ * Copyright 2025 DeepV Code team
+ * https://github.com/OrionStarAI/DeepVCode
  * SPDX-License-Identifier: Apache-2.0
  */
+
 
 import { tp } from './i18n.js';
 import wrapAnsi from 'wrap-ansi';
@@ -43,7 +45,8 @@ function wrapTextToLines(text: string, terminalWidth: number): string[] {
 
   try {
     // 使用 wrap-ansi 进行智能换行（支持 ANSI 颜色代码）
-    const wrapped = wrapAnsi(text, terminalWidth, { hard: false, trim: false });
+    // @ts-ignore - handle ESM default import compatibility
+    const wrapped = (wrapAnsi.default || wrapAnsi)(text, terminalWidth, { hard: false, trim: false });
     return wrapped.split('\n');
   } catch (error) {
     // 降级处理：简单分行

@@ -400,7 +400,8 @@ async function autoUpdateUserPreferredModel(
     console.log(`[ModelCommand] User's preferred model '${preferredModel}' no longer exists.`);
     console.log(`[ModelCommand] Auto-updating to: '${bestMatch}'`);
 
-    // 更新用户设置
+    // 🔧 修复：无论模糊匹配成功与否，都需要更新 preferredModel
+    // 这样可以避免无效的 displayName 或旧模型 ID 一直保留在 settings 中
     settings.setValue(SettingScope.User, 'preferredModel', bestMatch);
 
     // 更新config实例
@@ -620,6 +621,9 @@ export const modelCommand: SlashCommand = {
               };
               context.ui.addItem(historyItem, Date.now());
             }
+
+            // 🔄 确保Chat已初始化（带重试机制）- 修复启动时立即切换模型导致的错误
+            await geminiClient.waitForChatInitialized();
 
             // 使用 switchModel 进行安全切换（包含自动压缩）
             // 传入已知的 token 数量，避免 Core 重新计算（可能不准确）

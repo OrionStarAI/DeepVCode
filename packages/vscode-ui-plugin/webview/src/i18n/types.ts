@@ -470,6 +470,8 @@ export interface Translations {
       modelDesc: string;
       autoModel: string;
       autoModelDesc: string;
+      healthyUseLabel: string;
+      healthyUseDesc: string;
     };
     memory: {
       title: string;
@@ -538,6 +540,16 @@ export interface Translations {
     runningInBackground: string;
     noTasks: string;
     outputTitle: string;
+  };
+
+  healthy: {
+    reminderTitle: string;
+    reminderContent: string;
+    reminderSuggestion: string;
+    agentRunning: string;
+    waiting: string;
+    dismiss: string;
+    countdown: string;
   };
 }
 

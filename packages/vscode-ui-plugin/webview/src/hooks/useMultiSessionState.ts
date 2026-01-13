@@ -719,7 +719,7 @@ export const useMultiSessionState = () => {
         tool.status === ToolCallStatus.Canceled
       );
 
-      // 🎯 智能合并工具调用：保留现有的liveOutput
+      // 🎯 智能合并工具调用：保留现有的liveOutput和confirmationDetails
       const existingToolCalls = updatedMessages[messageIndex].associatedToolCalls || [];
       const mergedToolCalls = toolCalls.map(newTool => {
         const existingTool = existingToolCalls.find(t => t.id === newTool.id);
@@ -727,9 +727,32 @@ export const useMultiSessionState = () => {
         // 🎯 智能合并：保留现有的liveOutput（只在工具仍在执行中时）
         const shouldKeepLiveOutput = newTool.status === ToolCallStatus.Executing;
 
+        // 🎯 关键修复：保留已存在的 confirmationDetails（如果新工具没有提供）
+        // 这解决了 tool_calls_update 覆盖 tool_confirmation_request 设置的 confirmationDetails 的问题
+        // 注意：检查 newTool.confirmationDetails 是否有实际的 type 属性，而不仅仅是非 null
+        const newHasValidConfirmation = newTool.confirmationDetails &&
+          typeof newTool.confirmationDetails === 'object' &&
+          'type' in newTool.confirmationDetails;
+        const existingHasValidConfirmation = existingTool?.confirmationDetails &&
+          typeof existingTool.confirmationDetails === 'object' &&
+          'type' in existingTool.confirmationDetails;
+
+        const preservedConfirmationDetails = newHasValidConfirmation
+          ? newTool.confirmationDetails
+          : (existingHasValidConfirmation ? existingTool!.confirmationDetails : undefined);
+
+        // 调试日志：追踪确认详情的保留情况
+        if (existingHasValidConfirmation && !newHasValidConfirmation) {
+          console.log('🔧 [updateMessageToolCalls] Preserving confirmationDetails for tool:', newTool.id,
+            'status:', newTool.status,
+            'hasExisting:', existingHasValidConfirmation,
+            'hasNew:', newHasValidConfirmation);
+        }
+
         return {
           ...newTool,
-          liveOutput: shouldKeepLiveOutput ? (existingTool?.liveOutput || newTool.liveOutput) : undefined
+          liveOutput: shouldKeepLiveOutput ? (existingTool?.liveOutput || newTool.liveOutput) : undefined,
+          confirmationDetails: preservedConfirmationDetails
         };
       });
 
@@ -1250,26 +1273,8 @@ export const useMultiSessionState = () => {
 
         console.log(`🎯 [PLAN-MODE] Session ${sessionId} Plan mode toggled to: ${enabled}`);
 
-        // 🎯 当关闭Plan模式时，添加用户消息到上下文，记录模式退出
-        if (!enabled && sessionData.isPlanMode) {
-          const planModeExitMessage: ChatMessage = {
-            id: `plan-mode-exit-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            type: 'user',
-            content: createTextMessageContent(
-              '[PLAN MODE EXITED] The user has exited Plan mode. ' +
-              'You can now use all tools including modification tools ' +
-              '(write_file, replace, run_shell_command, lint_fix, etc.). ' +
-              'Normal operation mode is now active.'
-            ),
-            timestamp: Date.now()
-          };
-
-          // 添加用户消息到消息列表
-          updatedSessionData.messages = [...updatedSessionData.messages, planModeExitMessage];
-          updatedSessionData.info.messageCount = updatedSessionData.messages.length;
-
-          console.log(`✅ [PLAN-MODE-EXIT] Added plan mode exit message to context for session ${sessionId}`);
-        }
+        // 🎯 移除自动添加消息的逻辑，改为由 MultiSessionApp 统一处理（确保UI和后端状态同步）
+        // 这样无论是点击按钮还是输入 /plan off，都能统一处理消息发送和历史记录同步
 
         return { ...prev, sessions: newSessions };
       });

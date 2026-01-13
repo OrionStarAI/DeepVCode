@@ -34,7 +34,7 @@ const violations = checkDirectory(srcDir);
 if (violations.length > 0) {
   console.error('❌ Build artifacts found in src directory:');
   violations.forEach(file => console.error(`  - ${file}`));
-  console.error('\n🔧 Run "npm run clean:src" to clean up.');
+  console.error('\n    Note: Run "npm run clean:src" to resolve this issue.');
   process.exit(1);
 } else {
   console.log('✅ src directory is clean - no build artifacts found.');

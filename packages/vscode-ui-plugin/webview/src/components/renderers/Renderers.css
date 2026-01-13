@@ -96,7 +96,8 @@
 }
 
 .subagent-running-tools {
-  margin-left: 4px; /* 减少缩进 */
+  margin-left: 4px;
+  /* 减少缩进 */
 }
 
 .subagent-tool-item {
@@ -127,9 +128,12 @@
   color: var(--vscode-editor-foreground) !important;
   font-weight: 600;
   white-space: nowrap;
-  flex-shrink: 1; /* 🎯 允许名称在空间不足时收缩 */
-  max-width: 150px; /* 🎯 给个最大上限 */
-  min-width: 60px; /* 🎯 保证最少能看清工具名开头 */
+  flex-shrink: 1;
+  /* 🎯 允许名称在空间不足时收缩 */
+  max-width: 150px;
+  /* 🎯 给个最大上限 */
+  min-width: 60px;
+  /* 🎯 保证最少能看清工具名开头 */
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -141,20 +145,24 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  flex: 2; /* 🎯 描述信息占更多权重 */
+  flex: 2;
+  /* 🎯 描述信息占更多权重 */
   min-width: 0;
   opacity: 0.8;
 }
 
 .subagent-stats {
-  margin-left: 4px; /* 减少缩进 */
+  margin-left: 4px;
+  /* 减少缩进 */
 }
 
 .subagent-stat-item {
   display: flex;
   align-items: center;
-  gap: 4px; /* 减少间距 */
-  margin-bottom: 1px; /* 减少下边距 */
+  gap: 4px;
+  /* 减少间距 */
+  margin-bottom: 1px;
+  /* 减少下边距 */
 }
 
 .subagent-stat-label {
@@ -199,9 +207,12 @@
   color: var(--vscode-charts-blue);
   font-family: monospace;
   animation: spin 1s linear infinite;
-  transform-origin: center center; /* 确保从中心点旋转 */
-  display: inline-block; /* 确保变换正常工作 */
-  will-change: transform; /* 硬件加速 */
+  transform-origin: center center;
+  /* 确保从中心点旋转 */
+  display: inline-block;
+  /* 确保变换正常工作 */
+  will-change: transform;
+  /* 硬件加速 */
 }
 
 .subagent-running-text {
@@ -217,6 +228,56 @@
   font-family: var(--vscode-font-family);
   font-size: 12px;
   line-height: 1.4;
+}
+
+/* 多文件模式样式 */
+.diff-display-container.multi-file {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.diff-display-container.multi-file .file-block {
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.diff-file-separator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--vscode-editor-background);
+  border-top: 1px solid var(--vscode-panel-border);
+  border-bottom: 1px solid var(--vscode-panel-border);
+  margin-top: 4px;
+}
+
+.diff-file-header-multi {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--vscode-editor-background);
+  border-bottom: 1px solid var(--vscode-panel-border);
+}
+
+.diff-file-header-multi .diff-file-icon,
+.diff-file-separator .diff-file-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.diff-file-header-multi .diff-filename,
+.diff-file-separator .diff-filename {
+  color: var(--vscode-descriptionForeground);
+  font-family: monospace;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.file-diff-content {
+  margin: 0;
 }
 
 /* 简化模式样式 */
@@ -362,6 +423,8 @@
   font-family: var(--vscode-editor-font-family, 'Cascadia Code', 'Consolas', monospace);
   font-size: 10.5px;
   line-height: 1.25;
+  /* 🎯 修复：确保内部内容不被压缩，使背景色延伸到完整内容宽度 */
+  min-width: fit-content;
 }
 
 .diff-line {
@@ -369,6 +432,8 @@
   align-items: flex-start;
   min-height: 15px;
   line-height: 15px;
+  /* 🎯 修复：确保每行宽度至少为内容宽度，使背景色覆盖完整内容 */
+  min-width: max-content;
 }
 
 .diff-line.added {
@@ -437,6 +502,7 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }

@@ -103,6 +103,7 @@ describe('Settings Loading and Merging', () => {
         customThemes: {},
         mcpServers: {},
       });
+      expect(settings.merged.healthyUse).toBeUndefined();
       expect(settings.errors.length).toBe(0);
     });
 
@@ -136,7 +137,8 @@ describe('Settings Loading and Merging', () => {
         hooks: {},
       });
       expect(settings.merged).toMatchObject({
-        ...systemSettingsContent,
+        theme: undefined, // System theme ignored
+        sandbox: false,
         customThemes: {},
         mcpServers: {},
       });
@@ -406,6 +408,22 @@ describe('Settings Loading and Merging', () => {
       expect(settings.merged.telemetry).toBeUndefined();
       expect(settings.merged.customThemes).toEqual({});
       expect(settings.merged.mcpServers).toEqual({});
+    });
+
+    it('should load healthyUse setting from user settings', () => {
+      (mockFsExistsSync as Mock).mockImplementation(
+        (p: fs.PathLike) => p === USER_SETTINGS_PATH,
+      );
+      const userSettingsContent = { healthyUse: false };
+      (fs.readFileSync as Mock).mockImplementation(
+        (p: fs.PathOrFileDescriptor) => {
+          if (p === USER_SETTINGS_PATH)
+            return JSON.stringify(userSettingsContent);
+          return '{}';
+        },
+      );
+      const settings = loadSettings(MOCK_WORKSPACE_DIR);
+      expect(settings.merged.healthyUse).toBe(false);
     });
 
     it('should merge MCP servers correctly, with workspace taking precedence', () => {
@@ -969,7 +987,8 @@ describe('Settings Loading and Merging', () => {
         expect(settings.system.path).toBe(MOCK_ENV_SYSTEM_SETTINGS_PATH);
         expect(settings.system.settings).toEqual(systemSettingsContent);
         expect(settings.merged).toMatchObject({
-          ...systemSettingsContent,
+          theme: undefined, // System theme ignored
+          sandbox: true,
           customThemes: {},
           mcpServers: {},
         });

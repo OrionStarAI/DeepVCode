@@ -583,6 +583,7 @@ export async function loadCliConfig(
     ideClient,
     silentMode: isNonInteractiveMode,
     hooks: settings.hooks,
+    healthyUse: settings.healthyUse ?? true,
   });
 
   // Set memory file paths for display in UI

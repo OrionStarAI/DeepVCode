@@ -200,48 +200,48 @@ export enum MessageType {
 // Simplified message structure for internal feedback
 export type Message =
   | {
-      type: MessageType.INFO | MessageType.ERROR | MessageType.USER;
-      content: string; // Renamed from text for clarity in this context
-      timestamp: Date;
-    }
+    type: MessageType.INFO | MessageType.ERROR | MessageType.USER;
+    content: string; // Renamed from text for clarity in this context
+    timestamp: Date;
+  }
   | {
-      type: MessageType.ABOUT;
-      timestamp: Date;
-      cliVersion: string;
-      osVersion: string;
-      sandboxEnv: string;
-      modelVersion: string;
-      selectedAuthType: string;
-      gcpProject: string;
-      content?: string; // Optional content, not really used for ABOUT
-    }
+    type: MessageType.ABOUT;
+    timestamp: Date;
+    cliVersion: string;
+    osVersion: string;
+    sandboxEnv: string;
+    modelVersion: string;
+    selectedAuthType: string;
+    gcpProject: string;
+    content?: string; // Optional content, not really used for ABOUT
+  }
   | {
-      type: MessageType.STATS;
-      timestamp: Date;
-      duration: string;
-      content?: string;
-    }
+    type: MessageType.STATS;
+    timestamp: Date;
+    duration: string;
+    content?: string;
+  }
   | {
-      type: MessageType.MODEL_STATS;
-      timestamp: Date;
-      content?: string;
-    }
+    type: MessageType.MODEL_STATS;
+    timestamp: Date;
+    content?: string;
+  }
   | {
-      type: MessageType.TOOL_STATS;
-      timestamp: Date;
-      content?: string;
-    }
+    type: MessageType.TOOL_STATS;
+    timestamp: Date;
+    content?: string;
+  }
   | {
-      type: MessageType.QUIT;
-      timestamp: Date;
-      duration: string;
-      content?: string;
-    }
+    type: MessageType.QUIT;
+    timestamp: Date;
+    duration: string;
+    content?: string;
+  }
   | {
-      type: MessageType.COMPRESSION;
-      compression: CompressionProps;
-      timestamp: Date;
-    };
+    type: MessageType.COMPRESSION;
+    compression: CompressionProps;
+    timestamp: Date;
+  };
 
 export interface ConsoleMessageItem {
   type: 'log' | 'warn' | 'error' | 'debug';
@@ -276,17 +276,40 @@ export interface RefineResult {
   };
 }
 
+// Interface for session metadata (re-defined here to avoid circular dependencies)
+interface SessionOption {
+  sessionId: string;
+  title: string;
+  createdAt: string;
+  lastActiveAt: string;
+  messageCount: number;
+  totalTokens: number;
+  model?: string;
+  hasCheckpoint: boolean;
+  firstUserMessage?: string;
+  lastAssistantMessage?: string;
+}
+
+/**
+ * Result type for session selection command.
+ */
+export interface SelectSessionResult {
+  type: 'select_session';
+  sessions: SessionOption[];
+}
+
 /**
  * Defines the result of the slash command processor for its consumer (useGeminiStream).
  */
 export type SlashCommandProcessorResult =
   | {
-      type: 'schedule_tool';
-      toolName: string;
-      toolArgs: Record<string, unknown>;
-    }
+    type: 'schedule_tool';
+    toolName: string;
+    toolArgs: Record<string, unknown>;
+  }
   | {
-      type: 'handled'; // Indicates the command was processed and no further action is needed.
-    }
+    type: 'handled'; // Indicates the command was processed and no further action is needed.
+  }
   | SubmitPromptResult
-  | RefineResult;
+  | RefineResult
+  | SelectSessionResult;

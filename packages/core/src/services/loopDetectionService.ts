@@ -41,8 +41,11 @@ const PREVIEW_MONITORED_TOOLS = new Set([
  * Threshold for detecting same-tool-name loops in preview models.
  * When a preview model calls any tool in PREVIEW_MONITORED_TOOLS this many times
  * consecutively (ignoring args), it's considered a loop.
+ *
+ * Threshold 32 is chosen to be slightly higher than the standard exact-match threshold (10)
+ * to allow some legitimate variation in args while still catching abusive loops.
  */
-const PREVIEW_TOOL_LOOP_THRESHOLD = 12;
+const PREVIEW_TOOL_LOOP_THRESHOLD = 32;
 
 /**
  * The number of recent conversation turns to include in the history when asking the LLM to check for a loop.

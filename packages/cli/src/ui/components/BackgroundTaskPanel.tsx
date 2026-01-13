@@ -1,8 +1,10 @@
 /**
  * @license
- * Copyright 2025 Google LLC
+ * Copyright 2025 DeepV Code team
+ * https://github.com/OrionStarAI/DeepVCode
  * SPDX-License-Identifier: Apache-2.0
  */
+
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Box, Text, useInput } from 'ink';
@@ -111,7 +113,7 @@ export const BackgroundTaskPanel: React.FC<BackgroundTaskPanelProps> = ({
   const getStatusIcon = (status: BackgroundTask['status']) => {
     switch (status) {
       case 'running': return '»';
-      case 'completed': return '●';
+      case 'completed': return '•';
       case 'failed': return '✗';
       default: return '?';
     }

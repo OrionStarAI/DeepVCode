@@ -1,11 +1,14 @@
 /**
  * @license
- * Copyright 2025 Google LLC
+ * Copyright 2025 DeepV Code team
+ * https://github.com/OrionStarAI/DeepVCode
  * SPDX-License-Identifier: Apache-2.0
  */
 
+
 import { CommandKind, SlashCommand, SlashCommandActionReturn, CommandContext } from './types.js';
 import { t, tp } from '../utils/i18n.js';
+import { MESSAGE_ROLES } from 'deepv-code-core';
 
 /**
  * Plan模式命令 - 用于切换需求讨论模式
@@ -46,10 +49,21 @@ export const planCommand: SlashCommand = {
         // 退出Plan模式
         config.setPlanModeActive(false);
 
-        // 发送一条消息通知AI退出Plan模式
+        // 1. 静默添加退出记录到历史上下文
+        // 这样AI在下一次对话时就能知道Plan模式已退出，而不需要立即触发请求
+        const client = config.getGeminiClient();
+        if (client) {
+          await client.addHistory({
+            role: MESSAGE_ROLES.USER,
+            parts: [{ text: '[PLAN MODE EXITED] The user has exited Plan mode. You can now use all tools including modification tools (write_file, replace, run_shell_command, lint_fix, etc.). Normal operation mode is now active.' }]
+          });
+        }
+
+        // 2. 仅在UI显示退出成功的提示
         return {
-          type: 'submit_prompt',
-          content: '[PLAN MODE EXITED] The user has exited Plan mode. You can now use all tools including modification tools (write_file, replace, run_shell_command, lint_fix, etc.). Normal operation mode is now active.'
+          type: 'message',
+          messageType: 'info',
+          content: t('plan.mode.disabled.message')
         };
 
       case 'status':

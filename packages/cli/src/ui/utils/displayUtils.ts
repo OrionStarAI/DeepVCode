@@ -73,24 +73,64 @@ export function wrapLongLines(text: string, maxWidth: number): string {
     if (cpLen(line) <= maxWidth) {
       wrappedLines.push(line);
     } else {
-      // 对超长行进行换行，优先在空格处断行
-      let currentPos = 0;
-      while (currentPos < cpLen(line)) {
-        let endPos = Math.min(currentPos + maxWidth, cpLen(line));
-        let chunk = cpSlice(line, currentPos, endPos);
+      // 检查是否包含文件路径（@"..." 或 @path）
+      // 如果包含，尝试在路径边界处断行，而不是在路径中间
+      const filePathPattern = /@(?:"[^"]+"|[^\s]+)/g;
+      const hasFilePath = filePathPattern.test(line);
 
-        // 如果不是最后一段，尝试在空格处断行
-        if (endPos < cpLen(line)) {
-          const lastSpaceIndex = chunk.lastIndexOf(' ');
-          if (lastSpaceIndex > 0 && lastSpaceIndex > maxWidth * 0.7) {
-            // 如果找到空格且位置合理，在空格处断行
-            chunk = chunk.substring(0, lastSpaceIndex);
-            endPos = currentPos + lastSpaceIndex + 1; // +1 跳过空格
+      if (hasFilePath) {
+        // 如果行中有文件路径，尝试在路径之前或之后断行
+        // 简单策略：如果文件路径太长，截断显示
+        const parts: string[] = [];
+        let lastIndex = 0;
+        const matches = line.matchAll(/@(?:"([^"]+)"|([^\s]+))/g);
+
+        for (const match of matches) {
+          const beforePath = line.substring(lastIndex, match.index);
+          const pathPart = match[0];
+
+          // 添加路径之前的文本
+          if (beforePath) {
+            parts.push(beforePath);
           }
+
+          // 添加路径（可能需要截断）
+          if (cpLen(pathPart) > maxWidth) {
+            // 路径太长，截断显示
+            parts.push(cpSlice(pathPart, 0, maxWidth - 3) + '...');
+          } else {
+            parts.push(pathPart);
+          }
+
+          lastIndex = (match.index || 0) + match[0].length;
         }
 
-        wrappedLines.push(chunk);
-        currentPos = endPos;
+        // 添加剩余部分
+        if (lastIndex < line.length) {
+          parts.push(line.substring(lastIndex));
+        }
+
+        wrappedLines.push(parts.join(''));
+      } else {
+        // 普通文本，使用原有的换行逻辑
+        let currentPos = 0;
+        while (currentPos < cpLen(line)) {
+          let endPos = Math.min(currentPos + maxWidth, cpLen(line));
+          let chunk = cpSlice(line, currentPos, endPos);
+
+          // 如果不是最后一段，尝试在空格处断行
+          if (endPos < cpLen(line)) {
+            const lastSpaceIndex = chunk.lastIndexOf(' ');
+            if (lastSpaceIndex > 0 && lastSpaceIndex > maxWidth * 0.7) {
+              // 如果找到空格且位置合理，在空格处断行
+              chunk = chunk.substring(0, lastSpaceIndex);
+              endPos = currentPos + lastSpaceIndex + 1; // +1 跳过空格
+            }
+          }
+
+          wrappedLines.push(chunk);
+          currentPos = endPos;
+        }
       }
     }
   }

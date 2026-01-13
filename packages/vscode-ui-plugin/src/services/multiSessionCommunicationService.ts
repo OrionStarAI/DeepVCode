@@ -600,7 +600,7 @@ export class MultiSessionCommunicationService {
   }
 
   // 🎯 项目设置更新监听器
-  onProjectSettingsUpdate(handler: (data: { yoloMode: boolean; preferredModel?: string }) => void): vscode.Disposable {
+  onProjectSettingsUpdate(handler: (data: { yoloMode: boolean; preferredModel?: string; healthyUse?: boolean }) => void): vscode.Disposable {
     return this.addMessageHandler('project_settings_update', handler);
   }
 
@@ -651,7 +651,7 @@ export class MultiSessionCommunicationService {
   }
 
   // 🎯 发送项目设置响应
-  async sendProjectSettingsResponse(settings: { yoloMode: boolean; preferredModel?: string }) {
+  async sendProjectSettingsResponse(settings: { yoloMode: boolean; preferredModel?: string; healthyUse?: boolean }) {
     await this.sendMessage({
       type: 'project_settings_response',
       payload: settings

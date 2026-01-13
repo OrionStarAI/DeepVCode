@@ -25,6 +25,10 @@ interface ExecutionSettingsPanelProps {
   preferredModel: string;
   /** 默认模型更新回调 */
   onPreferredModelChange: (value: string) => void;
+  /** 健康使用提醒 */
+  healthyUse: boolean;
+  /** 健康使用提醒更新回调 */
+  onHealthyUseChange: (value: boolean) => void;
   /** 可用模型列表 */
   availableModels: any[];
 }
@@ -34,6 +38,8 @@ export const ExecutionSettingsPanel: React.FC<ExecutionSettingsPanelProps> = ({
   onYoloModeChange,
   preferredModel,
   onPreferredModelChange,
+  healthyUse,
+  onHealthyUseChange,
   availableModels
 }) => {
   const { t } = useTranslation();
@@ -64,6 +70,19 @@ export const ExecutionSettingsPanel: React.FC<ExecutionSettingsPanelProps> = ({
           onChange={(value) => {
             console.log('[YOLO] Toggle changed, immediately updating:', value);
             onYoloModeChange(value);
+          }}
+        />
+      </div>
+
+      {/* 健康使用提醒开关 */}
+      <div className="execution-settings-panel__healthy-section" style={{ marginTop: '20px' }}>
+        <BooleanSettingItem
+          id="healthy-use"
+          label={t('settings.general.healthyUseLabel') || '健康使用提醒'}
+          description={t('settings.general.healthyUseDesc') || '开启深夜（22:00 - 06:00）用眼健康提醒'}
+          value={healthyUse}
+          onChange={(value) => {
+            onHealthyUseChange(value);
           }}
         />
       </div>

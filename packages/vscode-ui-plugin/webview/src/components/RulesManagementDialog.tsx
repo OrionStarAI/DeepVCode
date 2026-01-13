@@ -6,7 +6,7 @@
  * Copyright 2025 DeepV Code
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useTranslation } from '../hooks/useTranslation';
 import { getGlobalMessageService } from '../services/globalMessageService';
 import './RulesManagementDialog.css';
@@ -51,12 +51,49 @@ export const RulesManagementDialog: React.FC<RulesManagementDialogProps> = ({
     ruleId: null
   });
 
-  useEffect(() => {
-    if (isOpen) {
-      loadRules();
-    }
+  // 使用 useCallback 包装函数，避免闭包问题
+  const loadRules = useCallback(() => {
+    messageService.requestRulesList();
+  }, [messageService]);
 
-    // 注册消息处理器
+  const handleCancelEdit = useCallback(() => {
+    setIsEditing(false);
+    setEditingRule(null);
+  }, []);
+
+  const handleCancelDelete = useCallback(() => {
+    console.log('[RulesManagement] User cancelled deletion');
+    setDeleteConfirm({ show: false, ruleId: null });
+  }, []);
+
+  // 🎯 处理 ESC 键关闭 - 独立 useEffect，只依赖必要的状态
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 只处理当前对话框打开时的 ESC 键
+      if (e.key === 'Escape') {
+        e.stopPropagation(); // 防止事件冒泡到其他对话框
+        if (isEditing) {
+          handleCancelEdit();
+        } else if (deleteConfirm.show) {
+          handleCancelDelete();
+        } else {
+          onClose();
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, isEditing, deleteConfirm.show, handleCancelEdit, handleCancelDelete, onClose]);
+
+  // 注册消息处理器 - 独立 useEffect
+  useEffect(() => {
+    if (!isOpen) return;
+
+    loadRules();
+
     const unsubscribeList = messageService.onRulesListResponse((data) => {
       setRules(data.rules);
     });
@@ -86,17 +123,12 @@ export const RulesManagementDialog: React.FC<RulesManagementDialogProps> = ({
       }
     });
 
-    // 清理函数
     return () => {
       unsubscribeList();
       unsubscribeSave();
       unsubscribeDelete();
     };
-  }, [isOpen, t, messageService]);
-
-  const loadRules = () => {
-    messageService.requestRulesList();
-  };
+  }, [isOpen, t, messageService, loadRules]);
 
   const handleNewRule = () => {
     const newRule: CustomRule = {
@@ -141,16 +173,6 @@ export const RulesManagementDialog: React.FC<RulesManagementDialogProps> = ({
       }
     }
     setDeleteConfirm({ show: false, ruleId: null });
-  };
-
-  const handleCancelDelete = () => {
-    console.log('[RulesManagement] User cancelled deletion');
-    setDeleteConfirm({ show: false, ruleId: null });
-  };
-
-  const handleCancelEdit = () => {
-    setIsEditing(false);
-    setEditingRule(null);
   };
 
   if (!isOpen) return null;

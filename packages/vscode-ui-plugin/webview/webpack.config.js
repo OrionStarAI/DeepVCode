@@ -1,13 +1,40 @@
+const os = require('os');
 const path = require('path');
+const ProgressBarPlugin = require('progress-bar-webpack-plugin');
+const figlet = require('figlet');
 
-module.exports = {
+// chalk v5 is ESM, create a fallback
+const createChalk = () => {
+  try {
+    // Try to use chalk with ESM compatibility
+    const chalk = require('chalk').default || require('chalk');
+    if (typeof chalk === 'object' && chalk.cyan) {
+      return chalk;
+    }
+  } catch (e) {
+    // Fallback: no colors
+  }
+  // Fallback implementation without colors
+  return {
+    cyan: (str) => str,
+    yellow: (str) => str,
+    gray: (str) => str,
+    green: (str) => str,
+    red: (str) => str,
+    dim: (str) => str,
+    white: { bold: (str) => str },
+    bold: { cyan: (str) => str }
+  };
+};
+const chalk = createChalk();
+
+module.exports = (env = {}) => ({
   entry: './src/index.tsx',
   output: {
     path: path.resolve(__dirname, 'build'),
     filename: '[name].js',
     clean: true,
     devtoolModuleFilenameTemplate: (info) => {
-      // 为调试提供更清晰的源文件路径
       return `webpack://${info.namespace}/${info.resourcePath}`;
     }
   },
@@ -18,7 +45,6 @@ module.exports = {
         use: {
           loader: 'ts-loader',
           options: {
-            // 确保生成源码映射，并且覆盖tsconfig的noEmit设置
             compilerOptions: {
               sourceMap: true,
               inlineSourceMap: false,
@@ -27,7 +53,7 @@ module.exports = {
             }
           }
         },
-        exclude: /node_modules/
+        exclude: [/node_modules/, /\.test\.tsx?$/]
       },
       {
         test: /\.css$/i,
@@ -43,7 +69,6 @@ module.exports = {
     extensions: ['.tsx', '.ts', '.js', '.jsx']
   },
   externals: {
-    // VS Code webview API is provided globally
     vscode: 'commonjs vscode'
   },
   target: 'web',
@@ -59,16 +84,46 @@ module.exports = {
       },
     },
   },
+  performance: { hints: false },
   infrastructureLogging: {
-    level: 'warn', // 🚀 只显示基础架构层的警告和错误，忽略缓存恢复失败等信息
+    level: 'warn'
   },
-  stats: 'errors-warnings', // 🚀 只显示编译过程中的错误和警告
-  cache: {
-    type: 'filesystem', // 🚀 关键优化：启用文件系统缓存
-  },
+  stats: 'errors-warnings',
+  cache: env.noCache
+    ? false
+    : {
+        type: 'filesystem',
+        cacheDirectory: path.join(os.tmpdir(), 'deepv-webview-webpack-cache')
+      },
   ignoreWarnings: [
-    // 忽略 ws 库的可选依赖警告（webview 环境中不需要）
     /Can't resolve 'utf-8-validate'/,
     /Can't resolve 'bufferutil'/
+  ],
+  plugins: [
+    new ProgressBarPlugin({
+      format: chalk.cyan('  Building Webview [:bar] ') + chalk.green(':percent') + chalk.dim(' (:elapsed seconds)'),
+      clear: true,
+      width: 30,
+    }),
+    {
+      apply: (compiler) => {
+        compiler.hooks.beforeRun.tap('BuildStart', () => {
+          console.log(chalk.bold.cyan('\nDeepV Webview: Initializing build process...'));
+        });
+
+        compiler.hooks.done.tap('BuildEnd', (stats) => {
+          if (stats.hasErrors()) {
+            console.log(chalk.red('\n❌ DeepV Webview: Build process failed with errors'));
+          } else {
+            const buildTime = stats.endTime - stats.startTime;
+            console.log(chalk.green(`\n✅ DeepV Webview: Build completed successfully (${buildTime}ms)`));
+          }
+        });
+
+        compiler.hooks.failed.tap('BuildFailed', (error) => {
+          console.log(chalk.red('\n[!] DeepV Webview: Critical build failure'));
+        });
+      }
+    }
   ]
-};
+});

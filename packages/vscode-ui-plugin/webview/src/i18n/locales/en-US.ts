@@ -475,6 +475,8 @@ export const enUS: Translations = {
       modelDesc: 'The default AI model to use for new sessions.',
       autoModel: 'Auto',
       autoModelDesc: 'Automatically select the best model',
+      healthyUseLabel: 'Healthy Use Reminder',
+      healthyUseDesc: 'Show health reminders during late night (22:00 - 06:00).',
     },
     memory: {
       title: 'Memory Files',
@@ -546,5 +548,15 @@ export const enUS: Translations = {
     runningInBackground: 'Running in background',
     noTasks: 'No background tasks',
     outputTitle: 'Background Task Output',
+  },
+
+  healthy: {
+    reminderTitle: "It's late, time to rest",
+    reminderContent: 'Work is important, but your health is priceless.',
+    reminderSuggestion: "It's late night (22:00 - 06:00), we suggest saving your progress and resting.",
+    agentRunning: "Agent is working in the background and won't be affected.",
+    waiting: 'Please wait {{seconds}}s to confirm...',
+    dismiss: 'Remind me later',
+    countdown: '{{seconds}}s',
   },
 };

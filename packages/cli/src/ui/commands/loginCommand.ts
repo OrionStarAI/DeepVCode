@@ -1,8 +1,10 @@
 /**
  * @license
- * Copyright 2025 Google LLC
+ * Copyright 2025 DeepV Code team
+ * https://github.com/OrionStarAI/DeepVCode
  * SPDX-License-Identifier: Apache-2.0
  */
+
 
 import { CommandKind, MessageActionReturn, SlashCommand } from './types.js';
 import { AuthServer } from 'deepv-code-core';
@@ -11,6 +13,13 @@ import { t } from '../utils/i18n.js';
 
 // 全局认证服务器实例
 let authServerInstance: AuthServer | null = null;
+
+/**
+ * 重置认证服务器实例（仅用于测试）
+ */
+export function _resetAuthServer(): void {
+  authServerInstance = null;
+}
 
 /**
  * 启动认证服务器

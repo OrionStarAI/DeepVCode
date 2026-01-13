@@ -50,6 +50,7 @@ import { AuthDialog } from './components/AuthDialog.js';
 import { LoginDialog } from './components/LoginDialog.js';
 import { AuthInProgress } from './components/AuthInProgress.js';
 import { EditorSettingsDialog } from './components/EditorSettingsDialog.js';
+import { SessionSelectDialog } from './components/SessionSelectDialog.js';
 import { Colors } from './colors.js';
 import { Help } from './components/Help.js';
 import { loadHierarchicalGeminiMemory } from '../config/config.js';
@@ -63,9 +64,12 @@ import { tokenUsageEventManager, IDEConnectionStatus, type BackgroundTask, getBa
 import { HistoryItemDisplay } from './components/HistoryItemDisplay.js';
 import { ImagePollingSpinner } from './components/ImagePollingSpinner.js';
 import { appEvents, AppEvent } from '../utils/events.js';
+import { getCreditsService } from '../services/creditsService.js';
+import { formatCreditsWithColor } from './utils/creditsFormatter.js';
 import { ContextSummaryDisplay } from './components/ContextSummaryDisplay.js';
 import { IDEContextDetailDisplay } from './components/IDEContextDetailDisplay.js';
 import { ReasoningDisplay } from './components/ReasoningDisplay.js';
+import { HealthyUseReminder } from './components/HealthyUseReminder.js';
 import { useHistory } from './hooks/useHistoryManager.js';
 import { useSessionRestore, useSessionAutoSave } from './hooks/useSessionRestore.js';
 import process from 'node:process';
@@ -120,6 +124,7 @@ import { PaginatedDebugConsole } from './components/PaginatedDebugConsole.js';
 import { ScrollingDebugConsole } from './components/ScrollingDebugConsole.js';
 import { PrivacyNotice } from './privacy/PrivacyNotice.js';
 import { AudioNotification } from '../utils/audioNotification.js';
+import { SessionOption } from './commands/types.js';
 
 
 const CTRL_EXIT_PROMPT_DURATION_MS = 1000;
@@ -404,20 +409,6 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
 
   // Display memory files info on initialization
   useEffect(() => {
-    const memoryFilePaths = config.getGeminiMdFilePaths();
-    if (memoryFilePaths.length > 0) {
-      const fileList = memoryFilePaths.map(f => `  - ${f}`).join('\n');
-      addItem(
-        {
-          type: MessageType.INFO,
-          text: `Using: ${memoryFilePaths.length} memory file${memoryFilePaths.length > 1 ? 's' : ''}\n${fileList}`,
-        },
-        Date.now(),
-      );
-    }
-  }, []); // Run only once on mount
-
-  useEffect(() => {
     const consolePatcher = new ConsolePatcher({
       onNewMessage: handleNewMessage,
       debugMode: config.getDebugMode(),
@@ -479,6 +470,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   const [helpModeActive, setHelpModeActive] = useState(false);
   const [planModeActive, setPlanModeActive] = useState(config.getPlanModeActive());
   const [showErrorDetails, setShowErrorDetails] = useState<boolean>(false);
+  const [debugPanelExpanded, setDebugPanelExpanded] = useState<boolean>(false);
   const [showToolDescriptions, setShowToolDescriptions] =
     useState<boolean>(false);
   const [showIDEContextDetail, setShowIDEContextDetail] =
@@ -490,7 +482,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   const ctrlCTimerRef = useRef<NodeJS.Timeout | null>(null);
   const [ctrlDPressedOnce, setCtrlDPressedOnce] = useState(false);
   const ctrlDTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const [constrainHeight, setConstrainHeight] = useState<boolean>(true);
+
   const [ideConnectionStatus, setIdeConnectionStatus] = useState<IDEConnectionStatus>(
     IDEConnectionStatus.Disconnected
   );
@@ -498,6 +490,43 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   const [modelSwitchedFromQuotaError, setModelSwitchedFromQuotaError] =
     useState<boolean>(false);
   const [userTier, setUserTier] = useState<UserTierId | undefined>(undefined);
+  const [showHealthyUseReminder, setShowHealthyUseReminder] = useState<boolean>(false);
+  const [lastHealthyUseReminderDismissedAt, setLastHealthyUseReminderDismissedAt] = useState<number>(0);
+
+  // 健康使用提醒逻辑
+  useEffect(() => {
+    if (!config.getHealthyUseEnabled()) {
+      setShowHealthyUseReminder(false);
+      return;
+    }
+
+    const checkHealthyUse = () => {
+      const now = new Date();
+      const hour = now.getHours();
+      // 深夜时段：22:00 - 06:00
+      const isRestrictedTime = hour >= 22 || hour < 6;
+
+      if (isRestrictedTime) {
+        const thirtyMinutesInMs = 30 * 60 * 1000;
+        const timeSinceLastDismiss = Date.now() - lastHealthyUseReminderDismissedAt;
+
+        if (!showHealthyUseReminder && timeSinceLastDismiss > thirtyMinutesInMs) {
+          setShowHealthyUseReminder(true);
+        }
+      } else {
+        // 自动退出受限时段时隐藏弹窗
+        if (showHealthyUseReminder) {
+          setShowHealthyUseReminder(false);
+        }
+      }
+    };
+
+    const intervalId = setInterval(checkHealthyUse, 1000 * 60); // 每分钟检查一次
+    checkHealthyUse(); // 初始检查
+
+    return () => clearInterval(intervalId);
+  }, [config, lastHealthyUseReminderDismissedAt, showHealthyUseReminder]);
+
   const [openFiles, setOpenFiles] = useState<OpenFiles | undefined>();
   const [logoShows, setLogoShows] = useState<boolean>(true);
   const [refineResult, setRefineResult] = useState<{
@@ -525,6 +554,50 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   useEffect(() => {
     console.log('[App] refineResult 状态变化:', refineResult ? '有值' : 'null', refineResult ? { originalLength: refineResult.original.length, refinedLength: refineResult.refined.length } : null);
   }, [refineResult]);
+
+  // 🆕 预加载用户积分信息和内存文件路径，初始化时显示
+  // 注意：火发即忘(fire-and-forget)模式，5秒超时，不会阻塞 UI 启动
+  useEffect(() => {
+    const fetchCredits = async () => {
+      try {
+        const creditsService = getCreditsService();
+        // 异步获取积分，不等待
+        const info = await creditsService.getCreditsInfo();
+
+        // 如果有积分信息，显示它
+        if (info) {
+          const creditsText = formatCreditsWithColor(info.totalCredits, info.usedCredits, info.usagePercentage);
+          if (creditsText) {
+            addItem(
+              {
+                type: MessageType.INFO,
+                text: creditsText,
+              },
+              Date.now(),
+            );
+          }
+        }
+      } catch (error) {
+        // 静默处理错误，不影响 UI
+      }
+    };
+
+    // 立即触发异步加载，但不等待
+    fetchCredits();
+
+    // 同步处理内存文件路径（快速，不阻塞）
+    const memoryFilePaths = config.getGeminiMdFilePaths();
+    if (memoryFilePaths.length > 0) {
+      const pathsText = `Memory files (${memoryFilePaths.length}):\n${memoryFilePaths.map(f => `  - ${f}`).join('\n')}`;
+      addItem(
+        {
+          type: MessageType.INFO,
+          text: pathsText,
+        },
+        Date.now(),
+      );
+    }
+  }, []);
 
   /**
    * 渲染带有黄色省略提示的文本
@@ -573,7 +646,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   useEffect(() => {
     const openDebugConsole = () => {
       setShowErrorDetails(true);
-      setConstrainHeight(false); // Make sure the user sees the full message.
+      setDebugPanelExpanded(true);
     };
     appEvents.on(AppEvent.OpenDebugConsole, openDebugConsole);
 
@@ -668,6 +741,17 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     cancelAuthentication: cancelLoginAuthentication,
   } = useLoginCommand(settings, setLoginError, config, setCurrentModel, customProxyUrl);
 
+  // Listen for authentication required events (e.g., from model dialog when not logged in)
+  useEffect(() => {
+    const handleAuthRequired = () => {
+      openAuthDialog();
+    };
+    appEvents.on(AppEvent.AuthenticationRequired, handleAuthRequired);
+    return () => {
+      appEvents.off(AppEvent.AuthenticationRequired, handleAuthRequired);
+    };
+  }, [openAuthDialog]);
+
   // BUG修复: 避免在初始化时显示认证错误，只在用户主动选择后验证
   // 修复策略: 移除自动验证逻辑，让用户在选择时才进行验证
   // 影响范围: packages/cli/src/ui/App.tsx:230-238
@@ -718,6 +802,8 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     handleEditorSelect,
     exitEditorDialog,
   } = useEditorSettings(settings, setEditorError, addItem);
+
+  const [sessionSelectData, setSessionSelectData] = useState<SessionOption[] | null>(null);
 
   const toggleCorgiMode = useCallback(() => {
     setCorgiMode((prev) => !prev);
@@ -1291,6 +1377,10 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
             } else if (slashCommandResult.type === 'schedule_tool') {
               // Slash命令要求执行工具，这里可以扩展处理
               return;
+            } else if (slashCommandResult.type === 'select_session') {
+              // 开启 Session 选择对话框
+              setSessionSelectData(slashCommandResult.sessions);
+              return;
             } else if (slashCommandResult.type === 'refine_result') {
               // 润色结果，显示确认界面
               console.log('[App] 收到 refine_result，设置 refineResult 状态');
@@ -1615,24 +1705,19 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
       // console.log('🌍 [App级别] 检测到取消键');
     }
 
-    let enteringConstrainHeightMode = false;
-    if (!constrainHeight) {
-      // Automatically re-enter constrain height mode if the user types
-      // anything. When constrainHeight==false, the user will experience
-      // significant flickering so it is best to disable it immediately when
-      // the user starts interacting with the app.
-      enteringConstrainHeightMode = true;
-      setConstrainHeight(true);
-    }
-
     if (key.ctrl && input === 'o') {
-      // Toggle small console panel open/closed
-      setShowErrorDetails((prev) => !prev);
+      // Toggle debug console open/closed
+      setShowErrorDetails((prev) => {
+        const next = !prev;
+        if (!next) {
+          setDebugPanelExpanded(false);
+        }
+        return next;
+      });
     } else if (key.ctrl && input === 's') {
-      // Toggle between small and large panel (only when open)
+      // Toggle between small and expanded debug console (only when open)
       if (showErrorDetails) {
-        // If already open, toggle between constrained and full height
-        setConstrainHeight((prev) => !prev);
+        setDebugPanelExpanded((prev) => !prev);
       }
     } else if (key.ctrl && input === 't') {
       const newValue = !showToolDescriptions;
@@ -1712,16 +1797,34 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   const mainControlsRef = useRef<DOMElement>(null);
   const pendingHistoryItemRef = useRef<DOMElement>(null);
   const rootUiRef = useRef<DOMElement>(null);
+  const measureTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
-    if (mainControlsRef.current) {
-      const fullFooterMeasurement = measureElement(mainControlsRef.current);
-      setFooterHeight(fullFooterMeasurement.height);
+    // 🔧 关键优化：延迟测量并去抖动
+    // 防止频繁的高度变化导致过多的 measureElement 调用
+    // 这样即使 Debug Console 频繁展开/折叠，也只会每 300ms 测量一次
+    if (measureTimeoutRef.current) {
+      clearTimeout(measureTimeoutRef.current);
     }
-  }, [terminalHeight, consoleMessages, showErrorDetails]);
+
+    measureTimeoutRef.current = setTimeout(() => {
+      if (mainControlsRef.current) {
+        const fullFooterMeasurement = measureElement(mainControlsRef.current);
+        setFooterHeight(fullFooterMeasurement.height);
+      }
+      measureTimeoutRef.current = null;
+    }, 300);
+
+    return () => {
+      if (measureTimeoutRef.current) {
+        clearTimeout(measureTimeoutRef.current);
+      }
+    };
+  }, [terminalHeight, terminalWidth, showErrorDetails, debugPanelExpanded]);
 
   // Detect UI flickering (renders taller than terminal)
-  useFlickerDetector(rootUiRef, terminalHeight, config, constrainHeight);
+  // Debug console expansion no longer relies on unconstrained overflow.
+  useFlickerDetector(rootUiRef, terminalHeight, config, true);
 
   const staticExtraHeight = /* margins and padding */ 3;
   const availableTerminalHeight = useMemo(
@@ -1762,6 +1865,9 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
         )}
       </Box>
     ];
+
+    // 注：积分信息现在通过初始化消息显示，而不是在这里
+    // 这样可以避免与其他组件的布局竞争
 
     // Linus fix: 显示完整历史，移除虚拟化复杂性
     // 现代终端和计算机完全可以处理几百条消息的渲染
@@ -1893,9 +1999,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
       {quittingMessages.map((item) => (
         <HistoryItemDisplay
           key={item.id}
-          availableTerminalHeight={
-            constrainHeight ? availableTerminalHeight : undefined
-          }
+          availableTerminalHeight={availableTerminalHeight}
           terminalWidth={terminalWidth}
           item={item}
           isPending={false}
@@ -1905,9 +2009,8 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     </Box>
   ) : null;
   const debugConsoleMaxHeight = Math.floor(Math.max(terminalHeight * 0.2, 5));
-  const debugPanelPageSize = Math.floor(Math.max(terminalHeight * 0.6, 10)); // 60% of terminal height for paged mode
-  // Calculate debug panel height based on constrainHeight state
-  const debugPanelHeight = constrainHeight ? debugConsoleMaxHeight : debugPanelPageSize;
+  const debugPanelPageSize = Math.floor(Math.max(terminalHeight * 0.6, 10)); // 60% of terminal height
+  const debugPanelHeight = debugPanelExpanded ? debugPanelPageSize : debugConsoleMaxHeight;
   const placeholder = planModeActive
     ? "  计划模式：可读取代码分析，禁止修改 (/plan off 退出)"
     : vimModeEnabled
@@ -1965,9 +2068,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
             {pendingHistoryItems.map((item, i) => (
               <HistoryItemDisplay
                 key={i}
-                availableTerminalHeight={
-                  constrainHeight ? availableTerminalHeight : undefined
-                }
+                availableTerminalHeight={availableTerminalHeight}
                 terminalWidth={mainAreaWidth}
                 // TODO(taehykim): It seems like references to ids aren't necessary in
                 // HistoryItemDisplay. Refactor later. Use a fake id for now.
@@ -1977,7 +2078,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                 isFocused={!isEditorDialogOpen}
               />
             ))}
-            <ShowMoreLines constrainHeight={constrainHeight} />
+            <ShowMoreLines />
           </Box>
         </OverflowProvider>
 
@@ -1992,7 +2093,10 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
           />
         ) : null}
 
-        <Box flexDirection="column" ref={mainControlsRef}>
+        <Box
+          flexDirection="column"
+          ref={mainControlsRef}
+        >
           {startupWarnings.length > 0 ? (
             <Box
               borderStyle="round"
@@ -2020,11 +2124,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                 onSelect={handleThemeSelect}
                 onHighlight={handleThemeHighlight}
                 settings={settings}
-                availableTerminalHeight={
-                  constrainHeight
-                    ? terminalHeight - staticExtraHeight
-                    : undefined
-                }
+                availableTerminalHeight={terminalHeight - staticExtraHeight}
                 terminalWidth={mainAreaWidth}
               />
             </Box>
@@ -2040,11 +2140,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                 onHighlight={handleModelHighlight}
                 settings={settings}
                 config={config}
-                availableTerminalHeight={
-                  constrainHeight
-                    ? terminalHeight - staticExtraHeight
-                    : undefined
-                }
+                availableTerminalHeight={terminalHeight - staticExtraHeight}
                 terminalWidth={mainAreaWidth}
               />
             </Box>
@@ -2099,10 +2195,30 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                 onExit={exitEditorDialog}
               />
             </Box>
+          ) : sessionSelectData ? (
+            <Box flexDirection="column">
+              <SessionSelectDialog
+                sessions={sessionSelectData}
+                onSelect={(sessionId) => {
+                  setSessionSelectData(null);
+                  if (sessionId) {
+                    // 使用 select 命令选择
+                    handleSlashCommand(`/session select ${sessionId}`);
+                  }
+                }}
+              />
+            </Box>
           ) : showPrivacyNotice ? (
             <PrivacyNotice
               onExit={() => setShowPrivacyNotice(false)}
               config={config}
+            />
+          ) : showHealthyUseReminder ? (
+            <HealthyUseReminder
+              onDismiss={() => {
+                setShowHealthyUseReminder(false);
+                setLastHealthyUseReminderDismissedAt(Date.now());
+              }}
             />
           ) : (
             <>

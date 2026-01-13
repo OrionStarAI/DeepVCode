@@ -114,8 +114,7 @@ export interface Tool<
 export abstract class BaseTool<
   TParams = unknown,
   TResult extends ToolResult = ToolResult,
-> implements Tool<TParams, TResult>
-{
+> implements Tool<TParams, TResult> {
   /**
    * Creates a new instance of BaseTool
    * @param name Internal name of the tool (used for API calls)
@@ -137,7 +136,7 @@ export abstract class BaseTool<
     readonly forceMarkdown: boolean = false,
     readonly canUpdateOutput: boolean = false,
     readonly allowSubAgentUse: boolean = true,
-  ) {}
+  ) { }
 
   /**
    * Function declaration schema computed from name, description, and parameterSchema
@@ -249,7 +248,25 @@ export interface ToolResult {
    * This is set when user presses Ctrl+B to move a shell command to background.
    */
   isBackgroundTask?: boolean;
+
+  /**
+   * Structured data for rich UI rendering.
+   * If provided, the UI can render specific components (like Todo lists, Diffs)
+   * instead of just plain markdown text.
+   */
+  visualDisplay?: VisualDisplay;
 }
+
+/**
+ * Union type for all visual display formats supported by the UI
+ */
+export type VisualDisplay =
+  | TodoDisplay
+  | SubAgentDisplay
+  | FileDiff
+  | McpThinkingDisplay
+  | { type: 'subagent_update'; data: SubAgentDisplay }
+  | { type: 'file_diff'; fileName: string; fileDiff: string };
 
 /**
  * Structured UI display for MCP thinking tool results (e.g., Sequential thinking).
@@ -303,6 +320,7 @@ export interface FileDiff {
     code?: string;
   }>;
 }
+
 
 /**
  * Structured UI display for Todo list results.
@@ -381,6 +399,8 @@ export interface ToolExecuteConfirmationDetails {
   onConfirm: (outcome: ToolConfirmationOutcome) => Promise<void>;
   command: string;
   rootCommand: string;
+  /** 可选的警告消息，用于危险命令提示 */
+  warning?: string;
 }
 
 export interface ToolMcpConfirmationDetails {

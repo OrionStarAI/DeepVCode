@@ -93,44 +93,86 @@ export function SuggestionsDisplay({
 
         // 🎯 渲染带高亮的标签
         const renderLabel = () => {
-          if (!searchQuery) {
-            // 无搜索词时不高亮
-            return <Text color={baseColor}>{suggestion.label}</Text>;
+          const labelText = suggestion.label;
+
+          // 为文件路径模式优化显示：突出文件名，弱化路径
+          const lastSlashIndex = labelText.lastIndexOf('/');
+          const hasDirectory = lastSlashIndex !== -1 && lastSlashIndex < labelText.length - 1;
+
+          const displayLabel = (text: string, color: string, isDim: boolean = false) => {
+            if (!searchQuery) {
+              return <Text color={color} dimColor={isDim} inverse={isActive}>{text}</Text>;
+            }
+
+            const segments = getHighlightSegments(text, searchQuery);
+            return (
+              <Text>
+                {segments.map((seg, i) => (
+                  <Text
+                    key={i}
+                    color={seg.highlighted ? highlightColor : color}
+                    bold={seg.highlighted}
+                    dimColor={!seg.highlighted && isDim}
+                    inverse={isActive}
+                  >
+                    {seg.text}
+                  </Text>
+                ))}
+              </Text>
+            );
+          };
+
+          if (hasDirectory && !userInput.startsWith('/')) {
+            let dirPart = labelText.substring(0, lastSlashIndex + 1);
+            const filePart = labelText.substring(lastSlashIndex + 1);
+
+            // 🚀 优化：如果路径过长，进行中间截断，确保文件名可见
+            // 优先保证文件名完整显示，路径部分可以截断
+            const reservedSpaceForDescription = suggestion.description ? 25 : 0;
+            const maxPathWidth = width - reservedSpaceForDescription - 5; // 留出边距
+            const minDirWidth = 10; // 目录部分最小宽度
+            const minTruncationWidth = 15; // 截断功能的最小窗口宽度
+
+            // 计算可用于显示路径的空间
+            let availableDirWidth = maxPathWidth - filePart.length;
+
+            // 如果文件名太长，确保至少能看到部分目录信息
+            if (availableDirWidth < minDirWidth) {
+              availableDirWidth = Math.max(minDirWidth, maxPathWidth - Math.min(filePart.length, maxPathWidth * 0.6));
+            }
+
+            // 只有在窗口足够宽时才执行截断逻辑
+            if (dirPart.length > availableDirWidth && availableDirWidth >= minTruncationWidth) {
+              // 优化截断策略：保留开头和结尾部分
+              // 减去 3 是为了给 "..." 留空间
+              const actualAvailable = availableDirWidth - 3;
+              const headLength = Math.floor(actualAvailable * 0.4);
+              const tailLength = actualAvailable - headLength;
+              const head = dirPart.substring(0, headLength);
+              const tail = dirPart.substring(dirPart.length - tailLength);
+              dirPart = `${head}...${tail}`;
+            }
+
+            return (
+              <Box flexDirection="row">
+                {displayLabel(dirPart, Colors.Gray, true)}
+                {displayLabel(filePart, baseColor)}
+              </Box>
+            );
           }
 
-          // 获取高亮片段（支持斜杠命令和文件路径）
-          const segments = getHighlightSegments(suggestion.label, searchQuery);
-
-          return (
-            <Text>
-              {segments.map((seg, i) => (
-                <Text
-                  key={i}
-                  color={seg.highlighted ? highlightColor : baseColor}
-                  bold={seg.highlighted}
-                >
-                  {seg.text}
-                </Text>
-              ))}
-            </Text>
-          );
+          return displayLabel(labelText, baseColor);
         };
 
         return (
-          <Box key={`${suggestion}-${originalIndex}`} width={width}>
+          <Box key={`suggestion-${originalIndex}`} width={width}>
             <Box flexDirection="row">
-              {userInput.startsWith('/') ? (
-                // only use box model for (/) command mode with dynamic width
-                <Box width={dynamicWidth} flexShrink={0}>
-                  {renderLabel()}
-                </Box>
-              ) : (
-                // use regular text for other modes (@ context)
-                renderLabel()
-              )}
+              <Box width={userInput.startsWith('/') ? dynamicWidth : undefined} flexShrink={0}>
+                {renderLabel()}
+              </Box>
               {suggestion.description ? (
-                <Box flexGrow={1}>
-                  <Text color={baseColor} wrap="wrap">
+                <Box flexGrow={1} marginLeft={1}>
+                  <Text color={baseColor} wrap="truncate-end" inverse={isActive}>
                     {suggestion.description}
                   </Text>
                 </Box>

@@ -14,6 +14,20 @@ import { SessionStatsState } from '../contexts/SessionContext.js';
 import type { Suggestion } from '../components/SuggestionsDisplay.js';
 import { TokenUsageInfo } from '../components/TokenUsageDisplay.js';
 
+// Interface for session metadata and display information
+export interface SessionOption {
+  sessionId: string;
+  title: string;
+  createdAt: string;
+  lastActiveAt: string;
+  messageCount: number;
+  totalTokens: number;
+  model?: string;
+  hasCheckpoint: boolean;
+  firstUserMessage?: string;
+  lastAssistantMessage?: string;
+}
+
 // Grouped dependencies for clarity and easier mocking
 export interface CommandContext {
   // Invocation properties for when commands are called.
@@ -161,7 +175,16 @@ export type SlashCommandActionReturn =
   | LoadHistoryActionReturn
   | SubmitPromptActionReturn
   | SwitchSessionActionReturn
-  | RefineResultActionReturn;
+  | RefineResultActionReturn
+  | SelectSessionActionReturn;
+
+/**
+ * The return type for a command action that needs to open a session selection dialog.
+ */
+export interface SelectSessionActionReturn {
+  type: 'select_session';
+  sessions: SessionOption[];
+}
 
 export enum CommandKind {
   BUILT_IN = 'built-in',

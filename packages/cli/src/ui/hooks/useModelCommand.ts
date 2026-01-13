@@ -52,6 +52,14 @@ export const useModelCommand = (
           return;
         }
 
+        // Check if this is a trigger to open auth dialog
+        if (modelName === '__trigger_auth__') {
+          setIsModelDialogOpen(false);
+          // Trigger auth dialog
+          appEvents.emit(AppEvent.AuthenticationRequired);
+          return;
+        }
+
         // Immediately close the dialog to show the switching/compressing message below
         // Don't delay here - we want the user to see the status updates immediately
         setIsModelDialogOpen(false);
@@ -63,6 +71,9 @@ export const useModelCommand = (
           const geminiClient = config.getGeminiClient();
 
           if (geminiClient) {
+            // 🔄 确保Chat已初始化（带重试机制）- 修复启动时立即切换模型导致的错误
+            await geminiClient.waitForChatInitialized();
+
             // 显示正在切换的消息，并提示可能需要压缩
             const modelDisplayName = getModelDisplayName(modelName, config);
             addItem(

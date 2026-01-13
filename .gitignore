@@ -70,3 +70,4 @@ remote-client/build
 # Build artifacts
 *.tgz
 
+packages/cli/clipboard/

@@ -11,6 +11,7 @@ import { UseHistoryManagerReturn } from './useHistoryManager.js';
 import { useStateAndRef } from './useStateAndRef.js';
 import { Config, GitService, Logger } from 'deepv-code-core';
 import { useSessionStats } from '../contexts/SessionContext.js';
+import { t } from '../utils/i18n.js';
 import {
   Message,
   MessageType,
@@ -426,14 +427,24 @@ export const useSlashCommandProcessor = (
                 case 'quit':
                   setShowHelp(false);
                   setQuittingMessages(result.messages);
+                  // 显示"正在退出"提示，让用户知道程序在退出
+                  addItem(
+                    {
+                      type: MessageType.INFO,
+                      text: t('command.quit.exiting'),
+                    },
+                    Date.now(),
+                  );
+                  // Node.js CLI 环境：等待 3 秒让 SessionSummaryDisplay 获取最新积分，然后清理和退出
                   setTimeout(async () => {
                     try {
                       await runExitCleanup();
                     } catch (error) {
-                      // 忽略清理错误，避免影响正常退出
+                      // 忽略清理错误
                     }
                     process.exit(0);
-                  }, 100);
+                  }, 3000);
+
                   return { type: 'handled' };
 
                 case 'submit_prompt':
@@ -443,6 +454,13 @@ export const useSlashCommandProcessor = (
                     content: result.content,
                     silent: result.silent, // 🎯 传递静默模式
                   };
+                case 'select_session':
+                  setShowHelp(false);
+                  // 透传 select_session action
+                  return {
+                    type: 'select_session',
+                    sessions: result.sessions,
+                  } as any; // Temporary cast, need to update SlashCommandProcessorResult type
                 case 'refine_result':
                   setShowHelp(false);
                   return {

@@ -5,32 +5,26 @@
  */
 
 import { execSync } from 'child_process';
-import { readFileSync, writeFileSync } from 'fs';
+import { readFileSync, writeFileSync, createReadStream } from 'fs';
 import { resolve } from 'path';
+import { createHash } from 'crypto';
 import ora from 'ora';
 import chalk from 'chalk';
 import cliProgress from 'cli-progress';
 
 /**
  * 🚀 New Package Script - Simplified Reliable Version
- * Features:
- * 1. Auto-increment patch version (modify root package.json only)
- * 2. Use standard build commands for reliability
- * 3. Package and generate tgz
- * 4. Optional installation (--install)
  */
 
-// Fun programmer quotes for the packaging process
-const packagingQuotes = [
-  "🚀 Launching into the packaging stratosphere...",
-  "⚡ Compressing dreams into reality...",
-  "🎯 Building the ultimate deployment package...",
-  "💻 Wrapping code with love and care...",
-  "🔥 Creating digital magic in a box...",
-  "⭐ Packaging excellence for the world...",
-  "🛠️ Crafting the perfect software bundle...",
-  "🌟 Making deployment dreams come true..."
-];
+function getFileHash(filePath) {
+  return new Promise((resolve, reject) => {
+    const hash = createHash('sha256');
+    const stream = createReadStream(filePath);
+    stream.on('data', (data) => hash.update(data));
+    stream.on('end', () => resolve(hash.digest('hex')));
+    stream.on('error', (err) => reject(err));
+  });
+}
 
 function run(command, options = {}) {
   console.log(chalk.cyan(`\n🔧 Executing: ${command}`));
@@ -86,12 +80,8 @@ function updateAllPackageVersions(newVersion) {
   });
 }
 
-function main() {
-  // Display a random packaging quote
-  const randomQuote = packagingQuotes[Math.floor(Math.random() * packagingQuotes.length)];
-  console.log(chalk.bold.cyan('\n' + randomQuote + '\n'));
-
-  console.log(chalk.bold.magenta('🚀 DeepV Code New Packaging Flow (Simplified Reliable Version)'));
+async function main() {
+  console.log(chalk.bold.magenta('\n🚀 DeepV Code CLI Packaging Process'));
   console.log(chalk.gray('═══════════════════════════════════════════════════════════════'));
   console.log(chalk.blue('📋 Process Overview:'));
   console.log(chalk.white('   1. Check current version'));
@@ -106,11 +96,17 @@ function main() {
   const allArgs = [...args, ...(npmConfigArgv?.original || [])];
 
   const shouldInstall = allArgs.includes('--install');
+  // Check for no-version-bump flag OR production build environment
+  const noVersionBump = allArgs.includes('--no-version-bump') || process.env.BUILD_ENV === 'production';
 
   if (shouldInstall) {
     console.log(chalk.green('🔧 Mode: Full workflow (build + install + test)'));
   } else {
     console.log(chalk.blue('🔧 Mode: Build only (no installation)'));
+  }
+  if (noVersionBump) {
+    const reason = process.env.BUILD_ENV === 'production' ? '(production build)' : '(--no-version-bump flag)';
+    console.log(chalk.yellow(`⚠️  Version bump: Disabled ${reason}`));
   }
   console.log('');
 
@@ -130,14 +126,24 @@ function main() {
     console.log(chalk.blue(`\n   Current version: ${currentVersion}`));
     progressBar.increment({ step: 'Version check complete' });
 
-    progressBar.update(1, { step: '📈 Step 2: Auto-incrementing version number' });
-    console.log(chalk.blue('\n   Description: Updating root directory and all sub-project version numbers (patch +1)'));
-    const newVersion = incrementPatchVersion(currentVersion);
-    updateRootPackageVersion(newVersion);
-    console.log(chalk.green(`   ✅ Root directory version updated: ${currentVersion} → ${newVersion}`));
-    updateAllPackageVersions(newVersion);
-    console.log(chalk.blue(`   📦 Will generate file: deepv-code-${newVersion}.tgz`));
-    progressBar.increment({ step: 'Version increment complete' });
+    let newVersion;
+    if (noVersionBump) {
+      progressBar.update(1, { step: '📌 Step 2: Using current version (no bump)' });
+      console.log(chalk.yellow('\n   Description: Skipping version increment (--no-version-bump flag set)'));
+      newVersion = currentVersion;
+      console.log(chalk.blue(`   📦 Will generate file: deepv-code-${newVersion}.tgz`));
+      console.log(chalk.cyan('   ℹ️  Version remains: ${newVersion}'));
+      progressBar.increment({ step: 'Version check complete (no bump)' });
+    } else {
+      progressBar.update(1, { step: '📈 Step 2: Auto-incrementing version number' });
+      console.log(chalk.blue('\n   Description: Updating root directory and all sub-project version numbers (patch +1)'));
+      newVersion = incrementPatchVersion(currentVersion);
+      updateRootPackageVersion(newVersion);
+      console.log(chalk.green(`   ✅ Root directory version updated: ${currentVersion} → ${newVersion}`));
+      updateAllPackageVersions(newVersion);
+      console.log(chalk.blue(`   📦 Will generate file: deepv-code-${newVersion}.tgz`));
+      progressBar.increment({ step: 'Version increment complete' });
+    }
 
     progressBar.update(2, { step: '🔨 Step 3: Building and packaging' });
     console.log(chalk.blue('\n   Description: npm pack will auto-execute all build steps via prepare hook'));
@@ -145,16 +151,16 @@ function main() {
 
     const tgzFileName = `deepv-code-${newVersion}.tgz`;
 
-    // Prepare for packaging: replace README with whitepaper
+    // Prepare for packaging: validate README exists
     const prepareSpinner = ora({
-      text: chalk.cyan('📝 Preparing README for packaging...'),
+      text: chalk.cyan('📝 Checking README for packaging...'),
       spinner: 'dots'
     }).start();
     try {
       run('node scripts/prepare-publish.js', { stdio: 'pipe' });
-      prepareSpinner.succeed(chalk.green('✅ README prepared for packaging'));
+      prepareSpinner.succeed(chalk.green('✅ README check passed'));
     } catch (error) {
-      prepareSpinner.fail(chalk.red('💥 Failed to prepare README!'));
+      prepareSpinner.fail(chalk.red('💥 README check failed!'));
       throw error;
     }
 
@@ -164,25 +170,24 @@ function main() {
     }).start();
 
     try {
-      run('npm pack');
+      run('npm pack', { env: { ...process.env, DEEPV_SKIP_BUILD: '1' } });
       packingSpinner.succeed(chalk.green(`✨ Build and packaging completed: ${tgzFileName}`));
-      console.log(chalk.blue(`   📋 Final version: ${newVersion}`));
       progressBar.increment({ step: 'Build and package complete' });
     } catch (error) {
       packingSpinner.fail(chalk.red('💥 Build and packaging failed!'));
       throw error;
     }
 
-    // Restore original README after packaging
+    // Post-packaging cleanup
     const restoreSpinner = ora({
-      text: chalk.cyan('🔄 Restoring original README...'),
+      text: chalk.cyan('🔄 Post-packaging cleanup...'),
       spinner: 'dots'
     }).start();
     try {
       run('node scripts/restore-after-publish.js', { stdio: 'pipe' });
-      restoreSpinner.succeed(chalk.green('✅ Original README restored'));
+      restoreSpinner.succeed(chalk.green('✅ Cleanup completed'));
     } catch (error) {
-      restoreSpinner.warn(chalk.yellow('⚠️  Failed to restore README (will restore manually)'));
+      restoreSpinner.warn(chalk.yellow('⚠️  Cleanup warning (non-critical)'));
     }
 
     // Optional: Global installation
@@ -232,26 +237,31 @@ function main() {
       }
 
       progressBar.increment({ step: 'Installation and testing complete' });
-    } else {
-      console.log(chalk.cyan('\n💡 Skipping installation step'));
-      console.log(chalk.yellow('   Tip: Use --install parameter for automatic global installation'));
-      console.log(chalk.white(`   Manual install command: npm install -g ./${tgzFileName}`));
     }
 
     progressBar.stop();
 
-    console.log(chalk.bold.green('\n🎉 New packaging workflow completed!'));
-    console.log(chalk.gray('═══════════════════════════════════════════════════════════════'));
-    console.log(chalk.cyan(`📦 Generated file: ${tgzFileName}`));
-    console.log(chalk.cyan(`📋 Final version: ${newVersion}`));
+    // Calculate Hash
+    const fileHash = await getFileHash(resolve(process.cwd(), tgzFileName));
+
+    // Final Professional Summary
+    console.log(`\n${chalk.bold.blue('----------------------- Package Summary -----------------------')}`);
+    console.log(`${chalk.green('✅')} ${chalk.cyan('Artifact'.padEnd(15))} ${chalk.white(`[${tgzFileName}]`)}`);
+    console.log(`${chalk.green('✅')} ${chalk.cyan('Version'.padEnd(15))} ${chalk.white(`[${newVersion}]`)}`);
+    console.log(`${chalk.green('✅')} ${chalk.cyan('SHA-256'.padEnd(15))} ${chalk.dim(fileHash)}`);
+    console.log(`${chalk.green('✅')} ${chalk.cyan('Status'.padEnd(15))} ${chalk.green('[SUCCESS]')}`);
+
     if (shouldInstall) {
-      console.log(chalk.green('✅ Completed: Build → Install → Test'));
-      console.log(chalk.magenta('💡 You can now use the dvcode command'));
-    } else {
-      console.log(chalk.green('✅ Completed: Build and packaging'));
-      console.log(chalk.yellow(`💡 Install command: npm install -g ./${tgzFileName}`));
+      console.log(`${chalk.green('✅')} ${chalk.cyan('Integration'.padEnd(15))} ${chalk.green('[Installed & Verified]')}`);
     }
-    console.log(chalk.gray('═══════════════════════════════════════════════════════════════'));
+
+    console.log(`${chalk.bold.blue('---------------------------------------------------------------')}`);
+
+    if (!shouldInstall) {
+      console.log(`\n${chalk.yellow('💡 Hint:')} Run ${chalk.cyan.bold(`npm install -g ./${tgzFileName}`)} to install globally.\n`);
+    } else {
+      console.log(`\n${chalk.green('🎉')} ${chalk.bold('dvcode')} is now updated and ready for use!\n`);
+    }
 
   } catch (error) {
     console.error(chalk.red('\n❌ Packaging workflow failed!'));
@@ -271,8 +281,9 @@ Usage:
   npm run newpack [options]
 
 Options:
-  --install     Auto global install after packaging
-  --help, -h    Show help information
+  --install          Auto global install after packaging
+  --no-version-bump  Skip version increment (use current version)
+  --help, -h         Show help information
 
 Features:
   ✅ Auto-increment patch version (modify root package.json only)
@@ -281,20 +292,22 @@ Features:
   ✅ Optional global install + auth reset + startup test
 
 Examples:
-  npm run newpack              # Package only, no install
-  npm run newpack:install      # Package and global install (recommended)
-  npm run newpack --install    # Package and global install (compatible)
+  npm run newpack                        # Package only, no install
+  npm run newpack:install                # Package and global install (recommended)
+  npm run newpack --install              # Package and global install (compatible)
+  npm run newpack -- --no-version-bump   # Package without version increment (for CI)
 
 Build Workflow:
-  1. Version auto-increment (patch +1)
+  1. Version auto-increment (patch +1) - can be skipped with --no-version-bump
   2. npm pack (auto-executes all build steps via prepare hook)
      - prepare hook auto-executes: npm run bundle
      - bundle includes: generate + build + esbuild + resource copying
 
 Notes:
-  - Version number auto-increments every run
+  - Version number auto-increments by default (unless --no-version-bump is used)
   - npm pack auto-executes build via prepare hook, avoiding duplicate builds
   - Using --install will auto-uninstall old version and install new one
+  - Use --no-version-bump for CI/CD environments where version is managed externally
   - Generated tgz file can be used for manual installation or publishing
 `));
   process.exit(0);

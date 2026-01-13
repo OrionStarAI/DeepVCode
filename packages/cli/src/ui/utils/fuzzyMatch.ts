@@ -1,8 +1,10 @@
 /**
  * @license
- * Copyright 2025 Google LLC
+ * Copyright 2025 DeepV Code team
+ * https://github.com/OrionStarAI/DeepVCode
  * SPDX-License-Identifier: Apache-2.0
  */
+
 
 /**
  * 模糊匹配结果
@@ -137,31 +139,55 @@ function fuzzyMatchCharacters(
   const indices: number[] = [];
   let textIdx = 0;
   let queryIdx = 0;
-  let lastMatchIdx = -1;
 
-  while (queryIdx < query.length && textIdx < text.length) {
-    if (text[textIdx] === query[queryIdx]) {
-      indices.push(textIdx);
-      lastMatchIdx = textIdx;
+  // 定义分隔符：这些字符在模糊匹配中通常被忽略
+  const isSeparator = (c: string) => /[\-\_\.\/\\\s]/.test(c);
+
+  while (queryIdx < query.length) {
+    const qChar = query[queryIdx].toLowerCase();
+
+    // 跳过查询中的分隔符
+    if (isSeparator(qChar)) {
       queryIdx++;
+      continue;
     }
-    textIdx++;
-  }
 
-  if (queryIdx === query.length) {
-    // 匹配成功，计算间隙数（相邻匹配字符之间的距离 - 1）
-    let gaps = 0;
-    for (let i = 1; i < indices.length; i++) {
-      const gap = indices[i] - indices[i - 1] - 1;
-      if (gap > 0) {
-        gaps += gap;
+    // 跳过文本中的分隔符，找到下一个有效的内容字符
+    while (textIdx < text.length && isSeparator(text[textIdx])) {
+      textIdx++;
+    }
+
+    // 在剩余文本中查找匹配字符
+    let found = false;
+    while (textIdx < text.length) {
+      const tChar = text[textIdx].toLowerCase();
+
+      if (tChar === qChar) {
+        indices.push(textIdx);
+        textIdx++;
+        queryIdx++;
+        found = true;
+        break;
       }
+
+      textIdx++;
     }
 
-    return { matched: true, indices, gaps };
+    if (!found) {
+      return { matched: false, indices: [], gaps: 0 };
+    }
   }
 
-  return { matched: false, indices: [], gaps: 0 };
+  // 匹配成功，计算间隙数（相邻匹配字符之间的距离 - 1）
+  let gaps = 0;
+  for (let i = 1; i < indices.length; i++) {
+    const gap = indices[i] - indices[i - 1] - 1;
+    if (gap > 0) {
+      gaps += gap;
+    }
+  }
+
+  return { matched: true, indices, gaps };
 }
 
 /**
@@ -217,31 +243,32 @@ export function getHighlightSegments(
   }
 
   const segments: HighlightSegment[] = [];
-  let lastIndex = 0;
+  const indicesSet = new Set(matchResult.indices);
 
-  // 假设 indices 是连续的（因为我们匹配的是连续子串）
-  const startIndex = matchResult.indices[0];
-  const endIndex = matchResult.indices[matchResult.indices.length - 1] + 1;
+  let currentSegmentText = '';
+  let isCurrentSegmentHighlighted = indicesSet.has(0);
 
-  // 匹配前的部分
-  if (startIndex > 0) {
-    segments.push({
-      text: text.substring(0, startIndex),
-      highlighted: false,
-    });
+  for (let i = 0; i < text.length; i++) {
+    const charIsHighlighted = indicesSet.has(i);
+
+    if (charIsHighlighted !== isCurrentSegmentHighlighted) {
+      if (currentSegmentText) {
+        segments.push({
+          text: currentSegmentText,
+          highlighted: isCurrentSegmentHighlighted,
+        });
+      }
+      currentSegmentText = text[i];
+      isCurrentSegmentHighlighted = charIsHighlighted;
+    } else {
+      currentSegmentText += text[i];
+    }
   }
 
-  // 匹配的部分
-  segments.push({
-    text: text.substring(startIndex, endIndex),
-    highlighted: true,
-  });
-
-  // 匹配后的部分
-  if (endIndex < text.length) {
+  if (currentSegmentText) {
     segments.push({
-      text: text.substring(endIndex),
-      highlighted: false,
+      text: currentSegmentText,
+      highlighted: isCurrentSegmentHighlighted,
     });
   }
 

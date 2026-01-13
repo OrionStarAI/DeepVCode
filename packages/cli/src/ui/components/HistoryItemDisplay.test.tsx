@@ -10,6 +10,24 @@ import { HistoryItemDisplay } from './HistoryItemDisplay.js';
 import { HistoryItem, MessageType } from '../types.js';
 import { SessionStatsProvider } from '../contexts/SessionContext.js';
 import { getExpectedText, withMockedLocale } from '../utils/testI18n.js';
+import { WindowSizeLevel } from '../hooks/useSmallWindowOptimization.js';
+
+// Mock small window optimization to return normal size by default
+vi.mock('../hooks/useSmallWindowOptimization.js', () => ({
+  useSmallWindowOptimization: vi.fn(() => ({
+    sizeLevel: WindowSizeLevel.NORMAL,
+    disableAnimations: false,
+    reducedRefreshRate: false,
+    hideDecorations: false,
+    simplifiedDisplay: false,
+    refreshDebounceMs: 300,
+  })),
+  WindowSizeLevel: {
+    NORMAL: 'normal',
+    SMALL: 'small',
+    TINY: 'tiny',
+  },
+}));
 
 // Mock child components
 vi.mock('./messages/ToolGroupMessage.js', () => ({
@@ -84,7 +102,7 @@ describe('<HistoryItemDisplay />', () => {
       </SessionStatsProvider>,
     );
     expect(lastFrame()).toContain(
-      'No API calls have been made in this session.',
+      'No API calls have been made in this session yet.',
     );
   });
 
@@ -99,7 +117,7 @@ describe('<HistoryItemDisplay />', () => {
       </SessionStatsProvider>,
     );
     expect(lastFrame()).toContain(
-      'No tool calls have been made in this session.',
+      'No tool calls have been made in this session yet.',
     );
   });
 

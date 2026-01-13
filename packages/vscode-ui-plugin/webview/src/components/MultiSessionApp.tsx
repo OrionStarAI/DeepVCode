@@ -6,12 +6,13 @@
  * Copyright 2025 DeepV Code
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Settings, History } from 'lucide-react';
 import { useMultiSessionState } from '../hooks/useMultiSessionState';
 import { getGlobalMessageService } from '../services/globalMessageService';
 import { webviewModelService } from '../services/webViewModelService';
 import { useTranslation } from '../hooks/useTranslation';
+import { useYoloMode } from '../hooks/useProjectSettings';
 import { SessionSwitcher } from './SessionSwitcher';
 import { SessionManagerDialog } from './SessionManagerDialog';
 import { ProjectSettingsDialog } from './ProjectSettingsDialog';
@@ -27,6 +28,7 @@ import { ChatHistoryModal } from './ChatHistoryModal';
 import { NanoBananaDialog } from './NanoBananaDialog';
 import { NanoBananaIcon } from './NanoBananaIcon';
 import { CompressionConfirmationDialog } from './CompressionConfirmationDialog';
+import { HealthyUseReminder } from './HealthyUseReminder';
 import { CompressionConfirmationRequest } from '../services/webViewModelService';
 import { SessionType, SessionStatus } from '../../../src/constants/sessionConstants';
 import { SessionInfo } from '../../../src/types/sessionTypes';
@@ -95,8 +97,54 @@ export const MultiSessionApp: React.FC = () => {
   // 🛡️ 改为 'auto' 让服务端决定成本最优的模型
   const [selectedModelId, setSelectedModelId] = useState('auto');
 
+  // 🎯 健康使用提醒相关
+  const { healthyUse, loadYoloMode } = useYoloMode();
+  const [showHealthyUseReminder, setShowHealthyUseReminder] = useState(false);
+  const [lastHealthyUseReminderDismissedAt, setLastHealthyUseReminderDismissedAt] = useState(0);
+
   // 🎯 规则管理对话框状态
   const [isRulesManagementOpen, setIsRulesManagementOpen] = useState(false);
+
+  // 🎯 健康使用提醒逻辑
+  useEffect(() => {
+    // 组件挂载时先加载一次设置，确保同步
+    loadYoloMode();
+  }, [loadYoloMode]);
+
+  useEffect(() => {
+    // 只有在开启了健康提醒时才执行检测
+    if (!healthyUse) {
+      setShowHealthyUseReminder(false);
+      return;
+    }
+
+    const checkHealthyUse = () => {
+      const now = new Date();
+      const hour = now.getHours();
+      // 深夜时段：22:00 - 06:00
+      const isRestrictedTime = hour >= 22 || hour < 6;
+
+      if (isRestrictedTime) {
+        const thirtyMinutesInMs = 30 * 60 * 1000;
+        const timeSinceLastDismiss = Date.now() - lastHealthyUseReminderDismissedAt;
+
+        if (!showHealthyUseReminder && timeSinceLastDismiss > thirtyMinutesInMs) {
+          console.log('🌙 [HEALTH] Late night detected, showing reminder');
+          setShowHealthyUseReminder(true);
+        }
+      } else {
+        // 自动退出受限时段时隐藏弹窗
+        if (showHealthyUseReminder) {
+          setShowHealthyUseReminder(false);
+        }
+      }
+    };
+
+    const intervalId = setInterval(checkHealthyUse, 1000 * 60); // 每分钟检查一次
+    checkHealthyUse(); // 初始检查
+
+    return () => clearInterval(intervalId);
+  }, [healthyUse, lastHealthyUseReminderDismissedAt, showHealthyUseReminder]);
 
   // 🎯 重命名对话框状态
   const [renameDialog, setRenameDialog] = useState<{ isOpen: boolean; sessionId: string; currentName: string }>({
@@ -409,7 +457,7 @@ export const MultiSessionApp: React.FC = () => {
     // =============================================================================
 
     messageService.onSessionListUpdate(({ sessions, currentSessionId }) => {
-        console.log('🔍 [DEBUG-UI-FLOW] [MultiSessionApp] onSessionListUpdate received:', sessions.length, 'sessions');
+      console.log('🔍 [DEBUG-UI-FLOW] [MultiSessionApp] onSessionListUpdate received:', sessions.length, 'sessions');
 
 
       // 🎯 注意：这里是活跃session列表（最多10个）
@@ -580,9 +628,9 @@ export const MultiSessionApp: React.FC = () => {
           if (sessionState?.info?.name) {
             const memoryTitle = sessionState.info.name;
             const isDefaultTitle = !memoryTitle ||
-                                   memoryTitle === 'New Session' ||
-                                   memoryTitle === 'New Chat' ||
-                                   memoryTitle === 'Untitled Chat';
+              memoryTitle === 'New Session' ||
+              memoryTitle === 'New Chat' ||
+              memoryTitle === 'Untitled Chat';
 
             // 如果内存中的标题不是默认值，说明是手动修改过或自动生成的，优先使用
             if (!isDefaultTitle) {
@@ -941,6 +989,14 @@ export const MultiSessionApp: React.FC = () => {
     });
 
     messageService.onToolConfirmationRequest(({ sessionId, toolCall }) => {
+      console.log('🔍 [ToolConfirmation] Received confirmation request:', {
+        sessionId,
+        toolId: toolCall.toolId,
+        toolName: toolCall.toolName,
+        hasConfirmationDetails: !!toolCall.confirmationDetails,
+        confirmationDetailsType: toolCall.confirmationDetails?.type,
+        hasFileDiff: !!toolCall.confirmationDetails?.fileDiff
+      });
 
       const confirmationTool: ToolCall = {
         id: toolCall.toolId,
@@ -955,6 +1011,32 @@ export const MultiSessionApp: React.FC = () => {
 
       // 🎯 将 Session 状态设置为 CONFIRMING，页签显示红色问号闪烁
       updateSessionStatus(sessionId, SessionStatus.CONFIRMING);
+
+      // 🎯 关键修复：更新消息中已存在的工具的 confirmationDetails
+      // 因为 onToolCallsUpdate 可能先到达，但不包含 confirmationDetails
+      // 我们需要找到当前正在处理的消息，并更新其中对应工具的 confirmationDetails
+      const currentSession = getSessionRef.current(sessionId);
+      if (currentSession) {
+        const targetMessageId = currentSession.currentProcessingMessageId;
+        if (targetMessageId) {
+          const targetMessage = currentSession.messages.find(m => m.id === targetMessageId);
+          if (targetMessage?.associatedToolCalls) {
+            // 更新已存在的工具调用，添加 confirmationDetails
+            const updatedToolCalls = targetMessage.associatedToolCalls.map(tc => {
+              if (tc.id === toolCall.toolId) {
+                console.log('🔍 [ToolConfirmation] Updating existing tool with confirmationDetails:', tc.id);
+                return {
+                  ...tc,
+                  status: ToolCallStatus.WaitingForConfirmation,
+                  confirmationDetails: toolCall.confirmationDetails
+                };
+              }
+              return tc;
+            });
+            updateMessageToolCalls(sessionId, targetMessageId, updatedToolCalls);
+          }
+        }
+      }
 
       showConfirmationFor(sessionId, confirmationTool);
     });
@@ -1245,11 +1327,42 @@ export const MultiSessionApp: React.FC = () => {
     }
   }, [state.currentSessionId]);
 
+  // 🎯 处理 Plan 模式切换（含消息同步）
+  const handlePlanModeToggle = useCallback((enabled: boolean) => {
+    // 优先使用当前Session
+    const sessionId = state.currentSessionId;
+    if (!sessionId) return;
+
+    // 1. 更新本地状态
+    togglePlanMode(sessionId, enabled);
+
+    // 2. 如果是退出 Plan 模式，同步消息到 后端（AI历史），不添加到UI
+    if (!enabled) {
+      const exitMsgText = '[PLAN MODE EXITED] The user has exited Plan mode. You can now use all tools including modification tools (write_file, replace, run_shell_command, lint_fix, etc.). Normal operation mode is now active.';
+      getGlobalMessageService().sendInjectSystemMessage(sessionId, exitMsgText);
+    }
+  }, [state.currentSessionId, togglePlanMode]);
+
   // 🎯 处理发送消息
   const handleSendMessage = React.useCallback((content: MessageContent, targetSessionId?: string) => {
     // 优先使用目标 Session ID，否则使用当前 Session ID
     const sessionId = targetSessionId || state.currentSessionId;
     if (!sessionId) return;
+
+    // 🎯 拦截 /plan off 命令
+    const textContent = messageContentToString(content).trim();
+    if (textContent.toLowerCase() === '/plan off') {
+      console.log('🎯 [PLAN-MODE] Intercepted /plan off command');
+
+      // 更新本地状态
+      togglePlanMode(sessionId, false);
+
+      // 仅同步消息到后端（AI历史），不添加到UI
+      const exitMsgText = '[PLAN MODE EXITED] The user has exited Plan mode. You can now use all tools including modification tools (write_file, replace, run_shell_command, lint_fix, etc.). Normal operation mode is now active.';
+      getGlobalMessageService().sendInjectSystemMessage(sessionId, exitMsgText);
+
+      return; // ⛔️ 阻止发送给 AI
+    }
 
     const currentSession = state.sessions.get(sessionId);
     if (!currentSession) return;
@@ -1630,10 +1743,10 @@ User question: ${contentStr}`;
     // 🔥 关键修复：优先使用手动修改的标题
     // 如果 session.info.name 不是默认值，说明是手动修改的或自动生成的，直接使用
     const isDefaultName = !session.info.name ||
-                          session.info.name === 'New Session' ||
-                          session.info.name === 'New Chat' ||
-                          session.info.name === 'Untitled Chat' ||
-                          session.info.name === '新建会话';
+      session.info.name === 'New Session' ||
+      session.info.name === 'New Chat' ||
+      session.info.name === 'Untitled Chat' ||
+      session.info.name === '新建会话';
 
     if (!isDefaultName) {
       // 有明确的标题（手动修改或自动生成），直接使用
@@ -2022,33 +2135,7 @@ User question: ${contentStr}`;
               tokenUsage={currentSession.info.tokenUsage}     // 🎯 传入Token使用情况
               rollbackableMessageIds={currentSession.rollbackableMessageIds} // 🎯 传入可回滚消息ID列表
               isPlanMode={currentSession.isPlanMode}          // 🎯 传入Plan模式状态
-              onTogglePlanMode={(enabled) => {                // 🎯 传入Plan模式切换回调
-                if (state.currentSessionId) {
-                  const sessionId = state.currentSessionId;  // 🎯 在外部捕获sessionId，避免null问题
-                  togglePlanMode(sessionId, enabled);
-
-                  // 🎯 当关闭Plan模式时，自动发送退出消息到后端
-                  if (!enabled && currentSession.isPlanMode) {
-                    // 延迟以确保状态已更新
-                    setTimeout(() => {
-                      const updatedSession = getCurrentSession();
-                      if (updatedSession && updatedSession.messages.length > 0) {
-                        // 获取最后一条消息（应该是刚添加的退出消息）
-                        const lastMessage = updatedSession.messages[updatedSession.messages.length - 1];
-                        if (lastMessage.type === 'user' && lastMessage.id.startsWith('plan-mode-exit-')) {
-                          console.log(`🎯 [PLAN-MODE-EXIT] Auto-sending exit message to backend:`, lastMessage.id);
-                          // 发送到后端
-                          getGlobalMessageService().sendChatMessage(
-                            sessionId,
-                            lastMessage.content,
-                            lastMessage.id
-                          );
-                        }
-                      }
-                    }, 50);
-                  }
-                }
-              }}
+              onTogglePlanMode={handlePlanModeToggle}         // 🎯 传入Plan模式切换回调
             />
           ) : (
             <div className="multi-session-app__no-session">
@@ -2226,7 +2313,7 @@ User question: ${contentStr}`;
 
       {/* 🎯 重命名对话框 */}
       {renameDialog.isOpen && (
-        <div className="rename-dialog-overlay" style={{
+        <div className="rename-dialog-overlay" onClick={() => setRenameDialog({ ...renameDialog, isOpen: false })} style={{
           position: 'fixed',
           top: 0,
           left: 0,
@@ -2238,7 +2325,7 @@ User question: ${contentStr}`;
           alignItems: 'center',
           zIndex: 1000
         }}>
-          <div className="rename-dialog" style={{
+          <div className="rename-dialog" onClick={(e) => e.stopPropagation()} style={{
             backgroundColor: 'var(--vscode-editor-background)',
             border: '1px solid var(--vscode-widget-border)',
             padding: '20px',
@@ -2317,6 +2404,16 @@ User question: ${contentStr}`;
 
       {/* 🎯 全局拖拽测试组件 - 恢复启用但非干扰模式 */}
       <DragDropGlobalTest enabled={false} />
+
+      {/* 🌙 健康使用提醒（全屏蒙层） */}
+      {showHealthyUseReminder && (
+        <HealthyUseReminder
+          onDismiss={() => {
+            setShowHealthyUseReminder(false);
+            setLastHealthyUseReminderDismissedAt(Date.now());
+          }}
+        />
+      )}
     </div>
   );
 };

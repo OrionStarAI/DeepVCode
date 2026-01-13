@@ -53,7 +53,7 @@ function analyzeDiffStats(diffContent: string): DiffStats {
   if (diffContent.includes('new file mode')) {
     isNewFile = true;
   } else if (diffContent.includes('deleted file mode') ||
-             (diffContent.includes('--- a/') && diffContent.includes('+++ /dev/null'))) {
+    (diffContent.includes('--- a/') && diffContent.includes('+++ /dev/null'))) {
     isDeletedFile = true;
   }
 
@@ -164,13 +164,13 @@ export const ToolMessage: React.FC<ToolMessageProps> = ({
   const isShellRunning = toolId === 'run_shell_command' &&
     (status === ToolCallStatus.Executing || status === ToolCallStatus.Pending);
   const shouldSimplifyDiff = smallWindowConfig.sizeLevel === WindowSizeLevel.SMALL ||
-                           smallWindowConfig.sizeLevel === WindowSizeLevel.TINY;
+    smallWindowConfig.sizeLevel === WindowSizeLevel.TINY;
 
   const availableHeight = availableTerminalHeight
     ? Math.max(
-        availableTerminalHeight - STATIC_HEIGHT - RESERVED_LINE_COUNT,
-        MIN_LINES_SHOWN + 1, // enforce minimum lines shown
-      )
+      availableTerminalHeight - STATIC_HEIGHT - RESERVED_LINE_COUNT,
+      MIN_LINES_SHOWN + 1, // enforce minimum lines shown
+    )
     : undefined;
 
   // Long tool call response in MarkdownDisplay doesn't respect availableTerminalHeight properly,
@@ -318,6 +318,27 @@ export const ToolMessage: React.FC<ToolMessageProps> = ({
                 );
               })()
             ) : null}
+            {typeof resultDisplay !== 'string' && (resultDisplay as any).fileDiff ? (
+              <Box flexDirection="row">
+                <Text color={Colors.Gray}>└ </Text>
+                <Box flexGrow={1}>
+                  {shouldSimplifyDiff ? (
+                    renderSimplifiedDiffStats(
+                      analyzeDiffStats((resultDisplay as any).fileDiff),
+                      (resultDisplay as any).fileName || '未知文件'
+                    )
+                  ) : (
+                    <DiffRenderer
+                      diffContent={(resultDisplay as any).fileDiff}
+                      filename={(resultDisplay as any).fileName}
+                      availableTerminalHeight={availableHeight}
+                      terminalWidth={childWidth - 2}
+                    />
+                  )}
+                </Box>
+              </Box>
+            ) : null}
+
             {typeof resultDisplay !== 'string' && (resultDisplay as any).type === 'todo_display' ? (
               <Box flexDirection="row">
                 <Text color={Colors.Gray}>└ </Text>
@@ -339,26 +360,6 @@ export const ToolMessage: React.FC<ToolMessageProps> = ({
                 <Text color={Colors.Gray}>└ </Text>
                 <Box flexGrow={1}>
                   <SubAgentDisplayRenderer data={(resultDisplay as any).data} />
-                </Box>
-              </Box>
-            ) : null}
-            {typeof resultDisplay !== 'string' && (resultDisplay as any).fileDiff ? (
-              <Box flexDirection="row">
-                <Text color={Colors.Gray}>└ </Text>
-                <Box flexGrow={1}>
-                  {shouldSimplifyDiff ? (
-                    renderSimplifiedDiffStats(
-                      analyzeDiffStats((resultDisplay as any).fileDiff),
-                      (resultDisplay as any).fileName || '未知文件'
-                    )
-                  ) : (
-                    <DiffRenderer
-                      diffContent={(resultDisplay as any).fileDiff}
-                      filename={(resultDisplay as any).fileName}
-                      availableTerminalHeight={availableHeight}
-                      terminalWidth={childWidth - 2}
-                    />
-                  )}
                 </Box>
               </Box>
             ) : null}
@@ -392,7 +393,7 @@ const ToolStatusIndicator: React.FC<ToolStatusIndicatorProps> = ({
       <Text color={Colors.AccentYellow}>▸</Text>
     ) : null}
     {status === ToolCallStatus.Success ? (
-      <Text color={Colors.AccentGreen}>●</Text>
+      <Text color={Colors.AccentGreen}>•</Text>
     ) : null}
     {status === ToolCallStatus.Confirming ? (
       <Text color={Colors.AccentYellow}>?</Text>

@@ -1,8 +1,10 @@
 /**
  * @license
- * Copyright 2025 Google LLC
+ * Copyright 2025 DeepV Code team
+ * https://github.com/OrionStarAI/DeepVCode
  * SPDX-License-Identifier: Apache-2.0
  */
+
 
 import { promises as fs } from 'fs';
 import * as path from 'path';
@@ -828,6 +830,27 @@ export class SessionManager {
       index.sessions = activeSessions;
       await this.saveIndex(index);
 
+    }
+  }
+
+  /**
+   * 更新session检查点
+   */
+  async updateSessionCheckpoint(sessionId: string, checkpointId: string, updates: Partial<any>): Promise<void> {
+    const sessionDir = this.getSessionDir(sessionId);
+    const checkpointsFile = path.join(sessionDir, 'checkpoints.json');
+
+    try {
+      const content = await fs.readFile(checkpointsFile, 'utf-8');
+      let checkpoints: any[] = JSON.parse(content);
+
+      const index = checkpoints.findIndex(cp => cp.id === checkpointId);
+      if (index !== -1) {
+        checkpoints[index] = { ...checkpoints[index], ...updates };
+        await fs.writeFile(checkpointsFile, JSON.stringify(checkpoints, null, 2));
+      }
+    } catch (error) {
+      console.warn(`[SessionManager] Failed to update checkpoint ${checkpointId}:`, getErrorMessage(error));
     }
   }
 

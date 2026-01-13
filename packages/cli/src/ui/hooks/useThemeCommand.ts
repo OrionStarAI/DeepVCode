@@ -8,7 +8,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { themeManager } from '../themes/theme-manager.js';
 import { LoadedSettings, SettingScope } from '../../config/settings.js'; // Import LoadedSettings, AppSettings, MergedSetting
 import { type HistoryItem, MessageType } from '../types.js';
-import { t } from '../utils/i18n.js';
+import { t, tp } from '../utils/i18n.js';
 import process from 'node:process';
 
 interface UseThemeCommandReturn {
@@ -30,17 +30,14 @@ export const useThemeCommand = (
 
   // Check for theme configuration on startup
   useEffect(() => {
+    // 只要用户级别没有设置过主题，就视为“初次启动”，需要提示设置
+    const userTheme = loadedSettings.user.settings.theme;
     const effectiveTheme = loadedSettings.merged.theme;
 
-    console.log('🎨 [ThemeCommand] useEffect triggered, effectiveTheme:', effectiveTheme);
-
-    // 如果没有配置主题，自动打开主题选择对话框
-    if (!effectiveTheme) {
-      console.log('🎨 [ThemeCommand] No theme configured, opening theme dialog');
-
+    // 如果没有用户级配置主题，自动打开主题选择对话框
+    if (!userTheme) {
       // 检查是否设置了 NO_COLOR 环境变量
       if (process.env.NO_COLOR) {
-        console.log('🎨 [ThemeCommand] NO_COLOR set, showing info message');
         addItem(
           {
             type: MessageType.INFO,
@@ -51,7 +48,6 @@ export const useThemeCommand = (
         return;
       }
 
-      console.log('🎨 [ThemeCommand] Setting isThemeDialogOpen to true');
       setIsThemeDialogOpen(true);
       setThemeError(null); // 清除任何之前的错误
       addItem(
@@ -66,11 +62,9 @@ export const useThemeCommand = (
 
     // 如果配置了主题但主题不存在，也打开对话框
     if (!themeManager.findThemeByName(effectiveTheme)) {
-      console.log('🎨 [ThemeCommand] Theme not found:', effectiveTheme);
       setIsThemeDialogOpen(true);
-      setThemeError(`主题 "${effectiveTheme}" 未找到，请重新选择。`);
+      setThemeError(tp('theme.error.not_found', { theme: effectiveTheme || '' }));
     } else {
-      console.log('🎨 [ThemeCommand] Theme is valid:', effectiveTheme);
       setThemeError(null);
     }
   }, [loadedSettings.merged.theme, setThemeError, addItem]);
@@ -94,7 +88,7 @@ export const useThemeCommand = (
       if (!themeManager.setActiveTheme(themeName)) {
         // If theme is not found, open the theme selection dialog and set error message
         setIsThemeDialogOpen(true);
-        setThemeError(`Theme "${themeName}" not found.`);
+        setThemeError(tp('theme.error.not_found', { theme: themeName || '' }));
       } else {
         setThemeError(null); // Clear any previous theme error on success
       }
@@ -111,7 +105,6 @@ export const useThemeCommand = (
 
   const handleThemeSelect = useCallback(
     (themeName: string | undefined, scope: SettingScope) => {
-      console.log('🎨 [handleThemeSelect] Called with themeName:', themeName, 'scope:', scope);
       try {
         // Merge user and workspace custom themes (workspace takes precedence)
         const mergedCustomThemes = {
@@ -121,28 +114,22 @@ export const useThemeCommand = (
         // Only allow selecting themes available in the merged custom themes or built-in themes
         const isBuiltIn = themeManager.findThemeByName(themeName);
         const isCustom = themeName && mergedCustomThemes[themeName];
-        console.log('🎨 [handleThemeSelect] isBuiltIn:', isBuiltIn, 'isCustom:', isCustom);
 
         if (!isBuiltIn && !isCustom) {
-          console.log('🎨 [handleThemeSelect] Theme not found error');
-          setThemeError(`Theme "${themeName}" not found in selected scope.`);
+          setThemeError(tp('theme.error.scope_not_found', { theme: themeName || '' }));
           setIsThemeDialogOpen(true);
           return;
         }
-        console.log('🎨 [handleThemeSelect] Calling setValue...');
         loadedSettings.setValue(scope, 'theme', themeName); // Update the merged settings
-        console.log('🎨 [handleThemeSelect] setValue completed, merged.theme:', loadedSettings.merged.theme);
 
         if (loadedSettings.merged.customThemes) {
           themeManager.loadCustomThemes(loadedSettings.merged.customThemes);
         }
         applyTheme(loadedSettings.merged.theme); // Apply the current theme
         setThemeError(null);
-        console.log('🎨 [handleThemeSelect] Theme applied successfully');
       } finally {
         // Delay closing the dialog to prevent the Enter key from being processed by InputPrompt
         setImmediate(() => {
-          console.log('🎨 [handleThemeSelect] Closing dialog...');
           setIsThemeDialogOpen(false); // Close the dialog
         });
       }

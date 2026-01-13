@@ -25,6 +25,7 @@ export const Header: React.FC<HeaderProps> = ({
   nightly,
   feishuServerPort,
 }) => {
+
   // 如果用户自定义了 ASCII art，则使用它
   if (customAsciiArt) {
     return (
@@ -36,17 +37,19 @@ export const Header: React.FC<HeaderProps> = ({
 
   // 像素风格的机器人 logo + 版本信息 - 参考 Claude Code 风格
   return (
-    <Box flexDirection="row" marginBottom={1} paddingX={1}>
-      <Box marginRight={2}>
-        <Text color={Colors.AccentBlue}>{cuteVLogo}</Text>
-      </Box>
-      <Box flexDirection="column" justifyContent="center">
-        <Text bold>
-          DeepV Code v{version}
-        </Text>
-        <Text dimColor color={Colors.Gray}>
-          Gemini · API Usage Billing
-        </Text>
+    <Box flexDirection="column" marginBottom={1}>
+      <Box flexDirection="row" paddingX={1}>
+        <Box marginRight={2}>
+          <Text color={Colors.AccentBlue}>{cuteVLogo}</Text>
+        </Box>
+        <Box flexDirection="column" justifyContent="center">
+          <Text bold>
+            DeepV Code v{version}
+          </Text>
+          <Text dimColor color={Colors.Gray}>
+            Gemini · API Usage Billing
+          </Text>
+        </Box>
       </Box>
     </Box>
   );
