@@ -18,6 +18,11 @@ import type { AgentStyle } from 'deepv-code-core';
  * - /agent-style: 显示当前风格及帮助
  * - /agent-style default: 切换到 Claude-style（默认，强调计划、解释）
  * - /agent-style codex: 切换到 Codex-style（快速确认后静默执行）
+ * - /agent-style cursor: 切换到 Cursor-style（语义搜索优先）
+ * - /agent-style augment: 切换到 Augment-style（任务列表驱动）
+ * - /agent-style claude-code: 切换到 Claude Code-style（极致极简）
+ * - /agent-style antigravity: 切换到 Antigravity-style（知识库优先）
+ * - /agent-style windsurf: 切换到 Windsurf-style（AI Flow 范式）
  * - /agent-style status: 查看当前风格状态
  *
  * 切换后会：
@@ -43,49 +48,65 @@ export const agentStyleCommand: SlashCommand = {
 
     const currentStyle = config.getAgentStyle();
 
+    const getStyleInfo = (style: AgentStyle) => {
+      switch (style) {
+        case 'codex': return { icon: '⚡', label: t('agentStyle.style.codex.label'), desc: t('agentStyle.style.codex.description') };
+        case 'cursor': return { icon: '🎯', label: t('agentStyle.style.cursor.label'), desc: t('agentStyle.style.cursor.description') };
+        case 'augment': return { icon: '🚀', label: t('agentStyle.style.augment.label'), desc: t('agentStyle.style.augment.description') };
+        case 'claude-code': return { icon: '⌨️', label: t('agentStyle.style.claudeCode.label'), desc: t('agentStyle.style.claudeCode.description') };
+        case 'antigravity': return { icon: '💎', label: t('agentStyle.style.antigravity.label'), desc: t('agentStyle.style.antigravity.description') };
+        case 'windsurf': return { icon: '🌊', label: t('agentStyle.style.windsurf.label'), desc: t('agentStyle.style.windsurf.description') };
+        default: return { icon: '🧠', label: t('agentStyle.style.default.label'), desc: t('agentStyle.style.default.description') };
+      }
+    };
+
     // 无参数或 status: 显示当前状态和帮助
     if (!trimmedArgs || trimmedArgs === 'status') {
-      const styleIcon = currentStyle === 'codex' ? '⚡' : '🧠';
-      const styleLabel = currentStyle === 'codex'
-        ? t('agentStyle.style.codex.label')
-        : t('agentStyle.style.default.label');
-      const styleDesc = currentStyle === 'codex'
-        ? t('agentStyle.style.codex.description')
-        : t('agentStyle.style.default.description');
+      const { icon, label, desc } = getStyleInfo(currentStyle);
 
       return {
         type: 'message',
         messageType: 'info',
-        content: `${styleIcon} ${tp('agentStyle.status.current', { style: styleLabel })}
+        content: `${icon} ${tp('agentStyle.status.current', { style: label })}
 
 ` +
-          `${styleDesc}
+          `${desc}
 
 ` +
           `${t('agentStyle.usage.title')}
 ` +
-          `  /agent-style default  - ${t('agentStyle.usage.default')}
+          `  /agent-style default      - ${t('agentStyle.usage.default')}
 ` +
-          `  /agent-style codex    - ${t('agentStyle.usage.codex')}
+          `  /agent-style codex        - ${t('agentStyle.usage.codex')}
 ` +
-          `  /agent-style status   - ${t('agentStyle.usage.status')}`,
+          `  /agent-style cursor       - ${t('agentStyle.usage.cursor')}
+` +
+          `  /agent-style augment      - ${t('agentStyle.usage.augment')}
+` +
+          `  /agent-style claude-code  - ${t('agentStyle.usage.claudeCode')}
+` +
+          `  /agent-style antigravity  - ${t('agentStyle.usage.antigravity')}
+` +
+          `  /agent-style windsurf     - ${t('agentStyle.usage.windsurf')}
+` +
+          `  /agent-style status       - ${t('agentStyle.usage.status')}`,
       };
     }
 
     /**
      * 切换 Agent 风格并刷新 system prompt
-     * Codex 模式自动启用 YOLO，default 模式恢复普通确认
+     * Codex 模式自动启用 YOLO，其他模式恢复普通确认
      */
     const switchStyle = async (newStyle: AgentStyle): Promise<SlashCommandActionReturn> => {
       try {
         // 1. 持久化 agent style
         config.setAgentStyle(newStyle);
 
-        // 2. Codex 模式自动启用 YOLO（类似 OpenAI Codex CLI 的 full-auto 模式）
+        // 2. Codex 模式自动启用 YOLO
         if (newStyle === 'codex') {
           config.setApprovalModeWithProjectSync(ApprovalMode.YOLO, true);
         } else {
-          // 切回 default 时恢复普通确认模式
+          // 切回其他模式时恢复普通确认模式
           config.setApprovalModeWithProjectSync(ApprovalMode.DEFAULT, true);
         }
 
@@ -96,15 +117,19 @@ export const agentStyleCommand: SlashCommand = {
           if (chat) {
             const isVSCode = config.getVsCodePluginMode();
             const userMemory = config.getUserMemory();
-            const updatedSystemPrompt = getCoreSystemPrompt(userMemory, isVSCode, undefined, newStyle);
+            const updatedSystemPrompt = getCoreSystemPrompt(
+              userMemory,
+              isVSCode,
+              undefined,
+              newStyle,
+              undefined,
+              config.getPreferredLanguage()
+            );
             chat.setSystemInstruction(updatedSystemPrompt);
           }
         }
 
-        const icon = newStyle === 'codex' ? '⚡' : '🧠';
-        const label = newStyle === 'codex'
-          ? t('agentStyle.style.codex.label')
-          : t('agentStyle.style.default.label');
+        const { icon, label } = getStyleInfo(newStyle);
         const yoloNote = newStyle === 'codex'
           ? `\n${t('agentStyle.codex.yolo.enabled')}`
           : '';
@@ -123,28 +148,31 @@ export const agentStyleCommand: SlashCommand = {
       }
     };
 
-    // 切换到 default
-    if (trimmedArgs === 'default' || trimmedArgs === 'claude') {
-      if (currentStyle === 'default') {
-        return {
-          type: 'message',
-          messageType: 'info',
-          content: `🧠 ${t('agentStyle.already.default')}`,
-        };
-      }
-      return switchStyle('default');
-    }
+    // 映射子命令到 AgentStyle
+    const styleMap: Record<string, AgentStyle> = {
+      'default': 'default',
+      'claude': 'default',
+      'codex': 'codex',
+      'fast': 'codex',
+      'cursor': 'cursor',
+      'augment': 'augment',
+      'claude-code': 'claude-code',
+      'antigravity': 'antigravity',
+      'windsurf': 'windsurf',
+      'wave': 'windsurf',
+    };
 
-    // 切换到 codex
-    if (trimmedArgs === 'codex' || trimmedArgs === 'fast') {
-      if (currentStyle === 'codex') {
+    if (styleMap[trimmedArgs]) {
+      const newStyle = styleMap[trimmedArgs];
+      if (currentStyle === newStyle) {
+        const { icon } = getStyleInfo(newStyle);
         return {
           type: 'message',
           messageType: 'info',
-          content: `⚡ ${t('agentStyle.already.codex')}`,
+          content: `${icon} ${tp('agentStyle.already.using', { style: trimmedArgs })}`,
         };
       }
-      return switchStyle('codex');
+      return switchStyle(newStyle);
     }
 
     // 未知参数
@@ -156,7 +184,7 @@ export const agentStyleCommand: SlashCommand = {
   },
 
   completion: async (_context, partialArg) => {
-    const commands = ['default', 'codex', 'status'];
+    const commands = ['default', 'codex', 'cursor', 'augment', 'claude-code', 'antigravity', 'windsurf', 'status'];
     return commands.filter((cmd) => cmd.startsWith(partialArg.toLowerCase()));
   },
 };

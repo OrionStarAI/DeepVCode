@@ -12,7 +12,12 @@ import { useInputHistory } from '../hooks/useInputHistory.js';
 import { TextBuffer } from './shared/text-buffer.js';
 import { cpSlice, cpLen, hasRealLineBreaks, getRealLineCount } from '../utils/textUtils.js';
 import { sanitizePasteContent } from '../utils/displayUtils.js';
-import { formatAttachmentReferencesForDisplay, ensureQuotesAroundAttachments } from '../utils/attachmentFormatter.js';
+import {
+  formatAttachmentReferencesForDisplay,
+  ensureQuotesAroundAttachments,
+  getAttachmentSegments,
+  formatAttachmentSegment
+} from '../utils/attachmentFormatter.js';
 import chalk from 'chalk';
 import stringWidth from 'string-width';
 import { useShellHistory } from '../hooks/useShellHistory.js';
@@ -757,6 +762,12 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
 
       // Handle Enter for submit (only when not using modifiers)
       if (key.name === 'return' && !key.shift && !key.ctrl && !key.meta && !key.paste) {
+        // 🛡️ 防止工具确认菜单的回车事件意外提交输入框内容
+        // 当有模态框（包括工具确认菜单）打开时，回车应该只用于确认选项，不应该提交输入
+        if (isModalOpen) {
+          return; // 忽略回车事件，让模态框处理
+        }
+
         if (buffer.text.trim()) {
           const [row, col] = buffer.cursor;
           const line = buffer.lines[row];
@@ -1021,31 +1032,30 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
       const needsCursor = focus && visualIdxInRenderedSet === cursorVisualRow;
 
       if (needsCursor) {
-        // 有光标的情况：在原始文本上处理光标，再格式化
-        const relativeVisualColForHighlight = cursorVisualColAbsolute;
-        const originalLineLength = cpLen(truncatedLineText);
+        // 有光标的情况：使用片段解析来正确处理附件框内的光标，避免分割导致的渲染错误
+        const segments = getAttachmentSegments(truncatedLineText);
+        let currentIdx = 0;
+        let renderedLine = '';
+        let cursorFound = false;
 
-        if (relativeVisualColForHighlight >= 0 && relativeVisualColForHighlight < originalLineLength) {
-          // 光标在行中间
-          const beforeCursor = cpSlice(truncatedLineText, 0, relativeVisualColForHighlight);
-          const charAtCursor = cpSlice(truncatedLineText, relativeVisualColForHighlight, relativeVisualColForHighlight + 1) || ' ';
-          const afterCursor = cpSlice(truncatedLineText, relativeVisualColForHighlight + 1);
-
-          // 格式化前后部分
-          const formattedBefore = formatAttachmentReferencesForDisplay(beforeCursor);
-          const formattedAfter = formatAttachmentReferencesForDisplay(afterCursor);
-          const highlighted = chalk.inverse(charAtCursor);
-
-          // 组合：格式化前 + 高亮字符 + 格式化后
-          display = formattedBefore + highlighted + formattedAfter;
-        } else if (relativeVisualColForHighlight >= originalLineLength) {
-          // 光标在行末
-          const formattedLine = formatAttachmentReferencesForDisplay(truncatedLineText);
-          display = formattedLine + chalk.inverse(' ');
-        } else {
-          // 不应该到这里
-          display = formatAttachmentReferencesForDisplay(truncatedLineText);
+        for (const segment of segments) {
+          const segmentLen = cpLen(segment.text);
+          if (!cursorFound && cursorVisualColAbsolute >= currentIdx && cursorVisualColAbsolute < currentIdx + segmentLen) {
+            // 光标在这个片段内
+            const relativePos = cursorVisualColAbsolute - currentIdx;
+            renderedLine += formatAttachmentSegment(segment, relativePos);
+            cursorFound = true;
+          } else {
+            renderedLine += formatAttachmentSegment(segment);
+          }
+          currentIdx += segmentLen;
         }
+
+        // 如果光标在行末（超出所有片段）
+        if (!cursorFound) {
+          renderedLine += chalk.inverse(' ');
+        }
+        display = renderedLine;
       } else {
         // 没有光标的情况：直接格式化
         display = formatAttachmentReferencesForDisplay(truncatedLineText);

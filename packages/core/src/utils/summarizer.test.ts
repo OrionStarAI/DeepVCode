@@ -102,7 +102,8 @@ describe('summarizers', () => {
       expect(mockGeminiClient.createTemporaryChat).toHaveBeenCalledWith(
         SceneType.CONTENT_SUMMARY,
         expect.any(String),
-        { type: 'sub', agentId: 'Summarizer' }
+        { type: 'sub', agentId: 'Summarizer' },
+        { disableSystemPrompt: true }
       );
       expect(mockTemporaryChat.sendMessage).toHaveBeenCalledTimes(1);
       expect(result).toBe(summary);

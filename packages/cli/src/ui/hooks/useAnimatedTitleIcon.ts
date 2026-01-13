@@ -7,9 +7,9 @@
 import { useEffect, useState } from 'react';
 import { StreamingState } from '../types.js';
 
-const BUSY_ICONS = ['✦', '𝑉', '𝐕', '𝗩'];
+const BUSY_ICONS = ['✦', '𝑉', '𝐕', '𝗩', '✌️', '🆅', 'Ⓥ'];
 const IDLE_ICON = '🚀';
-const ANIMATION_INTERVAL_MS = 1000;
+const ANIMATION_INTERVAL_MS = 500;
 
 /**
  * Hook that provides animated title icon based on AI streaming state

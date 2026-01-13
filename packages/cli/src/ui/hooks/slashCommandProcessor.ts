@@ -23,6 +23,8 @@ import {
 import { TokenUsageInfo } from '../components/TokenUsageDisplay.js';
 import { LoadedSettings } from '../../config/settings.js';
 import { runExitCleanup } from '../../utils/cleanup.js';
+import { setQuitting, getIsQuitting } from '../../utils/quitState.js';
+import { getCreditsService } from '../../services/creditsService.js';
 import { type CommandContext, type SlashCommand } from '../commands/types.js';
 import { CommandService } from '../../services/CommandService.js';
 import { BuiltinCommandLoader } from '../../services/BuiltinCommandLoader.js';
@@ -433,6 +435,17 @@ export const useSlashCommandProcessor = (
                 }
                 case 'quit':
                   setShowHelp(false);
+
+                  // 🎯 优化：防抖处理
+                  // 如果已经在退出中，直接忽略重复的退出指令
+                  if (getIsQuitting()) {
+                    return { type: 'handled' };
+                  }
+
+                  // 🎯 macOS Ctrl+C OOM 修复：立即设置退出标志位
+                  // 这会告诉信号处理器禁用 JS 清理逻辑，快速 Ctrl+C 直接 exit
+                  setQuitting(true);
+
                   // 🆕 立即显示"正在退出"提示，让用户立刻看到反馈
                   addItem(
                     {
@@ -444,16 +457,39 @@ export const useSlashCommandProcessor = (
                   // 在下一个事件循环显示退出消息，确保UI已更新
                   setImmediate(() => {
                     setQuittingMessages(result.messages);
-                    // Node.js CLI 环境：给UI一点时间渲染SessionSummaryDisplay，然后清理和退出
-                    // 之前的2.5秒等待太长了，SessionSummaryDisplay会自己处理积分加载
-                    setTimeout(async () => {
-                      try {
-                        await runExitCleanup();
-                      } catch (error) {
-                        // 忽略清理错误
-                      }
-                      process.exit(0);
-                    }, 1200);
+
+                    // 🎯 优化：智能退出逻辑
+                    // 1. 给 UI 一点时间渲染 SessionSummaryDisplay (至少 500ms)
+                    // 2. 同时等待积分接口返回（如果还在加载中）
+                    // 3. 总等待时间不超过 1200ms
+                    const startTime = Date.now();
+                    const MIN_WAIT = 500;
+                    const MAX_WAIT = 1200;
+                    let exited = false;
+
+                    const performExit = () => {
+                      if (exited) return;
+                      exited = true;
+
+                      const elapsed = Date.now() - startTime;
+                      const remaining = Math.max(0, MIN_WAIT - elapsed);
+
+                      setTimeout(() => {
+                        // Fire and forget cleanup to prevent hanging
+                        runExitCleanup().catch(() => {});
+                        process.exit(0);
+                      }, remaining);
+                    };
+
+                    // 尝试等待积分加载完成，然后尽快退出
+                    getCreditsService()
+                      .getCreditsInfo()
+                      .finally(() => {
+                        performExit();
+                      });
+
+                    // 安全网：无论积分接口如何，1.2秒内必须退出
+                    setTimeout(performExit, MAX_WAIT);
                   });
 
                   return { type: 'handled' };

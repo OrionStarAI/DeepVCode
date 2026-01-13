@@ -23,6 +23,7 @@ import { HistoryItemWithoutId } from '../types.js';
  * - /config agent-style      切换Agent风格 (default/codex)
  * - /config yolo             切换YOLO自动批准模式
  * - /config healthy-use      切换健康使用提示
+ * - /config language         设置偏好语言
  */
 export const configCommand: SlashCommand = {
   name: 'config',
@@ -90,6 +91,11 @@ export const configCommand: SlashCommand = {
       case 'healthy':
       case 'h':
         return handleHealthyUseConfig(context, subArgs);
+
+      case 'language':
+      case 'lang':
+      case 'l':
+        return await handleLanguageConfig(context, subArgs);
 
       case 'help':
         return displayConfigMenu(context);
@@ -165,13 +171,21 @@ export const configCommand: SlashCommand = {
       action: (context: CommandContext, args: string) =>
         handleHealthyUseConfig(context, args),
     },
+    {
+      name: 'language',
+      altNames: ['lang', 'l'],
+      description: t('config.menu.language'),
+      kind: CommandKind.BUILT_IN,
+      action: async (context: CommandContext, args: string) =>
+        handleLanguageConfig(context, args),
+    },
   ],
 
   completion: async (_context, partialArg) => {
     const subCommands = [
       'theme', 'editor', 'model', 'vim', 'agent-style',
-      'yolo', 'healthy-use', 'help',
-      't', 'e', 'm', 'v', 'a', 'y', 'h'
+      'yolo', 'healthy-use', 'language', 'help',
+      't', 'e', 'm', 'v', 'a', 'y', 'h', 'l'
     ];
     return subCommands.filter(cmd =>
       cmd.toLowerCase().startsWith(partialArg.toLowerCase())
@@ -197,6 +211,19 @@ async function displayConfigMenu(context: CommandContext): Promise<SlashCommandA
   const agentStyle = config.getAgentStyle();
   const approvalMode = config.getApprovalMode();
   const healthyUseEnabled = config.getHealthyUseEnabled();
+  const preferredLanguage = settings.merged.preferredLanguage || t('config.value.default');
+
+  const getStyleIcon = (style: AgentStyle) => {
+    switch (style) {
+      case 'codex': return '⚡';
+      case 'cursor': return '🎯';
+      case 'augment': return '🚀';
+      case 'claude-code': return '⌨️';
+      case 'antigravity': return '💎';
+      case 'windsurf': return '🌊';
+      default: return '🧠';
+    }
+  };
 
   const content = `⚙️  ${t('command.config.description')}
 
@@ -214,14 +241,17 @@ ${t('command.config.available.options')}:
   ${vimEnabled ? '✅' : '❌'} ${t('command.config.vim')}
     /config vim
 
-  ${agentStyle === 'codex' ? '⚡' : '🧠'} ${t('command.config.agent.style')}
-    /config agent-style [default|codex]
+  ${getStyleIcon(agentStyle)} ${t('command.config.agent.style')}
+    /config agent-style [default|codex|cursor|augment|...]
 
   ${approvalMode === ApprovalMode.YOLO ? '🚀' : '🛡️'} ${t('command.config.yolo')}
     /config yolo [on|off]
 
   ${healthyUseEnabled ? '✅' : '❌'} ${t('command.config.healthy.use')}
     /config healthy-use [on|off]
+
+  🌐 ${t('config.menu.language')}
+    /config language [name]  (${preferredLanguage})
 
 ${t('command.config.examples')}:
   /config theme           # ${t('command.config.open.theme')}
@@ -398,26 +428,37 @@ async function handleAgentStyleConfig(
 
   const currentStyle = config.getAgentStyle();
 
+  const getStyleInfo = (style: AgentStyle) => {
+    switch (style) {
+      case 'codex': return { icon: '⚡', label: t('agentStyle.style.codex.label'), desc: t('agentStyle.style.codex.description') };
+      case 'cursor': return { icon: '🎯', label: t('agentStyle.style.cursor.label'), desc: t('agentStyle.style.cursor.description') };
+      case 'augment': return { icon: '🚀', label: t('agentStyle.style.augment.label'), desc: t('agentStyle.style.augment.description') };
+      case 'claude-code': return { icon: '⌨️', label: t('agentStyle.style.claudeCode.label'), desc: t('agentStyle.style.claudeCode.description') };
+      case 'antigravity': return { icon: '💎', label: t('agentStyle.style.antigravity.label'), desc: t('agentStyle.style.antigravity.description') };
+      case 'windsurf': return { icon: '🌊', label: t('agentStyle.style.windsurf.label'), desc: t('agentStyle.style.windsurf.description') };
+      default: return { icon: '🧠', label: t('agentStyle.style.default.label'), desc: t('agentStyle.style.default.description') };
+    }
+  };
+
   // 无参数或 status: 显示当前状态
   if (!trimmedArgs || trimmedArgs === 'status') {
-    const styleIcon = currentStyle === 'codex' ? '⚡' : '🧠';
-    const styleLabel = currentStyle === 'codex'
-      ? t('agentStyle.style.codex.label')
-      : t('agentStyle.style.default.label');
-    const styleDesc = currentStyle === 'codex'
-      ? t('agentStyle.style.codex.description')
-      : t('agentStyle.style.default.description');
+    const { icon, label, desc } = getStyleInfo(currentStyle);
 
     return {
       type: 'message',
       messageType: 'info',
-      content: `${styleIcon} ${tp('agentStyle.status.current', { style: styleLabel })}
+      content: `${icon} ${tp('agentStyle.status.current', { style: label })}
 
-${styleDesc}
+${desc}
 
 ${t('agentStyle.usage.title')}
-  /config agent-style default  - ${t('agentStyle.usage.default')}
-  /config agent-style codex    - ${t('agentStyle.usage.codex')}`,
+  /config agent-style default      - ${t('agentStyle.usage.default')}
+  /config agent-style codex        - ${t('agentStyle.usage.codex')}
+  /config agent-style cursor       - ${t('agentStyle.usage.cursor')}
+  /config agent-style augment      - ${t('agentStyle.usage.augment')}
+  /config agent-style claude-code  - ${t('agentStyle.usage.claudeCode')}
+  /config agent-style antigravity  - ${t('agentStyle.usage.antigravity')}
+  /config agent-style windsurf     - ${t('agentStyle.usage.windsurf')}`,
     };
   }
 
@@ -444,16 +485,15 @@ ${t('agentStyle.usage.title')}
             userMemory,
             isVSCode,
             undefined,
-            newStyle
+            newStyle,
+            undefined, // modelId
+            config.getPreferredLanguage()
           );
           chat.setSystemInstruction(updatedSystemPrompt);
         }
       }
 
-      const icon = newStyle === 'codex' ? '⚡' : '🧠';
-      const label = newStyle === 'codex'
-        ? t('agentStyle.style.codex.label')
-        : t('agentStyle.style.default.label');
+      const { icon, label } = getStyleInfo(newStyle);
       const yoloNote = newStyle === 'codex'
         ? `\n${t('agentStyle.codex.yolo.enabled')}`
         : '';
@@ -474,26 +514,30 @@ ${t('agentStyle.usage.title')}
     }
   };
 
-  if (trimmedArgs === 'default' || trimmedArgs === 'claude') {
-    if (currentStyle === 'default') {
-      return {
-        type: 'message',
-        messageType: 'info',
-        content: `🧠 ${t('agentStyle.already.default')}`,
-      };
-    }
-    return switchStyle('default');
-  }
+  const styleMap: Record<string, AgentStyle> = {
+    'default': 'default',
+    'claude': 'default',
+    'codex': 'codex',
+    'fast': 'codex',
+    'cursor': 'cursor',
+    'augment': 'augment',
+    'claude-code': 'claude-code',
+    'antigravity': 'antigravity',
+    'windsurf': 'windsurf',
+    'wave': 'windsurf',
+  };
 
-  if (trimmedArgs === 'codex' || trimmedArgs === 'fast') {
-    if (currentStyle === 'codex') {
+  if (styleMap[trimmedArgs]) {
+    const newStyle = styleMap[trimmedArgs];
+    if (currentStyle === newStyle) {
+      const { icon } = getStyleInfo(newStyle);
       return {
         type: 'message',
         messageType: 'info',
-        content: `⚡ ${t('agentStyle.already.codex')}`,
+        content: `${icon} ${tp('agentStyle.already.using', { style: trimmedArgs })}`,
       };
     }
-    return switchStyle('codex');
+    return switchStyle(newStyle);
   }
 
   return {
@@ -685,6 +729,74 @@ Usage:
 }
 
 /**
+ * 处理语言配置
+ */
+async function handleLanguageConfig(context: CommandContext, args: string): Promise<SlashCommandActionReturn> {
+  const { settings, config } = context.services;
+  const trimmedArgs = args.trim();
+
+  if (!settings) {
+    return {
+      type: 'message',
+      messageType: 'error',
+      content: t('error.config.not.loaded'),
+    };
+  }
+
+  // 无参数：打开交互式设置面板 (由于 language 目前在 settings-menu 中是文本输入)
+  // 如果是 /config language，我们也可以直接提示当前设置并提供修改方式
+  if (!trimmedArgs) {
+    const currentLang = settings.merged.preferredLanguage || t('config.value.default');
+    return {
+      type: 'message',
+      messageType: 'info',
+      content: `🌐 ${t('config.menu.language')}: ${currentLang}
+
+Usage:
+  /config language <name>    - Set preferred language (e.g., English, 中文)
+  /config language default   - Clear preference (AI decided)`,
+    };
+  }
+
+  // 设置语言
+  const newLang = (trimmedArgs.toLowerCase() === 'default' || trimmedArgs.toLowerCase() === 'none')
+    ? undefined
+    : trimmedArgs;
+
+  settings.setValue(SettingScope.User, 'preferredLanguage', newLang);
+
+  // 刷新 system prompt 以立即生效
+  if (config) {
+    const geminiClient = await config.getGeminiClient();
+    if (geminiClient) {
+      const chat = geminiClient.getChat();
+      if (chat) {
+        const isVSCode = config.getVsCodePluginMode();
+        const userMemory = config.getUserMemory();
+        const agentStyle = config.getAgentStyle();
+        const updatedSystemPrompt = getCoreSystemPrompt(
+          userMemory,
+          isVSCode,
+          undefined,
+          agentStyle,
+          undefined,
+          newLang
+        );
+        chat.setSystemInstruction(updatedSystemPrompt);
+      }
+    }
+  }
+
+  return {
+    type: 'message',
+    messageType: 'info',
+    content: newLang
+      ? tp('config.status.language.updated', { language: newLang })
+      : t('config.status.language.cleared'),
+  };
+}
+
+/**
  * 获取配置帮助信息
  */
 function getConfigHelp(): string {
@@ -693,7 +805,8 @@ function getConfigHelp(): string {
   /config editor             - Open editor settings
   /config model [name]       - Set AI model
   /config vim                - Toggle Vim mode
-  /config agent-style [style] - Set agent style (default|codex)
+  /config agent-style [style] - Set agent style (default|codex|cursor|augment|...)
   /config yolo [on|off]      - Toggle YOLO mode
-  /config healthy-use [on|off] - Toggle healthy use mode`;
+  /config healthy-use [on|off] - Toggle healthy use mode
+  /config language [name]    - Set preferred response language`;
 }
