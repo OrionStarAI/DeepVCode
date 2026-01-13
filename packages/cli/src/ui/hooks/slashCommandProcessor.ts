@@ -11,6 +11,7 @@ import { UseHistoryManagerReturn } from './useHistoryManager.js';
 import { useStateAndRef } from './useStateAndRef.js';
 import { Config, GitService, Logger } from 'deepv-code-core';
 import { useSessionStats } from '../contexts/SessionContext.js';
+import { t } from '../utils/i18n.js';
 import {
   Message,
   MessageType,
@@ -59,6 +60,7 @@ export const useSlashCommandProcessor = (
   totalSessionCredits: number, // 🆕 接收 totalSessionCredits
   consoleMessages: ConsoleMessageItem[], // 🆕 接收 consoleMessages
   lastTokenUsage?: TokenUsageInfo | null, // 🆕 接收 lastTokenUsage
+  openSettingsMenuDialog?: () => void, // 🆕 接收 openSettingsMenuDialog
 ) => {
   const session = useSessionStats();
   const [commands, setCommands] = useState<readonly SlashCommand[]>([]);
@@ -374,6 +376,12 @@ export const useSlashCommandProcessor = (
                       setShowHelp(false);
                       openPrivacyNotice();
                       return { type: 'handled' };
+                    case 'settings-menu':
+                      setShowHelp(false);
+                      if (openSettingsMenuDialog) {
+                        openSettingsMenuDialog();
+                      }
+                      return { type: 'handled' };
                     default: {
                       const unhandled: never = result.dialog;
                       throw new Error(
@@ -425,15 +433,29 @@ export const useSlashCommandProcessor = (
                 }
                 case 'quit':
                   setShowHelp(false);
-                  setQuittingMessages(result.messages);
-                  setTimeout(async () => {
-                    try {
-                      await runExitCleanup();
-                    } catch (error) {
-                      // 忽略清理错误，避免影响正常退出
-                    }
-                    process.exit(0);
-                  }, 100);
+                  // 🆕 立即显示"正在退出"提示，让用户立刻看到反馈
+                  addItem(
+                    {
+                      type: MessageType.INFO,
+                      text: t('command.quit.exiting'),
+                    },
+                    Date.now(),
+                  );
+                  // 在下一个事件循环显示退出消息，确保UI已更新
+                  setImmediate(() => {
+                    setQuittingMessages(result.messages);
+                    // Node.js CLI 环境：给UI一点时间渲染SessionSummaryDisplay，然后清理和退出
+                    // 之前的2.5秒等待太长了，SessionSummaryDisplay会自己处理积分加载
+                    setTimeout(async () => {
+                      try {
+                        await runExitCleanup();
+                      } catch (error) {
+                        // 忽略清理错误
+                      }
+                      process.exit(0);
+                    }, 1200);
+                  });
+
                   return { type: 'handled' };
 
                 case 'submit_prompt':

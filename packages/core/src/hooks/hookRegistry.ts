@@ -65,9 +65,10 @@ export class HookRegistry {
     this.processHooksFromConfig();
     this.initialized = true;
 
-    debugLogger.log(
-      `Hook registry initialized with ${this.entries.length} hook entries`,
-    );
+    // Startup log suppressed for clean CLI output
+    // debugLogger.log(
+    //   `Hook registry initialized with ${this.entries.length} hook entries`,
+    // );
   }
 
   /**

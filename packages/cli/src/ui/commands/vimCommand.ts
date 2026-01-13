@@ -11,6 +11,7 @@ export const vimCommand: SlashCommand = {
   name: 'vim',
   description: t('command.vim.description'),
   kind: CommandKind.BUILT_IN,
+  hidden: true,
   action: async (context, _args) => {
     const newVimState = await context.ui.toggleVimEnabled();
 

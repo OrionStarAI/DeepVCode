@@ -75,11 +75,17 @@ if (!existsSync(join(root, 'node_modules'))) {
 }
 
 // Build workspaces in specific order
-const workspaces = [
+const allWorkspaces = [
   { path: 'packages/core', name: 'core' },
   { path: 'packages/cli', name: 'cli' },
   { path: 'packages/vscode-ui-plugin', name: 'vscode-ui-plugin' }
 ];
+
+// Filter workspaces based on NPM_PUBLISH_MODE
+// When publishing to npm, only build core and cli to speed up CI
+const workspaces = process.env.NPM_PUBLISH_MODE === '1'
+  ? allWorkspaces.filter(ws => ws.name === 'core' || ws.name === 'cli')
+  : allWorkspaces;
 
 const results = [];
 

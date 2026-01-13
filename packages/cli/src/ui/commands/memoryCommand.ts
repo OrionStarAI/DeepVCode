@@ -25,6 +25,34 @@ export const memoryCommand: SlashCommand = {
   kind: CommandKind.BUILT_IN,
   subCommands: [
     {
+      name: 'paths',
+      description: 'Show memory file paths',
+      kind: CommandKind.BUILT_IN,
+      action: async (context) => {
+        const filePaths = context.services.config?.getGeminiMdFilePaths() || [];
+
+        if (filePaths.length === 0) {
+          context.ui.addItem(
+            {
+              type: MessageType.INFO,
+              text: 'No memory files currently loaded.',
+            },
+            Date.now(),
+          );
+          return;
+        }
+
+        const pathsText = `Memory files (${filePaths.length}):\n${filePaths.map(f => `  - ${f}`).join('\n')}`;
+        context.ui.addItem(
+          {
+            type: MessageType.INFO,
+            text: pathsText,
+          },
+          Date.now(),
+        );
+      },
+    },
+    {
       name: 'show',
       description: t('command.memory.show.description'),
       kind: CommandKind.BUILT_IN,

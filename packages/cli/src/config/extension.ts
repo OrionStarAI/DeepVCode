@@ -40,14 +40,15 @@ export async function loadExtensions(workspaceDir: string): Promise<Extension[]>
   const homeExtensions = await loadExtensionsFromDir(os.homedir());
   const allExtensions = [...workspaceExtensions, ...homeExtensions];
 
+  // Startup log suppressed for clean CLI output
   // Don't log extensions in stream-json mode to keep output clean
-  const isStreamJsonMode = process.argv.includes('--output-format') &&
-                          process.argv.includes('stream-json');
+  // const isStreamJsonMode = process.argv.includes('--output-format') &&
+  //                         process.argv.includes('stream-json');
 
-  if (allExtensions.length > 0 && !isStreamJsonMode) {
-    console.log(`[Extensions Loaded] Found ${allExtensions.length} extensions:`,
-      allExtensions.map(e => `${e.config.name}@${e.config.version}`).join(', '));
-  }
+  // if (allExtensions.length > 0 && !isStreamJsonMode) {
+  //   console.log(`[Extensions Loaded] Found ${allExtensions.length} extensions:`,
+  //     allExtensions.map(e => `${e.config.name}@${e.config.version}`).join(', '));
+  // }
 
   const uniqueExtensions = new Map<string, Extension>();
   for (const extension of allExtensions) {

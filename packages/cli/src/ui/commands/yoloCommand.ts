@@ -19,6 +19,7 @@ export const yoloCommand: SlashCommand = {
   name: 'yolo',
   description: t('command.yolo.description'),
   kind: CommandKind.BUILT_IN,
+  hidden: true,
   action: (context: CommandContext, args: string): MessageActionReturn => {
     const { config } = context.services;
     const trimmedArgs = args.trim().toLowerCase();
