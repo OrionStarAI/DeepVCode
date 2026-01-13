@@ -53,7 +53,7 @@ export function fuzzyMatch(text: string, query: string): FuzzyMatchResult {
   if (lowerText === lowerQuery) {
     return {
       matched: true,
-      score: 1000,
+      score: 2000,
       indices: Array.from({ length: text.length }, (_, i) => i),
     };
   }
@@ -62,7 +62,7 @@ export function fuzzyMatch(text: string, query: string): FuzzyMatchResult {
   if (lowerText.startsWith(lowerQuery)) {
     return {
       matched: true,
-      score: 500,
+      score: 1000,
       indices: Array.from({ length: query.length }, (_, i) => i),
     };
   }

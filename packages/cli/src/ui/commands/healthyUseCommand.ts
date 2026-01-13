@@ -13,6 +13,7 @@ export const healthyUseCommand: SlashCommand = {
   name: 'healthy-use',
   description: t('command.healthyUse.description'),
   kind: CommandKind.BUILT_IN,
+  hidden: true,
   action: (context: CommandContext, args: string): MessageActionReturn => {
     const { config, settings } = context.services;
     const trimmedArgs = args.trim().toLowerCase();

@@ -388,7 +388,7 @@ export function useCompletion(
       }
 
       // Command/Sub-command Completion
-      const commandsToSearch = currentLevel || [];
+      const commandsToSearch = (currentLevel || []).filter(cmd => !cmd.hidden);
       if (commandsToSearch.length > 0) {
         let potentialSuggestions: SlashCommand[];
         const potentialSuggestionsWithScore: Array<{ cmd: SlashCommand; fuzzyScore: number }> = [];
@@ -474,8 +474,14 @@ export function useCompletion(
               return scoreB - scoreA; // 降序
             }
 
-            // 同分数保持原顺序
-            return 0;
+            // 同分数下，按长度升序排列（短的优先）
+            const lengthDiff = a.value.length - b.value.length;
+            if (lengthDiff !== 0) {
+              return lengthDiff;
+            }
+
+            // 长度也相同，按字母顺序排列
+            return a.value.localeCompare(b.value);
           });
         }
 

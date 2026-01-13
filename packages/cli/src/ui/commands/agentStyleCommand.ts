@@ -28,6 +28,7 @@ export const agentStyleCommand: SlashCommand = {
   name: 'agent-style',
   description: t('command.agentStyle.description'),
   kind: CommandKind.BUILT_IN,
+  hidden: true,
   action: async (context: CommandContext, args: string): Promise<SlashCommandActionReturn> => {
     const { config } = context.services;
     const trimmedArgs = args.trim().toLowerCase();
