@@ -762,6 +762,12 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
 
       // Handle Enter for submit (only when not using modifiers)
       if (key.name === 'return' && !key.shift && !key.ctrl && !key.meta && !key.paste) {
+        // 🛡️ 防止工具确认菜单的回车事件意外提交输入框内容
+        // 当有模态框（包括工具确认菜单）打开时，回车应该只用于确认选项，不应该提交输入
+        if (isModalOpen) {
+          return; // 忽略回车事件，让模态框处理
+        }
+
         if (buffer.text.trim()) {
           const [row, col] = buffer.cursor;
           const line = buffer.lines[row];
