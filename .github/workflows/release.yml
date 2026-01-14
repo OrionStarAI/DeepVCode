@@ -48,9 +48,9 @@ jobs:
           node-version: '20.19.3'
           cache: 'npm'
 
-      # 3. 安装依赖 (使用 --ignore-scripts 避免在安装阶段触发构建脚本)
+      # 3. 安装依赖
       - name: 📦 Install dependencies
-        run: npm ci --ignore-scripts
+        run: npm install
 
       # 4. 获取并同步版本号
       - name: 📌 Get and Sync version
