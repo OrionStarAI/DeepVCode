@@ -17,6 +17,7 @@ import {
   ToolLocation,
   ToolResult,
   ToolResultDisplay,
+  ToolExecutionServices,
 } from './tools.js';
 import { Type } from '@google/genai';
 import { SchemaValidator } from '../utils/schemaValidator.js';
@@ -433,11 +434,16 @@ Expectation for required parameters:
   /**
    * Executes the edit operation with the given parameters.
    * @param params Parameters for the edit operation
+   * @param signal AbortSignal for tool cancellation
+   * @param updateOutput Callback for updating output during execution
+   * @param services Runtime services available during execution
    * @returns Result of the edit operation
    */
   async execute(
     params: EditToolParams,
     signal: AbortSignal,
+    updateOutput?: (output: string) => void,
+    services?: ToolExecutionServices,
   ): Promise<ToolResult> {
     const validationError = this.validateToolParams(params);
     if (validationError) {
