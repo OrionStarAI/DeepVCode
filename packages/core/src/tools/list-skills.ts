@@ -13,6 +13,7 @@ import {
 } from './tools.js';
 import { Type } from '@google/genai';
 import { SkillsContextBuilder } from '../skills/skills-context-builder.js';
+import { Config } from '../config/config.js';
 
 interface ListSkillsParams {
   /** Optional filter by marketplace ID */
@@ -27,7 +28,7 @@ interface ListSkillsParams {
 export class ListSkillsTool extends BaseTool<ListSkillsParams, ToolResult> {
   private contextBuilder: SkillsContextBuilder;
 
-  constructor() {
+  constructor(private readonly config: Config) {
     super(
       'list_available_skills',
       'List Available Skills',
@@ -51,7 +52,7 @@ export class ListSkillsTool extends BaseTool<ListSkillsParams, ToolResult> {
       false, // canUpdateOutput
     );
 
-    this.contextBuilder = new SkillsContextBuilder();
+    this.contextBuilder = new SkillsContextBuilder(this.config.getProjectRoot());
   }
 
   override validateToolParams(_params: ListSkillsParams): string | null {

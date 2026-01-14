@@ -185,21 +185,40 @@ Please ensure you have run 'npm run build' in the project root.`,
 
       // Find the skill by name
       const skills = await loader.loadEnabledSkills(SkillLoadLevel.RESOURCES);
-      const matchingSkills = skills.filter(
-        (s: any) => s.name === params.skillName || s.id.endsWith(`:${params.skillName}`),
-      );
+
+      // 更健壮的匹配逻辑：支持多种格式
+      const normalizedSearchName = params.skillName.toLowerCase().trim();
+      const matchingSkills = skills.filter((s: any) => {
+        const skillName = (s.name || '').toLowerCase().trim();
+        const skillId = (s.id || '').toLowerCase();
+
+        // 精确匹配 name
+        if (skillName === normalizedSearchName) return true;
+
+        // 匹配 ID 的末尾部分（支持 user:xxx, project:xxx:xxx 等格式）
+        if (skillId.endsWith(`:${normalizedSearchName}`)) return true;
+
+        // 匹配 ID 本身（如果用户输入完整 ID）
+        if (skillId === normalizedSearchName) return true;
+
+        // 部分匹配（如果 name 包含搜索词）
+        if (skillName.includes(normalizedSearchName)) return true;
+
+        return false;
+      });
 
       if (matchingSkills.length === 0) {
-        const availableSkills = skills.map((s: any) => s.name).join(', ');
+        const availableSkills = skills.map((s: any) => `${s.name} (id: ${s.id})`).join(', ');
         return {
           llmContent: `❌ Skill "${params.skillName}" not found.
 
-Available skills: ${availableSkills || 'none'}
+Available skills (${skills.length} total): ${availableSkills || 'none'}
 
 Possible issues:
 - Skill name is incorrect (check spelling and case)
 - Skill is not installed (use /skill list to see all skills)
 - Plugin is disabled
+- Skill is in a different location (user-global vs project-level)
 
 To see detailed skill information, check the "Available Skills" section in the system context.`,
           returnDisplay: `Skill "${params.skillName}" not found`,
@@ -215,111 +234,51 @@ To see detailed skill information, check the "Available Skills" section in the s
       const hasScripts = skill.scripts && skill.scripts.length > 0;
 
       // Get actual skill paths from the skill object
-      const skillRootDir = (skill as any).path || 'skill-directory';
+      if (!(skill as any).path) {
+        return {
+          llmContent: `❌ Internal error: Skill ${skill.id} is missing required 'path' property.
+
+This indicates a corrupted skill installation. Please try:
+1. Reinstalling the skill
+2. Running /skill list to verify skill status
+3. Checking the skill configuration
+
+If the problem persists, this may be a system bug.`,
+          returnDisplay: `Skill "${params.skillName}" configuration error`,
+        };
+      }
+      const skillRootDir = (skill as any).path;
       const scriptsDir = (skill as any).scriptsPath || `${skillRootDir}/scripts`;
 
-      // Format output with clear structure and strong emphasis on scripts
+      // 格式化输出：简洁清晰
       let output = '';
 
       if (hasScripts) {
-        // For skills with scripts, generate script list with actual paths
-        const scriptReferences = skill.scripts!
-          .map((s: any) => {
-            const scriptPath = `${scriptsDir}/${s.name}`;
-            return `  • ${s.name}\n    Path: ${scriptPath}`;
-          })
+        // For skills with scripts, generate simple script list
+        const scriptList = skill.scripts!
+          .map((s: any) => `- ${s.name}`)
           .join('\n');
 
-        output = `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🚨 STOP - READ THIS FIRST - DO NOT SKIP 🚨
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-<critical_alert>
-This skill has EXECUTABLE SCRIPTS - USE THEM DIRECTLY (DO NOT CREATE NEW SCRIPTS):
-
-${scriptReferences}
-
-❌ YOU MUST NOT WRITE NEW CODE
-❌ YOU MUST NOT create JavaScript/Python/Bash scripts
-❌ YOU MUST NOT use pptxgenjs, html2pptx npm lib, puppeteer, or ANY other library
-❌ DO NOT create helper scripts (generate-ppt.js, create-slides.py, etc.)
-❌ DO NOT duplicate or wrap these existing scripts
-
-✅ YOU MUST ONLY use the scripts provided by this skill
-✅ YOU MUST ONLY execute them with run_shell_command
-✅ YOU MUST read the documentation below to find the exact command syntax
-
-Skill root directory: ${skillRootDir}
-Scripts directory: ${scriptsDir}
-
-WHY THIS IS NON-NEGOTIABLE:
-- The skill's scripts are pre-tested and production-ready
-- They are already optimized and work correctly
-- Writing new code violates system rules
-- You will be corrected if you write code instead of using scripts
-- This is a BINARY choice: use scripts OR refuse (no third option)
-
-NEXT: Read the documentation below to find the exact workflow and command.
-Look for "Workflow", "Usage", "Command" sections that show how to run the scripts.
-Then execute with: run_shell_command("cd ${skillRootDir} && [exact-command-from-docs]")
-</critical_alert>
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-<skill_loaded>
-Skill "${params.skillName}" SKILL.md documentation:
-</skill_loaded>
-
-${fullContent}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-<mandatory_next_steps>
-NOW THAT YOU'VE READ THE SKILL.MD DOCUMENTATION:
-
-1. FIND THE WORKFLOW SECTION
-   - Look for sections titled "Workflow", "Usage", "Command", or similar
-   - Locate the exact command syntax with the script name and parameters
-
-2. CONSTRUCT THE COMPLETE COMMAND
-   - Scripts are located in: ${scriptsDir}/
-   - Example command format: cd ${skillRootDir} && node scripts/html2pptx.js input.html output.pptx
-   - Example command format: cd ${skillRootDir} && python3 scripts/thumbnail.py presentation.pptx output/
-   - Replace placeholders with actual file paths/values
-
-3. EXECUTE THE SCRIPT with run_shell_command
-   Exact format: run_shell_command("cd ${skillRootDir} && [full-command-from-docs]")
-
-VERIFICATION CHECKLIST BEFORE EXECUTING:
-□ Did you find the exact command from the SKILL.md documentation above?
-□ Are you using the scripts from ${scriptsDir}/ (actual paths provided)?
-□ Are you about to use run_shell_command (not write_file)?
-□ Have you identified all required parameters from the documentation?
-□ Did you verify these scripts already exist at ${scriptsDir}/?
-□ Did you NOT decide to "write a script" or "create a helper"?
-
-If all checks pass ✓, proceed with run_shell_command.
-If any check fails ✗, re-read the SKILL.md documentation above.
-
-⚠️  CRITICAL: If you write any new code files after seeing this message, you are violating instructions.
-The scripts are already at ${scriptsDir}/ - use them directly.
-</mandatory_next_steps>
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`;
+        output = [
+          `## Skill: ${skill.name}`,
+          ``,
+          `**Base directory**: ${skillRootDir}`,
+          `**Scripts directory**: ${scriptsDir}`,
+          ``,
+          `**Available scripts**:`,
+          scriptList,
+          ``,
+          fullContent
+        ].join('\n');
       } else {
         // For skills without scripts (knowledge-only)
-        output = `<skill_loaded>
-✅ Skill "${params.skillName}" is now active!
-</skill_loaded>
-
-${fullContent}
-
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-<next_steps>
-This skill provides domain knowledge and guidelines.
-Follow the instructions above to complete the user's task.
-</next_steps>`;
+        output = [
+          `## Skill: ${skill.name}`,
+          ``,
+          `**Base directory**: ${skillRootDir}`,
+          ``,
+          fullContent
+        ].join('\n');
       }
 
       return {
