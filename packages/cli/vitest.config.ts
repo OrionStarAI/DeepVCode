@@ -15,15 +15,16 @@ export default defineConfig({
     globals: true,
     reporters: ['default', 'junit'],
     silent: true,
+    setupFiles: ['./vitest.setup.ts'],
     // 性能优化：限制并发和资源使用
-    pool: 'forks', // 使用 forks 池，比 threads 更稳定且内存隔离更好
+    pool: 'threads', // 使用 threads 池以支持 jsdom 环境
     poolOptions: {
-      forks: {
-        maxForks: 2, // 最大并发进程数（可根据你的 CPU 核心数调整，建议 2-4）
-        minForks: 1, // 最小进程数
+      threads: {
+        maxThreads: 2, // 最大并发线程数（可根据你的 CPU 核心数调整，建议 2-4）
+        minThreads: 1, // 最小线程数
       },
     },
-    maxConcurrency: 5, // 每个进程内最大并发测试数
+    maxConcurrency: 5, // 每个线程内最大并发测试数
     outputFile: {
       junit: 'junit.xml',
     },

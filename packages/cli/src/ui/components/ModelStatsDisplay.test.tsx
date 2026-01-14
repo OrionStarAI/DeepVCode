@@ -10,6 +10,7 @@ import { ModelStatsDisplay } from './ModelStatsDisplay.js';
 import * as SessionContext from '../contexts/SessionContext.js';
 import { SessionMetrics } from '../contexts/SessionContext.js';
 import { WindowSizeLevel } from '../hooks/useSmallWindowOptimization.js';
+import { sanitizeOutput } from '../test-utils.js';
 
 // Mock the context to provide controlled data for testing
 vi.mock('../contexts/SessionContext.js', async (importOriginal) => {
@@ -115,8 +116,8 @@ const renderWithMockedStats = (metrics: SessionMetrics) => {
   };
 
   useSessionStatsMock.mockReturnValue({
-    stats,
-    computedStats: SessionContext.computeSessionStats(stats as any),
+    stats: stats as unknown as SessionContext.SessionStats,
+    computedStats: SessionContext.computeSessionStats(stats as unknown as SessionContext.SessionStats),
     getPromptCount: () => 5,
     startNewPrompt: vi.fn(),
     resetStats: vi.fn(),
@@ -139,10 +140,10 @@ describe('<ModelStatsDisplay />', () => {
       },
     });
 
-    expect(lastFrame()).toContain(
+    expect(sanitizeOutput(lastFrame())).toContain(
       'No API calls have been made in this session yet.',
     );
-    expect(lastFrame()).toMatchSnapshot();
+    expect(sanitizeOutput(lastFrame())).toMatchSnapshot();
   });
 
   it('should not display conditional rows if no model has data for them', () => {
@@ -170,7 +171,7 @@ describe('<ModelStatsDisplay />', () => {
       },
     });
 
-    const output = lastFrame();
+    const output = sanitizeOutput(lastFrame());
     expect(output).not.toContain('Cached');
     expect(output).not.toContain('Thoughts');
     expect(output).not.toContain('Tool');
@@ -213,7 +214,7 @@ describe('<ModelStatsDisplay />', () => {
       },
     });
 
-    const output = lastFrame();
+    const output = sanitizeOutput(lastFrame());
     expect(output).toContain('Cache');
     expect(output).toContain('Thoughts');
     expect(output).toContain('Tool');
@@ -256,9 +257,9 @@ describe('<ModelStatsDisplay />', () => {
       },
     });
 
-    const output = lastFrame();
-    expect(lastFrame()).toContain('Model');
-    expect(lastFrame()).toMatchSnapshot();
+    const output = sanitizeOutput(lastFrame());
+    expect(output).toContain('Model');
+    expect(output).toMatchSnapshot();
   });
 
   it('should display stats for multiple models correctly', () => {
@@ -297,7 +298,7 @@ describe('<ModelStatsDisplay />', () => {
       },
     });
 
-    const output = lastFrame();
+    const output = sanitizeOutput(lastFrame());
     expect(output).toContain('Model1');
     expect(output).toContain('Model2');
     expect(output).toMatchSnapshot();
@@ -332,7 +333,7 @@ describe('<ModelStatsDisplay />', () => {
       },
     });
 
-    expect(lastFrame()).toMatchSnapshot();
+    expect(sanitizeOutput(lastFrame())).toMatchSnapshot();
   });
 
   it('should display a single model correctly', () => {
@@ -360,7 +361,7 @@ describe('<ModelStatsDisplay />', () => {
       },
     });
 
-    const output = lastFrame();
+    const output = sanitizeOutput(lastFrame());
     expect(output).toContain('Model1');
     expect(output).not.toContain('Model2');
     expect(output).toMatchSnapshot();

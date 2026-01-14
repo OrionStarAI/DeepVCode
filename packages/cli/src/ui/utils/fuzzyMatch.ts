@@ -41,6 +41,7 @@ export interface HighlightSegment {
  * @param query 搜索关键词
  * @returns 匹配结果
  */
+
 export function fuzzyMatch(text: string, query: string): FuzzyMatchResult {
   if (!query) {
     return { matched: true, score: 0, indices: [] };
@@ -58,11 +59,27 @@ export function fuzzyMatch(text: string, query: string): FuzzyMatchResult {
     };
   }
 
-  // 2. 前缀匹配
+  // Extract filename from path for priority matching
+  const lastSlash = text.lastIndexOf('/');
+  const lastBackslash = text.lastIndexOf('\\');
+  const lastSeparatorIdx = Math.max(lastSlash, lastBackslash);
+  const fileName = lastSeparatorIdx !== -1 ? text.substring(lastSeparatorIdx + 1) : text;
+  const lowerFileName = fileName.toLowerCase();
+
+  // 2a. 文件名前缀匹配（优先级最高）
+  if (lowerFileName.startsWith(lowerQuery)) {
+    return {
+      matched: true,
+      score: 1500,
+      indices: Array.from({ length: query.length }, (_, i) => lastSeparatorIdx + 1 + i),
+    };
+  }
+
+  // 2b. 路径前缀匹配（次优先级）
   if (lowerText.startsWith(lowerQuery)) {
     return {
       matched: true,
-      score: 1000,
+      score: 900,
       indices: Array.from({ length: query.length }, (_, i) => i),
     };
   }
@@ -78,17 +95,15 @@ export function fuzzyMatch(text: string, query: string): FuzzyMatchResult {
     score += positionBonus;
 
     // 文件名匹配加分
-    const lastSlash = text.lastIndexOf('/');
-    const fileName = lastSlash !== -1 ? text.substring(lastSlash + 1) : text;
-    const fileNameMatch = fileName.toLowerCase().indexOf(lowerQuery);
+    const fileNameMatch = lowerFileName.indexOf(lowerQuery);
 
     if (fileNameMatch !== -1) {
       // 在文件名中匹配，额外加分
-      score += 300;
+      score += 500;
 
       // 文件名开头匹配，再加分
       if (fileNameMatch === 0) {
-        score += 100;
+        score += 200;
       }
     }
 

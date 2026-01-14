@@ -10,6 +10,8 @@ import { ToolMessage, ToolMessageProps } from './ToolMessage.js';
 import { StreamingState, ToolCallStatus } from '../../types.js';
 import { Text } from 'ink';
 import { StreamingContext } from '../../contexts/StreamingContext.js';
+import { vi, describe, it, expect } from 'vitest';
+import { sanitizeOutput } from '../../test-utils.js';
 
 // Mock child components or utilities if they are complex or have side effects
 vi.mock('../GeminiRespondingSpinner.js', () => ({
@@ -70,7 +72,7 @@ describe('<ToolMessage />', () => {
       <ToolMessage {...baseProps} />,
       StreamingState.Idle,
     );
-    const output = lastFrame();
+    const output = sanitizeOutput(lastFrame());
     expect(output).toContain('•'); // Success indicator
     expect(output).toContain('test-tool');
     expect(output).toContain('A tool for testing');
@@ -84,7 +86,7 @@ describe('<ToolMessage />', () => {
         <ToolMessage {...baseProps} status={ToolCallStatus.Success} />,
         StreamingState.Idle,
       );
-      expect(lastFrame()).toContain('•');
+      expect(sanitizeOutput(lastFrame())).toContain('•');
     });
 
     it('shows o for Pending status', () => {
@@ -92,7 +94,7 @@ describe('<ToolMessage />', () => {
         <ToolMessage {...baseProps} status={ToolCallStatus.Pending} />,
         StreamingState.Idle,
       );
-      expect(lastFrame()).toContain('o');
+      expect(sanitizeOutput(lastFrame())).toContain('o');
     });
 
     it('shows ? for Confirming status', () => {
@@ -100,7 +102,7 @@ describe('<ToolMessage />', () => {
         <ToolMessage {...baseProps} status={ToolCallStatus.Confirming} />,
         StreamingState.Idle,
       );
-      expect(lastFrame()).toContain('?');
+      expect(sanitizeOutput(lastFrame())).toContain('?');
     });
 
     it('shows - for Canceled status', () => {
@@ -108,7 +110,7 @@ describe('<ToolMessage />', () => {
         <ToolMessage {...baseProps} status={ToolCallStatus.Canceled} />,
         StreamingState.Idle,
       );
-      expect(lastFrame()).toContain('-');
+      expect(sanitizeOutput(lastFrame())).toContain('-');
     });
 
     it('shows x for Error status', () => {
@@ -116,7 +118,7 @@ describe('<ToolMessage />', () => {
         <ToolMessage {...baseProps} status={ToolCallStatus.Error} />,
         StreamingState.Idle,
       );
-      expect(lastFrame()).toContain('x');
+      expect(sanitizeOutput(lastFrame())).toContain('x');
     });
 
     it('shows paused spinner for Executing status when streamingState is Idle', () => {
@@ -124,9 +126,10 @@ describe('<ToolMessage />', () => {
         <ToolMessage {...baseProps} status={ToolCallStatus.Executing} />,
         StreamingState.Idle,
       );
-      expect(lastFrame()).toContain('⊷');
-      expect(lastFrame()).not.toContain('MockRespondingSpinner');
-      expect(lastFrame()).not.toContain('•');
+      const output = sanitizeOutput(lastFrame());
+      expect(output).toContain('⊷');
+      expect(output).not.toContain('MockRespondingSpinner');
+      expect(output).not.toContain('•');
     });
 
     it('shows paused spinner for Executing status when streamingState is WaitingForConfirmation', () => {
@@ -134,9 +137,10 @@ describe('<ToolMessage />', () => {
         <ToolMessage {...baseProps} status={ToolCallStatus.Executing} />,
         StreamingState.WaitingForConfirmation,
       );
-      expect(lastFrame()).toContain('⊷');
-      expect(lastFrame()).not.toContain('MockRespondingSpinner');
-      expect(lastFrame()).not.toContain('•');
+      const output = sanitizeOutput(lastFrame());
+      expect(output).toContain('⊷');
+      expect(output).not.toContain('MockRespondingSpinner');
+      expect(output).not.toContain('•');
     });
 
     it('shows MockRespondingSpinner for Executing status when streamingState is Responding', () => {
@@ -144,7 +148,7 @@ describe('<ToolMessage />', () => {
         <ToolMessage {...baseProps} status={ToolCallStatus.Executing} />,
         StreamingState.Responding, // Simulate app still responding
       );
-      const output = lastFrame();
+      const output = sanitizeOutput(lastFrame());
       // It should contain either the spinner or the non-responding display
       expect(output).toMatch(/S|⊷/);
       expect(output).not.toContain('•');
@@ -163,7 +167,7 @@ describe('<ToolMessage />', () => {
       StreamingState.Idle,
     );
     // Check that the output contains the MockDiff content or simplified stats
-    expect(lastFrame()).toMatch(/MockDiff:--- a\/file\.txt|📝 file\.txt/);
+    expect(sanitizeOutput(lastFrame())).toMatch(/MockDiff:--- a\/file\.txt|📝 file\.txt/);
   });
 
   it('renders emphasis correctly', () => {
@@ -172,7 +176,7 @@ describe('<ToolMessage />', () => {
       StreamingState.Idle,
     );
     // Check for trailing indicator or specific color if applicable (Colors are not easily testable here)
-    expect(highEmphasisFrame()).toContain('←'); // Trailing indicator for high emphasis
+    expect(sanitizeOutput(highEmphasisFrame())).toContain('←'); // Trailing indicator for high emphasis
 
     const { lastFrame: lowEmphasisFrame } = renderWithContext(
       <ToolMessage {...baseProps} emphasis="low" />,
@@ -181,6 +185,6 @@ describe('<ToolMessage />', () => {
     // For low emphasis, the name and description might be dimmed (check for dimColor if possible)
     // This is harder to assert directly in text output without color checks.
     // We can at least ensure it doesn't have the high emphasis indicator.
-    expect(lowEmphasisFrame()).not.toContain('←');
+    expect(sanitizeOutput(lowEmphasisFrame())).not.toContain('←');
   });
 });

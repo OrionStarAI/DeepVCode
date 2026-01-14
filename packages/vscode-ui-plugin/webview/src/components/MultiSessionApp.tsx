@@ -1338,7 +1338,7 @@ export const MultiSessionApp: React.FC = () => {
 
     // 2. 如果是退出 Plan 模式，同步消息到 后端（AI历史），不添加到UI
     if (!enabled) {
-      const exitMsgText = '[PLAN MODE EXITED] The user has exited Plan mode. You can now use all tools including modification tools (write_file, replace, run_shell_command, lint_fix, etc.). Normal operation mode is now active.';
+      const exitMsgText = '[PLAN MODE EXITED] The user has exited Plan mode. You can now use all tools including modification tools (write_file, replace, multiedit, patch, batch, run_shell_command, lint_fix, etc.). Normal operation mode is now active.';
       getGlobalMessageService().sendInjectSystemMessage(sessionId, exitMsgText);
     }
   }, [state.currentSessionId, togglePlanMode]);
@@ -1358,7 +1358,7 @@ export const MultiSessionApp: React.FC = () => {
       togglePlanMode(sessionId, false);
 
       // 仅同步消息到后端（AI历史），不添加到UI
-      const exitMsgText = '[PLAN MODE EXITED] The user has exited Plan mode. You can now use all tools including modification tools (write_file, replace, run_shell_command, lint_fix, etc.). Normal operation mode is now active.';
+      const exitMsgText = '[PLAN MODE EXITED] The user has exited Plan mode. You can now use all tools including modification tools (write_file, replace, multiedit, patch, batch, run_shell_command, lint_fix, etc.). Normal operation mode is now active.';
       getGlobalMessageService().sendInjectSystemMessage(sessionId, exitMsgText);
 
       return; // ⛔️ 阻止发送给 AI
@@ -1416,7 +1416,7 @@ export const MultiSessionApp: React.FC = () => {
       const planPrompt = `[PLAN MODE ACTIVE]
 The user is currently in Plan mode, focusing on requirements discussion and solution design. Please:
 1. You may use analytical tools: read_file, read_many_files, list_directory, search_file_content, glob, web_fetch, task, etc.
-2. Do NOT use modification tools: write_file, delete_file, replace, run_shell_command, lint_fix, etc.
+2. Do NOT use modification tools: write_file, delete_file, replace, multiedit, patch, batch, run_shell_command, lint_fix, etc.
 3. Focus on understanding requirements, discussing solutions, and designing architecture
 4. Provide detailed planning and recommendations, but do not perform modification operations
 5. If modification operations are needed, remind the user to first exit Plan mode

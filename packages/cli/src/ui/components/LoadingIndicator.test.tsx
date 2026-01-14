@@ -10,7 +10,8 @@ import { Text } from 'ink';
 import { LoadingIndicator } from './LoadingIndicator.js';
 import { StreamingContext } from '../contexts/StreamingContext.js';
 import { StreamingState } from '../types.js';
-import { vi } from 'vitest';
+import { vi, describe, it, expect } from 'vitest';
+import { sanitizeOutput } from '../test-utils.js';
 
 // Mock GeminiRespondingSpinner
 vi.mock('./GeminiRespondingSpinner.js', () => ({
@@ -52,7 +53,7 @@ describe('<LoadingIndicator />', () => {
       <LoadingIndicator {...defaultProps} />,
       StreamingState.Idle,
     );
-    expect(lastFrame()).toBe('');
+    expect(sanitizeOutput(lastFrame())).toBe('');
   });
 
   it('should render spinner, phrase, and time when streamingState is Responding', () => {
@@ -60,7 +61,7 @@ describe('<LoadingIndicator />', () => {
       <LoadingIndicator {...defaultProps} />,
       StreamingState.Responding,
     );
-    const output = lastFrame();
+    const output = sanitizeOutput(lastFrame());
     expect(output).toContain('MockRespondingSpinner');
     expect(output).toContain('Loading...');
     expect(output).toContain('(esc to cancel, 5s)');
@@ -75,7 +76,7 @@ describe('<LoadingIndicator />', () => {
       <LoadingIndicator {...props} />,
       StreamingState.WaitingForConfirmation,
     );
-    const output = lastFrame();
+    const output = sanitizeOutput(lastFrame());
     expect(output).toContain('⠏'); // Static char for WaitingForConfirmation
     expect(output).toMatch(/等待用户确认\.\.\.|Waiting for user confirmation\.\.\./); // Support both Chinese and English
     expect(output).not.toContain('(esc to cancel)');
@@ -91,7 +92,7 @@ describe('<LoadingIndicator />', () => {
       <LoadingIndicator {...props} />,
       StreamingState.Responding,
     );
-    expect(lastFrame()).toContain('Processing data...');
+    expect(sanitizeOutput(lastFrame())).toContain('Processing data...');
   });
 
   it('should display the elapsedTime correctly when Responding', () => {
@@ -103,7 +104,7 @@ describe('<LoadingIndicator />', () => {
       <LoadingIndicator {...props} />,
       StreamingState.Responding,
     );
-    expect(lastFrame()).toContain('(esc to cancel, 1m)');
+    expect(sanitizeOutput(lastFrame())).toContain('(esc to cancel, 1m)');
   });
 
   it('should display the elapsedTime correctly in human-readable format', () => {
@@ -115,7 +116,7 @@ describe('<LoadingIndicator />', () => {
       <LoadingIndicator {...props} />,
       StreamingState.Responding,
     );
-    expect(lastFrame()).toContain('(esc to cancel, 2m 5s)');
+    expect(sanitizeOutput(lastFrame())).toContain('(esc to cancel, 2m 5s)');
   });
 
   it('should render rightContent when provided', () => {
@@ -124,7 +125,7 @@ describe('<LoadingIndicator />', () => {
       <LoadingIndicator {...defaultProps} rightContent={rightContent} />,
       StreamingState.Responding,
     );
-    expect(lastFrame()).toContain('Extra Info');
+    expect(sanitizeOutput(lastFrame())).toContain('Extra Info');
   });
 
   it('should transition correctly between states using rerender', () => {
@@ -132,7 +133,7 @@ describe('<LoadingIndicator />', () => {
       <LoadingIndicator {...defaultProps} />,
       StreamingState.Idle,
     );
-    expect(lastFrame()).toBe(''); // Initial: Idle
+    expect(sanitizeOutput(lastFrame())).toBe(''); // Initial: Idle
 
     // Transition to Responding
     rerender(
@@ -143,7 +144,7 @@ describe('<LoadingIndicator />', () => {
         />
       </StreamingContext.Provider>,
     );
-    let output = lastFrame();
+    let output = sanitizeOutput(lastFrame());
     expect(output).toContain('MockRespondingSpinner');
     expect(output).toContain('Now Responding');
     expect(output).toContain('(esc to cancel, 2s)');
@@ -157,7 +158,7 @@ describe('<LoadingIndicator />', () => {
         />
       </StreamingContext.Provider>,
     );
-    output = lastFrame();
+    output = sanitizeOutput(lastFrame());
     expect(output).toContain('⠏');
     expect(output).toMatch(/等待用户确认\.\.\.|Waiting for user confirmation\.\.\./); // Support both Chinese and English
     expect(output).not.toContain('(esc to cancel)');
@@ -169,7 +170,7 @@ describe('<LoadingIndicator />', () => {
         <LoadingIndicator {...defaultProps} />
       </StreamingContext.Provider>,
     );
-    expect(lastFrame()).toBe('');
+    expect(sanitizeOutput(lastFrame())).toBe('');
   });
 
   it('should display fallback phrase if thought is empty', () => {
@@ -182,7 +183,7 @@ describe('<LoadingIndicator />', () => {
       <LoadingIndicator {...props} />,
       StreamingState.Responding,
     );
-    const output = lastFrame();
+    const output = sanitizeOutput(lastFrame());
     expect(output).toContain('Loading...');
   });
 
@@ -198,7 +199,7 @@ describe('<LoadingIndicator />', () => {
       <LoadingIndicator {...props} />,
       StreamingState.Responding,
     );
-    const output = lastFrame();
+    const output = sanitizeOutput(lastFrame());
     expect(output).toBeDefined();
     if (output) {
       expect(output).toContain('Thinking about something...');
@@ -219,7 +220,7 @@ describe('<LoadingIndicator />', () => {
       <LoadingIndicator {...props} />,
       StreamingState.Responding,
     );
-    const output = lastFrame();
+    const output = sanitizeOutput(lastFrame());
     expect(output).toContain('This should be displayed');
     expect(output).not.toContain('This should not be displayed');
   });
