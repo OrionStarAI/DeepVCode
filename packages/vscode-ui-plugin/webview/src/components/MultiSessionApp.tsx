@@ -125,10 +125,10 @@ export const MultiSessionApp: React.FC = () => {
       const isRestrictedTime = hour >= 22 || hour < 6;
 
       if (isRestrictedTime) {
-        const thirtyMinutesInMs = 30 * 60 * 1000;
+        const fortyFiveMinutesInMs = 45 * 60 * 1000;
         const timeSinceLastDismiss = Date.now() - lastHealthyUseReminderDismissedAt;
 
-        if (!showHealthyUseReminder && timeSinceLastDismiss > thirtyMinutesInMs) {
+        if (!showHealthyUseReminder && timeSinceLastDismiss > fortyFiveMinutesInMs) {
           console.log('🌙 [HEALTH] Late night detected, showing reminder');
           setShowHealthyUseReminder(true);
         }

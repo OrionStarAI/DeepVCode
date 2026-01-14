@@ -162,7 +162,7 @@ export const ModelStatsDisplay: React.FC = () => {
         </Box>
         {modelNames.map((name, index) => (
           <Box width={MODEL_COL_WIDTH} key={name}>
-            <Text bold>{t('model.stats.header.model')}{index + 1}</Text>
+            <Text bold>{t('model.stats.header.model')}{String(index + 1)}</Text>
           </Box>
         ))}
       </Box>

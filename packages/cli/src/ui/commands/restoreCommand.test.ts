@@ -91,7 +91,7 @@ describe('restoreCommand', () => {
       expect(result?.content).toContain('hello');
     });
 
-    it('should restore a project state from checkpoint', async () => {
+    it('should restore a project state from checkpoint and send context message to AI', async () => {
       const checkpoints = [
         { id: 'my-checkpoint', commitHash: 'abcdef123', timeString: '12:00:00', lastUserMessage: 'restore me' }
       ];
@@ -100,12 +100,27 @@ describe('restoreCommand', () => {
       const command = restoreCommand(mockConfig);
       const result = await command?.action?.(mockContext, 'my-checkpoint');
 
+      // 验证 Git 恢复被调用
       expect(mockGitService.restoreProjectFromSnapshot).toHaveBeenCalledWith('abcdef123');
+
+      // 验证返回类型是 submit_prompt（向 AI 发送 context 消息）
       expect(result).toEqual({
-        type: 'message',
-        messageType: 'info',
-        content: expect.stringContaining('Checkpoint恢复完成'),
+        type: 'submit_prompt',
+        content: expect.stringContaining('restore'),
+        silent: true,
       });
+
+      // 验证 context 消息包含用户消息信息
+      expect(result?.content).toContain('restore me');
+
+      // 验证 UI 显示消息被添加
+      expect(mockContext.ui.addItem).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'info',
+          text: expect.stringContaining('12:00:00'),
+        }),
+        expect.any(Number)
+      );
     });
 
     it('should return an error if checkpoint not found', async () => {
@@ -116,6 +131,40 @@ describe('restoreCommand', () => {
 
       expect(result?.type).toBe('message');
       expect(result?.messageType).toBe('error');
+    });
+
+    it('should include user message info in context message for AI', async () => {
+      const checkpoints = [
+        {
+          id: 'cp-with-long-msg',
+          commitHash: 'abc123',
+          timeString: '14:30:00',
+          lastUserMessage: 'This is a very long user message that should be truncated to 50 characters or less for display'
+        }
+      ];
+      mockSessionManager.loadSession.mockResolvedValue({ checkpoints });
+
+      const command = restoreCommand(mockConfig);
+      const result = await command?.action?.(mockContext, 'cp-with-long-msg');
+
+      // 验证 AI context 消息包含用户消息的前50个字符
+      expect(result?.type).toBe('submit_prompt');
+      expect(result?.content).toContain('This is a very long user message that should be tr');
+    });
+
+    it('should send context message indicating user manual action', async () => {
+      const checkpoints = [
+        { id: 'cp1', commitHash: 'hash1', timeString: '10:00:00', lastUserMessage: 'test' }
+      ];
+      mockSessionManager.loadSession.mockResolvedValue({ checkpoints });
+
+      const command = restoreCommand(mockConfig);
+      const result = await command?.action?.(mockContext, 'cp1');
+
+      // 验证 context 消息强调这是用户主动操作
+      expect(result?.type).toBe('submit_prompt');
+      expect(result?.content).toMatch(/user.*manually|用户.*主动/i);
+      expect(result?.content).toMatch(/deliberate|intentional|有意|主动/i);
     });
   });
 

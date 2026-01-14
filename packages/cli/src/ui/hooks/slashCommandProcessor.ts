@@ -51,6 +51,7 @@ export const useSlashCommandProcessor = (
   onDebugMessage: (message: string) => void,
   openThemeDialog: () => void,
   openModelDialog: () => void,
+  openCustomModelWizard: () => void,
   openAuthDialog: () => void,
   openLoginDialog: () => void,
   openEditorDialog: () => void,
@@ -369,6 +370,10 @@ export const useSlashCommandProcessor = (
                     case 'model':
                       setShowHelp(false);
                       openModelDialog();
+                      return { type: 'handled' };
+                    case 'customModelWizard':
+                      setShowHelp(false);
+                      openCustomModelWizard();
                       return { type: 'handled' };
                     case 'editor':
                       setShowHelp(false);

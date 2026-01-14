@@ -185,7 +185,7 @@ export function SuggestionsDisplay({
       {endIndex < suggestions.length ? <Text color="gray">▼</Text> : null}
       {suggestions.length > MAX_SUGGESTIONS_TO_SHOW ? (
         <Text color="gray">
-          ({activeIndex + 1}/{suggestions.length})
+          {`(${activeIndex + 1}/${suggestions.length})`}
         </Text>
       ) : null}
     </Box>

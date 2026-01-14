@@ -49,7 +49,7 @@ export const lightTheme: ColorsTheme = {
   DiffAdded: '#C6EAD8',
   DiffRemoved: '#FFCCCC',
   Comment: '#008000',
-  Gray: '#6B7280',
+  Gray: '#8A919E', // Lighter gray for better visibility (was #6B7280)
   InfoColor: '#8B7355', // Muted brown/amber for light theme
   GradientColors: ['#FF6B35', '#FF8C42', '#FFFFFF'],
 };
@@ -69,7 +69,7 @@ export const darkTheme: ColorsTheme = {
   DiffAdded: '#28350B',
   DiffRemoved: '#430000',
   Comment: '#6C7086',
-  Gray: '#6C7086',
+  Gray: '#9399B2', // Lighter gray for better visibility (was #6C7086)
   InfoColor: '#B8A77E', // Muted yellow/amber for dark theme
   GradientColors: ['#FF6B35', '#FF8C42', '#FFFFFF'],
 };

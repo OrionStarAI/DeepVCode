@@ -218,6 +218,7 @@ export interface ConfigParameters {
   summarizeToolOutput?: Record<string, SummarizeToolOutputSettings>;
   model?: string;
   cloudModels?: CloudModelInfo[];
+  customModels?: import('../types/customModel.js').CustomModelConfig[];
   ideMode?: boolean;
   ideClient?: IdeClient;
   silentMode?: boolean;
@@ -290,6 +291,7 @@ export class Config {
     | undefined;
   private model: string | undefined;
   private cloudModels: CloudModelInfo[] | undefined;
+  private customModels: import('../types/customModel.js').CustomModelConfig[] | undefined;
   private readonly experimentalAcp: boolean = false;
   private readonly silentMode: boolean;
   private readonly vsCodePluginMode: boolean;
@@ -363,6 +365,7 @@ export class Config {
     this.summarizeToolOutput = params.summarizeToolOutput;
     this.model = params.model;
     this.cloudModels = params.cloudModels;
+    this.customModels = params.customModels;
     this.ideMode = params.ideMode ?? false;
     this.ideClient = params.ideClient;
     this.vsCodePluginMode = params.vsCodePluginMode ?? false;
@@ -525,6 +528,20 @@ export class Config {
 
   setCloudModels(models: CloudModelInfo[]): void {
     this.cloudModels = models;
+  }
+
+  getCustomModels(): import('../types/customModel.js').CustomModelConfig[] | undefined {
+    return this.customModels;
+  }
+
+  getCustomModelConfig(modelId: string): import('../types/customModel.js').CustomModelConfig | undefined {
+    // modelId 格式: custom:{displayName}
+    const displayName = modelId.replace('custom:', '');
+    return this.customModels?.find(model => model.displayName === displayName && model.enabled !== false);
+  }
+
+  setCustomModels(models: import('../types/customModel.js').CustomModelConfig[]): void {
+    this.customModels = models;
   }
 
   setModel(newModel: string): void {

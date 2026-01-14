@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { Config } from 'deepv-code-core';
+import { Config, CustomModelConfig, isCustomModel, generateCustomModelId } from 'deepv-code-core';
 
 // 模型信息接口（匹配服务端API响应）
 export interface ModelInfo {
@@ -15,6 +15,7 @@ export interface ModelInfo {
   maxToken: number;
   highVolumeThreshold: number;
   highVolumeCredits: number;
+  isCustom?: boolean; // 标识是否为自定义模型
 }
 
 // auto模式的默认配置
@@ -28,6 +29,22 @@ export const AUTO_MODE_CONFIG = {
   highVolumeCredits: 12.0
 };
 
+/**
+ * 将自定义模型配置转换为ModelInfo格式
+ */
+function convertCustomModelToModelInfo(customModel: CustomModelConfig): ModelInfo {
+  return {
+    name: generateCustomModelId(customModel.displayName),  // 自动生成 custom:{displayName}
+    displayName: `${customModel.displayName} [Custom]`,
+    creditsPerRequest: 0, // 自定义模型不显示积分
+    available: customModel.enabled !== false,
+    maxToken: customModel.maxTokens || 0,
+    highVolumeThreshold: 0,
+    highVolumeCredits: 0,
+    isCustom: true,
+  };
+}
+
 // 创建模型显示名称映射的辅助函数
 export function createModelDisplayNameMap(models: ModelInfo[], config?: Config | null): Map<string, string> {
   const map = new Map<string, string>();
@@ -39,6 +56,16 @@ export function createModelDisplayNameMap(models: ModelInfo[], config?: Config |
   models.forEach(model => {
     map.set(model.name, model.displayName);
   });
+
+  // 添加自定义模型的显示名称
+  if (config) {
+    const customModels = config.getCustomModels() || [];
+    customModels.forEach(customModel => {
+      if (customModel.enabled !== false) {
+        map.set(generateCustomModelId(customModel.displayName), `${customModel.displayName} [Custom]`);
+      }
+    });
+  }
 
   return map;
 }
@@ -68,6 +95,15 @@ export function getModelDisplayName(modelName: string, config?: Config | null): 
 export function getModelInfo(modelName: string, config?: Config | null): ModelInfo | undefined {
   // 如果传入了 config，从 config 中获取模型信息
   if (config) {
+    // 先检查是否为自定义模型
+    if (isCustomModel(modelName)) {
+      const customModel = config.getCustomModelConfig(modelName);
+      if (customModel) {
+        return convertCustomModelToModelInfo(customModel);
+      }
+    }
+
+    // 否则从云端模型中查找
     const cloudModels = config.getCloudModels() || [];
     return cloudModels.find((model: ModelInfo) => model.name === modelName);
   }

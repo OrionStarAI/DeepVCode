@@ -13,6 +13,7 @@ export * from './config/modelCapabilities.js';
 
 // Export extended types
 export * from './types/extendedContent.js';
+export * from './types/customModel.js';
 
 // Export Core Logic
 export * from './core/client.js';
@@ -58,6 +59,7 @@ export * from './utils/functionCallValidator.js';
 export * from './utils/modelDiagnostics.js';
 export * from './utils/logging.js';
 export * from './utils/pathUtils.js';
+export * from './utils/healthyUseReminderState.js';
 
 export * from './utils/enhancedLogger.js';
 

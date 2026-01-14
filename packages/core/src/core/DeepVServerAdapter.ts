@@ -31,6 +31,8 @@ import { isDeepXQuotaError } from '../utils/quotaErrorDetection.js';
 import { realTimeTokenEventManager } from '../events/realTimeTokenEvents.js';
 import { MESSAGE_ROLES } from '../config/messageRoles.js';
 import { getGlobalDispatcher } from 'undici';
+import { isCustomModel } from '../types/customModel.js';
+import { callCustomModel } from './customModelAdapter.js';
 
 /**
  * Check if a model supports Server-Sent Events (SSE) streaming.
@@ -172,6 +174,17 @@ export class DeepVServerAdapter implements ContentGenerator {
       // 模型解析优先级：request.model > sceneModel > userModel > 'auto'
       // 这样固定值场景（如 'gemini-2.5-flash'）会优先，'auto' 场景会回退到用户模型
       const modelToUse = request.model || sceneModel || userModel || 'auto';
+
+      // 检查是否为自定义模型
+      if (isCustomModel(modelToUse) && this.config) {
+        const customModelConfig = this.config.getCustomModelConfig(modelToUse);
+        if (customModelConfig) {
+          console.log(`[DeepV Server] Using custom model: ${customModelConfig.displayName}`);
+          return await callCustomModel(customModelConfig, request, request.config?.abortSignal);
+        } else {
+          throw new Error(`Custom model configuration not found for: ${modelToUse}`);
+        }
+      }
 
       // 详细的模型决策日志 - 仅在调试模式下显示
       if (process.env.DEBUG || process.env.NODE_ENV === 'development') {
@@ -494,6 +507,16 @@ export class DeepVServerAdapter implements ContentGenerator {
   }
 
   async generateContentStream(request: GenerateContentParameters, scene: SceneType): Promise<AsyncGenerator<GenerateContentResponse>> {
+    // 检查是否为自定义模型 - 自定义模型目前只支持非流式调用
+    const sceneModel = SceneManager.getModelForScene(scene);
+    const userModel = this.config?.getModel();
+    const modelToUse = request.model || sceneModel || userModel || 'auto';
+
+    if (isCustomModel(modelToUse)) {
+      console.log(`[DeepV Server] Custom model detected, using non-streaming mode`);
+      return this._generateContent(request, scene);
+    }
+
     // 🆕 云模式下禁用SSE流式传输，直接使用非流式API避免消息被打断
     // 通过检查环境变量判断是否为云模式
     const isCloudMode = process.env.DEEPV_CLOUD_MODE === 'true';
@@ -1086,13 +1109,21 @@ export class DeepVServerAdapter implements ContentGenerator {
    */
   async countTokens(request: CountTokensParameters): Promise<CountTokensResponse> {
     try {
+      // 🔧 自定义模型不调用 DeepV Server 的 token count 接口
+      // 直接使用本地估算，避免无谓的 API 错误
+      const modelToUse = request.model || this.config?.getModel() || 'auto';
+      if (isCustomModel(modelToUse)) {
+        logger.debug('[DeepV Server] Custom model detected, using local token estimation');
+        return this.estimateTokensAsFailback(request);
+      }
+
       // 构建统一的GenAI格式请求，包含 systemInstruction 和 tools（如果有）
       const unifiedRequest: {
         model: string;
         contents: typeof request.contents;
         config?: { systemInstruction?: unknown; tools?: unknown };
       } = {
-        model: request.model || 'auto', // 让服务端智能选择模型
+        model: modelToUse,
         contents: request.contents
       };
 
