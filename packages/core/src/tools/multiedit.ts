@@ -6,7 +6,7 @@
  */
 
 
-import { BaseTool, Icon, ToolResult, ToolCallConfirmationDetails, ToolEditConfirmationDetails, ToolConfirmationOutcome } from './tools.js';
+import { BaseTool, Icon, ToolResult, ToolCallConfirmationDetails, ToolEditConfirmationDetails, ToolConfirmationOutcome, ToolExecutionServices } from './tools.js';
 import { Config, ApprovalMode } from '../config/config.js';
 import { EditTool, EditToolParams } from './edit.js';
 import { Type } from '@google/genai';
@@ -18,12 +18,12 @@ import { makeRelative, shortenPath } from '../utils/paths.js';
 import { DEFAULT_DIFF_OPTIONS } from './diffOptions.js';
 
 interface MultiEditToolParams {
-    filePath: string;
+    file_path: string;
     edits: Array<{
-        filePath: string;
-        oldString: string;
-        newString: string;
-        replaceAll?: boolean;
+        file_path?: string;
+        old_string: string;
+        new_string: string;
+        replace_all?: boolean;
     }>;
 }
 
@@ -34,11 +34,11 @@ export class MultiEditTool extends BaseTool<MultiEditToolParams, ToolResult> {
         super(
             MultiEditTool.Name,
             'Multi Edit',
-            'Perform multiple edits sequentially on the same file or across multiple files.',
+            'Perform multiple edits sequentially on the same file or across multiple files. The "edits" parameter MUST be an array of objects, NOT strings.',
             Icon.Pencil,
             {
                 properties: {
-                    filePath: {
+                    file_path: {
                         type: Type.STRING,
                         description: 'The absolute path to the primary file to modify (used for single-file multiedits).',
                     },
@@ -47,40 +47,65 @@ export class MultiEditTool extends BaseTool<MultiEditToolParams, ToolResult> {
                         items: {
                             type: Type.OBJECT,
                             properties: {
-                                filePath: { type: Type.STRING, description: 'The absolute path to the file to modify.' },
-                                oldString: { type: Type.STRING, description: 'The text to replace.' },
-                                newString: { type: Type.STRING, description: 'The text to replace it with.' },
-                                replaceAll: { type: Type.BOOLEAN, description: 'Replace all occurrences (default false).' }
+                                file_path: { type: Type.STRING, description: 'The absolute path to the file to modify.' },
+                                old_string: { type: Type.STRING, description: 'The exact literal text to replace.' },
+                                new_string: { type: Type.STRING, description: 'The text to replace it with.' },
+                                replace_all: { type: Type.BOOLEAN, description: 'Replace all occurrences (default false).' }
                             },
-                            required: ['filePath', 'oldString', 'newString']
+                            required: ['old_string', 'new_string']
                         },
-                        description: 'Array of edit operations to perform sequentially.',
+                        description: 'Array of edit objects to perform sequentially. DO NOT stringify the objects inside this array.',
                     },
                 },
-                required: ['filePath', 'edits'],
+                required: ['file_path', 'edits'],
                 type: Type.OBJECT,
             }
         );
     }
 
     /**
-     * 🎯 规范化参数：处理 AI 可能将 edits 数组作为 JSON 字符串传递的情况
+     * 🎯 规范化参数：处理 AI 可能将 edits 数组作为 JSON 字符串传递的情况，
+     * 并统一处理驼峰 (camelCase) 和下划线 (snake_case) 命名冲突。
      */
     private normalizeParams(params: MultiEditToolParams): MultiEditToolParams {
-        let normalizedEdits = params.edits;
+        let normalizedEdits = (params as any).edits;
 
         // 如果 edits 是字符串，尝试解析为数组
-        if (typeof params.edits === 'string') {
+        if (typeof (params as any).edits === 'string') {
             try {
-                normalizedEdits = JSON.parse(params.edits);
+                normalizedEdits = JSON.parse((params as any).edits);
                 console.log('[MultiEditTool] Parsed edits from JSON string');
             } catch (e) {
                 console.error('[MultiEditTool] Failed to parse edits string:', e);
             }
         }
 
+        // 统一处理属性名冲突（兼容历史遗留的 camelCase 以及 AI 可能发送的嵌套字符串）
+        if (Array.isArray(normalizedEdits)) {
+            normalizedEdits = normalizedEdits.map((edit: any) => {
+                let finalEdit = edit;
+
+                // 如果数组项是字符串，尝试二次解析（处理 AI 的转义错误）
+                if (typeof edit === 'string') {
+                    try {
+                        finalEdit = JSON.parse(edit);
+                    } catch (e) {
+                        console.error('[MultiEditTool] Failed to parse individual edit string:', e);
+                        return edit;
+                    }
+                }
+
+                return {
+                    file_path: finalEdit.file_path || finalEdit.filePath,
+                    old_string: finalEdit.old_string !== undefined ? finalEdit.old_string : finalEdit.oldString,
+                    new_string: finalEdit.new_string !== undefined ? finalEdit.new_string : finalEdit.newString,
+                    replace_all: finalEdit.replace_all !== undefined ? finalEdit.replace_all : (finalEdit.replaceAll !== undefined ? finalEdit.replaceAll : false)
+                };
+            });
+        }
+
         return {
-            ...params,
+            file_path: params.file_path || (params as any).filePath,
             edits: normalizedEdits
         };
     }
@@ -118,7 +143,7 @@ export class MultiEditTool extends BaseTool<MultiEditToolParams, ToolResult> {
         const uniqueFiles = new Set<string>();
 
         for (const edit of normalizedParams.edits) {
-            const targetFile = edit.filePath || params.filePath;
+            const targetFile = edit.file_path || normalizedParams.file_path;
             if (!targetFile) continue;
 
             uniqueFiles.add(targetFile);
@@ -131,9 +156,9 @@ export class MultiEditTool extends BaseTool<MultiEditToolParams, ToolResult> {
                     // 新文件
                 }
 
-                const newContent = edit.oldString === ''
-                    ? edit.newString
-                    : currentContent.replaceAll(edit.oldString, edit.newString);
+                const newContent = edit.old_string === ''
+                    ? edit.new_string
+                    : currentContent.replaceAll(edit.old_string, edit.new_string);
 
                 const fileName = path.basename(targetFile);
                 const fileDiff = Diff.createPatch(
@@ -177,7 +202,7 @@ export class MultiEditTool extends BaseTool<MultiEditToolParams, ToolResult> {
     }
 
 
-    async execute(params: MultiEditToolParams, signal: AbortSignal): Promise<ToolResult> {
+    async execute(params: MultiEditToolParams, signal: AbortSignal, updateOutput?: (output: string) => void, services?: ToolExecutionServices): Promise<ToolResult> {
         // 🎯 规范化参数，处理字符串格式的 edits
         const normalizedParams = this.normalizeParams(params);
 
@@ -186,37 +211,38 @@ export class MultiEditTool extends BaseTool<MultiEditToolParams, ToolResult> {
         const executionLog: string[] = [];
 
         for (const edit of normalizedParams.edits) {
-            // Use edit.filePath if provided, otherwise fallback to params.filePath
-            const targetFile = edit.filePath || params.filePath;
+            // Use edit.file_path if provided, otherwise fallback to params.file_path
+            const targetFile = edit.file_path || normalizedParams.file_path;
 
             if (!targetFile) {
                 executionLog.push(`Skipped edit: No file path provided.`);
                 continue;
             }
 
+            // 🎯 触发预执行钩子，这对于 checkpoint 创建至关重要
+            if (services?.onPreToolExecution) {
+                try {
+                    await services.onPreToolExecution({
+                        callId: `multiedit-sub-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+                        tool: editTool,
+                        args: {
+                            file_path: targetFile,
+                            old_string: edit.old_string,
+                            new_string: edit.new_string,
+                        }
+                    });
+                } catch (preExecError) {
+                    console.warn(`[MultiEditTool] Pre-execution hook failed for ${targetFile}:`, preExecError);
+                }
+            }
+
             try {
                 const result = await editTool.execute({
                     file_path: targetFile,
-                    old_string: edit.oldString,
-                    new_string: edit.newString,
-                    expected_replacements: edit.replaceAll ? undefined : 1 // EditTool logic: undefined defaults to 1? verify. EditTool default is 1. If replaceAll is true, we need to know how EditTool handles it.
-                    // EditTool says: "By default, replaces a single occurrence, but can replace multiple occurrences when `expected_replacements` is specified."
-                    // "The tool will replace ALL occurrences that match `old_string` exactly."
-                    // Wait, if expected_replacements is not specified, it defaults to 1.
-                    // If I want replaceAll, I should probably count occurrences first? 
-                    // Or does EditTool have a flag? It seems it validates expected_replacements vs found.
-                    // If I want "replace all found", EditTool might strictly require exact count.
-                    // Opencode's EditTool might be different. 
-                    // DeepVCode's EditTool: "defaults to 1". "Failed to edit, expected X occurrences but found Y".
-                    // So for MultiEdit, implementing "replaceAll" might be tricky with DeepVCode's strict EditTool without counting first.
-                    // However, user usually provides what they see.
-                    // For now, let's assume 1 replacement unless specified.
-                    // If replaceAll is passed, we might need to READ the file first to count, which is expensive.
-                    // Let's assume replaceAll means "I expect multiple" -> maybe check EditTool for a relaxed mode?
-                    // EditTool does NOT support relaxed mode.
-                    // I will pass expected_replacements: undefined (1) for now, and warn if replaceAll is true but I can't support it directly without counting.
-                    // OR I can try to read file and count.
-                }, signal);
+                    old_string: edit.old_string,
+                    new_string: edit.new_string,
+                    expected_replacements: edit.replace_all ? undefined : 1
+                }, signal, updateOutput, services);
 
                 results.push(result);
                 if (result.returnDisplay && typeof result.returnDisplay === 'string') {
@@ -241,7 +267,7 @@ export class MultiEditTool extends BaseTool<MultiEditToolParams, ToolResult> {
             .filter(d => !!d)
             .join('\n');
 
-        const uniqueFiles = Array.from(new Set(params.edits.map(e => e.filePath || params.filePath).filter(f => !!f)));
+        const uniqueFiles = Array.from(new Set(normalizedParams.edits.map(e => e.file_path || normalizedParams.file_path).filter(f => !!f)));
         const displayFileName = uniqueFiles.length === 1 ? path.basename(uniqueFiles[0]!) : 'Multiple Files';
 
         return {

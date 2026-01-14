@@ -73,6 +73,7 @@ DeepV Code (Monorepo)
    - 使用 `npx vitest run <test-file-path>` 测试单个文件
    - 例如：`npx vitest run packages/cli/src/ui/hooks/useCompletion.test.ts`
    - 全量测试由 CI/CD 自动运行，本地开发节省时间
+6. **Git 提交规范**: 在解决同一个任务或修复同一个问题的过程中，应优先使用 `git commit --amend` 将多次修改合并为一笔提交，避免产生大量琐碎的提交记录。只有在完成一个逻辑独立的阶段性功能时，才创建新的提交。
 
 #### 代码规范
 1. **i18n 国际化**: 所有面向最终用户的 UI 文案必须国际化
@@ -103,4 +104,3 @@ DeepV Code (Monorepo)
 - `DeepV_Code_Whitepaper.md` - 项目白皮书
 - `DEEPV.md` - 本文件（AI记忆文件）
 - `docs/index.md` - 文档总索引
-- 在解决同一个问题的情况下，应该使用 git commit --amend 将多个修改合并成一笔提交，而不是创建多个提交。这样可以保持提交历史清晰。
