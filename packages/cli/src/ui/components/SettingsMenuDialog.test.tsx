@@ -1,24 +1,23 @@
 /**
  * @license
- * Copyright 2025 DeepV Code team
- * https://github.com/OrionStarAI/DeepVCode
+ * Copyright 2025 Google LLC
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React from 'react';
 import { render } from 'ink-testing-library';
 import { describe, it, expect, vi } from 'vitest';
 import { SettingsMenuDialog } from './SettingsMenuDialog.js';
 import { Config, ApprovalMode } from 'deepv-code-core';
 import { LoadedSettings } from '../../config/settings.js';
+import { sanitizeOutput } from '../test-utils.js';
 
 // Mock shared components
 vi.mock('./shared/RadioButtonSelect.js', async () => {
   const { Text, Box } = await vi.importActual<typeof import('ink')>('ink');
   return {
-    RadioButtonSelect: ({ items }: { items: any[] }) => (
+    RadioButtonSelect: ({ items }: { items: Array<{ label: string }> }) => (
       <Box flexDirection="column">
-        {items.map((item: any, index: number) => (
+        {items.map((item: { label: string }, index: number) => (
           <Text key={index}>{item.label}</Text>
         ))}
       </Box>
@@ -66,9 +65,10 @@ describe('SettingsMenuDialog', () => {
       />
     );
 
-    expect(lastFrame()).toContain('Settings Menu');
-    expect(lastFrame()).toContain('Theme');
-    expect(lastFrame()).toContain('Editor');
-    expect(lastFrame()).toContain('AI Model');
+    const output = sanitizeOutput(lastFrame());
+    expect(output).toContain('Settings Menu');
+    expect(output).toContain('Theme');
+    expect(output).toContain('Editor');
+    expect(output).toContain('AI Model');
   });
 });

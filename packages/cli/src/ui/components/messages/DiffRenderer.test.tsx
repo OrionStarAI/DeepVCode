@@ -8,7 +8,8 @@ import { OverflowProvider } from '../../contexts/OverflowContext.js';
 import { render } from 'ink-testing-library';
 import { DiffRenderer } from './DiffRenderer.js';
 import * as CodeColorizer from '../../utils/CodeColorizer.js';
-import { vi } from 'vitest';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { sanitizeOutput as baseSanitizeOutput } from '../../test-utils.js';
 
 describe('<OverflowProvider><DiffRenderer /></OverflowProvider>', () => {
   const mockColorizeCode = vi.spyOn(CodeColorizer, 'colorizeCode');
@@ -18,7 +19,7 @@ describe('<OverflowProvider><DiffRenderer /></OverflowProvider>', () => {
   });
 
   const sanitizeOutput = (output: string | undefined, terminalWidth: number) =>
-    output?.replace(/GAP_INDICATOR/g, '═'.repeat(terminalWidth));
+    baseSanitizeOutput(output?.replace(/GAP_INDICATOR/g, '═'.repeat(terminalWidth)));
 
   it.skip('should call colorizeCode with correct language for new file with known extension', () => {
     const newFileDiffContent = `
@@ -128,7 +129,7 @@ index 0000001..0000002 100644
       expect.stringContaining('new line'),
       expect.anything(),
     );
-    const output = lastFrame();
+    const output = baseSanitizeOutput(lastFrame());
     const lines = output!.split('\n');
     expect(lines[0]).toBe('1 - old line');
     expect(lines[1]).toBe('1 + new line');
@@ -149,7 +150,7 @@ index 1234567..1234567 100644
         />
       </OverflowProvider>,
     );
-    expect(lastFrame()).toContain('No changes detected');
+    expect(baseSanitizeOutput(lastFrame())).toContain('No changes detected');
     expect(mockColorizeCode).not.toHaveBeenCalled();
   });
 
@@ -166,7 +167,7 @@ index 1234567..1234567 100644
       </OverflowProvider>,
     );
 
-    const output = lastFrame() || '';
+    const output = baseSanitizeOutput(lastFrame()) || '';
     expect(output).not.toContain('No changes detected');
     expect(output).toContain('old');
     expect(output).toContain('new');
@@ -178,7 +179,7 @@ index 1234567..1234567 100644
         <DiffRenderer diffContent="" terminalWidth={80} />
       </OverflowProvider>,
     );
-    expect(lastFrame()).toContain('No diff content');
+    expect(baseSanitizeOutput(lastFrame())).toContain('No diff content');
     expect(mockColorizeCode).not.toHaveBeenCalled();
   });
 
@@ -205,7 +206,7 @@ index 123..456 100644
         />
       </OverflowProvider>,
     );
-    const output = lastFrame();
+    const output = baseSanitizeOutput(lastFrame());
     expect(output).toContain('═'); // Check for the border character used in the gap
 
     // Verify that lines before and after the gap are rendered
@@ -242,7 +243,7 @@ index abc..def 100644
         />
       </OverflowProvider>,
     );
-    const output = lastFrame();
+    const output = baseSanitizeOutput(lastFrame());
     expect(output).not.toContain('═'); // Ensure no separator is rendered
 
     // Verify that lines before and after the gap are rendered
@@ -315,8 +316,8 @@ index 123..789 100644
             />
           </OverflowProvider>,
         );
-        const output = lastFrame();
-        expect(sanitizeOutput(output, terminalWidth)).toEqual(expected);
+        const output = sanitizeOutput(lastFrame(), terminalWidth);
+        expect(output).toEqual(expected);
       },
     );
   });
@@ -343,7 +344,7 @@ fileDiff Index: file.txt
         />
       </OverflowProvider>,
     );
-    const output = lastFrame();
+    const output = baseSanitizeOutput(lastFrame());
 
     // SVN 格式应该被视为单文件，不拆分
     expect(output).toContain('const oldVar = 1');
@@ -373,7 +374,7 @@ fileDiff Index: Dockerfile
         />
       </OverflowProvider>,
     );
-    const output = lastFrame();
+    const output = baseSanitizeOutput(lastFrame());
     expect(output).toEqual(`FROM node:14
 RUN npm install
 RUN npm run build`);

@@ -8,17 +8,13 @@ import { render } from 'ink-testing-library';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { SessionSummaryDisplay } from './SessionSummaryDisplay.js';
 import * as SessionContext from '../contexts/SessionContext.js';
-import { SessionMetrics } from '../contexts/SessionContext.js';
+import { SessionMetrics, SessionStats } from '../contexts/SessionContext.js';
 import { getExpectedText, withMockedLocale } from '../utils/testI18n.js';
 import { WindowSizeLevel } from '../hooks/useSmallWindowOptimization.js';
 import { _clearLocaleCache } from '../utils/i18n.js';
-import { getCreditsService } from '../../services/creditsService.js';
+import { sanitizeOutput } from '../test-utils.js';
 
-const clearCache = _clearLocaleCache;
-
-const { mockGetCreditsInfo } = vi.hoisted(() => {
-  return { mockGetCreditsInfo: vi.fn() };
-});
+const { mockGetCreditsInfo } = vi.hoisted(() => ({ mockGetCreditsInfo: vi.fn() }));
 
 // Mock small window optimization to return normal size by default
 vi.mock('../hooks/useSmallWindowOptimization.js', () => ({
@@ -128,8 +124,8 @@ const renderWithMockedStats = (metrics: SessionMetrics) => {
   };
 
   useSessionStatsMock.mockReturnValue({
-    stats,
-    computedStats: SessionContext.computeSessionStats(stats as any),
+    stats: stats as unknown as SessionStats,
+    computedStats: SessionContext.computeSessionStats(stats as unknown as SessionStats),
     getPromptCount: () => 5,
     startNewPrompt: vi.fn(),
     resetStats: vi.fn(),
@@ -176,7 +172,7 @@ describe('<SessionSummaryDisplay />', () => {
 
     const result = withMockedLocale('en', () => {
       const { lastFrame } = renderWithMockedStats(metrics);
-      return lastFrame();
+      return sanitizeOutput(lastFrame());
     });
 
     expect(result).toContain(expectedText.en);
@@ -212,7 +208,7 @@ describe('<SessionSummaryDisplay />', () => {
 
     const result = withMockedLocale('zh', () => {
       const { lastFrame } = renderWithMockedStats(metrics);
-      return lastFrame();
+      return sanitizeOutput(lastFrame());
     });
 
     expect(result).toContain(expectedText.zh);
@@ -220,7 +216,7 @@ describe('<SessionSummaryDisplay />', () => {
 
   it('shows loading state then goodbye message', async () => {
     // Mock credits service to return a promise we can control
-    let resolveCredits: (value: any) => void;
+    let resolveCredits: (value: unknown) => void;
     const creditsPromise = new Promise((resolve) => {
       resolveCredits = resolve;
     });
@@ -238,9 +234,7 @@ describe('<SessionSummaryDisplay />', () => {
       },
     };
 
-    const { lastFrame, unmount } = withMockedLocale('en', () => {
-      return renderWithMockedStats(metrics);
-    });
+    const { lastFrame, unmount } = withMockedLocale('en', () => renderWithMockedStats(metrics));
 
     // Check if mock was called
     await vi.waitFor(() => {
@@ -249,21 +243,21 @@ describe('<SessionSummaryDisplay />', () => {
 
     // Wait for the loading state to appear (triggered by useEffect)
     await vi.waitFor(() => {
-        expect(lastFrame()).toContain('•');
-        expect(lastFrame()).toContain('Exiting...'); // "command.quit.exiting" in en
+        expect(sanitizeOutput(lastFrame())).toContain('•');
+        expect(sanitizeOutput(lastFrame())).toContain('Exiting...'); // "command.quit.exiting" in en
     });
 
     // Resolve the credits promise
     await vi.waitFor(() => {
-        resolveCredits({ totalCredits: 100, usedCredits: 10, usagePercentage: 10 });
+        resolveCredits!({ totalCredits: 100, usedCredits: 10, usagePercentage: 10 });
     })
 
     // Force a re-render/wait for effects
     await new Promise(resolve => setTimeout(resolve, 0));
 
     // Should now show done state (👋 and goodbye message)
-    expect(lastFrame()).toContain('👋');
-    expect(lastFrame()).toContain('Goodbye'); // "command.quit.goodbye" in en
+    expect(sanitizeOutput(lastFrame())).toContain('👋');
+    expect(sanitizeOutput(lastFrame())).toContain('Goodbye'); // "command.quit.goodbye" in en
 
     unmount();
   });

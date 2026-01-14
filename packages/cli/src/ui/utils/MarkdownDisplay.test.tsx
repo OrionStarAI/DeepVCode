@@ -7,6 +7,7 @@
 import { render } from 'ink-testing-library';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { MarkdownDisplay } from './MarkdownDisplay.js';
+import { sanitizeOutput } from '../test-utils.js';
 
 describe('<MarkdownDisplay />', () => {
   const baseProps = {
@@ -21,7 +22,7 @@ describe('<MarkdownDisplay />', () => {
 
   it('renders nothing for empty text', () => {
     const { lastFrame } = render(<MarkdownDisplay {...baseProps} text="" />);
-    expect(lastFrame()).toMatchSnapshot();
+    expect(sanitizeOutput(lastFrame())).toMatchSnapshot();
   });
 
   it('renders a simple paragraph', () => {
@@ -29,7 +30,7 @@ describe('<MarkdownDisplay />', () => {
     const { lastFrame } = render(
       <MarkdownDisplay {...baseProps} text={text} />,
     );
-    expect(lastFrame()).toMatchSnapshot();
+    expect(sanitizeOutput(lastFrame())).toMatchSnapshot();
   });
 
   it('renders headers with correct levels', () => {
@@ -42,7 +43,7 @@ describe('<MarkdownDisplay />', () => {
     const { lastFrame } = render(
       <MarkdownDisplay {...baseProps} text={text} />,
     );
-    expect(lastFrame()).toMatchSnapshot();
+    expect(sanitizeOutput(lastFrame())).toMatchSnapshot();
   });
 
   it('renders a fenced code block with a language', () => {
@@ -50,7 +51,7 @@ describe('<MarkdownDisplay />', () => {
     const { lastFrame } = render(
       <MarkdownDisplay {...baseProps} text={text} />,
     );
-    expect(lastFrame()).toMatchSnapshot();
+    expect(sanitizeOutput(lastFrame())).toMatchSnapshot();
   });
 
   it('renders a fenced code block without a language', () => {
@@ -58,7 +59,7 @@ describe('<MarkdownDisplay />', () => {
     const { lastFrame } = render(
       <MarkdownDisplay {...baseProps} text={text} />,
     );
-    expect(lastFrame()).toMatchSnapshot();
+    expect(sanitizeOutput(lastFrame())).toMatchSnapshot();
   });
 
   it('handles unclosed (pending) code blocks', () => {
@@ -66,7 +67,7 @@ describe('<MarkdownDisplay />', () => {
     const { lastFrame } = render(
       <MarkdownDisplay {...baseProps} text={text} isPending={true} />,
     );
-    expect(lastFrame()).toMatchSnapshot();
+    expect(sanitizeOutput(lastFrame())).toMatchSnapshot();
   });
 
   it('renders unordered lists with different markers', () => {
@@ -78,7 +79,7 @@ describe('<MarkdownDisplay />', () => {
     const { lastFrame } = render(
       <MarkdownDisplay {...baseProps} text={text} />,
     );
-    expect(lastFrame()).toMatchSnapshot();
+    expect(sanitizeOutput(lastFrame())).toMatchSnapshot();
   });
 
   it('renders nested unordered lists', () => {
@@ -90,7 +91,7 @@ describe('<MarkdownDisplay />', () => {
     const { lastFrame } = render(
       <MarkdownDisplay {...baseProps} text={text} />,
     );
-    expect(lastFrame()).toMatchSnapshot();
+    expect(sanitizeOutput(lastFrame())).toMatchSnapshot();
   });
 
   it('renders ordered lists', () => {
@@ -101,7 +102,7 @@ describe('<MarkdownDisplay />', () => {
     const { lastFrame } = render(
       <MarkdownDisplay {...baseProps} text={text} />,
     );
-    expect(lastFrame()).toMatchSnapshot();
+    expect(sanitizeOutput(lastFrame())).toMatchSnapshot();
   });
 
   it('renders horizontal rules', () => {
@@ -115,7 +116,7 @@ Test
     const { lastFrame } = render(
       <MarkdownDisplay {...baseProps} text={text} />,
     );
-    expect(lastFrame()).toMatchSnapshot();
+    expect(sanitizeOutput(lastFrame())).toMatchSnapshot();
   });
 
   it('renders tables correctly', () => {
@@ -128,7 +129,7 @@ Test
     const { lastFrame } = render(
       <MarkdownDisplay {...baseProps} text={text} />,
     );
-    expect(lastFrame()).toMatchSnapshot();
+    expect(sanitizeOutput(lastFrame())).toMatchSnapshot();
   });
 
   it('handles a table at the end of the input', () => {
@@ -140,7 +141,7 @@ Some text before.
     const { lastFrame } = render(
       <MarkdownDisplay {...baseProps} text={text} />,
     );
-    expect(lastFrame()).toMatchSnapshot();
+    expect(sanitizeOutput(lastFrame())).toMatchSnapshot();
   });
 
   it('inserts a single space between paragraphs', () => {
@@ -150,7 +151,7 @@ Paragraph 2.`;
     const { lastFrame } = render(
       <MarkdownDisplay {...baseProps} text={text} />,
     );
-    expect(lastFrame()).toMatchSnapshot();
+    expect(sanitizeOutput(lastFrame())).toMatchSnapshot();
   });
 
   it('correctly parses a mix of markdown elements', () => {
@@ -171,6 +172,6 @@ Another paragraph.
     const { lastFrame } = render(
       <MarkdownDisplay {...baseProps} text={text} />,
     );
-    expect(lastFrame()).toMatchSnapshot();
+    expect(sanitizeOutput(lastFrame())).toMatchSnapshot();
   });
 });

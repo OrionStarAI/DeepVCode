@@ -8,6 +8,7 @@ import { render } from 'ink-testing-library';
 import { describe, it, expect, vi } from 'vitest';
 import { ToolConfirmationMessage } from './ToolConfirmationMessage.js';
 import { ToolCallConfirmationDetails } from 'deepv-code-core';
+import { sanitizeOutput } from '../../test-utils.js';
 
 vi.mock('../../hooks/useSmallWindowOptimization.js', () => ({
   useSmallWindowOptimization: vi.fn(() => ({
@@ -39,7 +40,7 @@ describe('ToolConfirmationMessage', () => {
       />,
     );
 
-    expect(lastFrame()).not.toContain('URLs to fetch:');
+    expect(sanitizeOutput(lastFrame())).not.toContain('URLs to fetch:');
   });
 
   it('should display urls if prompt and url are different', () => {
@@ -62,8 +63,8 @@ describe('ToolConfirmationMessage', () => {
       />,
     );
 
-    expect(lastFrame()).toContain('URLs to fetch:');
-    expect(lastFrame()).toContain(
+    expect(sanitizeOutput(lastFrame())).toContain('URLs to fetch:');
+    expect(sanitizeOutput(lastFrame())).toContain(
       '- https://raw.githubusercontent.com/google/gemini-react/main/README.md',
     );
   });

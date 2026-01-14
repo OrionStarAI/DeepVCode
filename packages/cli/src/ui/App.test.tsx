@@ -7,6 +7,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest';
 import { render } from 'ink-testing-library';
 import { AppWrapper as App } from './App.js';
+import { sanitizeOutput } from './test-utils.js';
 import {
   Config as ServerConfig,
   MCPServerConfig,
@@ -172,6 +173,7 @@ vi.mock('deepv-code-core', async (importOriginal) => {
         getHookSystem: vi.fn(() => ({
           getEventHandler: vi.fn(() => ({})),
         })),
+        getCustomModels: vi.fn(() => []),
       };
     });
 
@@ -346,7 +348,7 @@ describe('App UI', () => {
     );
     currentUnmount = unmount;
     await Promise.resolve();
-    expect(lastFrame()).toContain('1 recent file (ctrl+e to view)');
+    expect(sanitizeOutput(lastFrame())).toContain('1 recent file (ctrl+e to view)');
   });
 
   it('should not display active file when not available', async () => {
@@ -363,7 +365,7 @@ describe('App UI', () => {
     );
     currentUnmount = unmount;
     await Promise.resolve();
-    expect(lastFrame()).not.toContain('Open File');
+    expect(sanitizeOutput(lastFrame())).not.toContain('Open File');
   });
 
   it('should display active file and other context', async () => {
@@ -384,7 +386,7 @@ describe('App UI', () => {
     );
     currentUnmount = unmount;
     await Promise.resolve();
-    expect(lastFrame()).toContain(
+    expect(sanitizeOutput(lastFrame())).toContain(
       'Using: 1 recent file (ctrl+e to view) | 1 GEMINI.md file',
     );
   });
@@ -405,7 +407,7 @@ describe('App UI', () => {
     );
     currentUnmount = unmount;
     await Promise.resolve(); // Wait for any async updates
-    expect(lastFrame()).toContain('Using: 1 GEMINI.md file');
+    expect(sanitizeOutput(lastFrame())).toContain('Using: 1 GEMINI.md file');
   });
 
   it('should display default "GEMINI.md" with plural when contextFileName is not set and count is > 1', async () => {
@@ -426,7 +428,7 @@ describe('App UI', () => {
     );
     currentUnmount = unmount;
     await Promise.resolve();
-    expect(lastFrame()).toContain('Using: 2 GEMINI.md files');
+    expect(sanitizeOutput(lastFrame())).toContain('Using: 2 GEMINI.md files');
   });
 
   it('should display custom contextFileName in footer when set and count is 1', async () => {
@@ -448,7 +450,7 @@ describe('App UI', () => {
     );
     currentUnmount = unmount;
     await Promise.resolve();
-    expect(lastFrame()).toContain('Using: 1 AGENTS.md file');
+    expect(sanitizeOutput(lastFrame())).toContain('Using: 1 AGENTS.md file');
   });
 
   it('should display a generic message when multiple context files with different names are provided', async () => {
@@ -475,7 +477,7 @@ describe('App UI', () => {
     );
     currentUnmount = unmount;
     await Promise.resolve();
-    expect(lastFrame()).toContain('Using: 2 context files');
+    expect(sanitizeOutput(lastFrame())).toContain('Using: 2 context files');
   });
 
   it('should display custom contextFileName with plural when set and count is > 1', async () => {
@@ -501,7 +503,7 @@ describe('App UI', () => {
     );
     currentUnmount = unmount;
     await Promise.resolve();
-    expect(lastFrame()).toContain('Using: 3 MY_NOTES.TXT files');
+    expect(sanitizeOutput(lastFrame())).toContain('Using: 3 MY_NOTES.TXT files');
   });
 
   it('should not display context file message if count is 0, even if contextFileName is set', async () => {
@@ -523,7 +525,7 @@ describe('App UI', () => {
     );
     currentUnmount = unmount;
     await Promise.resolve();
-    expect(lastFrame()).not.toContain('ANY_FILE.MD');
+    expect(sanitizeOutput(lastFrame())).not.toContain('ANY_FILE.MD');
   });
 
   it('should display GEMINI.md and MCP server count when both are present', async () => {
@@ -547,7 +549,7 @@ describe('App UI', () => {
     );
     currentUnmount = unmount;
     await Promise.resolve();
-    expect(lastFrame()).toContain('1 MCP server');
+    expect(sanitizeOutput(lastFrame())).toContain('1 MCP server');
   });
 
   it('should display only MCP server count when GEMINI.md count is 0', async () => {
@@ -569,7 +571,7 @@ describe('App UI', () => {
     );
     currentUnmount = unmount;
     await Promise.resolve();
-    expect(lastFrame()).toContain('0/2 MCP servers');
+    expect(sanitizeOutput(lastFrame())).toContain('0/2 MCP servers');
   });
 
   it('should display WelcomeScreen component by default', async () => {
@@ -631,7 +633,7 @@ describe('App UI', () => {
       );
       currentUnmount = unmount;
 
-      expect(lastFrame()).toContain('Select Theme');
+      expect(sanitizeOutput(lastFrame())).toContain('Select Theme');
     });
 
     it('should display a message if NO_COLOR is set', async () => {
@@ -646,8 +648,8 @@ describe('App UI', () => {
       );
       currentUnmount = unmount;
 
-      expect(lastFrame()).toContain('First launch detected');
-      expect(lastFrame()).not.toContain('Select Theme');
+      expect(sanitizeOutput(lastFrame())).toContain('First launch detected');
+      expect(sanitizeOutput(lastFrame())).not.toContain('Select Theme');
     });
   });
 
@@ -660,8 +662,8 @@ describe('App UI', () => {
       />,
     );
     currentUnmount = unmount;
-    expect(lastFrame()).toContain('Type your message or @filepath');
-    expect(lastFrame()).toContain('/test/dir');
+    expect(sanitizeOutput(lastFrame())).toContain('Type your message or @filepath');
+    expect(sanitizeOutput(lastFrame())).toContain('/test/dir');
   });
 
   it('should render correctly with the prompt input box', () => {
@@ -684,8 +686,8 @@ describe('App UI', () => {
       />,
     );
     currentUnmount = unmount;
-    expect(lastFrame()).toContain('Type your message or @filepath');
-    expect(lastFrame()).toContain('/test/dir');
+    expect(sanitizeOutput(lastFrame())).toContain('Type your message or @filepath');
+    expect(sanitizeOutput(lastFrame())).toContain('/test/dir');
   });
 
   describe('with initial prompt from --prompt-interactive', () => {
@@ -763,7 +765,7 @@ describe('App UI', () => {
       await Promise.resolve();
 
       // Total error count should be 5 + 7 + 1 = 13
-      expect(lastFrame()).toContain('13 errors');
+      expect(sanitizeOutput(lastFrame())).toContain('13 errors');
     });
   });
 
@@ -796,7 +798,7 @@ describe('App UI', () => {
       await vi.advanceTimersByTimeAsync(500);
 
       // Check for content from the reminder (English version)
-      const frame1 = lastFrame();
+      const frame1 = sanitizeOutput(lastFrame());
       expect(frame1).toContain("It's late, time to rest");
 
       // 2. Set time to morning (08:00)
@@ -806,7 +808,7 @@ describe('App UI', () => {
       // Advance timer to trigger next check (every minute)
       await vi.advanceTimersByTimeAsync(65000);
 
-      const frame2 = lastFrame();
+      const frame2 = sanitizeOutput(lastFrame());
       expect(frame2).not.toContain("It's late, time to rest");
     }, 15000);
   });
