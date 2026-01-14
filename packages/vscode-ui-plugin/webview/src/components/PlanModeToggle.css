@@ -1,23 +1,30 @@
 /**
  * Plan Mode Toggle Switch Styles
  * 简洁的toggle switch，类似VSCode按钮
+ *
+ * 🎯 统一规范：
+ * - 基础尺寸: 32x32px
+ * - 响应式 (max-width: 768px): 28x28px
+ * - 与 .send-button, .file-upload-button 保持一致
  */
 
 /* Toggle Switch Button */
 .plan-mode-toggle {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   width: 32px;
   height: 32px;
-  padding: 4px;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0;
   border: 1px solid transparent;
-  border-radius: 4px;
+  border-radius: 6px;
   background-color: transparent;
   color: var(--vscode-foreground, #cccccc);
   cursor: pointer;
   transition: all 0.2s ease;
-  position: relative;
   flex-shrink: 0;
 }
 
@@ -26,27 +33,14 @@
   border-color: var(--vscode-focusBorder, #007acc);
 }
 
-.plan-mode-toggle:active:not(:disabled) {
-  transform: scale(0.95);
-}
-
 .plan-mode-toggle:focus {
   outline: none;
   border-color: var(--vscode-focusBorder, #007acc);
-  background-color: transparent;
 }
 
 .plan-mode-toggle:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-/* Toggle Icon */
-.plan-mode-toggle .toggle-icon {
-  flex-shrink: 0;
-  transition: all 0.2s ease;
-  width: 16px;
-  height: 16px;
 }
 
 /* Active state - Plan mode enabled */
@@ -61,23 +55,36 @@
   border-color: var(--vscode-inputOption-activeBorder, #007acc);
 }
 
-.plan-mode-toggle.active .toggle-icon {
-  color: var(--vscode-inputOption-activeForeground, #ffffff);
+/* ON 徽章 - 右下角小标签，仅在 active 状态显示 */
+.plan-mode-badge {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  font-size: 7px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 1px 2px;
+  background-color: var(--vscode-inputOption-activeBorder, #007acc);
+  color: #ffffff;
+  border-radius: 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  pointer-events: none;
 }
 
-.plan-mode-toggle:not(.active) .toggle-icon {
-  color: var(--vscode-foreground, #cccccc);
-}
-
-/* Responsive design */
+/* Responsive design - 与 MessageInput.css 中的按钮保持一致 */
 @media (max-width: 768px) {
   .plan-mode-toggle {
     width: 28px;
     height: 28px;
+    min-width: 28px;
+    min-height: 28px;
   }
 
-  .plan-mode-toggle .toggle-icon {
-    width: 14px;
-    height: 14px;
+  .plan-mode-badge {
+    font-size: 6px;
+    bottom: 1px;
+    right: 1px;
+    padding: 1px 1px;
   }
 }
