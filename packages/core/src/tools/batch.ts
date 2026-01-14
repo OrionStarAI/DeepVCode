@@ -10,6 +10,7 @@ import { BaseTool, Icon, ToolResult, ToolExecutionServices } from './tools.js';
 import { Config } from '../config/config.js';
 import { Type } from '@google/genai';
 import { SchemaValidator } from '../utils/schemaValidator.js';
+import { t } from '../utils/simpleI18n.js';
 
 interface BatchToolParams {
     tool_calls: Array<{
@@ -83,6 +84,19 @@ export class BatchTool extends BaseTool<BatchToolParams, ToolResult> {
             if (!tool) {
                 results.push({ tool: call.tool, success: false, error: `Tool ${call.tool} not found.` });
                 continue;
+            }
+
+            // 🎯 触发预执行钩子，这对于 checkpoint 创建至关重要
+            if (services?.onPreToolExecution) {
+                try {
+                    await services.onPreToolExecution({
+                        callId: `batch-sub-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+                        tool,
+                        args: call.parameters as any
+                    });
+                } catch (preExecError) {
+                    console.warn(`[BatchTool] Pre-execution hook failed for ${call.tool}:`, preExecError);
+                }
             }
 
             try {

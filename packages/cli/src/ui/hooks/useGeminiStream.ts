@@ -356,12 +356,66 @@ export const useGeminiStream = (
   const createInitialCheckpoint = useCallback(async (requests: ToolCallRequestInfo[]) => {
     if (!sessionManager || !gitService) return;
 
-    // 检查是否有文件修改工具
-    const fileModifyingToolNames = ['replace', 'write_file', 'delete_file'];
-    const hasFileModifyingTools = requests.some(req => {
-      const toolName = req.name || '';
-      return fileModifyingToolNames.includes(toolName);
-    });
+    // 检查是否有文件修改工具（包括嵌套在 batch 或 multiedit 中的）
+    const fileModifyingToolNames = [
+      'replace',
+      'write_file',
+      'delete_file',
+      'patch',
+      'multiedit'
+    ];
+
+    /**
+     * 🎯 判断 Shell 命令是否包含修改操作的简单启发式检查
+     */
+    const isModifyingShellCommand = (command: string): boolean => {
+      if (!command) return false;
+      const cmd = command.trim();
+
+      // 1. 检查重定向 (写入文件)
+      if (cmd.includes('>') || cmd.includes('>>')) return true;
+
+      // 2. 检查具有修改性质的常用命令
+      const modifyingCmds = [
+        'rm', 'mv', 'cp', 'mkdir', 'touch', 'sed', 'chmod', 'chown', 'truncate',
+        'npm', 'yarn', 'pnpm', 'pip', 'apt', 'brew' // 包管理通常涉及文件变化
+      ];
+
+      // 匹配命令起始位置或管道符/分号后的起始位置
+      const cmdRegex = new RegExp(`(^|[|&;])\\s*(${modifyingCmds.join('|')})\\b`, 'i');
+      return cmdRegex.test(cmd);
+    };
+
+    /**
+     * 🎯 递归检查工具调用中是否包含文件修改类工具
+     */
+    const checkHasFileModifyingTools = (calls: any[]): boolean => {
+      return calls.some(req => {
+        // req 可能来自 ToolCallRequestInfo (有 name)
+        // 也可能来自 batch 工具的参数 (有 tool)
+        const toolName = req.name || req.tool || '';
+        const args = req.args || req.parameters;
+
+        // 1. 直接匹配已知的文件修改工具
+        if (fileModifyingToolNames.includes(toolName)) {
+          return true;
+        }
+
+        // 2. 针对 run_shell_command 进行细化检查
+        if (toolName === 'run_shell_command' && args?.command) {
+          return isModifyingShellCommand(args.command);
+        }
+
+        // 3. 处理 batch 工具中的嵌套调用
+        if (toolName === 'batch' && args?.tool_calls && Array.isArray(args.tool_calls)) {
+          return checkHasFileModifyingTools(args.tool_calls);
+        }
+
+        return false;
+      });
+    };
+
+    const hasFileModifyingTools = checkHasFileModifyingTools(requests);
 
     if (!hasFileModifyingTools) {
       return; // 没有文件修改工具，不创建 Checkpoint
@@ -511,6 +565,24 @@ export const useGeminiStream = (
     }
   }, [sessionManager, config, geminiClient, settings, onDebugMessage]);
 
+  /**
+   * 🎯 工具执行前的预处理 (用于 Git Checkpoint)
+   * 这个回调会被传递给调度器，在每个工具（包括 batch 中的子工具）执行前触发
+   */
+  const onPreToolExecution = useCallback(async (toolCall: { callId: string, tool: any, args: any }) => {
+    // 包装成数组，以便复用已有的 createInitialCheckpoint 逻辑
+    // 注意：createInitialCheckpoint 内部现在支持递归检查，
+    // 这意味着即使是嵌套的工具调用也能正确触发 checkpoint
+    const request: ToolCallRequestInfo = {
+      name: toolCall.tool.name,
+      args: toolCall.args,
+      callId: toolCall.callId,
+      isClientInitiated: false,
+      prompt_id: config.getSessionId()
+    };
+    await createInitialCheckpoint([request]);
+  }, [createInitialCheckpoint]);
+
   const [toolCalls, originalScheduleToolCalls, markToolsAsSubmitted, handleConfirmationResponse] =
     useReactToolScheduler(
       async (completedToolCallsFromScheduler) => {
@@ -536,6 +608,7 @@ export const useGeminiStream = (
       config,
       setPendingHistoryItem,
       getPreferredEditor,
+      onPreToolExecution,
     );
 
   // Use the original scheduleToolCalls but wrap it to create initial checkpoint
@@ -543,6 +616,7 @@ export const useGeminiStream = (
     async (request: ToolCallRequestInfo | ToolCallRequestInfo[], signal: AbortSignal) => {
       const requests = Array.isArray(request) ? request : [request];
       // 🎯 在调度工具前尝试创建 Checkpoint（等待创建完成以确保 Git 快照准确）
+      // 虽然 onPreToolExecution 也会触发，但在调度前触发可以更早显示提示
       await createInitialCheckpoint(requests).catch(err => {
         console.error('[Checkpoint] Initial creation failed:', err);
       });
