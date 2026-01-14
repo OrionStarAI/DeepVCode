@@ -26,6 +26,7 @@ import { useTaskCompletionSummary } from './hooks/useTaskCompletionSummary.js';
 import { TaskCompletionSummary } from './components/TaskCompletionSummary.js';
 import { useThemeCommand } from './hooks/useThemeCommand.js';
 import { useModelCommand } from './hooks/useModelCommand.js';
+import { useCustomModelWizard } from './hooks/useCustomModelWizard.js';
 import { useAuthCommand } from './hooks/useAuthCommand.js';
 import { useLoginCommand } from './hooks/useLoginCommand.js';
 import { useEditorSettings } from './hooks/useEditorSettings.js';
@@ -48,6 +49,7 @@ import { Footer } from './components/Footer.js';
 import { truncateText, getDefaultMaxRows } from './utils/textTruncator.js';
 import { ThemeDialog } from './components/ThemeDialog.js';
 import { ModelDialog } from './components/ModelDialog.js';
+import { CustomModelWizard } from './components/CustomModelWizard.js';
 import { AuthDialog } from './components/AuthDialog.js';
 import { LoginDialog } from './components/LoginDialog.js';
 import { AuthInProgress } from './components/AuthInProgress.js';
@@ -96,6 +98,7 @@ import {
   addMCPStatusChangeListener,
   removeMCPStatusChangeListener,
   ProxyAuthManager,
+  HealthyUseReminderState,
 } from 'deepv-code-core';
 import { validateAuthMethod } from '../config/auth.js';
 import { useLogger } from './hooks/useLogger.js';
@@ -499,33 +502,35 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     useState<boolean>(false);
   const [userTier, setUserTier] = useState<UserTierId | undefined>(undefined);
   const [showHealthyUseReminder, setShowHealthyUseReminder] = useState<boolean>(false);
-  const [lastHealthyUseReminderDismissedAt, setLastHealthyUseReminderDismissedAt] = useState<number>(0);
+  const reminderStateRef = useRef<HealthyUseReminderState | null>(null);
+
+  // 初始化健康使用提醒状态管理
+  useEffect(() => {
+    if (!reminderStateRef.current) {
+      reminderStateRef.current = new HealthyUseReminderState(config.getTargetDir());
+    }
+  }, [config]);
 
   // 健康使用提醒逻辑
   useEffect(() => {
-    if (!config.getHealthyUseEnabled()) {
+    if (!config.getHealthyUseEnabled() || !reminderStateRef.current) {
       setShowHealthyUseReminder(false);
       return;
     }
 
     const checkHealthyUse = () => {
-      const now = new Date();
-      const hour = now.getHours();
-      // 深夜时段：22:00 - 06:00
-      const isRestrictedTime = hour >= 22 || hour < 6;
+      if (!reminderStateRef.current) return;
 
-      if (isRestrictedTime) {
-        const thirtyMinutesInMs = 30 * 60 * 1000;
-        const timeSinceLastDismiss = Date.now() - lastHealthyUseReminderDismissedAt;
+      const shouldShow = reminderStateRef.current.shouldShowReminder();
 
-        if (!showHealthyUseReminder && timeSinceLastDismiss > thirtyMinutesInMs) {
-          setShowHealthyUseReminder(true);
-        }
-      } else {
-        // 自动退出受限时段时隐藏弹窗
-        if (showHealthyUseReminder) {
-          setShowHealthyUseReminder(false);
-        }
+      if (shouldShow && !showHealthyUseReminder) {
+        // 需要显示提醒，且当前未显示
+        setShowHealthyUseReminder(true);
+        // 注意：不在这里记录时间戳，而是在用户点击"稍后提醒"时记录
+        // 这样用户才有机会看到提醒
+      } else if (!shouldShow && showHealthyUseReminder) {
+        // 不需要显示（比如退出防沉迷时段），且当前正在显示
+        setShowHealthyUseReminder(false);
       }
     };
 
@@ -533,7 +538,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     checkHealthyUse(); // 初始检查
 
     return () => clearInterval(intervalId);
-  }, [config, lastHealthyUseReminderDismissedAt, showHealthyUseReminder]);
+  }, [config, showHealthyUseReminder]);
 
   const [openFiles, setOpenFiles] = useState<OpenFiles | undefined>();
   const [logoShows, setLogoShows] = useState<boolean>(true);
@@ -731,6 +736,13 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     handleModelSelect,
     handleModelHighlight,
   } = useModelCommand(settings, config, setModelError, addItem, lastTokenUsage);
+
+  const {
+    isCustomModelWizardOpen,
+    openCustomModelWizard,
+    handleWizardComplete,
+    handleWizardCancel,
+  } = useCustomModelWizard(settings, addItem, config);
 
   const {
     isSettingsMenuDialogOpen,
@@ -1043,6 +1055,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     setDebugMessage,
     openThemeDialog,
     openModelDialog,
+    openCustomModelWizard,
     openAuthDialog,
     openLoginDialog,
     openEditorDialog,
@@ -2176,6 +2189,13 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                 terminalWidth={mainAreaWidth}
               />
             </Box>
+          ) : isCustomModelWizardOpen ? (
+            <Box flexDirection="column">
+              <CustomModelWizard
+                onComplete={handleWizardComplete}
+                onCancel={handleWizardCancel}
+              />
+            </Box>
           ) : isAuthenticating ? (
             <>
               <AuthInProgress
@@ -2261,8 +2281,12 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
           ) : showHealthyUseReminder ? (
             <HealthyUseReminder
               onDismiss={() => {
+                // 用户点击"稍后提醒"时，记录时间戳
+                // 这样下次提醒需要等待 1 小时
+                if (reminderStateRef.current) {
+                  reminderStateRef.current.markReminderShown();
+                }
                 setShowHealthyUseReminder(false);
-                setLastHealthyUseReminderDismissedAt(Date.now());
               }}
             />
           ) : (
@@ -2479,7 +2503,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                   focus={isFocused}
                   vimHandleInput={vimHandleInput}
                   placeholder={placeholder}
-                  isModalOpen={isModelDialogOpen || isAuthDialogOpen || isThemeDialogOpen || isEditorDialogOpen || isToolConfirmationMenuOpen || showBackgroundTaskPanel}
+                  isModalOpen={isModelDialogOpen || isCustomModelWizardOpen || isAuthDialogOpen || isThemeDialogOpen || isEditorDialogOpen || isToolConfirmationMenuOpen || showBackgroundTaskPanel}
                   isExecutingTools={isExecutingTools}
                   isBusy={streamingState !== StreamingState.Idle || queuedPrompts.length > 0}
                   isInSpecialMode={!!refineResult || queueEditMode}

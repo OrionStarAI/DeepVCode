@@ -62,7 +62,7 @@ function PaginatedDebugConsoleComponent({
       {/* Page indicator */}
       <Box marginBottom={1}>
         <Text color={Colors.Gray}>
-          Page {currentPage + 1}/{totalPages} - {messages.length} total messages
+          {`Page ${currentPage + 1}/${totalPages} - ${messages.length} total messages`}
         </Text>
       </Box>
 

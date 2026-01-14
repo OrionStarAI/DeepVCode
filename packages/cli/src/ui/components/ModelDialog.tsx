@@ -8,6 +8,7 @@ import React, { useCallback, useState, useEffect } from 'react';
 import { Box, Text, useInput } from 'ink';
 import { Colors } from '../colors.js';
 import { RadioButtonSelect } from './shared/RadioButtonSelect.js';
+import { ModelManagementMenu } from './ModelManagementMenu.js';
 import { LoadedSettings, SettingScope } from '../../config/settings.js';
 import { useSmallWindowOptimization, WindowSizeLevel } from '../hooks/useSmallWindowOptimization.js';
 import { getAvailableModels, getModelDisplayName, getModelInfo, getModelNameFromDisplayName, type ModelInfo } from '../commands/modelCommand.js';
@@ -44,6 +45,9 @@ export function ModelDialog({
 }: ModelDialogProps): React.JSX.Element {
   const smallWindowConfig = useSmallWindowOptimization();
 
+  // 视图状态：'model-list' | 'management'
+  const [viewState, setViewState] = useState<'model-list' | 'management'>('model-list');
+
   const [modelItems, setModelItems] = useState<Array<{
     label: string;
     value: string;
@@ -66,21 +70,45 @@ export function ModelDialog({
           return;
         }
 
-        const items = modelNames.map((modelName: string) => {
-          const displayName = getModelDisplayName(modelName, config);
-          const modelInfo = getModelInfo(modelName, config);
+        // 在列表第一项添加"模型管理"特殊选项
+        const managementItem = {
+          label: `📋 ${t('model.dialog.management.label')}`,
+          value: '__management__',
+          modelInfo: undefined,
+          isCustomModel: false,
+        };
 
-          let label = displayName;
-          if (modelInfo && modelInfo.creditsPerRequest) {
-            label += ` (${modelInfo.creditsPerRequest}x credits)`;
-          }
+        const items = [
+          managementItem,
+          ...modelNames.map((modelName: string) => {
+            const displayName = getModelDisplayName(modelName, config);
+            const modelInfo = getModelInfo(modelName, config);
 
-          return {
-            label,
-            value: modelName,
-            modelInfo,
-          };
-        });
+            let label = displayName;
+            // 只有非自定义模型才显示积分信息
+            if (modelInfo && modelInfo.creditsPerRequest && !modelInfo.isCustom) {
+              label += ` (${modelInfo.creditsPerRequest}x credits)`;
+            }
+
+            // 🐛 调试：打印每个模型的信息
+            if (modelInfo?.isCustom) {
+              console.log('[ModelDialog] Custom model:', {
+                name: modelName,
+                label,
+                credits: modelInfo.creditsPerRequest,
+                maxToken: modelInfo.maxToken,
+                isCustom: modelInfo.isCustom
+              });
+            }
+
+            return {
+              label,
+              value: modelName,
+              modelInfo,
+              isCustomModel: modelInfo?.isCustom || false,
+            };
+          })
+        ];
 
         setModelItems(items);
 
@@ -102,10 +130,67 @@ export function ModelDialog({
 
   const handleModelSelect = useCallback(
     (modelName: string) => {
+      // 检查是否选择了"模型管理"选项
+      if (modelName === '__management__') {
+        setViewState('management');
+        return;
+      }
       onSelect(modelName);
     },
     [onSelect],
   );
+
+  // 处理模型管理完成
+  const handleManagementComplete = useCallback(
+    async (modelsModified: boolean) => {
+      setViewState('model-list');
+
+      // 如果模型列表被修改了，重新加载
+      if (modelsModified) {
+        setLoading(true);
+        try {
+          const { modelNames, modelInfos } = await getAvailableModels(settings, config);
+
+          const managementItem = {
+            label: `📋 ${t('model.dialog.management.label')}`,
+            value: '__management__',
+            modelInfo: undefined,
+            isCustomModel: false,
+          };
+
+          const items = [
+            managementItem,
+            ...modelNames.map((modelName: string) => {
+              const displayName = getModelDisplayName(modelName, config);
+              const modelInfo = getModelInfo(modelName, config);
+              let label = displayName;
+              if (modelInfo && modelInfo.creditsPerRequest && !modelInfo.isCustom) {
+                label += ` (${modelInfo.creditsPerRequest}x credits)`;
+              }
+              return {
+                label,
+                value: modelName,
+                modelInfo,
+                isCustomModel: modelInfo?.isCustom || false,
+              };
+            })
+          ];
+
+          setModelItems(items);
+        } catch (err) {
+          console.error('[ModelDialog] Failed to reload models:', err);
+        } finally {
+          setLoading(false);
+        }
+      }
+    },
+    [settings, config],
+  );
+
+  // 处理模型管理取消
+  const handleManagementCancel = useCallback(() => {
+    setViewState('model-list');
+  }, []);
 
   const handleModelHighlight = useCallback((modelName: string) => {
     setHighlightedModelName(modelName);
@@ -142,9 +227,24 @@ export function ModelDialog({
   const initialModelIndex = modelItems.findIndex(item => item.value === currentModel);
   const safeInitialModelIndex = initialModelIndex >= 0 ? initialModelIndex : 0;
 
-  // Show model details for highlighted model
+  // Show model details for highlighted model (but not for management item)
   const highlightedModel = modelItems.find(item => item.value === highlightedModelName);
-  const showDetails = highlightedModel && highlightedModel.modelInfo && smallWindowConfig.sizeLevel === WindowSizeLevel.NORMAL;
+  const showDetails = highlightedModel
+    && highlightedModel.modelInfo
+    && highlightedModel.value !== '__management__'
+    && smallWindowConfig.sizeLevel === WindowSizeLevel.NORMAL;
+
+  // 如果在管理视图中，显示管理菜单
+  if (viewState === 'management') {
+    return (
+      <ModelManagementMenu
+        onComplete={handleManagementComplete}
+        onCancel={handleManagementCancel}
+        settings={settings}
+        config={config}
+      />
+    );
+  }
 
   return (
     <Box
@@ -201,7 +301,7 @@ export function ModelDialog({
           </Box>
 
           {/* Right Column: Model Details - 只在正常窗口显示 */}
-          {showDetails && highlightedModel && (
+          {showDetails && highlightedModel && highlightedModel.modelInfo && (
             <Box flexDirection="column" width="40%" paddingLeft={2}>
               <Text bold>{t('model.dialog.details.title')}</Text>
               <Box
@@ -214,35 +314,64 @@ export function ModelDialog({
                 flexDirection="column"
                 marginTop={1}
               >
-                <Text>
-                  <Text bold>{t('model.dialog.details.name')}</Text>
-                  <Text>{highlightedModel.modelInfo!.displayName}</Text>
-                </Text>
-                <Text>
-                  <Text bold>{t('model.dialog.details.cost')}</Text>
-                  <Text color={Colors.AccentYellow}>{highlightedModel.modelInfo!.creditsPerRequest}x credits</Text>
-                </Text>
-                {highlightedModel.modelInfo!.maxToken && (
-                  <Text>
-                    <Text bold>{t('model.dialog.details.context')}</Text>
-                    <Text>{highlightedModel.modelInfo!.maxToken.toLocaleString()} tokens</Text>
-                  </Text>
-                )}
-                {highlightedModel.modelInfo!.highVolumeThreshold && (
-                  <Text>
-                    <Text bold>{t('model.dialog.details.long.context')}</Text>
+                {/* 自定义模型专用显示 */}
+                {highlightedModel.modelInfo.isCustom ? (
+                  <>
                     <Text>
-                      {'>'}{highlightedModel.modelInfo!.highVolumeThreshold.toLocaleString()} tokens: {' '}
-                      <Text color={Colors.AccentYellow}>{highlightedModel.modelInfo!.highVolumeCredits}x credits</Text>
+                      <Text bold>{t('model.dialog.details.name')}</Text>
+                      <Text color={Colors.AccentCyan}>{highlightedModel.modelInfo.displayName}</Text>
                     </Text>
-                  </Text>
+                    <Text>
+                      <Text bold>Type: </Text>
+                      <Text color={Colors.AccentCyan}>Custom Model</Text>
+                    </Text>
+                    {highlightedModel.modelInfo.maxToken && highlightedModel.modelInfo.maxToken > 0 && (
+                      <Text>
+                        <Text bold>{t('model.dialog.details.context')}</Text>
+                        <Text>{highlightedModel.modelInfo.maxToken.toLocaleString()} tokens</Text>
+                      </Text>
+                    )}
+                    <Text>
+                      <Text bold>{t('model.dialog.details.status')}</Text>
+                      <Text color={highlightedModel.modelInfo.available ? Colors.AccentGreen : Colors.AccentRed}>
+                        {highlightedModel.modelInfo.available ? t('model.dialog.details.available') : t('model.dialog.details.unavailable')}
+                      </Text>
+                    </Text>
+                  </>
+                ) : (
+                  /* 云端模型显示 */
+                  <>
+                    <Text>
+                      <Text bold>{t('model.dialog.details.name')}</Text>
+                      <Text>{highlightedModel.modelInfo.displayName}</Text>
+                    </Text>
+                    <Text>
+                      <Text bold>{t('model.dialog.details.cost')}</Text>
+                      <Text color={Colors.AccentYellow}>{String(highlightedModel.modelInfo.creditsPerRequest)}x credits</Text>
+                    </Text>
+                    {highlightedModel.modelInfo.maxToken && highlightedModel.modelInfo.maxToken > 0 && (
+                      <Text>
+                        <Text bold>{t('model.dialog.details.context')}</Text>
+                        <Text>{highlightedModel.modelInfo.maxToken.toLocaleString()} tokens</Text>
+                      </Text>
+                    )}
+                    {highlightedModel.modelInfo.highVolumeThreshold && highlightedModel.modelInfo.highVolumeThreshold > 0 && (
+                      <Text>
+                        <Text bold>{t('model.dialog.details.long.context')}</Text>
+                        <Text>
+                          {`>${highlightedModel.modelInfo.highVolumeThreshold.toLocaleString()} tokens: `}
+                          <Text color={Colors.AccentYellow}>{String(highlightedModel.modelInfo.highVolumeCredits)}x credits</Text>
+                        </Text>
+                      </Text>
+                    )}
+                    <Text>
+                      <Text bold>{t('model.dialog.details.status')}</Text>
+                      <Text color={highlightedModel.modelInfo.available ? Colors.AccentGreen : Colors.AccentRed}>
+                        {highlightedModel.modelInfo.available ? t('model.dialog.details.available') : t('model.dialog.details.unavailable')}
+                      </Text>
+                    </Text>
+                  </>
                 )}
-                <Text>
-                  <Text bold>{t('model.dialog.details.status')}</Text>
-                  <Text color={highlightedModel.modelInfo!.available ? Colors.AccentGreen : Colors.AccentRed}>
-                    {highlightedModel.modelInfo!.available ? t('model.dialog.details.available') : t('model.dialog.details.unavailable')}
-                  </Text>
-                </Text>
               </Box>
             </Box>
           )}

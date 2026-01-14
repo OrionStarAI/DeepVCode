@@ -6,7 +6,7 @@
 
 import { CommandKind, CommandContext, MessageActionReturn, OpenDialogActionReturn, SlashCommand } from './types.js';
 import { SettingScope } from '../../config/settings.js';
-import { proxyAuthManager, Config } from 'deepv-code-core';
+import { proxyAuthManager, Config, generateCustomModelId } from 'deepv-code-core';
 import { HistoryItemWithoutId } from '../types.js';
 import { t, tp } from '../utils/i18n.js';
 import { appEvents, AppEvent } from '../../utils/events.js';
@@ -19,6 +19,7 @@ import {
   getModelInfo,
   getModelNameFromDisplayName
 } from '../../utils/modelUtils.js';
+import { loadCustomModels } from '../../config/customModelsStorage.js';
 
 export {
   ModelInfo,
@@ -322,6 +323,13 @@ async function autoUpdateUserPreferredModel(
       return;
     }
 
+    // 🔧 自定义模型不应该被自动切换
+    // 自定义模型不在云端列表中，但仍然有效
+    if (preferredModel.startsWith('custom:')) {
+      console.log(`[ModelCommand] Skipping auto-update for custom model: ${preferredModel}`);
+      return;
+    }
+
     // 检查偏好模型是否在新的模型列表中
     const modelExists = newModels.some(m => m.name === preferredModel);
     if (modelExists) {
@@ -380,6 +388,77 @@ function clearLocalCachedModels(settings: any, config?: Config): void {
 }
 
 /**
+ * 获取自定义模型列表
+ * 从独立的 custom-models.json 文件读取，避免与 settings.json 的并发冲突
+ */
+function getCustomModels(settings?: any, config?: Config): ModelInfo[] {
+  const customModels: ModelInfo[] = [];
+
+  // 优先从独立文件读取（推荐方式，避免并发问题）
+  try {
+    const fileCustomModels = loadCustomModels();
+    fileCustomModels.forEach(customModel => {
+      if (customModel.enabled !== false) {
+        customModels.push({
+          name: generateCustomModelId(customModel.displayName),  // 自动生成 custom:{displayName}
+          displayName: `${customModel.displayName} [Custom]`,
+          creditsPerRequest: 0,
+          available: true,
+          maxToken: customModel.maxTokens || 0,
+          highVolumeThreshold: 0,
+          highVolumeCredits: 0,
+          isCustom: true,
+        });
+      }
+    });
+    return customModels;
+  } catch (error) {
+    console.warn('[ModelCommand] Failed to load custom models from file:', error);
+  }
+
+  // 降级：从config读取（兼容旧版本）
+  if (config) {
+    const configCustomModels = config.getCustomModels() || [];
+    configCustomModels.forEach(customModel => {
+      if (customModel.enabled !== false) {
+        customModels.push({
+          name: generateCustomModelId(customModel.displayName),  // 自动生成 custom:{displayName}
+          displayName: `${customModel.displayName} [Custom]`,
+          creditsPerRequest: 0,
+          available: true,
+          maxToken: customModel.maxTokens || 0,
+          highVolumeThreshold: 0,
+          highVolumeCredits: 0,
+          isCustom: true,
+        });
+      }
+    });
+    return customModels;
+  }
+
+  // 降级：从settings读取（兼容旧版本）
+  if (settings) {
+    const settingsCustomModels = settings.merged?.customModels || [];
+    settingsCustomModels.forEach((customModel: any) => {
+      if (customModel.enabled !== false) {
+        customModels.push({
+          name: generateCustomModelId(customModel.displayName),  // 自动生成 custom:{displayName}
+          displayName: `${customModel.displayName} [Custom]`,
+          creditsPerRequest: 0,
+          available: true,
+          maxToken: customModel.maxTokens || 0,
+          highVolumeThreshold: 0,
+          highVolumeCredits: 0,
+          isCustom: true,
+        });
+      }
+    });
+  }
+
+  return customModels;
+}
+
+/**
  * 获取可用模型列表（优先本地缓存，异步刷新）
  *
  * 返回值说明：
@@ -394,10 +473,11 @@ export async function getAvailableModels(settings?: any, config?: Config): Promi
 }> {
   // 优先从本地settings读取缓存的模型信息
   const localModels = settings ? getLocalCachedModels(settings) : [];
+  const customModels = getCustomModels(settings, config);
 
-  if (localModels.length > 0) {
+  if (localModels.length > 0 || customModels.length > 0) {
     // 异步刷新配置供下次使用（不等待结果，但需要处理401错误）
-    if (settings) {
+    if (settings && localModels.length > 0) {
       refreshModelsInBackground(settings, config).catch((error) => {
         // 如果是认证错误，需要清空本地缓存
         if (error instanceof AuthenticationRequiredError) {
@@ -408,9 +488,12 @@ export async function getAvailableModels(settings?: any, config?: Config): Promi
       });
     }
 
+    // 合并云端模型和自定义模型
+    const allModels = [...localModels, ...customModels];
+
     return {
-      modelNames: ['auto', ...localModels.map(m => m.name)],
-      modelInfos: localModels,
+      modelNames: ['auto', ...allModels.map(m => m.name)],
+      modelInfos: allModels,
       source: 'local'
     };
   }
@@ -418,12 +501,18 @@ export async function getAvailableModels(settings?: any, config?: Config): Promi
   // 如果本地没有缓存，尝试从服务器获取并保存
   try {
     const { models, modelNames } = await fetchModelsFromServer();
+    const customModels = getCustomModels(settings, config);
+
     if (models.length > 0 && settings) {
       saveCloudModelsToSettings(models, settings, config);
     }
+
+    // 合并云端模型和自定义模型
+    const allModels = [...models, ...customModels];
+
     return {
-      modelNames,
-      modelInfos: models,
+      modelNames: ['auto', ...allModels.map(m => m.name)],
+      modelInfos: allModels,
       source: 'local' // 已保存到本地，下次就是本地读取
     };
   } catch (error) {
