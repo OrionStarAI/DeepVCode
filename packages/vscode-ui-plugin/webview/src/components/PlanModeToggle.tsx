@@ -41,7 +41,8 @@ export const PlanModeToggle: React.FC<PlanModeToggleProps> = ({
       aria-label="Plan mode toggle"
       aria-pressed={isPlanMode}
     >
-      <Lightbulb size={14} className="toggle-icon" />
+      <Lightbulb size={16} stroke="currentColor" />
+      {isPlanMode && <span className="plan-mode-badge">ON</span>}
     </button>
   );
 };
