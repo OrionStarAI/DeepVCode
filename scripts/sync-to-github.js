@@ -121,9 +121,23 @@ function getCommitsSince(commitHash, currentBranch) {
 // Cherry-pick 一个 commit，遇到冲突自动使用 theirs 策略
 function cherryPickCommit(commitHash) {
   try {
+    // 确保没有残留的 cherry-pick 状态
+    exec('git cherry-pick --abort', { silent: true, allowFail: true });
+
+    // 尝试直接 cherry-pick
     exec(`git cherry-pick -x ${commitHash}`, { silent: true });
     return { success: true };
   } catch (error) {
+    // 获取错误详情
+    const errorMsg = (error.stdout || '') + (error.stderr || '') + (error.message || '');
+
+    // 检查是否是因为提交已经应用过而导致的空提交
+    if (errorMsg.includes('nothing to commit') || errorMsg.includes('The previous cherry-pick is now empty')) {
+      log(`  ⚠️  提交 ${commitHash.substring(0, 8)} 似乎已经应用过或内容重复，跳过...`, colors.yellow);
+      exec('git cherry-pick --skip', { silent: true, allowFail: true });
+      return { success: true, skipped: true };
+    }
+
     // 检查是否有冲突
     const status = execQuiet('git status --porcelain');
     if (status && (status.includes('UU') || status.includes('AA') || status.includes('DD'))) {
@@ -143,16 +157,23 @@ function cherryPickCommit(commitHash) {
 
       // 继续 cherry-pick
       try {
+        // 使用 -c core.editor=true 避免打开编辑器
         exec('git -c core.editor=true cherry-pick --continue', { silent: true });
       } catch (e) {
-        // 可能需要手动处理
+        const continueError = (e.stdout || '') + (e.stderr || '') + (e.message || '');
+        if (continueError.includes('nothing to commit') || continueError.includes('The previous cherry-pick is now empty')) {
+          log(`  ⚠️  冲突解决后提交为空（可能内容已存在），跳过...`, colors.yellow);
+          exec('git cherry-pick --skip', { silent: true, allowFail: true });
+        } else {
+          return { success: false, error: continueError };
+        }
       }
 
       return { success: true, hadConflict: true };
     }
 
     // 其他错误
-    return { success: false, error: error.message };
+    return { success: false, error: errorMsg };
   }
 }
 
