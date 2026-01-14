@@ -45,12 +45,12 @@ jobs:
       - name: 🔧 Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '20.19.3'
           cache: 'npm'
 
-      # 3. 安装依赖
+      # 3. 安装依赖 (使用 --ignore-scripts 避免在安装阶段触发构建脚本)
       - name: 📦 Install dependencies
-        run: npm install
+        run: npm ci --ignore-scripts
 
       # 4. 获取并同步版本号
       - name: 📌 Get and Sync version
