@@ -10,6 +10,7 @@ import { ToolStatsDisplay } from './ToolStatsDisplay.js';
 import * as SessionContext from '../contexts/SessionContext.js';
 import { SessionMetrics } from '../contexts/SessionContext.js';
 import { WindowSizeLevel } from '../hooks/useSmallWindowOptimization.js';
+import { sanitizeOutput } from '../test-utils.js';
 
 // Mock the context to provide controlled data for testing
 vi.mock('../contexts/SessionContext.js', async (importOriginal) => {
@@ -115,8 +116,8 @@ const renderWithMockedStats = (metrics: SessionMetrics) => {
   };
 
   useSessionStatsMock.mockReturnValue({
-    stats,
-    computedStats: SessionContext.computeSessionStats(stats as any),
+    stats: stats as unknown as SessionContext.SessionStats,
+    computedStats: SessionContext.computeSessionStats(stats as unknown as SessionContext.SessionStats),
     getPromptCount: () => 5,
     startNewPrompt: vi.fn(),
     resetStats: vi.fn(),
@@ -139,10 +140,10 @@ describe('<ToolStatsDisplay />', () => {
       },
     });
 
-    expect(lastFrame()).toContain(
+    expect(sanitizeOutput(lastFrame())).toContain(
       'No tool calls have been made in this session yet.',
     );
-    expect(lastFrame()).toMatchSnapshot();
+    expect(sanitizeOutput(lastFrame())).toMatchSnapshot();
   });
 
   it('should display stats for a single tool correctly', () => {
@@ -167,7 +168,7 @@ describe('<ToolStatsDisplay />', () => {
       },
     });
 
-    const output = lastFrame();
+    const output = sanitizeOutput(lastFrame());
     expect(output).toContain('test-tool');
     expect(output).toMatchSnapshot();
   });
@@ -202,7 +203,7 @@ describe('<ToolStatsDisplay />', () => {
       },
     });
 
-    const output = lastFrame();
+    const output = sanitizeOutput(lastFrame());
     expect(output).toContain('tool-a');
     expect(output).toContain('tool-b');
     expect(output).toMatchSnapshot();
@@ -238,7 +239,7 @@ describe('<ToolStatsDisplay />', () => {
       },
     });
 
-    expect(lastFrame()).toMatchSnapshot();
+    expect(sanitizeOutput(lastFrame())).toMatchSnapshot();
   });
 
   it('should handle zero decisions gracefully', () => {
@@ -263,7 +264,7 @@ describe('<ToolStatsDisplay />', () => {
       },
     });
 
-    const output = lastFrame();
+    const output = sanitizeOutput(lastFrame());
     expect(output).toContain('User Decision Summary');
     expect(output).toContain('Total Reviewed Suggestions:');
     expect(output).toContain('0');

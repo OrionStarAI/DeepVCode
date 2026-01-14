@@ -356,7 +356,14 @@ export class SkillLoader {
 
     // 从所有已启用的 Skills 中查找
     const skills = await this.loadEnabledSkills(loadLevel);
-    return skills.find((s) => s.id === skillId) || null;
+    const foundSkill = skills.find((s) => s.id === skillId) || null;
+
+    // 如果找到技能，添加到缓存以支持后续的缓存命中
+    if (foundSkill) {
+      this.addToCache(foundSkill);
+    }
+
+    return foundSkill;
   }
 
   // ============================================================================

@@ -11,6 +11,7 @@ import { HistoryItem, MessageType } from '../types.js';
 import { SessionStatsProvider } from '../contexts/SessionContext.js';
 import { getExpectedText, withMockedLocale } from '../utils/testI18n.js';
 import { WindowSizeLevel } from '../hooks/useSmallWindowOptimization.js';
+import { sanitizeOutput } from '../test-utils.js';
 
 // Mock small window optimization to return normal size by default
 vi.mock('../hooks/useSmallWindowOptimization.js', () => ({
@@ -51,7 +52,7 @@ describe('<HistoryItemDisplay />', () => {
     const { lastFrame } = render(
       <HistoryItemDisplay {...baseItem} item={item} />,
     );
-    expect(lastFrame()).toContain('Hello');
+    expect(sanitizeOutput(lastFrame())).toContain('Hello');
   });
 
   it('renders StatsDisplay for "stats" type', () => {
@@ -65,7 +66,7 @@ describe('<HistoryItemDisplay />', () => {
         <HistoryItemDisplay {...baseItem} item={item} />
       </SessionStatsProvider>,
     );
-    expect(lastFrame()).toContain('Stats');
+    expect(sanitizeOutput(lastFrame())).toContain('Stats');
   });
 
   it('renders AboutBox for "about" type', () => {
@@ -84,7 +85,7 @@ describe('<HistoryItemDisplay />', () => {
     );
     // Test should check for any reasonable variation of the about title
     // since it now uses i18n and may render in different languages
-    const frame = lastFrame();
+    const frame = sanitizeOutput(lastFrame());
     const aboutText = getExpectedText('about.title');
     const isEnglish = frame.includes(aboutText.en);
     const isChinese = frame.includes(aboutText.zh);
@@ -101,7 +102,7 @@ describe('<HistoryItemDisplay />', () => {
         <HistoryItemDisplay {...baseItem} item={item} />
       </SessionStatsProvider>,
     );
-    expect(lastFrame()).toContain(
+    expect(sanitizeOutput(lastFrame())).toContain(
       'No API calls have been made in this session yet.',
     );
   });
@@ -116,7 +117,7 @@ describe('<HistoryItemDisplay />', () => {
         <HistoryItemDisplay {...baseItem} item={item} />
       </SessionStatsProvider>,
     );
-    expect(lastFrame()).toContain(
+    expect(sanitizeOutput(lastFrame())).toContain(
       'No tool calls have been made in this session yet.',
     );
   });
@@ -136,7 +137,7 @@ describe('<HistoryItemDisplay />', () => {
           <HistoryItemDisplay {...baseItem} item={item} />
         </SessionStatsProvider>,
       );
-      return lastFrame();
+      return sanitizeOutput(lastFrame());
     });
 
     expect(result).toContain(expectedText.en);

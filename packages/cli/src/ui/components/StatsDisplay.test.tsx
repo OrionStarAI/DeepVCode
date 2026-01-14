@@ -11,6 +11,7 @@ import * as SessionContext from '../contexts/SessionContext.js';
 import { SessionMetrics } from '../contexts/SessionContext.js';
 import { getExpectedText, withMockedLocale } from '../utils/testI18n.js';
 import { WindowSizeLevel } from '../hooks/useSmallWindowOptimization.js';
+import { sanitizeOutput } from '../test-utils.js';
 
 // Mock the context to provide controlled data for testing
 vi.mock('../contexts/SessionContext.js', async (importOriginal) => {
@@ -87,10 +88,10 @@ const renderWithMockedStats = (metrics: SessionMetrics) => {
   };
 
   // Use the actual compute function to generate valid computed stats
-  const computedStats = SessionContext.computeSessionStats(stats as any);
+  const computedStats = SessionContext.computeSessionStats(stats as unknown as SessionContext.SessionStats);
 
   useSessionStatsMock.mockReturnValue({
-    stats,
+    stats: stats as unknown as SessionContext.SessionStats,
     computedStats,
     getPromptCount: () => 5,
     startNewPrompt: vi.fn(),
@@ -115,7 +116,7 @@ describe('<StatsDisplay />', () => {
     };
 
     const { lastFrame } = renderWithMockedStats(zeroMetrics);
-    const output = lastFrame();
+    const output = sanitizeOutput(lastFrame());
 
     expect(output).toContain('Performance');
     expect(output).not.toContain('Interaction Summary');
@@ -163,7 +164,7 @@ describe('<StatsDisplay />', () => {
     };
 
     const { lastFrame } = renderWithMockedStats(metrics);
-    const output = lastFrame();
+    const output = sanitizeOutput(lastFrame());
 
     expect(output).toContain('gemini-2.5-pro');
     expect(output).toContain('gemini-2.5-flash');
@@ -207,7 +208,7 @@ describe('<StatsDisplay />', () => {
     };
 
     const { lastFrame } = renderWithMockedStats(metrics);
-    const output = lastFrame();
+    const output = sanitizeOutput(lastFrame());
 
     expect(output).toContain('Performance');
     expect(output).toContain('Interaction Summary');
@@ -239,7 +240,7 @@ describe('<StatsDisplay />', () => {
       };
 
       const { lastFrame } = renderWithMockedStats(metrics);
-      const output = lastFrame();
+      const output = sanitizeOutput(lastFrame());
 
       expect(output).toContain('Interaction Summary');
       expect(output).toContain('Success Rate');
@@ -274,7 +275,7 @@ describe('<StatsDisplay />', () => {
       };
 
       const { lastFrame } = renderWithMockedStats(metrics);
-      const output = lastFrame();
+      const output = sanitizeOutput(lastFrame());
 
       expect(output).not.toContain('Efficiency & Optimizations');
       expect(output).toMatchSnapshot();
@@ -295,7 +296,7 @@ describe('<StatsDisplay />', () => {
         },
       };
       const { lastFrame } = renderWithMockedStats(metrics);
-      expect(lastFrame()).toMatchSnapshot();
+      expect(sanitizeOutput(lastFrame())).toMatchSnapshot();
     });
 
     it('renders success rate in yellow for medium values', () => {
@@ -311,7 +312,7 @@ describe('<StatsDisplay />', () => {
         },
       };
       const { lastFrame } = renderWithMockedStats(metrics);
-      expect(lastFrame()).toMatchSnapshot();
+      expect(sanitizeOutput(lastFrame())).toMatchSnapshot();
     });
 
     it('renders success rate in red for low values', () => {
@@ -327,7 +328,7 @@ describe('<StatsDisplay />', () => {
         },
       };
       const { lastFrame } = renderWithMockedStats(metrics);
-      expect(lastFrame()).toMatchSnapshot();
+      expect(sanitizeOutput(lastFrame())).toMatchSnapshot();
     });
   });
 
@@ -349,7 +350,7 @@ describe('<StatsDisplay />', () => {
 
       const result = withMockedLocale('en', () => {
         const { lastFrame } = renderWithMockedStats(zeroMetrics);
-        return lastFrame();
+        return sanitizeOutput(lastFrame());
       });
 
       expect(result).toContain(expectedText.en);
@@ -376,7 +377,7 @@ describe('<StatsDisplay />', () => {
         const { lastFrame } = render(
           <StatsDisplay duration="1s" title={expectedText.en} />,
         );
-        return lastFrame();
+        return sanitizeOutput(lastFrame());
       });
 
       expect(result).toContain(expectedText.en);
