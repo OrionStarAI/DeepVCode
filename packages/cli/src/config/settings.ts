@@ -18,6 +18,7 @@ import {
   logger,
   HookEventName,
   HookDefinition,
+  CustomModelConfig,
 } from 'deepv-code-core';
 import stripJsonComments from 'strip-json-comments';
 import { DefaultLight } from '../ui/themes/default-light.js';
@@ -132,6 +133,9 @@ export interface Settings {
     highVolumeThreshold: number;
     highVolumeCredits: number;
   }>;
+
+  // Custom model settings
+  customModels?: CustomModelConfig[];
 
   // Add other settings here.
   ideMode?: boolean;

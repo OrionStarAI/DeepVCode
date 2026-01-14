@@ -23,6 +23,7 @@ import {
 } from 'deepv-code-core';
 import { encodingForModel, getEncoding } from 'js-tiktoken';
 import { Settings } from './settings.js';
+import { loadCustomModels } from './customModelsStorage.js';
 
 import { Extension, annotateActiveExtensions } from './extension.js';
 import { getCliVersion } from '../utils/version.js';
@@ -579,6 +580,7 @@ export async function loadCliConfig(
     noBrowser: !!process.env.NO_BROWSER,
     summarizeToolOutput: settings.summarizeToolOutput,
     cloudModels: settings.cloudModels,
+    customModels: loadCustomModels(), // 从独立文件加载，避免与settings.json并发冲突
     ideMode,
     ideClient,
     silentMode: isNonInteractiveMode,

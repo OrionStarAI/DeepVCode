@@ -14,7 +14,7 @@ import {
 } from './types.js';
 import type { Suggestion } from '../components/SuggestionsDisplay.js';
 import { Config, SessionManager } from 'deepv-code-core';
-import { t } from '../utils/i18n.js';
+import { t, tp } from '../utils/i18n.js';
 
 async function restoreAction(
   context: CommandContext,
@@ -129,15 +129,19 @@ async function restoreAction(
       addItem(
         {
           type: 'info',
-          text: `已恢复到checkpoint时的项目状态: ${timeInfo}${messageInfo}`,
+          text: tp('command.restore.project.state.restored', { timeInfo, messageInfo }),
         },
         Date.now(),
       );
 
+      // 插入 context 消息告诉 AI 文件已恢复
+      // 使用 submit_prompt 的 silent 模式，不在 UI 上显示用户消息
+      const contextMessage = tp('command.restore.context.message', { messageInfo });
+
       return {
-        type: 'message',
-        messageType: 'info',
-        content: 'Checkpoint恢复完成。项目文件已回滚到checkpoint创建时的状态。',
+        type: 'submit_prompt',
+        content: contextMessage,
+        silent: true, // 静默模式：不在 UI 显示这条消息
       };
     } else {
       return {

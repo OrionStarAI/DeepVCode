@@ -19,6 +19,7 @@ export interface RadioSelectItem<T> {
   themeNameDisplay?: string;
   themeTypeDisplay?: string;
   rightText?: string;
+  isCustomModel?: boolean; // 标识是否为自定义模型
 }
 
 /**
@@ -247,7 +248,7 @@ export function RadioButtonSelect<T>({
                     </Text>
                   </Box>
                   <Box marginLeft={1} marginRight={1} flexShrink={0}>
-                    <Text color={numberColor}>{itemNumber}.</Text>
+                    <Text color={numberColor}>{String(itemNumber)}.</Text>
                   </Box>
                 </>
               )}
@@ -322,7 +323,7 @@ export function RadioButtonSelect<T>({
                   <Text color={Colors.Gray}>{item.themeTypeDisplay}</Text>
                 </Text>
               ) : (
-                <Text color={textColor} wrap="truncate">
+                <Text color={item.isCustomModel ? Colors.AccentCyan : textColor} wrap="truncate">
                   {item.label}
                 </Text>
               )}

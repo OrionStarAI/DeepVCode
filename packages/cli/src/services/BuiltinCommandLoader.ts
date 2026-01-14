@@ -28,6 +28,8 @@ import { initCommand } from '../ui/commands/initCommand.js';
 // import { mcpCommand } from '../ui/commands/mcpCommand.js'; // 已删除
 import { memoryCommand } from '../ui/commands/memoryCommand.js';
 import { modelCommand } from '../ui/commands/modelCommand.js';
+// Deprecated: Use /models > Model Management instead
+// import { addModelCommand } from '../ui/commands/addModelCommand.js';
 // import { privacyCommand } from '../ui/commands/privacyCommand.js'; // 已删除
 import { quitCommand } from '../ui/commands/quitCommand.js';
 import { restoreCommand } from '../ui/commands/restoreCommand.js';
@@ -88,6 +90,7 @@ export class BuiltinCommandLoader implements ICommandLoader {
       initCommand,
       memoryCommand,
       modelCommand,
+      // addModelCommand, // 已废弃，使用 /models > Model Management 代替
       // privacyCommand, // 已删除
       mcpCommand, // 已删除
       nanoBananaCommand,
