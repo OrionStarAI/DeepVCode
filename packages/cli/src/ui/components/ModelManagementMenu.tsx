@@ -11,7 +11,7 @@ import { RadioButtonSelect } from './shared/RadioButtonSelect.js';
 import { CustomModelWizard } from './CustomModelWizard.js';
 import { LoadedSettings, SettingScope } from '../../config/settings.js';
 import { Config, CustomModelConfig } from 'deepv-code-core';
-import { deleteCustomModel, loadCustomModels } from '../../config/customModelsStorage.js';
+import { addOrUpdateCustomModel, deleteCustomModel, loadCustomModels } from '../../config/customModelsStorage.js';
 import { t, tp } from '../utils/i18n.js';
 
 interface ModelManagementMenuProps {
@@ -59,12 +59,19 @@ export function ModelManagementMenu({
   }, [modelsModified, onComplete]);
 
   // 处理添加模型完成
-  const handleAddComplete = useCallback((newModel: CustomModelConfig | null) => {
+  const handleAddComplete = useCallback((newModel: CustomModelConfig) => {
     if (newModel) {
+      // 保存模型（使用独立存储系统）
+      addOrUpdateCustomModel(newModel);
       setModelsModified(true);
+
+      // 🔥 热重载：立即更新 Config 实例，让当前会话可以使用新配置的模型
+      const updatedModels = loadCustomModels();
+      config.setCustomModels(updatedModels);
+      console.log(`[ModelManagement] Added/Updated model: ${newModel.displayName}`);
     }
     setMenuState('main');
-  }, []);
+  }, [config]);
 
   // 处理添加模型取消
   const handleAddCancel = useCallback(() => {
