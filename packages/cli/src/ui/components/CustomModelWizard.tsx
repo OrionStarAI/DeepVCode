@@ -5,9 +5,11 @@
  */
 
 import React, { useState, useCallback } from 'react';
-import { Box, Text, useInput } from 'ink';
+import { Box, Text } from 'ink';
 import { Colors } from '../colors.js';
-import TextInput from 'ink-text-input';
+import { SimpleTextInput } from './shared/SimpleTextInput.js';
+import { RadioButtonSelect } from './shared/RadioButtonSelect.js';
+import { useKeypress, Key } from '../hooks/useKeypress.js';
 import { CustomModelConfig, CustomModelProvider, validateCustomModelConfig } from 'deepv-code-core';
 import { t } from '../utils/i18n.js';
 
@@ -49,30 +51,28 @@ export function CustomModelWizard({ onComplete, onCancel }: CustomModelWizardPro
   const [validationError, setValidationError] = useState<string | null>(null);
 
   // 处理提供商选择
-  useInput((input, key) => {
-    if (currentStep !== WizardStep.PROVIDER) return;
-
-    if (key.upArrow || input === 'k') {
+  const handleProviderKeypress = useCallback((key: Key) => {
+    if (key.name === 'up' || key.sequence === 'k') {
       setSelectedProviderIndex(prev =>
         prev > 0 ? prev - 1 : PROVIDER_OPTIONS.length - 1
       );
-    } else if (key.downArrow || input === 'j') {
+    } else if (key.name === 'down' || key.sequence === 'j') {
       setSelectedProviderIndex(prev =>
         prev < PROVIDER_OPTIONS.length - 1 ? prev + 1 : 0
       );
-    } else if (key.return) {
+    } else if (key.name === 'return') {
       setConfig(prev => ({ ...prev, provider: PROVIDER_OPTIONS[selectedProviderIndex].value }));
       setCurrentStep(WizardStep.DISPLAY_NAME);
-    } else if (key.escape) {
+    } else if (key.name === 'escape') {
       onCancel();
     }
-  }, { isActive: currentStep === WizardStep.PROVIDER });
+  }, [selectedProviderIndex, onCancel]);
 
-  // 处理确认步骤
-  useInput((input, key) => {
-    if (currentStep !== WizardStep.CONFIRM) return;
+  useKeypress(handleProviderKeypress, { isActive: currentStep === WizardStep.PROVIDER });
 
-    if (input === 'y' || input === 'Y') {
+  // 处理确认步骤的选择
+  const handleConfirmSelect = useCallback((value: string) => {
+    if (value === 'save') {
       const fullConfig: CustomModelConfig = {
         displayName: config.displayName!,
         provider: config.provider!,
@@ -90,10 +90,16 @@ export function CustomModelWizard({ onComplete, onCancel }: CustomModelWizardPro
       }
 
       onComplete(fullConfig);
-    } else if (input === 'n' || input === 'N' || key.escape) {
+    } else {
       onCancel();
     }
-  }, { isActive: currentStep === WizardStep.CONFIRM });
+  }, [config, onComplete, onCancel]);
+
+  // 确认步骤的菜单选项
+  const confirmMenuItems = [
+    { label: '✓ Save configuration', value: 'save' },
+    { label: '✗ Cancel', value: 'cancel' },
+  ];
 
   const handleInputSubmit = useCallback((value: string) => {
     const trimmedValue = value.trim();
@@ -256,19 +262,25 @@ export function CustomModelWizard({ onComplete, onCancel }: CustomModelWizardPro
     </Box>
   );
 
+  // Handle Escape key for text input steps
+  const handleTextInputCancel = useCallback(() => {
+    onCancel();
+  }, [onCancel]);
+
+  // Determine if we're in a text input step
+  const isTextInputStep = currentStep !== WizardStep.PROVIDER && currentStep !== WizardStep.CONFIRM;
+
   const renderTextInput = () => {
     const example = getStepExample(currentStep);
     return (
       <Box flexDirection="column">
-        <Box>
-          <Text color={Colors.AccentCyan}>{'> '}</Text>
-          <TextInput
-            value={inputValue}
-            onChange={setInputValue}
-            onSubmit={handleInputSubmit}
-            placeholder=""
-          />
-        </Box>
+        <SimpleTextInput
+          value={inputValue}
+          onChange={setInputValue}
+          onSubmit={handleInputSubmit}
+          onCancel={handleTextInputCancel}
+          isActive={isTextInputStep}
+        />
         {example && (
           <Box marginTop={1}>
             <Text color={Colors.Gray}>
@@ -334,10 +346,13 @@ export function CustomModelWizard({ onComplete, onCancel }: CustomModelWizardPro
       )}
 
       <Box marginTop={2}>
-        <Text>
-          <Text color={Colors.AccentGreen} bold>Save this configuration? </Text>
-          <Text color={Colors.Gray}>(y/n): </Text>
-        </Text>
+        <RadioButtonSelect
+          items={confirmMenuItems}
+          initialIndex={0}
+          onSelect={handleConfirmSelect}
+          onHighlight={() => {}}
+          isFocused={currentStep === WizardStep.CONFIRM}
+        />
       </Box>
     </Box>
   );

@@ -991,4 +991,135 @@ describe('Drag and Drop Handling', () => {
       );
     });
   });
+
+  describe('Focus sequence filtering', () => {
+    const FOCUS_IN = '\x1b[I';
+    const FOCUS_OUT = '\x1b[O';
+
+    it('should silently ignore focus in sequence and not broadcast it', async () => {
+      const keyHandler = vi.fn();
+
+      const { result } = renderHook(() => useKeypressContext(), {
+        wrapper,
+      });
+
+      act(() => {
+        result.current.subscribe(keyHandler);
+      });
+
+      // Send focus in sequence
+      act(() => {
+        stdin.emit('data', Buffer.from(FOCUS_IN));
+      });
+
+      // Should not broadcast focus sequence
+      expect(keyHandler).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          sequence: FOCUS_IN,
+        }),
+      );
+    });
+
+    it('should silently ignore focus out sequence and not broadcast it', async () => {
+      const keyHandler = vi.fn();
+
+      const { result } = renderHook(() => useKeypressContext(), {
+        wrapper,
+      });
+
+      act(() => {
+        result.current.subscribe(keyHandler);
+      });
+
+      // Send focus out sequence
+      act(() => {
+        stdin.emit('data', Buffer.from(FOCUS_OUT));
+      });
+
+      // Should not broadcast focus sequence
+      expect(keyHandler).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          sequence: FOCUS_OUT,
+        }),
+      );
+    });
+
+    it('should filter out focus sequences from mixed data and process remaining content', async () => {
+      const keyHandler = vi.fn();
+
+      const { result } = renderHook(() => useKeypressContext(), {
+        wrapper,
+      });
+
+      act(() => {
+        result.current.subscribe(keyHandler);
+      });
+
+      // Send data with focus sequence mixed in: "a" + FOCUS_IN + "b"
+      act(() => {
+        stdin.emit('data', Buffer.from('a' + FOCUS_IN + 'b'));
+      });
+
+      // Wait for rapid paste detection timeout
+      act(() => {
+        vi.advanceTimersByTime(100);
+      });
+
+      // Should have received 'a' and 'b' but not the focus sequence
+      const allCalls = keyHandler.mock.calls.map(call => call[0]);
+      const focusCalls = allCalls.filter((key: Key) =>
+        key.sequence === FOCUS_IN || key.sequence === FOCUS_OUT
+      );
+      expect(focusCalls).toHaveLength(0);
+    });
+
+    it('should handle multiple consecutive focus sequences', async () => {
+      const keyHandler = vi.fn();
+
+      const { result } = renderHook(() => useKeypressContext(), {
+        wrapper,
+      });
+
+      act(() => {
+        result.current.subscribe(keyHandler);
+      });
+
+      // Send multiple focus sequences
+      act(() => {
+        stdin.emit('data', Buffer.from(FOCUS_IN + FOCUS_OUT + FOCUS_IN));
+      });
+
+      // Should not broadcast any focus sequences
+      expect(keyHandler).not.toHaveBeenCalled();
+    });
+
+    it('should handle string data input (not just Buffer)', async () => {
+      const keyHandler = vi.fn();
+
+      const { result } = renderHook(() => useKeypressContext(), {
+        wrapper,
+      });
+
+      act(() => {
+        result.current.subscribe(keyHandler);
+      });
+
+      // Send data as string instead of Buffer (stdin may emit string in some cases)
+      act(() => {
+        stdin.emit('data', FOCUS_IN + 'a' + FOCUS_OUT);
+      });
+
+      // Wait for rapid paste detection timeout
+      act(() => {
+        vi.advanceTimersByTime(100);
+      });
+
+      // Should handle string input without crashing and filter out focus sequences
+      const allCalls = keyHandler.mock.calls.map(call => call[0]);
+      const focusCalls = allCalls.filter((key: Key) =>
+        key.sequence === FOCUS_IN || key.sequence === FOCUS_OUT
+      );
+      expect(focusCalls).toHaveLength(0);
+    });
+  });
 });

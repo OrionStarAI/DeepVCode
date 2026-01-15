@@ -32,7 +32,7 @@ import { realTimeTokenEventManager } from '../events/realTimeTokenEvents.js';
 import { MESSAGE_ROLES } from '../config/messageRoles.js';
 import { getGlobalDispatcher } from 'undici';
 import { isCustomModel } from '../types/customModel.js';
-import { callCustomModel } from './customModelAdapter.js';
+import { callCustomModel, callCustomModelStream } from './customModelAdapter.js';
 
 /**
  * Check if a model supports Server-Sent Events (SSE) streaming.
@@ -507,14 +507,17 @@ export class DeepVServerAdapter implements ContentGenerator {
   }
 
   async generateContentStream(request: GenerateContentParameters, scene: SceneType): Promise<AsyncGenerator<GenerateContentResponse>> {
-    // 检查是否为自定义模型 - 自定义模型目前只支持非流式调用
+    // 检查是否为自定义模型
     const sceneModel = SceneManager.getModelForScene(scene);
     const userModel = this.config?.getModel();
     const modelToUse = request.model || sceneModel || userModel || 'auto';
 
-    if (isCustomModel(modelToUse)) {
-      console.log(`[DeepV Server] Custom model detected, using non-streaming mode`);
-      return this._generateContent(request, scene);
+    if (isCustomModel(modelToUse) && this.config) {
+      const customModelConfig = this.config.getCustomModelConfig(modelToUse);
+      if (customModelConfig) {
+        console.log(`[DeepV Server] Custom model detected, using streaming mode`);
+        return callCustomModelStream(customModelConfig, request, request.config?.abortSignal);
+      }
     }
 
     // 🆕 云模式下禁用SSE流式传输，直接使用非流式API避免消息被打断
@@ -1109,12 +1112,12 @@ export class DeepVServerAdapter implements ContentGenerator {
    */
   async countTokens(request: CountTokensParameters): Promise<CountTokensResponse> {
     try {
-      // 🔧 自定义模型不调用 DeepV Server 的 token count 接口
-      // 直接使用本地估算，避免无谓的 API 错误
+      // 🔧 自定义模型返回 0 token，不进行估算
+      // 这样可以清楚地看到自定义模型不支持 token 计数
       const modelToUse = request.model || this.config?.getModel() || 'auto';
       if (isCustomModel(modelToUse)) {
-        logger.debug('[DeepV Server] Custom model detected, using local token estimation');
-        return this.estimateTokensAsFailback(request);
+        logger.debug('[DeepV Server] Custom model detected, token counting not supported');
+        return { totalTokens: 0 };
       }
 
       // 构建统一的GenAI格式请求，包含 systemInstruction 和 tools（如果有）

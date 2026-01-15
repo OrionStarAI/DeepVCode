@@ -8,8 +8,40 @@ import {
   GenerateContentResponse,
   FinishReason,
 } from '@google/genai';
-import { CustomModelConfig, CustomModelProvider } from '../types/customModel.js';
+import { CustomModelConfig } from '../types/customModel.js';
 import { MESSAGE_ROLES } from '../config/messageRoles.js';
+
+/**
+ * 为对象添加 functionCalls getter，兼容不同的结构
+ * - GenerateContentResponse 结构: response.candidates[0].content.parts
+ * - Content 结构: content.parts
+ */
+function addFunctionCallsGetter(obj: any) {
+  if (!obj) return;
+
+  // 检查是否已经有该属性或 getter
+  const descriptor = Object.getOwnPropertyDescriptor(obj, 'functionCalls');
+  if (descriptor) return;
+
+  Object.defineProperty(obj, 'functionCalls', {
+    get: function() {
+      // 优先尝试 GenerateContentResponse 结构
+      const partsFromResponse = this.candidates?.[0]?.content?.parts;
+      // 如果不是 GenerateContentResponse，尝试 Content 结构
+      const parts = partsFromResponse || this.parts;
+
+      if (!parts || !Array.isArray(parts)) return undefined;
+
+      const calls = parts
+        .filter((p: any) => p && p.functionCall)
+        .map((p: any) => p.functionCall);
+
+      return calls.length > 0 ? calls : undefined;
+    },
+    enumerable: false,
+    configurable: true
+  });
+}
 
 /**
  * 环境变量替换函数
@@ -23,7 +55,221 @@ function resolveEnvVar(value: string): string {
 }
 
 /**
- * OpenAI兼容格式的自定义模型调用
+ * 安全解析 JSON
+ */
+function parseJSONSafe(jsonStr: string): any {
+  if (!jsonStr) return {};
+  try {
+    return JSON.parse(jsonStr);
+  } catch (e) {
+    if (typeof jsonStr === 'object') return jsonStr;
+    console.error(`[CustomModel] Failed to parse tool arguments: ${jsonStr}`);
+    return { raw: jsonStr, parseError: true };
+  }
+}
+
+
+
+/**
+ * OpenAI 格式转换工具
+ */
+const OpenAIConverter = {
+  contentsToMessages(contents: any[]): any[] {
+    return contents.map((content: any) => {
+      const parts = content.parts || [];
+
+      if (parts.some((p: any) => p.functionCall)) {
+        return {
+          role: content.role === MESSAGE_ROLES.MODEL ? 'assistant' : 'user',
+          content: null,
+          tool_calls: parts
+            .filter((p: any) => p.functionCall)
+            .map((p: any, idx: number) => ({
+              id: p.functionCall.id || `call_${Date.now()}_${idx}`,
+              type: 'function',
+              function: {
+                name: p.functionCall.name,
+                arguments: typeof p.functionCall.args === 'string'
+                  ? p.functionCall.args
+                  : JSON.stringify(p.functionCall.args || {}),
+              },
+            })),
+        };
+      }
+
+      if (parts.some((p: any) => p.functionResponse)) {
+        const functionResponseParts = parts.filter((p: any) => p.functionResponse);
+        return functionResponseParts.map((p: any) => ({
+          role: 'tool',
+          tool_call_id: p.functionResponse.id || `call_${p.functionResponse.name}`,
+          content: typeof p.functionResponse.response === 'string'
+            ? p.functionResponse.response
+            : JSON.stringify(p.functionResponse.response || {}),
+        }));
+      }
+
+      return {
+        role: content.role === MESSAGE_ROLES.MODEL ? 'assistant' : 'user',
+        content: parts.map((part: any) => part.text || '').join('\n'),
+      };
+    }).flat();
+  },
+
+  toolsToOpenAITools(tools: any[]): any[] | undefined {
+    if (!tools || tools.length === 0) return undefined;
+    return tools.flatMap((tool: any) => {
+      if (tool.functionDeclarations && Array.isArray(tool.functionDeclarations)) {
+        return tool.functionDeclarations.map((fd: any) => ({
+          type: 'function',
+          function: {
+            name: fd.name,
+            description: fd.description,
+            parameters: fd.parameters,
+          },
+        }));
+      }
+      return [{
+        type: 'function',
+        function: {
+          name: tool.name,
+          description: tool.description,
+          parameters: tool.parameters,
+        },
+      }];
+    });
+  },
+
+  mapFinishReason(reason: string): FinishReason {
+    switch (reason) {
+      case 'stop': return FinishReason.STOP;
+      case 'length': return FinishReason.MAX_TOKENS;
+      case 'content_filter': return FinishReason.SAFETY;
+      case 'tool_calls': return FinishReason.STOP;
+      default: return FinishReason.OTHER;
+    }
+  }
+};
+
+/**
+ * Anthropic 格式转换工具
+ */
+const AnthropicConverter = {
+  contentsToAnthropic(contents: any[]): { messages: any[], system?: string } {
+    const messages: any[] = [];
+    let system: string | undefined = undefined;
+
+    for (const content of contents) {
+      const parts = content.parts || [];
+
+      if (content.role === 'system') {
+        system = parts.filter((p: any) => p.text).map((p: any) => p.text).join('\n');
+        continue;
+      }
+
+      const role = content.role === MESSAGE_ROLES.MODEL ? 'assistant' : 'user';
+      const anthropicParts: any[] = [];
+
+      for (const part of parts) {
+        if (part.text) {
+          anthropicParts.push({ type: 'text', text: part.text });
+        }
+        if (part.functionCall) {
+          anthropicParts.push({
+            type: 'tool_use',
+            id: part.functionCall.id || `toolu_${Date.now()}_${Math.random().toString(36).slice(2)}`,
+            name: part.functionCall.name,
+            input: part.functionCall.args || {},
+          });
+        }
+        if (part.functionResponse) {
+          anthropicParts.push({
+            type: 'tool_result',
+            tool_use_id: part.functionResponse.id || `toolu_${part.functionResponse.name}`,
+            content: typeof part.functionResponse.response === 'string'
+              ? part.functionResponse.response
+              : JSON.stringify(part.functionResponse.response || {}),
+          });
+        }
+      }
+
+      if (anthropicParts.length > 0) {
+        messages.push({ role, content: anthropicParts });
+      }
+    }
+
+    if (messages.length > 0 && messages[0].role === 'assistant') {
+      messages.unshift({ role: 'user', content: '...' });
+    }
+
+    const merged: any[] = [];
+    for (const msg of messages) {
+      const prev = merged[merged.length - 1];
+      if (prev && prev.role === msg.role) {
+        const prevContent = Array.isArray(prev.content) ? prev.content : [{type:'text', text: prev.content}];
+        const msgContent = Array.isArray(msg.content) ? msg.content : [{type:'text', text: msg.content}];
+        prev.content = [...prevContent, ...msgContent];
+      } else {
+        merged.push(msg);
+      }
+    }
+
+    return { messages: merged, system };
+  },
+
+  toolsToAnthropicTools(tools: any[]): any[] | undefined {
+    if (!tools || tools.length === 0) return undefined;
+
+    const cleanSchema = (schema: any): any => {
+      if (!schema || typeof schema !== 'object') return schema;
+      const cleaned: any = {};
+      const validFields = ['type', 'properties', 'required', 'items', 'enum', 'description', 'default', 'minimum', 'maximum', 'minLength', 'maxLength', 'pattern', 'format', 'minItems', 'maxItems', 'uniqueItems', 'additionalProperties', 'anyOf', 'oneOf', 'allOf', 'not'];
+      for (const key of validFields) {
+        if (schema[key] !== undefined) {
+          if (key === 'type' && typeof schema[key] === 'string') cleaned[key] = schema[key].toLowerCase();
+          else if (['minimum', 'maximum', 'minLength', 'maxLength', 'minItems', 'maxItems'].includes(key)) {
+            const val = parseFloat(schema[key]);
+            if (!isNaN(val)) cleaned[key] = val;
+          }
+          else if (key === 'properties' && typeof schema[key] === 'object') {
+            cleaned[key] = {};
+            for (const k in schema[key]) cleaned[key][k] = cleanSchema(schema[key][k]);
+          } else if (key === 'items') cleaned[key] = cleanSchema(schema[key]);
+          else cleaned[key] = schema[key];
+        }
+      }
+      return cleaned;
+    };
+
+    return tools.flatMap((tool: any) => {
+      const decls = tool.functionDeclarations || [tool];
+      return decls.map((fd: any) => {
+        const cleaned = cleanSchema(fd.parameters || {});
+        return {
+          name: fd.name,
+          description: fd.description || '',
+          input_schema: {
+            $schema: 'https://json-schema.org/draft/2020-12/schema',
+            type: 'object',
+            properties: cleaned.properties || {},
+            ...(cleaned.required && { required: cleaned.required }),
+          },
+        };
+      });
+    });
+  },
+
+  mapFinishReason(reason: string): FinishReason {
+    switch (reason) {
+      case 'end_turn': return FinishReason.STOP;
+      case 'max_tokens': return FinishReason.MAX_TOKENS;
+      case 'tool_use': return FinishReason.STOP;
+      default: return FinishReason.OTHER;
+    }
+  }
+};
+
+/**
+ * OpenAI 兼容模型单次调用
  */
 export async function callOpenAICompatibleModel(
   modelConfig: CustomModelConfig,
@@ -34,190 +280,67 @@ export async function callOpenAICompatibleModel(
   const apiKey = resolveEnvVar(modelConfig.apiKey);
   const url = `${baseUrl}/chat/completions`;
 
-  // 转换消息格式为OpenAI格式
-  const messages = request.contents.map((content: any) => {
-    const parts = content.parts || [];
-
-    // 处理包含 functionCall 的消息（上一轮调用结果）
-    if (parts.some((p: any) => p.functionCall)) {
-      return {
-        role: content.role === MESSAGE_ROLES.MODEL ? 'assistant' : 'user',
-        content: null,
-        tool_calls: parts
-          .filter((p: any) => p.functionCall)
-          .map((p: any, idx: number) => ({
-            // 🔑 使用保存的 ID！不要重新生成
-            id: p.functionCall.id || `call_${Date.now()}_${idx}`,
-            type: 'function',
-            function: {
-              name: p.functionCall.name,
-              arguments: JSON.stringify(p.functionCall.args || {}),
-            },
-          })),
-      };
-    }
-
-    // 处理包含 functionResponse 的消息（工具执行结果）
-    if (parts.some((p: any) => p.functionResponse)) {
-      const functionResponseParts = parts.filter((p: any) => p.functionResponse);
-      return functionResponseParts.map((p: any) => ({
-        role: 'tool',
-        // 🔑 使用保存在 functionResponse 中的 id（从之前的 functionCall.id 传递过来）
-        tool_call_id: p.functionResponse.id || `call_${p.functionResponse.name}`,
-        content: JSON.stringify(p.functionResponse.response || {}),
-      }));
-    }
-
-    // 普通文本消息
-    return {
-      role: content.role === MESSAGE_ROLES.MODEL ? 'assistant' : 'user',
-      content: parts.map((part: any) => part.text || '').join('\n'),
-    };
-  }).flat(); // flat() 因为 functionResponse 可能返回数组
-
-  // 转换 tools 为 OpenAI 格式
-  // DeepV 的 Tool 格式：tools = [{ functionDeclarations: [...] }]
-  // 需要展开 functionDeclarations 数组，每个函数声明转换为一个 OpenAI tool
-  const tools = request.config?.tools?.flatMap((tool: any) => {
-    if (tool.functionDeclarations && Array.isArray(tool.functionDeclarations)) {
-      // 展开 functionDeclarations 数组
-      return tool.functionDeclarations.map((fd: any) => ({
-        type: 'function',
-        function: {
-          name: fd.name,
-          description: fd.description,
-          parameters: fd.parameters,
-        },
-      }));
-    } else {
-      // 兼容旧格式（直接是单个工具）
-      return [{
-        type: 'function',
-        function: {
-          name: tool.name,
-          description: tool.description,
-          parameters: tool.parameters,
-        },
-      }];
-    }
-  });
-
   const requestBody: any = {
     model: modelConfig.modelId,
-    messages,
+    messages: OpenAIConverter.contentsToMessages(request.contents),
+    tools: OpenAIConverter.toolsToOpenAITools(request.config?.tools),
     stream: false,
   };
 
-  // 只在有 tools 时添加
-  if (tools && tools.length > 0) {
-    requestBody.tools = tools;
-    requestBody.tool_choice = 'auto'; // 让模型自动决定是否调用工具
-  }
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+      ...modelConfig.headers,
+    },
+    body: JSON.stringify(requestBody),
+    signal: abortSignal,
+  });
 
+  if (!response.ok) throw new Error(`OpenAI API error (${response.status}): ${await response.text()}`);
 
+  const data = await response.json();
+  const choice = data.choices[0];
+  const message = choice.message;
 
-  const controller = new AbortController();
-  if (abortSignal) {
-    abortSignal.addEventListener('abort', () => controller.abort());
-  }
-
-  const timeoutId = setTimeout(() => {
-    controller.abort();
-  }, modelConfig.timeout || 300000);
-
-  try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-        ...modelConfig.headers,
-      },
-      body: JSON.stringify(requestBody),
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`OpenAI API error (${response.status}): ${errorText}`);
-    }
-
-    const data = await response.json();
-
-    // 转换OpenAI响应为GenAI格式
-    const choice = data.choices[0];
-    const message = choice.message;
-
-    // 构建 parts 数组
-    const parts: any[] = [];
-
-    // 添加文本内容
-    if (message.content) {
-      parts.push({ text: message.content });
-    }
-
-    // 处理 tool_calls (function calling)
-    if (message.tool_calls && message.tool_calls.length > 0) {
-      for (const toolCall of message.tool_calls) {
-        if (toolCall.type === 'function') {
-          parts.push({
-            functionCall: {
-              name: toolCall.function.name,
-              args: JSON.parse(toolCall.function.arguments || '{}'),
-              id: toolCall.id, // 💾 保存 tool_call_id，用于后续 functionResponse
-            },
-          });
-        }
+  const parts: any[] = [];
+  if (message.content) parts.push({ text: message.content });
+  if (message.tool_calls) {
+    for (const tc of message.tool_calls) {
+      if (tc.type === 'function') {
+        parts.push({
+          functionCall: {
+            name: tc.function.name,
+            args: parseJSONSafe(tc.function.arguments),
+            id: tc.id,
+          },
+        });
       }
     }
-
-    // 如果没有任何内容，添加空文本
-    if (parts.length === 0) {
-      parts.push({ text: '' });
-    }
-
-    const responseData: any = {
-      candidates: [{
-        content: {
-          role: MESSAGE_ROLES.MODEL,
-          parts: parts,
-        },
-        finishReason:
-          choice.finish_reason === 'stop' ? FinishReason.STOP :
-          choice.finish_reason === 'tool_calls' ? FinishReason.STOP :
-          FinishReason.OTHER,
-        index: 0,
-      }],
-      usageMetadata: {
-        promptTokenCount: data.usage?.prompt_tokens || 0,
-        candidatesTokenCount: data.usage?.completion_tokens || 0,
-        totalTokenCount: data.usage?.total_tokens || 0,
-      },
-    };
-
-    // 添加 functionCalls getter (兼容 GenAI SDK)
-    const functionCalls = parts
-      .filter(p => p.functionCall)
-      .map(p => p.functionCall);
-
-    Object.defineProperty(responseData, 'functionCalls', {
-      get: function() {
-        return functionCalls.length > 0 ? functionCalls : undefined;
-      },
-      enumerable: false,
-      configurable: true
-    });
-
-    return responseData as GenerateContentResponse;
-  } finally {
-    clearTimeout(timeoutId);
   }
+
+  const result = {
+    candidates: [{
+      content: { role: MESSAGE_ROLES.MODEL, parts: parts.length ? parts : [{ text: '' }] },
+      finishReason: OpenAIConverter.mapFinishReason(choice.finish_reason),
+      index: 0,
+    }],
+    usageMetadata: {
+      promptTokenCount: data.usage?.prompt_tokens || 0,
+      candidatesTokenCount: data.usage?.completion_tokens || 0,
+      totalTokenCount: data.usage?.total_tokens || 0,
+      // OpenAI prompt caching support
+      cacheCreationInputTokenCount: data.usage?.cache_creation_input_tokens,
+      cacheReadInputTokenCount: data.usage?.cache_read_input_tokens,
+    } as any,
+  };
+  addFunctionCallsGetter(result);
+  return result as GenerateContentResponse;
 }
 
 /**
- * Claude (Anthropic)格式的自定义模型调用
+ * Anthropic 模型单次调用
  */
 export async function callAnthropicModel(
   modelConfig: CustomModelConfig,
@@ -226,340 +349,370 @@ export async function callAnthropicModel(
 ): Promise<GenerateContentResponse> {
   const baseUrl = resolveEnvVar(modelConfig.baseUrl).replace(/\/+$/, '');
   const apiKey = resolveEnvVar(modelConfig.apiKey);
-  const url = `${baseUrl}/v1/messages`;
-
-  // 转换消息格式为Anthropic格式
-  const messages: any[] = [];
-  let systemPrompt: string | undefined = undefined;
-
-  for (const content of request.contents) {
-    const parts = content.parts || [];
-
-    // 🔍 Anthropic 特殊处理：system 角色要提取到独立的 system 参数
-    if (content.role === 'system') {
-      const systemTexts = parts
-        .filter((p: any) => p.text)
-        .map((p: any) => p.text)
-        .join('\n');
-      if (systemTexts.trim()) {
-        systemPrompt = systemTexts;
-      }
-      continue; // 跳过，不添加到 messages
-    }
-
-    const role = content.role === MESSAGE_ROLES.MODEL ? 'assistant' : 'user';
-
-    // 分类 parts
-    const textParts: any[] = [];
-    const toolUseParts: any[] = [];
-    const toolResultParts: any[] = [];
-
-    for (const part of parts) {
-      // 🔍 只添加非空文本
-      if (part.text !== undefined && part.text !== null) {
-        const trimmedText = String(part.text).trim();
-        if (trimmedText.length > 0) {
-          textParts.push({ type: 'text', text: part.text });
-        }
-      }
-      if (part.functionCall) {
-        toolUseParts.push({
-          type: 'tool_use',
-          id: part.functionCall.id || `toolu_${Date.now()}_${Math.random().toString(36).slice(2)}`,
-          name: part.functionCall.name,
-          input: part.functionCall.args || {},
-        });
-      }
-      if (part.functionResponse) {
-        toolResultParts.push({
-          type: 'tool_result',
-          tool_use_id: part.functionResponse.id || `toolu_${part.functionResponse.name}`,
-          content: typeof part.functionResponse.response === 'string'
-            ? part.functionResponse.response
-            : JSON.stringify(part.functionResponse.response || {}),
-        });
-      }
-    }
-
-    // 构建消息
-    if (role === 'assistant') {
-      // assistant 消息：可能包含文本 + tool_use
-      const anthropicContent = [...textParts, ...toolUseParts];
-      if (anthropicContent.length > 0) {
-        // 🔍 如果只有一个纯文本块，使用字符串格式（更简洁）
-        if (anthropicContent.length === 1 && anthropicContent[0].type === 'text') {
-          messages.push({ role: 'assistant', content: anthropicContent[0].text });
-        } else {
-          messages.push({ role: 'assistant', content: anthropicContent });
-        }
-      }
-    } else {
-      // user 消息：可能包含文本或 tool_result
-      if (toolResultParts.length > 0) {
-        // tool_result 必须用数组格式
-        messages.push({ role: 'user', content: toolResultParts });
-      } else if (textParts.length > 0) {
-        // 🔍 如果只有一个纯文本块，使用字符串格式（更简洁）
-        if (textParts.length === 1) {
-          messages.push({ role: 'user', content: textParts[0].text });
-        } else {
-          messages.push({ role: 'user', content: textParts });
-        }
-      }
-    }
-  }
-
-  // 🔍 Anthropic 要求：消息必须以 user 角色开始
-  if (messages.length > 0 && messages[0].role === 'assistant') {
-    messages.unshift({
-      role: 'user',
-      content: '...'  // 简单文本用字符串格式
-    });
-  }
-
-  // 🔍 Anthropic 要求：不能有连续的相同角色消息
-  const validMessages: any[] = [];
-  for (let i = 0; i < messages.length; i++) {
-    const msg = messages[i];
-    const prevMsg = validMessages[validMessages.length - 1];
-
-    // 如果当前消息和上一条消息角色相同，合并内容
-    if (prevMsg && prevMsg.role === msg.role) {
-      // 将字符串转换为数组格式以便合并
-      const prevContent = typeof prevMsg.content === 'string'
-        ? [{ type: 'text', text: prevMsg.content }]
-        : Array.isArray(prevMsg.content) ? prevMsg.content : [];
-      const currentContent = typeof msg.content === 'string'
-        ? [{ type: 'text', text: msg.content }]
-        : Array.isArray(msg.content) ? msg.content : [];
-
-      prevMsg.content = [...prevContent, ...currentContent];
-    } else {
-      validMessages.push(msg);
-    }
-  }
-
-  // 转换 tools 为 Anthropic 格式
-  // Anthropic 格式: { name, description, input_schema }
-  // 🔍 关键：input_schema 必须符合 JSON Schema Draft 2020-12
-  const cleanSchema = (schema: any): any => {
-    if (!schema || typeof schema !== 'object') return schema;
-
-    // 深拷贝并只保留 JSON Schema 标准字段
-    const cleaned: any = {};
-
-    // 标准的 JSON Schema 字段
-    const validFields = [
-      'type', 'properties', 'required', 'items', 'enum',
-      'description', 'default', 'minimum', 'maximum',
-      'minLength', 'maxLength', 'pattern', 'format',
-      'minItems', 'maxItems', 'uniqueItems',
-      'additionalProperties', 'anyOf', 'oneOf', 'allOf', 'not'
-    ];
-
-    for (const key of validFields) {
-      if (schema[key] !== undefined) {
-        // 🔍 特殊处理 type 字段：Google GenAI 用大写（STRING），Anthropic 要小写（string）
-        if (key === 'type' && typeof schema[key] === 'string') {
-          cleaned[key] = schema[key].toLowerCase();
-        }
-        // 🔍 数值字段必须是 number 类型，不能是字符串
-        else if (['minimum', 'maximum', 'minLength', 'maxLength', 'minItems', 'maxItems'].includes(key)) {
-          const value = schema[key];
-          // 如果是字符串，转换为数字
-          if (typeof value === 'string') {
-            const num = parseFloat(value);
-            if (!isNaN(num)) {
-              cleaned[key] = num;
-            }
-          } else if (typeof value === 'number') {
-            cleaned[key] = value;
-          }
-        }
-        // 递归清理嵌套对象
-        else if (key === 'properties' && typeof schema[key] === 'object') {
-          cleaned[key] = {};
-          for (const propKey in schema[key]) {
-            cleaned[key][propKey] = cleanSchema(schema[key][propKey]);
-          }
-        } else if (key === 'items') {
-          cleaned[key] = cleanSchema(schema[key]);
-        } else {
-          cleaned[key] = schema[key];
-        }
-      }
-    }
-
-    return cleaned;
-  };
-
-  const tools = request.config?.tools?.flatMap((tool: any) => {
-    if (tool.functionDeclarations && Array.isArray(tool.functionDeclarations)) {
-      // 展开 functionDeclarations 数组
-      return tool.functionDeclarations.map((fd: any) => {
-        const originalSchema = fd.parameters || {};
-        const cleanedSchema = cleanSchema(originalSchema);
-
-        // 🔍 关键：必须包含 $schema 声明 JSON Schema Draft 2020-12
-        const inputSchema = {
-          $schema: 'https://json-schema.org/draft/2020-12/schema',
-          type: 'object',
-          properties: cleanedSchema.properties || {},
-          ...(cleanedSchema.required && Array.isArray(cleanedSchema.required) && { required: cleanedSchema.required }),
-        };
-
-        return {
-          name: fd.name,
-          description: fd.description || '',
-          input_schema: inputSchema,
-        };
-      });
-    } else {
-      const originalSchema = tool.parameters || {};
-      const cleanedSchema = cleanSchema(originalSchema);
-
-      const inputSchema = {
-        $schema: 'https://json-schema.org/draft/2020-12/schema',
-        type: 'object',
-        properties: cleanedSchema.properties || {},
-        ...(cleanedSchema.required && Array.isArray(cleanedSchema.required) && { required: cleanedSchema.required }),
-      };
-
-      return [{
-        name: tool.name,
-        description: tool.description || '',
-        input_schema: inputSchema,
-      }];
-    }
-  });
+  const { messages, system } = AnthropicConverter.contentsToAnthropic(request.contents);
 
   const requestBody: any = {
     model: modelConfig.modelId,
-    messages: validMessages,
+    messages,
+    system,
+    tools: AnthropicConverter.toolsToAnthropicTools(request.config?.tools),
     max_tokens: modelConfig.maxTokens || 4096,
   };
 
-  // 🔍 添加 system 参数（如果有）
-  if (systemPrompt) {
-    requestBody.system = systemPrompt;
-  }
+  const response = await fetch(`${baseUrl}/v1/messages`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      ...modelConfig.headers,
+    },
+    body: JSON.stringify(requestBody),
+    signal: abortSignal,
+  });
 
-  // 只在有 tools 时添加
-  if (tools && tools.length > 0) {
-    requestBody.tools = tools;
-  }
+  if (!response.ok) throw new Error(`Anthropic error (${response.status}): ${await response.text()}`);
 
-  const controller = new AbortController();
-  if (abortSignal) {
-    abortSignal.addEventListener('abort', () => controller.abort());
-  }
+  const data = await response.json();
+  const parts = data.content.map((c: any) => {
+    if (c.type === 'text') return { text: c.text };
+    if (c.type === 'tool_use') return { functionCall: { name: c.name, args: c.input, id: c.id } };
+    return null;
+  }).filter(Boolean);
 
-  const timeoutId = setTimeout(() => {
-    controller.abort();
-  }, modelConfig.timeout || 300000);
+  const result = {
+    candidates: [{
+      content: { role: MESSAGE_ROLES.MODEL, parts: parts.length ? parts : [{ text: '' }] },
+      finishReason: AnthropicConverter.mapFinishReason(data.stop_reason),
+      index: 0,
+    }],
+    usageMetadata: {
+      promptTokenCount: data.usage?.input_tokens || 0,
+      candidatesTokenCount: data.usage?.output_tokens || 0,
+      totalTokenCount: (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0),
+      // Claude prompt caching support
+      cacheCreationInputTokenCount: data.usage?.cache_creation_input_tokens,
+      cacheReadInputTokenCount: data.usage?.cache_read_input_tokens,
+    } as any,
+  };
+  addFunctionCallsGetter(result);
+  return result as GenerateContentResponse;
+}
+
+/**
+ * OpenAI 兼容模型流式调用
+ */
+export async function* callOpenAICompatibleModelStream(
+  modelConfig: CustomModelConfig,
+  request: any,
+  abortSignal?: AbortSignal
+): AsyncGenerator<GenerateContentResponse> {
+  const baseUrl = resolveEnvVar(modelConfig.baseUrl).replace(/\/+$/, '');
+  const apiKey = resolveEnvVar(modelConfig.apiKey);
+
+  const requestBody: any = {
+    model: modelConfig.modelId,
+    messages: OpenAIConverter.contentsToMessages(request.contents),
+    tools: OpenAIConverter.toolsToOpenAITools(request.config?.tools),
+    stream: true,
+    stream_options: { include_usage: true } // 请求包含 usage 信息
+  };
+
+  const response = await fetch(`${baseUrl}/chat/completions`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${apiKey}`,
+      ...modelConfig.headers,
+    },
+    body: JSON.stringify(requestBody),
+    signal: abortSignal,
+  });
+
+  if (!response.ok) throw new Error(`OpenAI Stream error (${response.status}): ${await response.text()}`);
+
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error('No response body');
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+  // 用于聚合流式工具调用
+  const aggregatedTools: Map<number, { id: string, name: string, args: string }> = new Map();
+
+  const flushTools = function* (): Generator<GenerateContentResponse> {
+    if (aggregatedTools.size === 0) return;
+    const toolParts = Array.from(aggregatedTools.values()).map(at => ({
+      functionCall: {
+        name: at.name || 'unknown_tool',
+        args: parseJSONSafe(at.args),
+        id: at.id || `call_${Date.now()}`
+      }
+    }));
+    const content = { role: MESSAGE_ROLES.MODEL, parts: toolParts };
+    const resp = {
+      candidates: [{
+        content,
+        finishReason: FinishReason.STOP,
+        index: 0
+      }]
+    };
+    addFunctionCallsGetter(resp);
+    addFunctionCallsGetter(content);
+    yield resp as GenerateContentResponse;
+    aggregatedTools.clear();
+  };
 
   try {
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        ...modelConfig.headers,
-      },
-      body: JSON.stringify(requestBody),
-      signal: controller.signal,
-    });
+    let isDone = false;
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) {
+        isDone = true;
+      }
 
-    clearTimeout(timeoutId);
+      if (!done) {
+        buffer += decoder.decode(value, { stream: true });
+      } else {
+        // 流结束，使用最终解码
+        buffer += decoder.decode(undefined, { stream: false });
+      }
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Anthropic API error (${response.status}): ${errorText}`);
-    }
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
 
-    const data = await response.json();
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || !trimmed.startsWith('data: ')) continue;
+        const dataStr = trimmed.slice(6);
+        if (dataStr === '[DONE]') {
+          // OpenAI 明确表示流结束，此时应该 flush 所有待完成的工具调用
+          yield* flushTools();
+          isDone = true;
+          break;
+        }
 
-    // 转换Anthropic响应为GenAI格式
-    // Anthropic content 可以包含 text 和 tool_use
-    const parts: any[] = [];
+        try {
+          const chunk = JSON.parse(dataStr);
+          const choice = chunk.choices?.[0];
 
-    for (const content of data.content) {
-      if (content.type === 'text') {
-        parts.push({ text: content.text || '' });
-      } else if (content.type === 'tool_use') {
-        // Anthropic tool_use 格式: { type: 'tool_use', id, name, input }
-        // 转换为 GenAI functionCall 格式
-        parts.push({
-          functionCall: {
-            name: content.name,
-            args: content.input || {},
-            id: content.id,
-          },
-        });
+          if (choice) {
+            const delta = choice.delta;
+
+            // 处理文本内容 - 立即 yield
+            if (delta?.content) {
+              const content = { role: MESSAGE_ROLES.MODEL, parts: [{ text: delta.content }] };
+              const resp = { candidates: [{ content, index: 0 }] };
+              addFunctionCallsGetter(resp);
+              addFunctionCallsGetter(content);
+              yield resp as GenerateContentResponse;
+            }
+
+            // 聚合工具调用 - 不立即 yield，等待完全接收
+            if (delta?.tool_calls) {
+              for (const tc of delta.tool_calls) {
+                const idx = tc.index ?? 0;
+                let tool = aggregatedTools.get(idx);
+                if (!tool) {
+                  tool = { id: '', name: '', args: '' };
+                  aggregatedTools.set(idx, tool);
+                }
+                if (tc.id) tool.id = tc.id;
+                if (tc.function?.name) tool.name = tc.function.name;
+                if (tc.function?.arguments) tool.args += tc.function.arguments;
+              }
+            }
+
+            // 只在流结束时 flush，不在 finish_reason 中间 flush
+            // 这与 Claude 的行为一致，防止不完整的工具调用被识别
+          }
+
+          if (chunk.usage) {
+            yield {
+              candidates: [],
+              usageMetadata: {
+                promptTokenCount: chunk.usage.prompt_tokens || 0,
+                candidatesTokenCount: chunk.usage.completion_tokens || 0,
+                totalTokenCount: chunk.usage.total_tokens || 0,
+                // OpenAI prompt caching support
+                cacheCreationInputTokenCount: chunk.usage.cache_creation_input_tokens,
+                cacheReadInputTokenCount: chunk.usage.cache_read_input_tokens,
+              }
+            } as any;
+          }
+        } catch (e) {}
+      }
+
+      if (isDone) {
+        // 在流完全结束时，flush 所有待完成的工具调用
+        yield* flushTools();
+        break;
       }
     }
-
-    // 如果没有任何内容，添加空文本（避免空数组）
-    if (parts.length === 0) {
-      parts.push({ text: '' });
-    }
-
-    const responseData: any = {
-      candidates: [{
-        content: {
-          role: MESSAGE_ROLES.MODEL,
-          parts: parts,
-        },
-        finishReason:
-          data.stop_reason === 'end_turn' ? FinishReason.STOP :
-          data.stop_reason === 'tool_use' ? FinishReason.STOP :
-          data.stop_reason === 'max_tokens' ? FinishReason.MAX_TOKENS :
-          FinishReason.OTHER,
-        index: 0,
-      }],
-      usageMetadata: {
-        promptTokenCount: data.usage?.input_tokens || 0,
-        candidatesTokenCount: data.usage?.output_tokens || 0,
-        totalTokenCount: (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0),
-      },
-    };
-
-    // 添加 functionCalls getter (兼容 GenAI SDK)
-    const functionCalls = parts
-      .filter(p => p.functionCall)
-      .map(p => p.functionCall);
-
-    Object.defineProperty(responseData, 'functionCalls', {
-      get: function() {
-        return functionCalls.length > 0 ? functionCalls : undefined;
-      },
-      enumerable: false,
-      configurable: true
-    });
-
-    return responseData as GenerateContentResponse;
   } finally {
-    clearTimeout(timeoutId);
+    reader.releaseLock();
   }
 }
 
 /**
- * 调用自定义模型的统一入口
+ * Anthropic 模型流式调用
  */
+export async function* callAnthropicModelStream(
+  modelConfig: CustomModelConfig,
+  request: any,
+  abortSignal?: AbortSignal
+): AsyncGenerator<GenerateContentResponse> {
+  const baseUrl = resolveEnvVar(modelConfig.baseUrl).replace(/\/+$/, '');
+  const apiKey = resolveEnvVar(modelConfig.apiKey);
+  const { messages, system } = AnthropicConverter.contentsToAnthropic(request.contents);
+
+  const requestBody: any = {
+    model: modelConfig.modelId,
+    messages,
+    system,
+    tools: AnthropicConverter.toolsToAnthropicTools(request.config?.tools),
+    max_tokens: modelConfig.maxTokens || 4096,
+    stream: true,
+  };
+
+  const response = await fetch(`${baseUrl}/v1/messages`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      ...modelConfig.headers,
+    },
+    body: JSON.stringify(requestBody),
+    signal: abortSignal,
+  });
+
+  if (!response.ok) throw new Error(`Anthropic Stream error (${response.status}): ${await response.text()}`);
+
+  const reader = response.body?.getReader();
+  if (!reader) throw new Error('No response body');
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+  const aggregatedTools: Map<number, { id: string, name: string, args: string }> = new Map();
+
+  // 用于累积 token 使用统计
+  let inputTokens = 0;
+  let totalOutputTokens = 0;
+  let totalCacheCreationInputTokens = 0;
+  let totalCacheReadInputTokens = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || !trimmed.startsWith('data: ')) continue;
+        const dataStr = trimmed.slice(6);
+
+        try {
+          const chunk = JSON.parse(dataStr);
+          const idx = chunk.index ?? 0;
+
+          if (chunk.type === 'content_block_start' && chunk.content_block?.type === 'tool_use') {
+            aggregatedTools.set(idx, {
+              id: chunk.content_block.id,
+              name: chunk.content_block.name,
+              args: ''
+            });
+          } else if (chunk.type === 'content_block_delta') {
+            if (chunk.delta?.type === 'text_delta') {
+              const content = { role: MESSAGE_ROLES.MODEL, parts: [{ text: chunk.delta.text }] };
+              const resp = { candidates: [{ content, index: 0 }] };
+              addFunctionCallsGetter(resp);
+              addFunctionCallsGetter(content);
+              yield resp as any;
+            } else if (chunk.delta?.type === 'input_json_delta') {
+              const tool = aggregatedTools.get(idx);
+              if (tool) tool.args += chunk.delta.partial_json;
+            }
+          } else if (chunk.type === 'content_block_stop') {
+            const tool = aggregatedTools.get(idx);
+            if (tool) {
+              const content = { role: MESSAGE_ROLES.MODEL, parts: [{ functionCall: { name: tool.name, args: parseJSONSafe(tool.args), id: tool.id } }] };
+              const resp = {
+                candidates: [{
+                  content,
+                  index: 0
+                }]
+              };
+              addFunctionCallsGetter(resp);
+              addFunctionCallsGetter(content);
+              yield resp as GenerateContentResponse;
+              aggregatedTools.delete(idx);
+            }
+          } else if (chunk.type === 'message_delta') {
+            // 累积 token 统计（message_delta 包含增量）
+            if (chunk.usage) {
+              totalOutputTokens += chunk.usage.output_tokens || 0;
+              totalCacheCreationInputTokens += chunk.usage.cache_creation_input_tokens || 0;
+              totalCacheReadInputTokens += chunk.usage.cache_read_input_tokens || 0;
+            }
+
+            const content = { role: MESSAGE_ROLES.MODEL, parts: [] };
+            const resp = {
+              candidates: [{
+                content,
+                finishReason: AnthropicConverter.mapFinishReason(chunk.delta?.stop_reason),
+                index: 0
+              }],
+              usageMetadata: {
+                promptTokenCount: inputTokens,
+                candidatesTokenCount: totalOutputTokens,
+                // Claude prompt caching support - 累积缓存相关 token
+                cacheCreationInputTokenCount: totalCacheCreationInputTokens || undefined,
+                cacheReadInputTokenCount: totalCacheReadInputTokens || undefined,
+              }
+            } as any;
+            addFunctionCallsGetter(resp);
+            addFunctionCallsGetter(content);
+            yield resp;
+          } else if (chunk.type === 'message_start' && chunk.message?.usage) {
+            // message_start 包含初始状态，仅记录数据不 yield（避免覆盖最后的统计）
+            inputTokens = chunk.message.usage.input_tokens || 0;
+            totalOutputTokens = chunk.message.usage.output_tokens || 0;
+            totalCacheCreationInputTokens = chunk.message.usage.cache_creation_input_tokens || 0;
+            totalCacheReadInputTokens = chunk.message.usage.cache_read_input_tokens || 0;
+          }
+        } catch (e) {}
+      }
+    }
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+/**
+ * 统一入口
+ */
+export async function* callCustomModelStream(
+  modelConfig: CustomModelConfig,
+  request: any,
+  abortSignal?: AbortSignal
+): AsyncGenerator<GenerateContentResponse> {
+  console.log(`[CustomModel] Stream call: ${modelConfig.displayName} (${modelConfig.provider})`);
+  if (modelConfig.provider === 'openai') yield* callOpenAICompatibleModelStream(modelConfig, request, abortSignal);
+  else if (modelConfig.provider === 'anthropic') yield* callAnthropicModelStream(modelConfig, request, abortSignal);
+  else throw new Error(`Unsupported custom model provider for streaming: ${modelConfig.provider}`);
+}
+
 export async function callCustomModel(
   modelConfig: CustomModelConfig,
   request: any,
   abortSignal?: AbortSignal
 ): Promise<GenerateContentResponse> {
-  console.log(`[CustomModel] Calling custom model: ${modelConfig.displayName} (${modelConfig.provider})`);
-
-  switch (modelConfig.provider) {
-    case 'openai':
-      return callOpenAICompatibleModel(modelConfig, request, abortSignal);
-    case 'anthropic':
-      return callAnthropicModel(modelConfig, request, abortSignal);
-    default:
-      throw new Error(`Unsupported custom model provider: ${modelConfig.provider}`);
-  }
+  console.log(`[CustomModel] Unary call: ${modelConfig.displayName} (${modelConfig.provider})`);
+  if (modelConfig.provider === 'openai') return callOpenAICompatibleModel(modelConfig, request, abortSignal);
+  else if (modelConfig.provider === 'anthropic') return callAnthropicModel(modelConfig, request, abortSignal);
+  else throw new Error(`Unsupported custom model provider: ${modelConfig.provider}`);
 }

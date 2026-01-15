@@ -39,7 +39,6 @@ export const useCustomModelWizard = (
         if (config) {
           const updatedModels = loadCustomModels();
           config.setCustomModels(updatedModels);
-          console.log('[CustomModelWizard] Hot-reloaded custom models into Config');
         }
 
         // 关闭向导
