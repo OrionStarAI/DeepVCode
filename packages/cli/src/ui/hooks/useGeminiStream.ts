@@ -33,6 +33,7 @@ import {
   SessionManager,
   type SessionData,
   MESSAGE_ROLES,
+  isCustomModel,
 } from 'deepv-code-core';
 import { updateWindowTitleWithSummary } from '../../gemini.js';
 import { type Part, type PartListUnion, FinishReason } from '@google/genai';
@@ -161,14 +162,16 @@ function formatToolCallsForSummary(toolCalls: TrackedToolCall[]): string {
 
 /**
  * 生成 Checkpoint 摘要
- * 使用 Flash 模型生成 10 字摘要
+ * 如果当前模型为自定义模型，则使用自定义模型；否则使用 Flash Lite 模型生成 10 字摘要
  * @param geminiClient GeminiClient 实例
  * @param summarySource AI 文本回复或工具调用信息
+ * @param currentModel 当前用户选择的模型（可选）
  * @returns 10字内的摘要，失败返回空字符串
  */
 async function generateCheckpointSummary(
   geminiClient: GeminiClient,
-  summarySource: string
+  summarySource: string,
+  currentModel?: string
 ): Promise<string> {
   const targetLanguage = isChineseLocale() ? 'Chinese' : 'English';
   const lengthLimit = isChineseLocale() ? '8 Chinese characters' : '3 English words';
@@ -191,8 +194,10 @@ Now summarize:
 Output must be in ${targetLanguage}.
 Return only the summary text.`;
 
-  // 使用 Flash Lite 模型（超快速且成本更低）
-  const models = ['gemini-2.5-flash-lite'];
+  // 如果当前模型是自定义模型，则使用自定义模型；否则使用 Flash Lite 模型
+  const models = currentModel && isCustomModel(currentModel)
+    ? [currentModel]
+    : ['gemini-2.5-flash-lite'];
 
   for (const model of models) {
     try {
@@ -541,7 +546,7 @@ export const useGeminiStream = (
         }
 
         console.log('[Checkpoint] Starting summary generation from:', summarySource.substring(0, 50));
-        summary = await generateCheckpointSummary(geminiClient, summarySource);
+        summary = await generateCheckpointSummary(geminiClient, summarySource, config.getModel());
       }
 
       console.log('[Checkpoint] Summary generated/used:', summary);
@@ -1498,7 +1503,7 @@ User question: ${queryStr}`;
                    // 直接使用原文，但去除换行符以适应标题显示
                    summary = summarySource.replace(/[\r\n]+/g, ' ');
                 } else {
-                   summary = await generateCheckpointSummary(geminiClient, summarySource);
+                   summary = await generateCheckpointSummary(geminiClient, summarySource, config.getModel());
                 }
 
                 if (summary) {

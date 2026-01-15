@@ -35,7 +35,7 @@ export const AUTO_MODE_CONFIG = {
 function convertCustomModelToModelInfo(customModel: CustomModelConfig): ModelInfo {
   return {
     name: generateCustomModelId(customModel.displayName),  // 自动生成 custom:{displayName}
-    displayName: `${customModel.displayName} [Custom]`,
+    displayName: `[Custom] ${customModel.displayName}`,
     creditsPerRequest: 0, // 自定义模型不显示积分
     available: customModel.enabled !== false,
     maxToken: customModel.maxTokens || 0,
@@ -62,7 +62,7 @@ export function createModelDisplayNameMap(models: ModelInfo[], config?: Config |
     const customModels = config.getCustomModels() || [];
     customModels.forEach(customModel => {
       if (customModel.enabled !== false) {
-        map.set(generateCustomModelId(customModel.displayName), `${customModel.displayName} [Custom]`);
+        map.set(generateCustomModelId(customModel.displayName), `[Custom] ${customModel.displayName}`);
       }
     });
   }

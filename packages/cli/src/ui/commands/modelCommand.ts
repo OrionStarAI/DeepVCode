@@ -401,7 +401,7 @@ function getCustomModels(settings?: any, config?: Config): ModelInfo[] {
       if (customModel.enabled !== false) {
         customModels.push({
           name: generateCustomModelId(customModel.displayName),  // 自动生成 custom:{displayName}
-          displayName: `${customModel.displayName} [Custom]`,
+          displayName: `[Custom] ${customModel.displayName}`,
           creditsPerRequest: 0,
           available: true,
           maxToken: customModel.maxTokens || 0,
@@ -423,7 +423,7 @@ function getCustomModels(settings?: any, config?: Config): ModelInfo[] {
       if (customModel.enabled !== false) {
         customModels.push({
           name: generateCustomModelId(customModel.displayName),  // 自动生成 custom:{displayName}
-          displayName: `${customModel.displayName} [Custom]`,
+          displayName: `[Custom] ${customModel.displayName}`,
           creditsPerRequest: 0,
           available: true,
           maxToken: customModel.maxTokens || 0,
@@ -443,7 +443,7 @@ function getCustomModels(settings?: any, config?: Config): ModelInfo[] {
       if (customModel.enabled !== false) {
         customModels.push({
           name: generateCustomModelId(customModel.displayName),  // 自动生成 custom:{displayName}
-          displayName: `${customModel.displayName} [Custom]`,
+          displayName: `[Custom] ${customModel.displayName}`,
           creditsPerRequest: 0,
           available: true,
           maxToken: customModel.maxTokens || 0,

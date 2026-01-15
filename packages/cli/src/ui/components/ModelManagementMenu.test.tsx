@@ -121,6 +121,12 @@ describe('ModelManagementMenu', () => {
 
       expect(loadCustomModels).toBeDefined();
     });
+
+    it('should have access to addOrUpdateCustomModel function', async () => {
+      const { addOrUpdateCustomModel } = await import('../../config/customModelsStorage.js');
+
+      expect(addOrUpdateCustomModel).toBeDefined();
+    });
   });
 
   describe('Props and Callbacks', () => {
