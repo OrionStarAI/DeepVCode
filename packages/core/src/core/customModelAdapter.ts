@@ -74,6 +74,27 @@ function parseJSONSafe(jsonStr: string): any {
  * OpenAI 格式转换工具
  */
 const OpenAIConverter = {
+  /**
+   * 将单个 part 转换为 OpenAI content 格式
+   * 支持 text 和 inlineData (图片)
+   */
+  partToOpenAIContent(part: any): any | null {
+    if (part.text) {
+      return { type: 'text', text: part.text };
+    }
+    if (part.inlineData) {
+      // 转换 Gemini inlineData 格式为 OpenAI image_url 格式
+      const { mimeType, data } = part.inlineData;
+      return {
+        type: 'image_url',
+        image_url: {
+          url: `data:${mimeType};base64,${data}`,
+        },
+      };
+    }
+    return null;
+  },
+
   contentsToMessages(contents: any[]): any[] {
     return contents.map((content: any) => {
       const parts = content.parts || [];
@@ -108,6 +129,22 @@ const OpenAIConverter = {
         }));
       }
 
+      // 检查是否包含图片内容
+      const hasImageContent = parts.some((p: any) => p.inlineData);
+
+      if (hasImageContent) {
+        // 使用数组格式以支持混合内容（文本 + 图片）
+        const contentParts = parts
+          .map((part: any) => OpenAIConverter.partToOpenAIContent(part))
+          .filter(Boolean);
+
+        return {
+          role: content.role === MESSAGE_ROLES.MODEL ? 'assistant' : 'user',
+          content: contentParts,
+        };
+      }
+
+      // 纯文本内容，使用简单字符串格式
       return {
         role: content.role === MESSAGE_ROLES.MODEL ? 'assistant' : 'user',
         content: parts.map((part: any) => part.text || '').join('\n'),
@@ -172,6 +209,17 @@ const AnthropicConverter = {
       for (const part of parts) {
         if (part.text) {
           anthropicParts.push({ type: 'text', text: part.text });
+        }
+        if (part.inlineData) {
+          // 转换 Gemini inlineData 格式为 Anthropic image 格式
+          anthropicParts.push({
+            type: 'image',
+            source: {
+              type: 'base64',
+              media_type: part.inlineData.mimeType,
+              data: part.inlineData.data,
+            },
+          });
         }
         if (part.functionCall) {
           anthropicParts.push({

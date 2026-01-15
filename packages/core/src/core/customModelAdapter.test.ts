@@ -5,8 +5,230 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { callOpenAICompatibleModelStream, callAnthropicModelStream } from './customModelAdapter.js';
+import { callOpenAICompatibleModelStream, callAnthropicModelStream, callOpenAICompatibleModel, callAnthropicModel } from './customModelAdapter.js';
 import { MESSAGE_ROLES } from '../config/messageRoles.js';
+
+describe('customModelAdapter - Image Content Support', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  describe('OpenAI image format conversion', () => {
+    it('should convert Gemini inlineData to OpenAI image_url format', async () => {
+      let capturedBody: any;
+      const mockResponse = {
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: 'I see an image' }, finish_reason: 'stop' }],
+          usage: { prompt_tokens: 100, completion_tokens: 10 },
+        }),
+      };
+
+      global.fetch = vi.fn().mockImplementation(async (_url, options) => {
+        capturedBody = JSON.parse(options.body);
+        return mockResponse;
+      });
+
+      const modelConfig = {
+        provider: 'openai' as const,
+        modelId: 'gpt-4-vision',
+        baseUrl: 'https://api.openai.com/v1',
+        apiKey: 'sk-test',
+        displayName: 'GPT-4 Vision',
+      };
+
+      const request = {
+        contents: [
+          {
+            role: MESSAGE_ROLES.USER,
+            parts: [
+              { text: 'What is in this image?' },
+              { inlineData: { mimeType: 'image/png', data: 'iVBORw0KGgoAAAANSUhEUg==' } },
+            ],
+          },
+        ],
+      };
+
+      await callOpenAICompatibleModel(modelConfig as any, request);
+
+      // Verify the request body was converted correctly
+      expect(capturedBody.messages).toHaveLength(1);
+      expect(capturedBody.messages[0].role).toBe('user');
+      expect(Array.isArray(capturedBody.messages[0].content)).toBe(true);
+      expect(capturedBody.messages[0].content).toHaveLength(2);
+
+      // Check text part
+      expect(capturedBody.messages[0].content[0]).toEqual({
+        type: 'text',
+        text: 'What is in this image?',
+      });
+
+      // Check image part - OpenAI format
+      expect(capturedBody.messages[0].content[1]).toEqual({
+        type: 'image_url',
+        image_url: {
+          url: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==',
+        },
+      });
+    });
+
+    it('should handle multiple images in a single message', async () => {
+      let capturedBody: any;
+      const mockResponse = {
+        ok: true,
+        json: async () => ({
+          choices: [{ message: { content: 'I see two images' }, finish_reason: 'stop' }],
+          usage: { prompt_tokens: 200, completion_tokens: 15 },
+        }),
+      };
+
+      global.fetch = vi.fn().mockImplementation(async (_url, options) => {
+        capturedBody = JSON.parse(options.body);
+        return mockResponse;
+      });
+
+      const modelConfig = {
+        provider: 'openai' as const,
+        modelId: 'gpt-4-vision',
+        baseUrl: 'https://api.openai.com/v1',
+        apiKey: 'sk-test',
+        displayName: 'GPT-4 Vision',
+      };
+
+      const request = {
+        contents: [
+          {
+            role: MESSAGE_ROLES.USER,
+            parts: [
+              { text: 'Compare these images' },
+              { inlineData: { mimeType: 'image/jpeg', data: 'base64data1' } },
+              { inlineData: { mimeType: 'image/png', data: 'base64data2' } },
+            ],
+          },
+        ],
+      };
+
+      await callOpenAICompatibleModel(modelConfig as any, request);
+
+      expect(capturedBody.messages[0].content).toHaveLength(3);
+      expect(capturedBody.messages[0].content[1].image_url.url).toBe('data:image/jpeg;base64,base64data1');
+      expect(capturedBody.messages[0].content[2].image_url.url).toBe('data:image/png;base64,base64data2');
+    });
+  });
+
+  describe('Anthropic image format conversion', () => {
+    it('should convert Gemini inlineData to Anthropic image format', async () => {
+      let capturedBody: any;
+      const mockResponse = {
+        ok: true,
+        json: async () => ({
+          content: [{ type: 'text', text: 'I see an image' }],
+          stop_reason: 'end_turn',
+          usage: { input_tokens: 100, output_tokens: 10 },
+        }),
+      };
+
+      global.fetch = vi.fn().mockImplementation(async (_url, options) => {
+        capturedBody = JSON.parse(options.body);
+        return mockResponse;
+      });
+
+      const modelConfig = {
+        provider: 'anthropic' as const,
+        modelId: 'claude-3-sonnet',
+        baseUrl: 'https://api.anthropic.com',
+        apiKey: 'sk-ant-test',
+        displayName: 'Claude 3 Sonnet',
+      };
+
+      const request = {
+        contents: [
+          {
+            role: MESSAGE_ROLES.USER,
+            parts: [
+              { text: 'What is in this image?' },
+              { inlineData: { mimeType: 'image/png', data: 'iVBORw0KGgoAAAANSUhEUg==' } },
+            ],
+          },
+        ],
+      };
+
+      await callAnthropicModel(modelConfig as any, request);
+
+      // Verify the request body was converted correctly
+      expect(capturedBody.messages).toHaveLength(1);
+      expect(capturedBody.messages[0].role).toBe('user');
+      expect(Array.isArray(capturedBody.messages[0].content)).toBe(true);
+      expect(capturedBody.messages[0].content).toHaveLength(2);
+
+      // Check text part
+      expect(capturedBody.messages[0].content[0]).toEqual({
+        type: 'text',
+        text: 'What is in this image?',
+      });
+
+      // Check image part - Anthropic format
+      expect(capturedBody.messages[0].content[1]).toEqual({
+        type: 'image',
+        source: {
+          type: 'base64',
+          media_type: 'image/png',
+          data: 'iVBORw0KGgoAAAANSUhEUg==',
+        },
+      });
+    });
+
+    it('should handle multiple images in a single message', async () => {
+      let capturedBody: any;
+      const mockResponse = {
+        ok: true,
+        json: async () => ({
+          content: [{ type: 'text', text: 'I see two images' }],
+          stop_reason: 'end_turn',
+          usage: { input_tokens: 200, output_tokens: 15 },
+        }),
+      };
+
+      global.fetch = vi.fn().mockImplementation(async (_url, options) => {
+        capturedBody = JSON.parse(options.body);
+        return mockResponse;
+      });
+
+      const modelConfig = {
+        provider: 'anthropic' as const,
+        modelId: 'claude-3-sonnet',
+        baseUrl: 'https://api.anthropic.com',
+        apiKey: 'sk-ant-test',
+        displayName: 'Claude 3 Sonnet',
+      };
+
+      const request = {
+        contents: [
+          {
+            role: MESSAGE_ROLES.USER,
+            parts: [
+              { text: 'Compare these images' },
+              { inlineData: { mimeType: 'image/jpeg', data: 'base64data1' } },
+              { inlineData: { mimeType: 'image/webp', data: 'base64data2' } },
+            ],
+          },
+        ],
+      };
+
+      await callAnthropicModel(modelConfig as any, request);
+
+      expect(capturedBody.messages[0].content).toHaveLength(3);
+      expect(capturedBody.messages[0].content[1]).toEqual({
+        type: 'image',
+        source: { type: 'base64', media_type: 'image/jpeg', data: 'base64data1' },
+      });
+      expect(capturedBody.messages[0].content[2]).toEqual({
+        type: 'image',
+        source: { type: 'base64', media_type: 'image/webp', data: 'base64data2' },
+      });
+    });
+  });
+});
 
 describe('customModelAdapter - Streaming Tool Calls', () => {
   describe('OpenAI streaming', () => {
