@@ -662,17 +662,53 @@ export function KeypressProvider({
       if (key.name === 'return' && key.sequence === `${ESC}\r`) {
         key.meta = true;
       }
+
+      // Silently ignore focus in/out sequences - they are handled by useFocus hook
+      // and should not be broadcast to input components
+      if (key.sequence === FOCUS_IN || key.sequence === FOCUS_OUT) {
+        return;
+      }
+
       broadcast({ ...key, paste: isPaste });
     };
 
-    const handleRawKeypress = (data: Buffer) => {
+    const handleRawKeypress = (data: Buffer | string) => {
+      // Ensure data is a Buffer (stdin may emit string in some cases)
+      const dataBuffer = Buffer.isBuffer(data) ? data : Buffer.from(data);
+
       const pasteModePrefixBuffer = Buffer.from(PASTE_MODE_PREFIX);
       const pasteModeSuffixBuffer = Buffer.from(PASTE_MODE_SUFFIX);
+      const focusInBuffer = Buffer.from(FOCUS_IN);
+      const focusOutBuffer = Buffer.from(FOCUS_OUT);
+
+      // First, filter out focus sequences from the data
+      // Focus sequences (\x1b[I and \x1b[O) should be silently ignored
+      // as they are handled by useFocus hook
+      let filteredData: Buffer = dataBuffer;
+      let focusInPos = filteredData.indexOf(focusInBuffer);
+      while (focusInPos !== -1) {
+        const before = filteredData.subarray(0, focusInPos);
+        const after = filteredData.subarray(focusInPos + focusInBuffer.length);
+        filteredData = Buffer.concat([before, after]);
+        focusInPos = filteredData.indexOf(focusInBuffer);
+      }
+      let focusOutPos = filteredData.indexOf(focusOutBuffer);
+      while (focusOutPos !== -1) {
+        const before = filteredData.subarray(0, focusOutPos);
+        const after = filteredData.subarray(focusOutPos + focusOutBuffer.length);
+        filteredData = Buffer.concat([before, after]);
+        focusOutPos = filteredData.indexOf(focusOutBuffer);
+      }
+
+      // If all data was focus sequences, nothing left to process
+      if (filteredData.length === 0) {
+        return;
+      }
 
       let pos = 0;
-      while (pos < data.length) {
-        const prefixPos = data.indexOf(pasteModePrefixBuffer, pos);
-        const suffixPos = data.indexOf(pasteModeSuffixBuffer, pos);
+      while (pos < filteredData.length) {
+        const prefixPos = filteredData.indexOf(pasteModePrefixBuffer, pos);
+        const suffixPos = filteredData.indexOf(pasteModeSuffixBuffer, pos);
         const isPrefixNext =
           prefixPos !== -1 && (suffixPos === -1 || prefixPos < suffixPos);
         const isSuffixNext =
@@ -689,11 +725,11 @@ export function KeypressProvider({
         markerLength = pasteModeSuffixBuffer.length;
 
         if (nextMarkerPos === -1) {
-          keypressStream.write(data.slice(pos));
+          keypressStream.write(filteredData.slice(pos));
           return;
         }
 
-        const nextData = data.slice(pos, nextMarkerPos);
+        const nextData = filteredData.slice(pos, nextMarkerPos);
         if (nextData.length > 0) {
           keypressStream.write(nextData);
         }

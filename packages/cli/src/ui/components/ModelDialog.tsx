@@ -72,43 +72,39 @@ export function ModelDialog({
 
         // 在列表第一项添加"模型管理"特殊选项
         const managementItem = {
-          label: `📋 ${t('model.dialog.management.label')}`,
+          label: `⮞ ${t('model.dialog.management.label')} ⮜`,
           value: '__management__',
           modelInfo: undefined,
           isCustomModel: false,
         };
 
-        const items = [
-          managementItem,
-          ...modelNames.map((modelName: string) => {
-            const displayName = getModelDisplayName(modelName, config);
-            const modelInfo = getModelInfo(modelName, config);
+        const modelItems = modelNames.map((modelName: string) => {
+          const displayName = getModelDisplayName(modelName, config);
+          const modelInfo = getModelInfo(modelName, config);
 
-            let label = displayName;
-            // 只有非自定义模型才显示积分信息
-            if (modelInfo && modelInfo.creditsPerRequest && !modelInfo.isCustom) {
-              label += ` (${modelInfo.creditsPerRequest}x credits)`;
-            }
+          let label = displayName;
+          // 只有非自定义模型才显示积分信息
+          if (modelInfo && modelInfo.creditsPerRequest && !modelInfo.isCustom) {
+            label += ` (${modelInfo.creditsPerRequest}x credits)`;
+          }
 
-            // 🐛 调试：打印每个模型的信息
-            if (modelInfo?.isCustom) {
-              console.log('[ModelDialog] Custom model:', {
-                name: modelName,
-                label,
-                credits: modelInfo.creditsPerRequest,
-                maxToken: modelInfo.maxToken,
-                isCustom: modelInfo.isCustom
-              });
-            }
+          return {
+            label,
+            value: modelName,
+            modelInfo,
+            isCustomModel: modelInfo?.isCustom || false,
+          };
+        });
 
-            return {
-              label,
-              value: modelName,
-              modelInfo,
-              isCustomModel: modelInfo?.isCustom || false,
-            };
-          })
-        ];
+        // 排序：自定义模型排在前面，然后是普通模型
+        modelItems.sort((a, b) => {
+          // 自定义模型优先
+          if (a.isCustomModel && !b.isCustomModel) return -1;
+          if (!a.isCustomModel && b.isCustomModel) return 1;
+          return 0; // 保持原有顺序
+        });
+
+        const items = [managementItem, ...modelItems];
 
         setModelItems(items);
 
@@ -152,31 +148,35 @@ export function ModelDialog({
           const { modelNames, modelInfos } = await getAvailableModels(settings, config);
 
           const managementItem = {
-            label: `📋 ${t('model.dialog.management.label')}`,
+            label: `⮞ ${t('model.dialog.management.label')} ⮜`,
             value: '__management__',
             modelInfo: undefined,
             isCustomModel: false,
           };
 
-          const items = [
-            managementItem,
-            ...modelNames.map((modelName: string) => {
-              const displayName = getModelDisplayName(modelName, config);
-              const modelInfo = getModelInfo(modelName, config);
-              let label = displayName;
-              if (modelInfo && modelInfo.creditsPerRequest && !modelInfo.isCustom) {
-                label += ` (${modelInfo.creditsPerRequest}x credits)`;
-              }
-              return {
-                label,
-                value: modelName,
-                modelInfo,
-                isCustomModel: modelInfo?.isCustom || false,
-              };
-            })
-          ];
+          const modelItems = modelNames.map((modelName: string) => {
+            const displayName = getModelDisplayName(modelName, config);
+            const modelInfo = getModelInfo(modelName, config);
+            let label = displayName;
+            if (modelInfo && modelInfo.creditsPerRequest && !modelInfo.isCustom) {
+              label += ` (${modelInfo.creditsPerRequest}x credits)`;
+            }
+            return {
+              label,
+              value: modelName,
+              modelInfo,
+              isCustomModel: modelInfo?.isCustom || false,
+            };
+          });
 
-          setModelItems(items);
+          // 排序：自定义模型排在前面
+          modelItems.sort((a, b) => {
+            if (a.isCustomModel && !b.isCustomModel) return -1;
+            if (!a.isCustomModel && b.isCustomModel) return 1;
+            return 0;
+          });
+
+          setModelItems([managementItem, ...modelItems]);
         } catch (err) {
           console.error('[ModelDialog] Failed to reload models:', err);
         } finally {
@@ -379,7 +379,10 @@ export function ModelDialog({
       )}
 
       {!loading && !error && (
-        <Box marginTop={1}>
+        <Box marginTop={1} flexDirection="column">
+          <Text color={Colors.Gray}>
+            {tp('model.dialog.total', { count: modelItems.filter(item => item.value !== '__management__').length })}
+          </Text>
           <Text color={Colors.Gray} wrap="truncate">
             {smallWindowConfig.sizeLevel === WindowSizeLevel.TINY
               ? t('model.dialog.hint.tiny')

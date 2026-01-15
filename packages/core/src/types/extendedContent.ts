@@ -71,6 +71,16 @@ export function stripUIFieldsFromArray(contents: Content[] | any): OriginalConte
   return contents;
 }
 
+/**
+ * Extended UsageMetadata with cache support for custom models
+ * OpenAI and Claude support prompt caching which has separate token counts
+ */
+export interface ExtendedUsageMetadata extends GenerateContentResponseUsageMetadata {
+  // Cache-related tokens (OpenAI and Claude)
+  cacheCreationInputTokenCount?: number;
+  cacheReadInputTokenCount?: number;
+}
+
 // Re-export specific types from @google/genai for convenience
 export {
   Part,

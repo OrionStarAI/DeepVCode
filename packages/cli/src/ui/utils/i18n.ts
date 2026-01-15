@@ -315,7 +315,7 @@ export const translations = {
     'token.cache.read': 'Cache Read: ',
     'token.cache.create': 'Cache Create: ',
     'token.efficiency': 'Cache Hit Rate: ',
-    'token.no.cache': 'No cache hits - all tokens processed fresh',
+    'token.no.cache': 'No cache information available',
 
     // Token Breakdown Display
     'token.breakdown.title': 'Context Token Breakdown',
@@ -508,6 +508,7 @@ export const translations = {
     // Model Dialog Messages
     'model.dialog.title': 'Select AI Model',
     'model.dialog.current': 'Current: {model}',
+    'model.dialog.total': 'Total {count} models available',
     'model.dialog.loading': 'Loading model list...',
     'model.dialog.error.not.logged.in': 'You are not logged in. Please use /auth command to login first.',
     'model.dialog.error.load.failed': 'Failed to load model list: {error}',
@@ -1795,6 +1796,7 @@ export const translations = {
     // Model Dialog Messages
     'model.dialog.title': '选择 AI 模型',
     'model.dialog.current': '当前: {model}',
+    'model.dialog.total': '共 {count} 个可用模型',
     'model.dialog.loading': '正在加载模型列表...',
     'model.dialog.error.not.logged.in': '您尚未登录，请先使用 /auth 命令登录',
     'model.dialog.error.load.failed': '加载模型列表失败: {error}',
