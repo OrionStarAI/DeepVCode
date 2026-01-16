@@ -1069,6 +1069,51 @@ export class MultiSessionCommunicationService {
   }
 
   // =============================================================================
+  // 🎯 PPT 生成相关方法 (无状态轮询，任务提交后直接返回编辑页面URL)
+  // =============================================================================
+
+  /**
+   * 发送PPT生成响应
+   */
+  async sendPPTGenerateResponse(data: { success: boolean; taskId?: string; editUrl?: string; error?: string }) {
+    await this.sendMessage({
+      type: 'ppt_generate_response',
+      payload: data
+    });
+  }
+
+  /**
+   * 监听PPT生成请求
+   */
+  onPPTGenerate(handler: (data: { topic: string; pageCount: number; style: string; outline: string }) => void) {
+    return this.addMessageHandler('ppt_generate', handler);
+  }
+
+  /**
+   * 监听PPT状态查询请求
+   */
+  onPPTStatus(handler: (data: { taskId: string }) => void) {
+    return this.addMessageHandler('ppt_status', handler);
+  }
+
+  /**
+   * 发送PPT大纲AI优化响应
+   */
+  async sendPPTOptimizeOutlineResponse(data: { success: boolean; optimizedOutline?: string; error?: string }) {
+    await this.sendMessage({
+      type: 'ppt_optimize_outline_response',
+      payload: data
+    });
+  }
+
+  /**
+   * 监听PPT大纲AI优化请求
+   */
+  onPPTOptimizeOutline(handler: (data: { topic: string; pageCount: number; style: string; colorScheme: string; outline: string }) => void) {
+    return this.addMessageHandler('ppt_optimize_outline', handler);
+  }
+
+  // =============================================================================
   // 🎯 后台任务管理相关方法
   // =============================================================================
 

@@ -398,6 +398,66 @@ export interface Translations {
     };
   };
 
+  pptGenerator: {
+    title: string;
+    buttonTooltip: string;
+    topicLabel: string;  // PPT 主题
+    topicPlaceholder: string;
+    pageCountLabel: string;
+    pages: string;
+    customPages: string;
+    customPagesPlaceholder: string;
+    styleLabel: string;
+    colorSchemeLabel: string;
+    outlineLabel: string;
+    outlinePlaceholder: string;
+    outlineHint: string;
+    optimizeButton: string;
+    optimizing: string;
+    optimizeTooltip: string;
+    cancelGeneration: string;
+    customStylePlaceholder: string;
+    customColorPlaceholder: string;
+    generateButton: string;
+    generating: string;
+    generatingHint: string;
+    generateAnother: string;
+    openEdit: string;
+    tryAgain: string;
+    style: {
+      auto: string;
+      business: string;
+      flat: string;
+      travel: string;
+      advertising: string;
+      anime: string;
+      custom: string;
+    };
+    colorScheme: {
+      auto: string;
+      blue: string;
+      green: string;
+      red: string;
+      purple: string;
+      orange: string;
+      dark: string;
+      light: string;
+      colorful: string;
+      custom: string;
+    };
+    error: {
+      topicRequired: string;
+      outlineRequired: string;
+      customStyleRequired: string;
+      customColorRequired: string;
+      generateFailed: string;
+    };
+    success: {
+      generated: string;
+      hint: string;
+    };
+  };
+
   atMention: {
     recentFiles: string;
     filesAndFolders: string;

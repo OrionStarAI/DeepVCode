@@ -359,6 +359,10 @@ export type ExtensionToWebViewMessage =
   | { type: 'nanobanana_upload_response'; payload: { success: boolean; publicUrl?: string; error?: string } }
   | { type: 'nanobanana_generate_response'; payload: { success: boolean; taskId?: string; estimatedTime?: number; error?: string } }
   | { type: 'nanobanana_status_update'; payload: { taskId: string; status: 'pending' | 'processing' | 'completed' | 'failed'; progress?: number; resultUrls?: string[]; originalUrls?: string[]; errorMessage?: string; creditsDeducted?: number } }
+  // 🎯 PPT 生成 (无状态轮询，任务提交后直接返回编辑页面URL)
+  | { type: 'ppt_generate_response'; payload: { success: boolean; taskId?: string; editUrl?: string; error?: string } }
+  // 🎯 PPT 大纲 AI 优化
+  | { type: 'ppt_optimize_outline_response'; payload: { success: boolean; optimizedOutline?: string; error?: string } }
   // 🔌 MCP 相关消息类型
   | { type: 'mcp_status_update'; payload: MCPStatusPayload }
   | { type: 'mcp_enabled_states'; payload: { states: Record<string, boolean> } }
