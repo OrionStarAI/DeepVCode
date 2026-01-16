@@ -179,27 +179,36 @@ async function setupCrossPlatformRipgrep(ripgrepBundleDir) {
 
     // Copy all downloaded binaries to bundle
     let copiedCount = 0;
+    const missingPlatforms = [];
+    const copyErrors = [];
+
     for (const [platformKey, binaryName] of Object.entries(platformMappings)) {
       const sourcePath = join(tempBinariesDir, `${platformKey}-${binaryName}`);
       const targetPath = join(binDir, `${platformKey}-${binaryName}`);
 
       if (existsSync(sourcePath)) {
-        copyFileSync(sourcePath, targetPath);
+        try {
+          copyFileSync(sourcePath, targetPath);
 
-        // 🔧 Ensure binary files have execute permissions (Unix systems)
-        if (process.platform !== 'win32' && !binaryName.endsWith('.exe')) {
-          try {
-            const fs = require('fs');
-            fs.chmodSync(targetPath, 0o755);
-          } catch (error) {
-            console.warn(`  ⚠️  Failed to set execute permissions for ${platformKey}: ${error.message}`);
+          // 🔧 Ensure binary files have execute permissions (Unix systems)
+          if (process.platform !== 'win32' && !binaryName.endsWith('.exe')) {
+            try {
+              const fs = require('fs');
+              fs.chmodSync(targetPath, 0o755);
+            } catch (error) {
+              console.warn(`  ⚠️  Failed to set execute permissions for ${platformKey}: ${error.message}`);
+            }
           }
-        }
 
-        copiedCount++;
-        console.log(`✅ Copied ${platformKey} binary`);
+          copiedCount++;
+          console.log(`✅ Copied ${platformKey} binary`);
+        } catch (error) {
+          copyErrors.push({ platformKey, error: error.message });
+          console.error(`❌ Failed to copy ${platformKey} binary: ${error.message}`);
+        }
       } else {
-        console.warn(`⚠️  Missing binary for ${platformKey}`);
+        missingPlatforms.push(platformKey);
+        console.error(`❌ Missing binary for ${platformKey}`);
       }
     }
 
@@ -229,19 +238,49 @@ async function setupCrossPlatformRipgrep(ripgrepBundleDir) {
       }
     }
 
-    console.log(`📦 Copied ${copiedCount} cross-platform ripgrep binaries`);
+    // Validate all platforms were copied successfully
+    const expectedPlatformCount = Object.keys(platformMappings).length;
+
+    if (missingPlatforms.length > 0 || copyErrors.length > 0) {
+      let errorMessage = '❌ Cross-platform ripgrep binary packaging failed:\n';
+      if (missingPlatforms.length > 0) {
+        errorMessage += `   Missing platforms: ${missingPlatforms.join(', ')}\n`;
+      }
+      if (copyErrors.length > 0) {
+        errorMessage += `   Copy errors:\n${copyErrors.map(e => `     - ${e.platformKey}: ${e.error}`).join('\n')}\n`;
+      }
+      console.error(errorMessage);
+      console.error('🛑 Build terminated: All platform binaries are required for production packaging.');
+      process.exit(1);
+    }
+
+    if (copiedCount !== expectedPlatformCount) {
+      console.error(`❌ Expected ${expectedPlatformCount} platform binaries, but only copied ${copiedCount}`);
+      console.error('🛑 Build terminated: Incomplete cross-platform ripgrep binaries.');
+      process.exit(1);
+    }
+
+    console.log(`📦 Successfully copied all ${copiedCount} cross-platform ripgrep binaries`);
 
   } catch (error) {
     const downloadAllPlatforms = process.env.DOWNLOAD_ALL_PLATFORMS === 'true';
 
     if (downloadAllPlatforms) {
-      console.warn('⚠️  Warning: Failed to download cross-platform binaries, falling back to current platform only');
-      console.warn('   Error:', error.message);
+      // In production mode, fail the build
+      console.error('❌ Failed to download cross-platform binaries:', error.message);
+      console.error('🛑 Build terminated: Cross-platform binaries are required for production packaging.');
+      process.exit(1);
     }
+
+    // Development mode: allow fallback to current platform only
+    console.warn('⚠️  Development mode: Falling back to current platform binary only');
+    console.warn('   ℹ️  For production builds, use: npm run pack:prod');
 
     // Fallback: copy current platform binary if available
     const currentBinary = join(__dirname, '../node_modules/@vscode/ripgrep/bin/rg');
     const currentWinBinary = join(__dirname, '../node_modules/@vscode/ripgrep/bin/rg.exe');
+
+    let fallbackSuccess = false;
 
     if (existsSync(currentBinary)) {
       const targetPath = join(binDir, 'rg');
@@ -258,10 +297,18 @@ async function setupCrossPlatformRipgrep(ripgrepBundleDir) {
       }
 
       console.log('✅ Copied current platform rg binary');
+      fallbackSuccess = true;
     }
     if (existsSync(currentWinBinary)) {
       copyFileSync(currentWinBinary, join(binDir, 'rg.exe'));
       console.log('✅ Copied current platform rg.exe binary');
+      fallbackSuccess = true;
+    }
+
+    if (!fallbackSuccess) {
+      console.error('❌ No ripgrep binary available for current platform');
+      console.error('🛑 Build terminated: At least one ripgrep binary is required.');
+      process.exit(1);
     }
   }
 
