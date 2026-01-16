@@ -40,15 +40,9 @@ export function detectTerminalEnvironment(): TerminalInfo {
   };
 
   if (platform === 'win32') {
-    // Windows 环境检测：仅使用快速的环境变量检测，跳过耗时的进程树扫描
-    result.shell = detectWindowsShellFast(env);
+    // Windows 环境检测：使用进程树扫描准确检测 Shell 类型
+    result.shell = detectWindowsShell(env);
     result.terminal = detectWindowsTerminal(env);
-
-    // 🚀 启动异步增强检测，不阻塞当前调用
-    setTimeout(() => {
-      enhanceWindowsShellAsync(env).catch(() => {});
-    }, 2000); // 延迟 2 秒，等界面完全稳定后再跑重型任务
-
   } else if (platform === 'darwin') {
     // macOS 环境检测
     result.shell = detectUnixShell(env);
@@ -66,6 +60,7 @@ export function detectTerminalEnvironment(): TerminalInfo {
 
 /**
  * Windows 下的快速 Shell 检测（仅环境变量）
+ * 注意：PSModulePath 是系统级环境变量，在 CMD 中也存在，不能用于判断当前是否在 PowerShell 中
  */
 function detectWindowsShellFast(env: NodeJS.ProcessEnv): string {
   // 检查 Git Bash
@@ -78,11 +73,19 @@ function detectWindowsShellFast(env: NodeJS.ProcessEnv): string {
     return `WSL (${env.WSL_DISTRO_NAME || 'Unknown'})`;
   }
 
-  // 检查 PowerShell 环境变量
-  if (env.PSModulePath) {
-    return env.PSEdition === 'Core' ? 'PowerShell Core' : 'Windows PowerShell';
+  // 检查 PowerShell Core 特有的环境变量
+  // PSEdition 只在 PowerShell 运行时设置，不是系统级环境变量
+  if (env.PSEdition === 'Core') {
+    return 'PowerShell Core';
   }
 
+  // 检查 Windows PowerShell 的运行时特征
+  // __PSHOME 或 POWERSHELL_DISTRIBUTION_CHANNEL 是 PowerShell 运行时设置的
+  if (env.__PSHOME || env.POWERSHELL_DISTRIBUTION_CHANNEL) {
+    return 'Windows PowerShell';
+  }
+
+  // 默认假设是 CMD，异步增强检测会通过进程树扫描修正
   return 'Command Prompt (CMD)';
 }
 
@@ -227,9 +230,11 @@ function findShellInProcessTree(currentPid: number, visited: Set<number> = new S
 }
 
 /**
- * 检测 Windows 下的 Shell 类型 (已弃用，改用 detectWindowsShellFast + enhanceWindowsShellAsync)
+ * 检测 Windows 下的 Shell 类型
+ * 使用进程树扫描准确检测，但优化为找到第一个 shell 立即返回
  */
 function detectWindowsShell(env: NodeJS.ProcessEnv): string {
+  // 首先检查特殊环境（通过环境变量快速判断）
   const hasGitBash = env.MSYSTEM || env.MINGW_PREFIX || env.MSYS2_PATH_TYPE;
   if (hasGitBash) return 'Git Bash (MSYS2)';
 
@@ -239,17 +244,67 @@ function detectWindowsShell(env: NodeJS.ProcessEnv): string {
   const hasCygwin = !!env.CYGWIN;
   if (hasCygwin) return 'Cygwin';
 
+  // 使用进程树快速查找第一个 shell（找到即返回，不遍历整棵树）
   try {
-    const shellFromProcessTree = findShellInProcessTree(process.pid);
+    const shellFromProcessTree = findFirstShellInProcessTree(process.pid);
     if (shellFromProcessTree) return shellFromProcessTree;
-  } catch (error) {}
-
-  if (env.PSModulePath) {
-    if (env.PSEdition === 'Core') return 'PowerShell Core';
-    return 'Windows PowerShell';
+  } catch {
+    // 进程树检测失败，继续使用环境变量回退
   }
 
+  // 回退方案：使用环境变量检测（不太可靠，但作为兜底）
+  if (env.PSEdition === 'Core') return 'PowerShell Core';
+  if (env.__PSHOME || env.POWERSHELL_DISTRIBUTION_CHANNEL) return 'Windows PowerShell';
+
   return 'Command Prompt (CMD)';
+}
+
+/**
+ * 快速查找进程树中的第一个 Shell 进程（找到即返回，不继续遍历）
+ * 比 findShellInProcessTree 更快，因为不需要遍历整棵树
+ * 通常 1-2 层就能找到 shell，最多查 3 层
+ */
+function findFirstShellInProcessTree(currentPid: number, visited: Set<number> = new Set(), depth: number = 0): string | null {
+  // 限制深度为 3 层，通常足够找到 shell，避免耗时过长
+  if (depth > 3 || visited.has(currentPid)) {
+    return null;
+  }
+
+  visited.add(currentPid);
+
+  try {
+    const wmicCommand = `wmic process where "ProcessId=${currentPid}" get ParentProcessId,Name /format:value`;
+    const result = execSync(wmicCommand, {
+      encoding: 'utf8',
+      timeout: 1000,  // 缩短超时时间
+      stdio: ['pipe', 'pipe', 'pipe']
+    });
+
+    const parentPidMatch = result.match(/ParentProcessId=(\d+)/);
+    const processNameMatch = result.match(/Name=([^\r\n]+)/);
+
+    if (!parentPidMatch?.[1] || !processNameMatch?.[1]) {
+      return null;
+    }
+
+    const parentPid = parseInt(parentPidMatch[1]);
+    const processName = processNameMatch[1].toLowerCase().trim();
+
+    // 检测到 shell 立即返回，不继续向上遍历
+    if (processName.includes('powershell.exe')) return 'Windows PowerShell';
+    if (processName.includes('pwsh.exe')) return 'PowerShell Core';
+    if (processName.includes('cmd.exe')) return 'Command Prompt (CMD)';
+    if (processName.includes('bash.exe')) return 'Git Bash';
+
+    // 未找到 shell，继续向上查找父进程
+    if (parentPid > 0 && parentPid !== currentPid) {
+      return findFirstShellInProcessTree(parentPid, visited, depth + 1);
+    }
+
+    return null;
+  } catch {
+    return null;
+  }
 }
 
 /**
