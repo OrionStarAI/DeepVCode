@@ -1155,7 +1155,13 @@ export class DeepVServerAdapter implements ContentGenerator {
       return response;
 
     } catch (error) {
-      logger.error('[DeepV Server] Token count failed:', error);
+      // 对于自定义模型，token count 失败是预期行为，使用 debug 级别
+      const modelToUse = request.model || this.config?.getModel() || 'auto';
+      if (isCustomModel(modelToUse)) {
+        logger.debug('[DeepV Server] Token count not available for custom model, using fallback');
+      } else {
+        logger.error('[DeepV Server] Token count failed:', error);
+      }
 
       // 回退到估算方法
       return this.estimateTokensAsFailback(request);

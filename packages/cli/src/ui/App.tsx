@@ -126,6 +126,7 @@ import {
   isDeepXQuotaError,
   getDeepXQuotaErrorMessage,
   UserTierId,
+  isCustomModel,
 } from 'deepv-code-core';
 import { checkForUpdates } from './utils/updateCheck.js';
 import ansiEscapes from 'ansi-escapes';
@@ -918,6 +919,13 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
       fallbackModel: string,
       error?: unknown,
     ): Promise<boolean> => {
+      // 🆕 自定义模型：跳过所有 quota/region 相关的错误处理和模型切换
+      // 这些错误对于自定义模型来说是预期行为，不应该显示友好提示或切换模型
+      if (isCustomModel(currentModel)) {
+        console.warn('[FlashFallback] Custom model detected, skipping fallback handling');
+        return true; // 继续当前请求，不切换模型
+      }
+
       let message: string;
 
       if (
