@@ -1065,4 +1065,60 @@ describe('mapToDisplay', () => {
     expect(display.tools[1].resultDisplay).toBe('markdown output');
     expect(display.tools[1].renderOutputAsMarkdown).toBe(true);
   });
+
+  it('should populate batchSubTools for batch tool calls', () => {
+    const batchTool: Tool = {
+      name: 'batch',
+      displayName: 'Batch',
+      description: 'Batch tool',
+      isOutputMarkdown: false,
+      forceMarkdown: false,
+      canUpdateOutput: false,
+      schema: {},
+      icon: Icon.Hammer,
+      toolLocations: vi.fn(),
+      validateToolParams: vi.fn(),
+      execute: vi.fn(),
+      shouldConfirmExecute: vi.fn(),
+      getDescription: vi.fn(() => '2 tools: read_file, write_file'),
+    };
+
+    const batchToolCall: ToolCall = {
+      request: {
+        callId: 'batchCall1',
+        name: 'batch',
+        args: {
+          tool_calls: [
+            { tool: 'read_file', parameters: { absolute_path: '/path/to/file.ts' } },
+            { tool: 'write_file', parameters: { file_path: '/path/to/output.ts', content: 'test' } },
+          ],
+        },
+      },
+      status: 'executing',
+      tool: batchTool,
+    } as ToolCall;
+
+    const display = mapToDisplay([batchToolCall]);
+    expect(display.tools.length).toBe(1);
+    expect(display.tools[0].batchSubTools).toBeDefined();
+    expect(display.tools[0].batchSubTools?.length).toBe(2);
+    expect(display.tools[0].batchSubTools?.[0].tool).toBe('read_file');
+    expect(display.tools[0].batchSubTools?.[0].displayName).toBe('ReadFile');
+    expect(display.tools[0].batchSubTools?.[0].summary).toBe('file.ts');
+    expect(display.tools[0].batchSubTools?.[1].tool).toBe('write_file');
+    expect(display.tools[0].batchSubTools?.[1].displayName).toBe('WriteFile');
+    expect(display.tools[0].batchSubTools?.[1].summary).toBe('output.ts');
+  });
+
+  it('should not populate batchSubTools for non-batch tools', () => {
+    const toolCall: ToolCall = {
+      request: { ...baseRequest, callId: 'call1' },
+      status: 'success',
+      tool: baseTool,
+      response: { ...baseResponse, callId: 'call1' },
+    } as ToolCall;
+
+    const display = mapToDisplay([toolCall]);
+    expect(display.tools[0].batchSubTools).toBeUndefined();
+  });
 });

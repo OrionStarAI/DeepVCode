@@ -158,6 +158,7 @@ export const ToolMessage: React.FC<ToolMessageProps> = ({
   emphasis = 'medium',
   renderOutputAsMarkdown = true,
   forceMarkdown = false,
+  batchSubTools,
 }) => {
   const smallWindowConfig = useSmallWindowOptimization();
   // 🎯 Shell 命令正在执行或等待时显示 Ctrl+B 提示
@@ -236,6 +237,24 @@ export const ToolMessage: React.FC<ToolMessageProps> = ({
       {isShellRunning ? (
         <Box paddingLeft={RESULT_DISPLAY_INDENT}>
           <Text color={Colors.Gray}>{t('shell.background.hint')}</Text>
+        </Box>
+      ) : null}
+      {/* 🎯 Batch 工具：显示子工具调用列表 */}
+      {batchSubTools && batchSubTools.length > 0 ? (
+        <Box paddingLeft={RESULT_DISPLAY_INDENT} flexDirection="column">
+          {batchSubTools.map((subTool, index) => (
+            <Box key={index} flexDirection="row">
+              <Text color={Colors.Gray}>
+                {index === batchSubTools.length - 1 ? '└ ' : '├ '}
+              </Text>
+              <Text color={Colors.Foreground}>
+                {getLocalizedToolName(subTool.displayName)}
+              </Text>
+              {subTool.summary ? (
+                <Text color={Colors.Gray}> {subTool.summary}</Text>
+              ) : null}
+            </Box>
+          ))}
         </Box>
       ) : null}
       {/* Show thinking display if available */}

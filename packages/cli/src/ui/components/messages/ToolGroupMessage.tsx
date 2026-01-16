@@ -145,6 +145,7 @@ export const ToolGroupMessage: React.FC<ToolGroupMessageProps> = ({
                 }
                 renderOutputAsMarkdown={tool.renderOutputAsMarkdown}
                 forceMarkdown={tool.forceMarkdown}
+                batchSubTools={tool.batchSubTools}
               />
             </Box>
           </Box>
