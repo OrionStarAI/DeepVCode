@@ -410,6 +410,7 @@ export const zhCN: Translations = {
     selectTerminal: '选择终端',
     terminalOutput: '终端输出（最近 200 行）',
     loading: '加载中...',
+    openContextMenu: '添加上下文 (@)',
   },
 
   systemNotifications: {

@@ -468,6 +468,7 @@ export interface Translations {
     selectTerminal: string;
     terminalOutput: string;
     loading: string;
+    openContextMenu: string;
   };
 
   systemNotifications: {
