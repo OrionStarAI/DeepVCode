@@ -120,10 +120,10 @@ export const Footer: React.FC<FooterProps> = ({
             <Text color={Colors.AccentYellow}>{(function () {
               switch (agentStyle) {
                 case 'codex': return '⚡';
-                case 'cursor': return '🎯';
+                case 'cursor': return '↗️';
                 case 'augment': return '🚀';
-                case 'claude-code': return '⌨️';
-                case 'antigravity': return '💎';
+                case 'claude-code': return '✳️';
+                case 'antigravity': return '🌈';
                 case 'windsurf': return '🌊';
                 default: return '';
               }

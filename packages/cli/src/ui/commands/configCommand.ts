@@ -216,12 +216,12 @@ async function displayConfigMenu(context: CommandContext): Promise<SlashCommandA
   const getStyleIcon = (style: AgentStyle) => {
     switch (style) {
       case 'codex': return '⚡';
-      case 'cursor': return '🎯';
+      case 'cursor': return '↗️';
       case 'augment': return '🚀';
-      case 'claude-code': return '⌨️';
-      case 'antigravity': return '💎';
+      case 'claude-code': return '✳️';
+      case 'antigravity': return '🌈';
       case 'windsurf': return '🌊';
-      default: return '🧠';
+      default: return '𝓥';
     }
   };
 
@@ -431,12 +431,12 @@ async function handleAgentStyleConfig(
   const getStyleInfo = (style: AgentStyle) => {
     switch (style) {
       case 'codex': return { icon: '⚡', label: t('agentStyle.style.codex.label'), desc: t('agentStyle.style.codex.description') };
-      case 'cursor': return { icon: '🎯', label: t('agentStyle.style.cursor.label'), desc: t('agentStyle.style.cursor.description') };
+      case 'cursor': return { icon: '↗️', label: t('agentStyle.style.cursor.label'), desc: t('agentStyle.style.cursor.description') };
       case 'augment': return { icon: '🚀', label: t('agentStyle.style.augment.label'), desc: t('agentStyle.style.augment.description') };
-      case 'claude-code': return { icon: '⌨️', label: t('agentStyle.style.claudeCode.label'), desc: t('agentStyle.style.claudeCode.description') };
-      case 'antigravity': return { icon: '💎', label: t('agentStyle.style.antigravity.label'), desc: t('agentStyle.style.antigravity.description') };
+      case 'claude-code': return { icon: '✳️', label: t('agentStyle.style.claudeCode.label'), desc: t('agentStyle.style.claudeCode.description') };
+      case 'antigravity': return { icon: '🌈', label: t('agentStyle.style.antigravity.label'), desc: t('agentStyle.style.antigravity.description') };
       case 'windsurf': return { icon: '🌊', label: t('agentStyle.style.windsurf.label'), desc: t('agentStyle.style.windsurf.description') };
-      default: return { icon: '🧠', label: t('agentStyle.style.default.label'), desc: t('agentStyle.style.default.description') };
+      default: return { icon: '𝓥', label: t('agentStyle.style.default.label'), desc: t('agentStyle.style.default.description') };
     }
   };
 
