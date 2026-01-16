@@ -162,19 +162,26 @@ describe('LoopDetectionService', () => {
       expect(loggers.logLoopDetected).toHaveBeenCalledTimes(1);
     });
 
-    it.skip('should not detect a loop if repetitions are very far apart', () => {
+    it('should not detect a loop if repetitions are very far apart', () => {
       service.reset('');
       const repeatedContent = 'b'.repeat(CONTENT_CHUNK_SIZE);
+      // 填充内容需要足够长，使得平均距离超过 CONTENT_CHUNK_SIZE * 1.5
+      // 默认 maxAllowedDistance 是 1.5 * 500 = 750
+      // 如果 fillerContent 长度为 500，则两次重复之间的距离是 1000
       const fillerContent = generateRandomString(500);
 
       let isLoop = false;
       for (let i = 0; i < CONTENT_LOOP_THRESHOLD; i++) {
         for (const char of repeatedContent) {
           isLoop = service.addAndCheck(createContentEvent(char));
+          if (isLoop) break;
         }
+        if (isLoop) break;
         for (const char of fillerContent) {
           isLoop = service.addAndCheck(createContentEvent(char));
+          if (isLoop) break;
         }
+        if (isLoop) break;
       }
       expect(isLoop).toBe(false);
       expect(loggers.logLoopDetected).not.toHaveBeenCalled();

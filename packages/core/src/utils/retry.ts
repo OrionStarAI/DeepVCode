@@ -132,6 +132,9 @@ export async function retryWithBackoff<T>(
   let consecutive429Count = 0;
   const startTime = Date.now();
 
+  // 🛡️ Helper to check if auth type supports fallback (OAuth only)
+  const supportsFallback = authType && (authType.toLowerCase().includes('oauth') || authType.toLowerCase().includes('personal'));
+
   while (attempt < maxAttempts) {
     attempt++;
     try {
@@ -146,8 +149,7 @@ export async function retryWithBackoff<T>(
       const errorStatus = getErrorStatus(error);
 
       // Check for Pro quota exceeded error first - immediate fallback for OAuth users
-      // Quota exceeded fallback only supported for Google OAuth, not Cheeth OA
-      if (false && onPersistent429) {
+      if (onPersistent429 && supportsFallback && isProQuotaExceededError(error)) {
         try {
           const fallbackModel = await onPersistent429!(authType, error);
           if (fallbackModel !== false && fallbackModel !== null) {
@@ -157,8 +159,8 @@ export async function retryWithBackoff<T>(
             currentDelay = initialDelayMs;
             // With the model updated, we continue to the next attempt
             continue;
-          } else {
-            // Fallback handler returned null/false, meaning don't continue - stop retry process
+          } else if (fallbackModel === null) {
+            // Fallback handler returned null, meaning don't continue - stop retry process
             throw error;
           }
         } catch (fallbackError) {
@@ -168,8 +170,7 @@ export async function retryWithBackoff<T>(
       }
 
       // Check for generic quota exceeded error (but not Pro, which was handled above) - immediate fallback for OAuth users
-      // Quota exceeded fallback only supported for Google OAuth, not Cheeth OA
-      if (false && onPersistent429) {
+      if (onPersistent429 && supportsFallback && isGenericQuotaExceededError(error)) {
         try {
           const fallbackModel = await onPersistent429!(authType, error);
           if (fallbackModel !== false && fallbackModel !== null) {
@@ -179,8 +180,8 @@ export async function retryWithBackoff<T>(
             currentDelay = initialDelayMs;
             // With the model updated, we continue to the next attempt
             continue;
-          } else {
-            // Fallback handler returned null/false, meaning don't continue - stop retry process
+          } else if (fallbackModel === null) {
+            // Fallback handler returned null, meaning don't continue - stop retry process
             throw error;
           }
         } catch (fallbackError) {
@@ -197,8 +198,8 @@ export async function retryWithBackoff<T>(
       }
 
       // If we have persistent 429s and a fallback callback for OAuth
-      // Persistent 429 fallback only supported for Google OAuth, not Cheeth OA
-      if (false && onPersistent429) {
+      // We trigger fallback after 2 consecutive 429s to be proactive
+      if (onPersistent429 && supportsFallback && consecutive429Count >= 2) {
         try {
           const fallbackModel = await onPersistent429!(authType, error);
           if (fallbackModel !== false && fallbackModel !== null) {
@@ -208,8 +209,8 @@ export async function retryWithBackoff<T>(
             currentDelay = initialDelayMs;
             // With the model updated, we continue to the next attempt
             continue;
-          } else {
-            // Fallback handler returned null/false, meaning don't continue - stop retry process
+          } else if (fallbackModel === null) {
+            // Fallback handler returned null, meaning don't continue - stop retry process
             throw error;
           }
         } catch (fallbackError) {

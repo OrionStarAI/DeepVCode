@@ -195,7 +195,8 @@ Output must be in ${targetLanguage}.
 Return only the summary text.`;
 
   // 如果当前模型是自定义模型，则使用自定义模型；否则使用 Flash Lite 模型
-  const models = currentModel && isCustomModel(currentModel)
+  const usingCustomModel = currentModel && isCustomModel(currentModel);
+  const models = usingCustomModel
     ? [currentModel]
     : ['gemini-2.5-flash-lite'];
 
@@ -203,9 +204,10 @@ Return only the summary text.`;
     try {
       console.log(`[Checkpoint] Trying model: ${model}`);
 
-      // 5秒超时保护
+      // 自定义模型使用更长的超时时间（15秒），官方模型使用5秒
+      const timeoutMs = usingCustomModel ? 15000 : 5000;
       const timeoutPromise = new Promise<never>((_, reject) => {
-        setTimeout(() => reject(new Error('Summary generation timeout')), 5000);
+        setTimeout(() => reject(new Error('Summary generation timeout')), timeoutMs);
       });
 
       const summaryPromise = (async () => {
@@ -246,13 +248,23 @@ Return only the summary text.`;
       }
 
     } catch (error) {
-      console.error(`[Checkpoint] Model ${model} failed for summary generation:`, error);
+      // 对于自定义模型，summary 生成失败是可接受的，使用 warn 级别
+      if (usingCustomModel) {
+        console.warn(`[Checkpoint] Custom model summary generation skipped (non-critical):`,
+          error instanceof Error ? error.message : error);
+      } else {
+        console.error(`[Checkpoint] Model ${model} failed for summary generation:`, error);
+      }
       // 继续尝试下一个模型
     }
   }
 
-  // 所有模型都失败
-  console.warn('[Checkpoint] All models failed, returning empty summary');
+  // 所有模型都失败 - 对于自定义模型这是预期行为
+  if (usingCustomModel) {
+    console.log('[Checkpoint] Custom model: summary not available, continuing without summary');
+  } else {
+    console.warn('[Checkpoint] All models failed, returning empty summary');
+  }
   return '';
 }
 
@@ -566,7 +578,13 @@ export const useGeminiStream = (
         );
       }
     } catch (error) {
-      console.error('[Checkpoint] Failed to update summary:', error);
+      // 对于自定义模型，summary 更新失败是可接受的
+      const currentModel = config.getModel();
+      if (currentModel && isCustomModel(currentModel)) {
+        console.warn('[Checkpoint] Custom model: summary update skipped (non-critical)');
+      } else {
+        console.error('[Checkpoint] Failed to update summary:', error);
+      }
     }
   }, [sessionManager, config, geminiClient, settings, onDebugMessage]);
 
@@ -623,11 +641,17 @@ export const useGeminiStream = (
       // 🎯 在调度工具前尝试创建 Checkpoint（等待创建完成以确保 Git 快照准确）
       // 虽然 onPreToolExecution 也会触发，但在调度前触发可以更早显示提示
       await createInitialCheckpoint(requests).catch(err => {
-        console.error('[Checkpoint] Initial creation failed:', err);
+        // 对于自定义模型，checkpoint 创建失败是可接受的
+        const currentModel = config.getModel();
+        if (currentModel && isCustomModel(currentModel)) {
+          console.warn('[Checkpoint] Custom model: initial creation skipped (non-critical)');
+        } else {
+          console.error('[Checkpoint] Initial creation failed:', err);
+        }
       });
       return originalScheduleToolCalls(request, signal);
     },
-    [originalScheduleToolCalls, createInitialCheckpoint]
+    [originalScheduleToolCalls, createInitialCheckpoint, config]
   );
 
 
@@ -1111,13 +1135,18 @@ export const useGeminiStream = (
         setPendingHistoryItem(null);
       }
 
-      // 451错误特殊处理 - 直接结束会话
+      // 🆕 自定义模型：跳过 451 地区限制错误的特殊处理
+      // 自定义模型的 API 端点不受官方地区限制，这些错误应该被忽略
+      const currentModel = config.getModel();
+      const usingCustomModel = currentModel && isCustomModel(currentModel);
+
+      // 451错误特殊处理 - 直接结束会话（仅对非自定义模型生效）
       const errorString = String(eventValue.error);
       const is451Error = errorString.includes('451') ||
                           (eventValue.error && typeof eventValue.error === 'object' &&
                            'status' in eventValue.error && eventValue.error.status === 451);
 
-      if (is451Error) {
+      if (is451Error && !usingCustomModel) {
         addItem(
           {
             type: MessageType.ERROR,
@@ -1659,9 +1688,13 @@ User question: ${queryStr}`;
           loopTypeRef.current = undefined;
         }
       } catch (error: unknown) {
-        // 451错误特殊处理 - 直接模拟ESC键终止会话
+        // 🆕 自定义模型：跳过 451 地区限制错误的特殊处理
+        const currentModel = config.getModel();
+        const usingCustomModel = currentModel && isCustomModel(currentModel);
+
+        // 451错误特殊处理 - 直接模拟ESC键终止会话（仅对非自定义模型生效）
         const errorString = String(error);
-        if (errorString.includes('REGION_BLOCKED_451') || errorString.includes('451')) {
+        if ((errorString.includes('REGION_BLOCKED_451') || errorString.includes('451')) && !usingCustomModel) {
           // 完全模拟ESC键的处理逻辑
           if (!turnCancelledRef.current) {
             turnCancelledRef.current = true;

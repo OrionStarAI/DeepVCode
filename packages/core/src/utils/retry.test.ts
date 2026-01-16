@@ -238,7 +238,7 @@ describe('retryWithBackoff', () => {
     });
   });
 
-  describe.skip('Flash model fallback for OAuth users', () => {
+  describe('Flash model fallback for OAuth users', () => {
     it('should trigger fallback for OAuth personal users after persistent 429 errors', async () => {
       const fallbackCallback = vi.fn().mockResolvedValue('test-flash-model');
 
@@ -255,21 +255,22 @@ describe('retryWithBackoff', () => {
       const promise = retryWithBackoff(mockFn, {
         maxAttempts: 3,
         initialDelayMs: 100,
-        onPersistent429: async (authType?: string) => {
+        onPersistent429: async (authType?: string, error?: any) => {
           fallbackOccurred = true;
-          return await fallbackCallback(authType);
+          return await fallbackCallback(authType, error);
         },
         authType: 'oauth-personal',
       });
 
-      // Advance all timers to complete retries
-      await vi.runAllTimersAsync();
+      // 逐步推进时间以触发重试逻辑
+      await vi.advanceTimersByTimeAsync(2000);
 
       // Should succeed after fallback
-      await expect(promise).resolves.toBe('success');
+      const result = await promise;
+      expect(result).toBe('success');
 
       // Verify callback was called with correct auth type
-      expect(fallbackCallback).toHaveBeenCalledWith('oauth-personal');
+      expect(fallbackCallback).toHaveBeenCalledWith('oauth-personal', expect.anything());
 
       // Should retry again after fallback
       expect(mockFn).toHaveBeenCalledTimes(3); // 2 initial attempts + 1 after fallback
@@ -285,20 +286,22 @@ describe('retryWithBackoff', () => {
       });
 
       const promise = retryWithBackoff(mockFn, {
-        maxAttempts: 3,
+        maxAttempts: 2,
         initialDelayMs: 100,
         onPersistent429: fallbackCallback,
         authType: 'gemini-api-key',
       });
 
-      // Handle the promise properly to avoid unhandled rejections
-      const resultPromise = promise.catch((error) => error);
-      await vi.runAllTimersAsync();
+      // Catch error to prevent unhandled rejection
+      const resultPromise = promise.catch(e => e);
+
+      // 逐步推进时间直到重试耗尽
+      await vi.advanceTimersByTimeAsync(2000);
+
       const result = await resultPromise;
 
-      // Should fail after all retries without fallback
       expect(result).toBeInstanceOf(Error);
-      expect(result.message).toBe('Rate limit exceeded');
+      expect((result as Error).message).toBe('Rate limit exceeded');
 
       // Callback should not be called for API key users
       expect(fallbackCallback).not.toHaveBeenCalled();
@@ -327,9 +330,10 @@ describe('retryWithBackoff', () => {
         authType: 'oauth-personal',
       });
 
-      await vi.runAllTimersAsync();
+      await vi.advanceTimersByTimeAsync(2000);
 
-      await expect(promise).resolves.toBe('success');
+      const result = await promise;
+      expect(result).toBe('success');
       expect(fallbackCallback).toHaveBeenCalledOnce();
     });
 
@@ -349,17 +353,18 @@ describe('retryWithBackoff', () => {
         authType: 'oauth-personal',
       });
 
-      // Handle the promise properly to avoid unhandled rejections
-      const resultPromise = promise.catch((error) => error);
-      await vi.runAllTimersAsync();
+      // Catch error to prevent unhandled rejection
+      const resultPromise = promise.catch(e => e);
+
+      await vi.advanceTimersByTimeAsync(2000);
+
       const result = await resultPromise;
 
-      // Should fail with original error when fallback is rejected
       expect(result).toBeInstanceOf(Error);
-      expect(result.message).toBe('Rate limit exceeded');
+      expect((result as Error).message).toBe('Rate limit exceeded');
       expect(fallbackCallback).toHaveBeenCalledWith(
         'oauth-personal',
-        expect.any(Error),
+        expect.anything(),
       );
     });
 
@@ -389,19 +394,20 @@ describe('retryWithBackoff', () => {
       const promise = retryWithBackoff(mockFn, {
         maxAttempts: 5,
         initialDelayMs: 100,
-        onPersistent429: async (authType?: string) => {
+        onPersistent429: async (authType?: string, error?: any) => {
           fallbackOccurred = true;
-          return await fallbackCallback(authType);
+          return await fallbackCallback(authType, error);
         },
         authType: 'oauth-personal',
       });
 
-      await vi.runAllTimersAsync();
+      await vi.advanceTimersByTimeAsync(2000);
 
-      await expect(promise).resolves.toBe('success');
+      const result = await promise;
+      expect(result).toBe('success');
 
       // Should trigger fallback after 2 consecutive 429s (attempts 2-3)
-      expect(fallbackCallback).toHaveBeenCalledWith('oauth-personal');
+      expect(fallbackCallback).toHaveBeenCalledWith('oauth-personal', expect.anything());
     });
   });
 });

@@ -66,9 +66,44 @@ function parseGrpcEndpoint(
 }
 
 export function initializeTelemetry(config: Config): void {
-  // 硬编码禁用遥测初始化 - 移除所有遥测初始化代码以避免编译错误
-  telemetryInitialized = true; // 设置为true以避免重复调用
-  return;
+  if (telemetryInitialized) {
+    return;
+  }
+
+  const telemetryEnabled = config.getTelemetryEnabled();
+  const otlpEndpoint = parseGrpcEndpoint(config.getTelemetryOtlpEndpoint());
+
+  if (telemetryEnabled && otlpEndpoint) {
+    sdk = new NodeSDK({
+      resource: new Resource({
+        [SemanticResourceAttributes.SERVICE_NAME]: SERVICE_NAME,
+        'session.id': config.getSessionId(),
+      }),
+      traceExporter: new OTLPTraceExporter({
+        url: `${otlpEndpoint}/v1/traces`,
+      }),
+      metricReader: new PeriodicExportingMetricReader({
+        exporter: new OTLPMetricExporter({
+          url: `${otlpEndpoint}/v1/metrics`,
+        }),
+      }),
+      logRecordProcessor: new BatchLogRecordProcessor(
+        new OTLPLogExporter({
+          url: `${otlpEndpoint}/v1/logs`,
+        }),
+      ),
+      instrumentations: [new HttpInstrumentation()],
+    });
+
+    try {
+      sdk.start();
+      console.log('OpenTelemetry SDK initialized successfully.');
+    } catch (error) {
+      console.error('Failed to start OpenTelemetry SDK:', error);
+    }
+  }
+
+  telemetryInitialized = true;
 }
 
 export async function shutdownTelemetry(): Promise<void> {

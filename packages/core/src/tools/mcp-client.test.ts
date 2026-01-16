@@ -19,36 +19,50 @@ import {
   StreamableHTTPClientTransport,
 } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
-import { FunctionDeclaration } from '@google/genai';
+import { FunctionDeclaration, mcpToTool } from '@google/genai';
 
+vi.mock('@google/genai');
 // vi.mock('@modelcontextprotocol/sdk/client/index.js');
 vi.mock('@modelcontextprotocol/sdk/client/streamableHttp.js');
 vi.mock('@modelcontextprotocol/sdk/client/sse.js');
 
 describe('mcp-client', () => {
   describe('discoverTools', () => {
-    it.skip('should discover tools', async () => {
+    it('should discover tools', async () => {
       const mockClient = {
-        listTools: vi.fn().mockResolvedValue({
-          tools: [{ name: 'tool1', description: 'desc1', inputSchema: {} }],
+        getServerCapabilities: vi.fn().mockReturnValue({ tools: {} }),
+      };
+
+      const mockMcpCallableTool = {
+        tool: vi.fn().mockResolvedValue({
+          functionDeclarations: [
+            {
+              name: 'tool1',
+              description: 'desc1',
+              parametersJsonSchema: { type: 'object' },
+            },
+          ],
         }),
       };
-      const mockRegistry = {
-        registerTool: vi.fn(),
-      };
+      vi.mocked(mcpToTool).mockReturnValue(mockMcpCallableTool as any);
+
       const mockConfig = new MCPServerConfig();
 
-      await discoverTools('server1', mockConfig, mockClient as any);
+      const tools = await discoverTools(
+        'server1',
+        mockConfig,
+        mockClient as any,
+      );
 
-      expect(mockClient.listTools).toHaveBeenCalled();
-      expect(mockRegistry.registerTool).toHaveBeenCalled();
+      expect(tools.length).toBe(1);
+      expect(tools[0].name).toBe('tool1');
     });
   });
 
   describe('discoverPrompts', () => {
-    it.skip('should discover and log prompts', async () => {
+    it('should discover and log prompts', async () => {
       const mockClient = {
-        listPrompts: vi.fn().mockResolvedValue({
+        request: vi.fn().mockResolvedValue({
           prompts: [{ name: 'prompt1', description: 'desc1' }],
         }),
       };
@@ -56,26 +70,37 @@ describe('mcp-client', () => {
         registerPrompt: vi.fn(),
       };
 
-      await discoverPrompts('server1', mockClient as any, mockPromptRegistry as any);
+      await discoverPrompts(
+        'server1',
+        mockClient as any,
+        mockPromptRegistry as any,
+      );
 
-      expect(mockClient.listPrompts).toHaveBeenCalled();
+      expect(mockClient.request).toHaveBeenCalledWith(
+        expect.objectContaining({ method: 'prompts/list' }),
+        expect.anything(),
+      );
       expect(mockPromptRegistry.registerPrompt).toHaveBeenCalled();
     });
 
     it('should do nothing if no prompts are discovered', async () => {
       const mockClient = {
-        listPrompts: vi.fn().mockResolvedValue({ prompts: [] }),
+        request: vi.fn().mockResolvedValue({ prompts: [] }),
       };
       const mockPromptRegistry = { registerPrompt: vi.fn() };
 
-      await discoverPrompts('server1', mockClient as any, mockPromptRegistry as any);
+      await discoverPrompts(
+        'server1',
+        mockClient as any,
+        mockPromptRegistry as any,
+      );
 
       expect(mockPromptRegistry.registerPrompt).not.toHaveBeenCalled();
     });
 
     it('should log an error if discovery fails', async () => {
       const mockClient = {
-        listPrompts: vi.fn().mockRejectedValue(new Error('fail')),
+        request: vi.fn().mockRejectedValue(new Error('fail')),
       };
       const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 

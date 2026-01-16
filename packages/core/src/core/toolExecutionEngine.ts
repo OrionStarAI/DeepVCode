@@ -489,13 +489,24 @@ export class ToolExecutionEngine {
 
       case 'cancelled':
         const reason = auxiliaryData as string;
+        const errorResponse = createErrorResponse(
+          originalCall.request,
+          new Error(reason),
+        );
+
+        // 🎯 关键修复：如果是待确认状态下的取消，保留确认详情（如 diff）用于 UI 显示
+        if (
+          originalCall.status === 'awaiting_approval' &&
+          originalCall.confirmationDetails
+        ) {
+          errorResponse.resultDisplay =
+            originalCall.confirmationDetails as any;
+        }
+
         updatedCall = {
           ...originalCall,
           status: 'cancelled',
-          response: createErrorResponse(
-            originalCall.request,
-            new Error(reason),
-          ),
+          response: errorResponse,
           durationMs: originalCall.startTime
             ? Date.now() - originalCall.startTime
             : undefined,
@@ -625,6 +636,12 @@ export class ToolExecutionEngine {
     this.toolCalls = this.toolCalls.concat(newToolCalls);
     this.adapter.onToolCallsUpdate([...this.toolCalls], context);
 
+    // 🎯 修复竞态条件：先创建 Promise 并添加 resolver，再启动工具验证和执行
+    // 这样在验证循环中发生的同步或异步完成也能被正确捕获
+    const completionPromise = new Promise<CompletedEngineToolCall[]>((resolve) => {
+      this.completionResolvers.push(resolve);
+    });
+
     // 验证和调度每个工具调用
     for (const toolCall of newToolCalls) {
       if (toolCall.status !== 'validating') {
@@ -640,6 +657,16 @@ export class ToolExecutionEngine {
           signal,
         );
 
+        if (signal.aborted) {
+          this.setStatusInternal(
+            reqInfo.callId,
+            'cancelled',
+            'User cancelled',
+            context,
+          );
+          continue;
+        }
+
         // Check if this is a dangerous command (has warning field)
         const isDangerousCommand =
           confirmationDetails &&
@@ -648,7 +675,7 @@ export class ToolExecutionEngine {
         // If dangerous command, always require confirmation (skip YOLO mode)
         if (isDangerousCommand) {
           // 🎯 保存原始onConfirm以避免递归
-          const originalOnConfirm = confirmationDetails.onConfirm;
+          const originalOnConfirm = (confirmationDetails as any).onConfirm;
 
           // 🎯 统一确认流程：包装onConfirm，保存原始函数引用
           const wrappedConfirmationDetails: ToolCallConfirmationDetails = {
@@ -684,7 +711,7 @@ export class ToolExecutionEngine {
             this.setStatusInternal(reqInfo.callId, 'scheduled', undefined, context);
           } else {
             // 🎯 保存原始onConfirm以避免递归
-            const originalOnConfirm = confirmationDetails.onConfirm;
+            const originalOnConfirm = (confirmationDetails as any).onConfirm;
 
             // 🎯 统一确认流程：包装onConfirm，保存原始函数引用
             const wrappedConfirmationDetails: ToolCallConfirmationDetails = {
@@ -728,13 +755,10 @@ export class ToolExecutionEngine {
 
     // 如果没有工具调用，直接返回空数组
     if (newToolCalls.length === 0) {
+      // 仍然需要清理 resolver 避免内存泄漏，虽然这里还没 return
+      this.completionResolvers = this.completionResolvers.filter(r => r !== (completionPromise as any).resolve);
       return [];
     }
-
-    // 🎯 修复竞态条件：先创建 Promise 并添加 resolver，再启动工具执行
-    const completionPromise = new Promise<CompletedEngineToolCall[]>((resolve) => {
-      this.completionResolvers.push(resolve);
-    });
 
     // 尝试执行已调度的工具
     await this.attemptExecutionOfScheduledCalls(signal, context);
@@ -846,8 +870,41 @@ export class ToolExecutionEngine {
         await this.attemptExecutionOfScheduledCalls(signal || new AbortController().signal, execContext);
       }
     } else {
+      // 🎯 如果有 payload 且是可修改工具，说明用户在 UI 中直接修改了内容，需要更新参数
+      if (payload && isModifiableTool(waitingCall.tool)) {
+        try {
+          const modifyContext = waitingCall.tool.getModifyContext(
+            signal || new AbortController().signal,
+          );
+          const originalContent = await modifyContext.getCurrentContent(waitingCall.request.args);
+          const updatedParams = modifyContext.createUpdatedParams(
+            originalContent,
+            (payload as any).newContent,
+            waitingCall.request.args,
+          ) as Record<string, unknown>;
+
+          this.toolCalls = this.toolCalls.map((call) => {
+            if (call.request.callId !== callId) return call;
+            return {
+              ...call,
+              request: {
+                ...call.request,
+                args: updatedParams,
+              },
+            };
+          });
+        } catch (error) {
+          console.warn(
+            `[ToolExecutionEngine] Failed to apply payload to tool args: ${error}`,
+          );
+        }
+      }
+
       this.setStatusInternal(callId, 'scheduled', undefined, execContext);
-      await this.attemptExecutionOfScheduledCalls(signal || new AbortController().signal, execContext);
+      await this.attemptExecutionOfScheduledCalls(
+        signal || new AbortController().signal,
+        execContext,
+      );
     }
   }
 

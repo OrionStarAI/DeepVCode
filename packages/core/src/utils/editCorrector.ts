@@ -246,14 +246,17 @@ async function findLastEditTimestamp(
 
 /**
  * Attempts to correct edit parameters if the original old_string is not found.
- * It tries unescaping, and then LLM-based correction.
- * Results are cached to avoid redundant processing.
+ *
+ * 🔧 2026-01: 全局禁用修正逻辑
+ * 现代 LLM（Claude 3.5, GPT-4o, Gemini 2.0 等）已经足够智能，能正确处理字符串格式。
+ * 修正逻辑（特别是 unescapeStringForGeminiBug 正则）可能反而破坏缩进敏感的代码（Python, YAML 等）。
+ * 如果编辑失败，直接返回清晰的错误信息让 AI 自行修正更好。
  *
  * @param currentContent The current content of the file.
  * @param originalParams The original EditToolParams
  * @param client The GeminiClient for LLM calls.
- * @returns A promise resolving to an object containing the (potentially corrected)
- *          EditToolParams (as CorrectedEditParams) and the final occurrences count.
+ * @returns A promise resolving to an object containing the original
+ *          EditToolParams (as CorrectedEditParams) and the occurrences count.
  */
 export async function ensureCorrectEdit(
   filePath: string,
@@ -262,201 +265,40 @@ export async function ensureCorrectEdit(
   client: GeminiClient,
   abortSignal: AbortSignal,
 ): Promise<CorrectedEditResult> {
-  const cacheKey = `${currentContent}---${originalParams.old_string}---${originalParams.new_string}`;
-  const cachedResult = editCorrectionCache.get(cacheKey);
-  if (cachedResult) {
-    return cachedResult;
-  }
+  // 🔧 全局禁用修正逻辑：直接使用模型传入的原始参数
+  // 不做任何反转义或 LLM 修正，执行不了就让 edit.ts 返回具体错误给模型
+  console.log(`[Edit Correction] Correction disabled globally - using original params as-is`);
 
-  let finalNewString = originalParams.new_string;
-  const newStringPotentiallyEscaped =
-    unescapeStringForGeminiBug(originalParams.new_string) !==
-    originalParams.new_string;
+  const occurrences = countOccurrences(currentContent, originalParams.old_string);
 
-  const expectedReplacements = originalParams.expected_replacements ?? 1;
-
-  let finalOldString = originalParams.old_string;
-  let occurrences = countOccurrences(currentContent, finalOldString);
-
-  if (occurrences === expectedReplacements) {
-    if (newStringPotentiallyEscaped) {
-      finalNewString = await correctNewStringEscaping(
-        client,
-        finalOldString,
-        originalParams.new_string,
-        abortSignal,
-      );
-    }
-  } else if (occurrences > expectedReplacements) {
-    const expectedReplacements = originalParams.expected_replacements ?? 1;
-
-    // If user expects multiple replacements, return as-is
-    if (occurrences === expectedReplacements) {
-      const result: CorrectedEditResult = {
-        params: { ...originalParams },
-        occurrences,
-      };
-      editCorrectionCache.set(cacheKey, result);
-      return result;
-    }
-
-    // If user expects 1 but found multiple, try to correct (existing behavior)
-    if (expectedReplacements === 1) {
-      const result: CorrectedEditResult = {
-        params: { ...originalParams },
-        occurrences,
-      };
-      editCorrectionCache.set(cacheKey, result);
-      return result;
-    }
-
-    // If occurrences don't match expected, return as-is (will fail validation later)
-    const result: CorrectedEditResult = {
-      params: { ...originalParams },
-      occurrences,
-    };
-    editCorrectionCache.set(cacheKey, result);
-    return result;
-  } else {
-    // occurrences is 0 or some other unexpected state initially
-    const unescapedOldStringAttempt = unescapeStringForGeminiBug(
-      originalParams.old_string,
-    );
-    occurrences = countOccurrences(currentContent, unescapedOldStringAttempt);
-
-    if (occurrences === expectedReplacements) {
-      finalOldString = unescapedOldStringAttempt;
-      if (newStringPotentiallyEscaped) {
-        finalNewString = await correctNewString(
-          client,
-          originalParams.old_string, // original old
-          unescapedOldStringAttempt, // corrected old
-          originalParams.new_string, // original new (which is potentially escaped)
-          abortSignal,
-        );
-      }
-    } else if (occurrences === 0) {
-      if (filePath) {
-        // In order to keep from clobbering edits made outside our system,
-        // let's check if there was a more recent edit to the file than what
-        // our system has done
-        const lastEditedByUsTime = await findLastEditTimestamp(
-          filePath,
-          client,
-        );
-
-        // Add a 1-second buffer to account for timing inaccuracies. If the file
-        // was modified more than a second after the last edit tool was run, we
-        // can assume it was modified by something else.
-        if (lastEditedByUsTime > 0) {
-          const stats = fs.statSync(filePath);
-          const diff = stats.mtimeMs - lastEditedByUsTime;
-          if (diff > 2000) {
-            // Hard coded for 2 seconds
-            // This file was edited sooner
-            const result: CorrectedEditResult = {
-              params: { ...originalParams },
-              occurrences: 0, // Explicitly 0 as LLM failed
-            };
-            editCorrectionCache.set(cacheKey, result);
-            return result;
-          }
-        }
-      }
-
-      const llmCorrectedOldString = await correctOldStringMismatch(
-        client,
-        currentContent,
-        unescapedOldStringAttempt,
-        abortSignal,
-      );
-      const llmOldOccurrences = countOccurrences(
-        currentContent,
-        llmCorrectedOldString,
-      );
-
-      if (llmOldOccurrences === expectedReplacements) {
-        finalOldString = llmCorrectedOldString;
-        occurrences = llmOldOccurrences;
-
-        if (newStringPotentiallyEscaped) {
-          const baseNewStringForLLMCorrection = unescapeStringForGeminiBug(
-            originalParams.new_string,
-          );
-          finalNewString = await correctNewString(
-            client,
-            originalParams.old_string, // original old
-            llmCorrectedOldString, // corrected old
-            baseNewStringForLLMCorrection, // base new for correction
-            abortSignal,
-          );
-        }
-      } else {
-        // LLM correction also failed for old_string
-        const result: CorrectedEditResult = {
-          params: { ...originalParams },
-          occurrences: 0, // Explicitly 0 as LLM failed
-        };
-        editCorrectionCache.set(cacheKey, result);
-        return result;
-      }
-    } else {
-      // Unescaping old_string resulted in > 1 occurrence
-      const result: CorrectedEditResult = {
-        params: { ...originalParams },
-        occurrences, // This will be > 1
-      };
-      editCorrectionCache.set(cacheKey, result);
-      return result;
-    }
-  }
-
-  const { targetString, pair } = trimPairIfPossible(
-    finalOldString,
-    finalNewString,
-    currentContent,
-    expectedReplacements,
-  );
-  finalOldString = targetString;
-  finalNewString = pair;
-
-  // Final result construction
   const result: CorrectedEditResult = {
     params: {
       file_path: originalParams.file_path,
-      old_string: finalOldString,
-      new_string: finalNewString,
+      old_string: originalParams.old_string,
+      new_string: originalParams.new_string,
     },
-    occurrences: countOccurrences(currentContent, finalOldString), // Recalculate occurrences with the final old_string
+    occurrences,
   };
-  editCorrectionCache.set(cacheKey, result);
   return result;
+
+  // ========== 以下是原有的修正逻辑，已禁用 ==========
+  // 保留代码以备将来需要时可以快速恢复
+
 }
 
+/**
+ * Ensures file content is correct (for write_file tool).
+ *
+ * 🔧 2026-01: 全局禁用修正逻辑，直接返回原始内容
+ */
 export async function ensureCorrectFileContent(
   content: string,
   client: GeminiClient,
   abortSignal: AbortSignal,
 ): Promise<string> {
-  const cachedResult = fileContentCorrectionCache.get(content);
-  if (cachedResult) {
-    return cachedResult;
-  }
-
-  const contentPotentiallyEscaped =
-    unescapeStringForGeminiBug(content) !== content;
-  if (!contentPotentiallyEscaped) {
-    fileContentCorrectionCache.set(content, content);
-    return content;
-  }
-
-  const correctedContent = await correctStringEscaping(
-    content,
-    client,
-    abortSignal,
-  );
-  fileContentCorrectionCache.set(content, correctedContent);
-  return correctedContent;
+  // 🔧 全局禁用修正逻辑：直接返回原始内容
+  console.log(`[Edit Correction] Correction disabled globally for file content - using original content as-is`);
+  return content;
 }
 
 // Define the expected JSON schema for the LLM response for old_string correction
