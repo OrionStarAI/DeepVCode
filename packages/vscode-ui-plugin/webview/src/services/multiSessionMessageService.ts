@@ -1073,6 +1073,44 @@ export class MultiSessionMessageService {
     this.addMessageHandler('nanobanana_status_update', callback);
   }
 
+  // =============================================================================
+  // 🎯 PPT 生成相关方法 (无状态轮询，任务提交后直接返回编辑页面URL)
+  // =============================================================================
+
+  /**
+   * 🎯 发送PPT生成请求
+   */
+  sendPPTGenerate(data: { topic: string; pageCount: number; style: string; outline: string }) {
+    this.sendMessage({
+      type: 'ppt_generate' as any,
+      payload: data
+    });
+  }
+
+  /**
+   * 🎯 监听PPT生成响应
+   */
+  onPPTGenerateResponse(callback: (data: { success: boolean; taskId?: string; editUrl?: string; error?: string }) => void) {
+    this.addMessageHandler('ppt_generate_response', callback);
+  }
+
+  /**
+   * 🎯 发送PPT大纲AI优化请求
+   */
+  sendPPTOptimizeOutline(data: { topic: string; pageCount: number; style: string; colorScheme: string; outline: string }) {
+    this.sendMessage({
+      type: 'ppt_optimize_outline' as any,
+      payload: data
+    });
+  }
+
+  /**
+   * 🎯 监听PPT大纲AI优化响应
+   */
+  onPPTOptimizeOutlineResponse(callback: (data: { success: boolean; optimizedOutline?: string; error?: string }) => void) {
+    this.addMessageHandler('ppt_optimize_outline_response', callback);
+  }
+
   /**
    * 🎯 注入系统消息到 AI 历史（不显示在 UI）
    */

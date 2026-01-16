@@ -1,0 +1,666 @@
+/**
+ * PPT Generator Dialog Styles
+ * PPT生成对话框样式
+ */
+
+.ppt-generator-dialog__backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.6);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1001;
+  padding: 20px;
+  animation: ppt-fade-in 0.15s ease-out;
+}
+
+@keyframes ppt-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.ppt-generator-dialog__container {
+  background-color: var(--vscode-editor-background, #1e1e1e);
+  border: 1px solid var(--vscode-widget-border, #454545);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 560px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.4);
+  animation: ppt-slide-up 0.2s ease-out;
+  overflow: hidden;
+}
+
+@keyframes ppt-slide-up {
+  from {
+    transform: translateY(20px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Header */
+.ppt-generator-dialog__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--vscode-widget-border, #454545);
+  background: linear-gradient(135deg,
+    rgba(33, 150, 243, 0.1) 0%,
+    rgba(21, 101, 192, 0.05) 100%
+  );
+}
+
+.ppt-generator-dialog__title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--vscode-foreground, #cccccc);
+}
+
+.ppt-generator-dialog__close-btn {
+  background: none;
+  border: none;
+  color: var(--vscode-foreground, #cccccc);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.ppt-generator-dialog__close-btn:hover:not(:disabled) {
+  background-color: var(--vscode-toolbar-hoverBackground, rgba(255, 255, 255, 0.1));
+}
+
+.ppt-generator-dialog__close-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Body */
+.ppt-generator-dialog__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* Field styles */
+.ppt-generator-dialog__field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ppt-generator-dialog__label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--vscode-foreground, #cccccc);
+  opacity: 0.9;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ppt-generator-dialog__label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ppt-generator-dialog__optimize-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background-color: transparent;
+  border: 1px solid var(--vscode-button-secondaryBorder, rgba(255, 255, 255, 0.1));
+  border-radius: 6px;
+  color: var(--vscode-button-secondaryForeground, #cccccc);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.ppt-generator-dialog__optimize-btn:hover:not(:disabled) {
+  background-color: var(--vscode-button-secondaryHoverBackground, rgba(255, 255, 255, 0.1));
+  border-color: var(--vscode-focusBorder, #007acc);
+}
+
+.ppt-generator-dialog__optimize-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ppt-generator-dialog__label-hint {
+  font-size: 11px;
+  font-weight: 400;
+  opacity: 0.6;
+  font-style: italic;
+}
+
+.ppt-generator-dialog__label-required {
+  color: #e74c3c;
+  margin-left: 4px;
+  font-weight: 600;
+}
+
+.ppt-generator-dialog__input {
+  width: 100%;
+  padding: 10px 12px;
+  background-color: var(--vscode-input-background, #3c3c3c);
+  border: 1px solid var(--vscode-input-border, #454545);
+  border-radius: 6px;
+  color: var(--vscode-input-foreground, #cccccc);
+  font-family: inherit;
+  font-size: 13px;
+  transition: border-color 0.15s;
+}
+
+.ppt-generator-dialog__input:focus {
+  outline: none;
+  border-color: var(--vscode-focusBorder, #007acc);
+}
+
+.ppt-generator-dialog__input::placeholder {
+  color: var(--vscode-input-placeholderForeground, #808080);
+}
+
+.ppt-generator-dialog__textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 12px;
+  background-color: var(--vscode-input-background, #3c3c3c);
+  border: 1px solid var(--vscode-input-border, #454545);
+  border-radius: 8px;
+  color: var(--vscode-input-foreground, #cccccc);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.5;
+  resize: vertical;
+  transition: border-color 0.15s;
+}
+
+.ppt-generator-dialog__textarea:focus {
+  outline: none;
+  border-color: var(--vscode-focusBorder, #007acc);
+}
+
+.ppt-generator-dialog__textarea::placeholder {
+  color: var(--vscode-input-placeholderForeground, #808080);
+}
+
+/* Parameters row */
+.ppt-generator-dialog__params {
+  display: flex;
+  gap: 16px;
+}
+
+.ppt-generator-dialog__param {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ppt-generator-dialog__page-count-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.ppt-generator-dialog__select {
+  padding: 10px 12px;
+  background-color: var(--vscode-dropdown-background, #3c3c3c);
+  border: 1px solid var(--vscode-dropdown-border, #454545);
+  border-radius: 6px;
+  color: var(--vscode-dropdown-foreground, #cccccc);
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.ppt-generator-dialog__custom-page-input {
+  width: 80px;
+  padding: 10px 12px;
+  background-color: var(--vscode-input-background, #3c3c3c);
+  border: 1px solid var(--vscode-input-border, #454545);
+  border-radius: 6px;
+  color: var(--vscode-input-foreground, #cccccc);
+  font-size: 13px;
+  transition: border-color 0.15s;
+}
+
+.ppt-generator-dialog__custom-page-input:focus {
+  outline: none;
+  border-color: var(--vscode-focusBorder, #007acc);
+}
+
+.ppt-generator-dialog__custom-page-input::placeholder {
+  color: var(--vscode-input-placeholderForeground, #808080);
+}
+
+.ppt-generator-dialog__select:focus {
+  outline: none;
+  border-color: var(--vscode-focusBorder, #007acc);
+}
+
+/* Style selector - text only buttons */
+.ppt-generator-dialog__style-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ppt-generator-dialog__style-btn {
+  padding: 8px 16px;
+  background-color: var(--vscode-input-background, #3c3c3c);
+  border: 1px solid var(--vscode-input-border, #454545);
+  border-radius: 6px;
+  color: var(--vscode-foreground, #cccccc);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.ppt-generator-dialog__style-btn:hover {
+  background-color: rgba(33, 150, 243, 0.1);
+  border-color: rgba(33, 150, 243, 0.5);
+}
+
+.ppt-generator-dialog__style-btn--selected {
+  background-color: rgba(33, 150, 243, 0.2);
+  border-color: #2196F3;
+  color: #2196F3;
+}
+
+/* Color scheme selector */
+.ppt-generator-dialog__color-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ppt-generator-dialog__color-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px 6px;
+  min-width: 56px;
+  background-color: var(--vscode-input-background, #3c3c3c);
+  border: 1px solid var(--vscode-input-border, #454545);
+  border-radius: 6px;
+  color: var(--vscode-foreground, #cccccc);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.ppt-generator-dialog__color-btn:hover {
+  background-color: rgba(33, 150, 243, 0.1);
+  border-color: rgba(33, 150, 243, 0.5);
+}
+
+.ppt-generator-dialog__color-btn--selected {
+  background-color: rgba(33, 150, 243, 0.2);
+  border-color: #2196F3;
+}
+
+.ppt-generator-dialog__color-preview {
+  display: flex;
+  gap: 1px;
+}
+
+.ppt-generator-dialog__color-dot {
+  width: 6px;
+  height: 10px;
+  border-radius: 1px;
+}
+
+/* 默认色系（7色彩虹）特殊处理 */
+.ppt-generator-dialog__color-btn:first-child .ppt-generator-dialog__color-dot {
+  width: 5px;
+}
+
+.ppt-generator-dialog__color-text-icon {
+  font-size: 14px;
+  font-weight: 300;
+  line-height: 1;
+  height: 8px;
+  display: flex;
+  align-items: center;
+  color: var(--vscode-descriptionForeground, #888);
+}
+
+.ppt-generator-dialog__color-label {
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+/* Custom input for style/color */
+.ppt-generator-dialog__custom-input {
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px 12px;
+  background-color: var(--vscode-input-background, #3c3c3c);
+  border: 1px solid var(--vscode-input-border, #454545);
+  border-radius: 6px;
+  color: var(--vscode-input-foreground, #cccccc);
+  font-family: inherit;
+  font-size: 13px;
+  transition: border-color 0.15s;
+}
+
+.ppt-generator-dialog__custom-input:focus {
+  outline: none;
+  border-color: var(--vscode-focusBorder, #007acc);
+}
+
+.ppt-generator-dialog__custom-input::placeholder {
+  color: var(--vscode-input-placeholderForeground, #6e6e6e);
+}
+
+/* Outline section */
+.ppt-generator-dialog__outline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.ppt-generator-dialog__optimize-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background-color: rgba(33, 150, 243, 0.1);
+  border: 1px solid rgba(33, 150, 243, 0.3);
+  border-radius: 14px;
+  color: #2196F3;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.ppt-generator-dialog__optimize-btn:hover:not(:disabled) {
+  background-color: rgba(33, 150, 243, 0.2);
+  border-color: #2196F3;
+}
+
+.ppt-generator-dialog__optimize-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.ppt-generator-dialog__optimize-btn--loading {
+  animation: ppt-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes ppt-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* Hint */
+.ppt-generator-dialog__hint {
+  font-size: 12px;
+  color: var(--vscode-foreground, #cccccc);
+  opacity: 0.6;
+  margin: 0;
+  padding: 8px 12px;
+  background-color: rgba(33, 150, 243, 0.08);
+  border-radius: 6px;
+  border-left: 3px solid rgba(33, 150, 243, 0.5);
+  line-height: 1.5;
+}
+
+/* Footer */
+.ppt-generator-dialog__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--vscode-widget-border, #454545);
+}
+
+.ppt-generator-dialog__cancel-btn {
+  padding: 10px 20px;
+  background: none;
+  border: 1px solid var(--vscode-button-secondaryBackground, #454545);
+  border-radius: 6px;
+  color: var(--vscode-foreground, #cccccc);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.ppt-generator-dialog__cancel-btn:hover {
+  background-color: var(--vscode-button-secondaryHoverBackground, rgba(255, 255, 255, 0.1));
+}
+
+.ppt-generator-dialog__generate-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  background: linear-gradient(135deg, #2196F3 0%, #1565C0 100%);
+  border: none;
+  border-radius: 6px;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.ppt-generator-dialog__generate-btn:hover:not(:disabled) {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
+}
+
+.ppt-generator-dialog__generate-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(0.5);
+}
+
+/* Generating state */
+.ppt-generator-dialog__generating {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  gap: 16px;
+}
+
+.ppt-generator-dialog__generating-icon {
+  width: 80px;
+  height: 80px;
+  animation: ppt-bounce 2s ease-in-out infinite;
+}
+
+@keyframes ppt-bounce {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+
+.ppt-generator-dialog__generating-text {
+  font-size: 14px;
+  color: var(--vscode-foreground, #cccccc);
+  text-align: center;
+}
+
+.ppt-generator-dialog__generating-hint {
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+  text-align: center;
+  margin-top: 8px;
+}
+
+.ppt-generator-dialog__progress {
+  width: 100%;
+  max-width: 300px;
+  height: 4px;
+  background-color: var(--vscode-progressBar-background, #3c3c3c);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.ppt-generator-dialog__progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #2196F3 0%, #1565C0 100%);
+  border-radius: 2px;
+  transition: width 0.3s ease;
+}
+
+.ppt-generator-dialog__progress-text {
+  font-size: 12px;
+  color: var(--vscode-foreground, #cccccc);
+  opacity: 0.7;
+}
+
+/* Results */
+.ppt-generator-dialog__results {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 20px;
+}
+
+.ppt-generator-dialog__results-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #4caf50;
+}
+
+.ppt-generator-dialog__results-hint {
+  font-size: 13px;
+  color: var(--vscode-descriptionForeground, #9d9d9d);
+  text-align: center;
+  line-height: 1.5;
+}
+
+.ppt-generator-dialog__results-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.ppt-generator-dialog__action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 20px;
+  background-color: var(--vscode-button-secondaryBackground, #3c3c3c);
+  border: 1px solid var(--vscode-button-secondaryBackground, #454545);
+  border-radius: 8px;
+  color: var(--vscode-foreground, #cccccc);
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.ppt-generator-dialog__action-btn:hover {
+  background-color: var(--vscode-button-secondaryHoverBackground, rgba(255, 255, 255, 0.1));
+}
+
+.ppt-generator-dialog__action-btn--primary {
+  background: linear-gradient(135deg, #2196F3 0%, #1565C0 100%);
+  border: none;
+  color: #ffffff;
+}
+
+.ppt-generator-dialog__action-btn--primary:hover {
+  filter: brightness(1.1);
+}
+
+.ppt-generator-dialog__new-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px;
+  background: linear-gradient(135deg, #2196F3 0%, #1976D2 100%);
+  border: none;
+  border-radius: 8px;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-top: 8px;
+}
+
+.ppt-generator-dialog__new-btn:hover {
+  filter: brightness(1.1);
+}
+
+/* Error state */
+.ppt-generator-dialog__error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  gap: 12px;
+  text-align: center;
+}
+
+.ppt-generator-dialog__error-icon {
+  font-size: 32px;
+}
+
+.ppt-generator-dialog__error-text {
+  font-size: 14px;
+  color: var(--vscode-errorForeground, #f48771);
+  max-width: 300px;
+}
+
+.ppt-generator-dialog__retry-btn {
+  padding: 10px 20px;
+  background-color: var(--vscode-button-secondaryBackground, #3c3c3c);
+  border: 1px solid var(--vscode-button-secondaryBackground, #454545);
+  border-radius: 6px;
+  color: var(--vscode-foreground, #cccccc);
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s;
+  margin-top: 8px;
+}
+
+.ppt-generator-dialog__retry-btn:hover {
+  background-color: var(--vscode-button-secondaryHoverBackground, rgba(255, 255, 255, 0.1));
+}

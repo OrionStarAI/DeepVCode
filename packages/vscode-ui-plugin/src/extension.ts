@@ -3164,6 +3164,209 @@ function setupMultiSessionHandlers() {
     }
   });
 
+  // =============================================================================
+  // 🎯 PPT 生成处理
+  // =============================================================================
+
+  // 服务端配置
+  const PPT_SERVER_URL = process.env.DEEPX_SERVER_URL || 'https://api-code.deepvlab.ai';
+  const PPT_WEB_URL = process.env.DEEPX_WEB_URL || 'https://dvcode.deepvlab.ai';
+
+  // 🎯 处理PPT生成请求
+  // 注意：后端没有 status 轮询接口，任务提交后直接打开浏览器让用户在网页查看进度
+  communicationService.onPPTGenerate(async (payload) => {
+    try {
+      logger.info('Received ppt_generate request', { topic: payload.topic, pageCount: payload.pageCount });
+
+      // 获取 access token
+      const { ProxyAuthManager } = require('deepv-code-core');
+      const authManager = ProxyAuthManager.getInstance();
+      const accessToken = await authManager.getAccessToken();
+
+      if (!accessToken) {
+        await communicationService.sendPPTGenerateResponse({
+          success: false,
+          error: 'Authentication required. Please login first.'
+        });
+        return;
+      }
+
+      // 步骤1: 提交大纲创建任务
+      // 将风格和色系提示词嵌入到 outline 最前面
+      const enrichedOutline = payload.style
+        ? `${payload.style}\n\n${payload.outline}`
+        : payload.outline;
+
+      const outlineResponse = await fetch(`${PPT_SERVER_URL}/web-api/ppt/outline`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
+        },
+        body: JSON.stringify({
+          topic: payload.topic,
+          page_count: payload.pageCount,
+          outline: enrichedOutline
+        })
+      });
+
+      if (!outlineResponse.ok) {
+        const errorText = await outlineResponse.text();
+        throw new Error(`Outline submission failed: ${outlineResponse.status} - ${errorText}`);
+      }
+
+      const outlineResult = await outlineResponse.json() as { id?: string | number; task_id?: string | number };
+      const taskId = outlineResult.id?.toString() || outlineResult.task_id?.toString();
+
+      if (!taskId) {
+        throw new Error('No task ID returned from server');
+      }
+
+      // 步骤2: 启动PPT生成任务
+      const generateResponse = await fetch(`${PPT_SERVER_URL}/web-api/ppt/generate/${taskId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`
+        }
+      });
+
+      if (!generateResponse.ok) {
+        const errorText = await generateResponse.text();
+        throw new Error(`Generation start failed: ${generateResponse.status} - ${errorText}`);
+      }
+
+      logger.info('PPT generation task created', { taskId });
+
+      // 步骤3: 获取临时登录码并构建编辑页面URL
+      let editUrl = `${PPT_WEB_URL}/ppt/edit/${taskId}`;
+
+      try {
+        const tempCodeResponse = await fetch(`${PPT_SERVER_URL}/auth/temp-code/generate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${accessToken}`
+          },
+          body: JSON.stringify({
+            expiresIn: 600 // 10分钟有效期
+          })
+        });
+
+        if (tempCodeResponse.ok) {
+          const tempCodeResult = await tempCodeResponse.json() as { success?: boolean; code?: string };
+          if (tempCodeResult.success && tempCodeResult.code) {
+            const redirectPath = encodeURIComponent(`/ppt/edit/${taskId}`);
+            editUrl = `${PPT_WEB_URL}/token-login?code=${tempCodeResult.code}&redirect=${redirectPath}`;
+          }
+        }
+      } catch (tempCodeError) {
+        logger.warn('Failed to get temp code for PPT edit URL', tempCodeError instanceof Error ? tempCodeError : undefined);
+      }
+
+      // 直接返回成功，附带编辑页面URL
+      // 后端没有 status 轮询接口，用户在网页上查看生成进度
+      await communicationService.sendPPTGenerateResponse({
+        success: true,
+        taskId: taskId,
+        editUrl: editUrl
+      });
+
+    } catch (error) {
+      logger.error('Failed to start PPT generation', error instanceof Error ? error : undefined);
+      await communicationService.sendPPTGenerateResponse({
+        success: false,
+        error: error instanceof Error ? error.message : 'Generation failed'
+      });
+    }
+  });
+
+  // 🎯 处理PPT大纲AI优化请求
+  communicationService.onPPTOptimizeOutline(async (payload) => {
+    try {
+      logger.info('Received ppt_optimize_outline request', { topic: payload.topic, pageCount: payload.pageCount });
+
+      // 获取 access token
+      const { ProxyAuthManager } = require('deepv-code-core');
+      const authManager = ProxyAuthManager.getInstance();
+      const accessToken = await authManager.getAccessToken();
+
+      if (!accessToken) {
+        await communicationService.sendPPTOptimizeOutlineResponse({
+          success: false,
+          error: 'Authentication required. Please login first.'
+        });
+        return;
+      }
+
+      // 构建优化提示词
+      const optimizePrompt = `你是一位专业的PPT内容策划师。请根据以下信息优化PPT大纲：
+
+【PPT信息】
+- 主题：${payload.topic}
+- 页数：${payload.pageCount}页
+- 设计风格：${payload.style || '默认'}
+- 配色方案：${payload.colorScheme || '默认'}
+
+【当前大纲】
+${payload.outline}
+
+【优化要求】
+1. 为每一页提供完整的内容结构：
+   - 主标题（简洁有力）
+   - 副标题（补充说明）
+   - 要点内容（3-5个关键点）
+   - 布局建议（视觉区、标题区、装饰元素位置）
+
+2. 确保内容：
+   - 符合所选风格的语言调性
+   - 逻辑递进、层次分明
+   - 每页重点突出
+
+请直接输出优化后的大纲内容，不要添加额外说明。使用中文输出。`;
+
+      // 调用 DeepV 服务端 AI API
+      const response = await fetch(`${PPT_SERVER_URL}/v1/chat/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+          'X-Scene-Type': 'json_generation'
+        },
+        body: JSON.stringify({
+          model: 'gemini-2.5-flash',
+          contents: [{ role: 'user', parts: [{ text: optimizePrompt }] }]
+        })
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`AI optimization failed: ${response.status} - ${errorText}`);
+      }
+
+      const result = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+      const optimizedOutline = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+      if (!optimizedOutline) {
+        throw new Error('No optimized content returned from AI');
+      }
+
+      logger.info('PPT outline optimization completed');
+
+      await communicationService.sendPPTOptimizeOutlineResponse({
+        success: true,
+        optimizedOutline: optimizedOutline
+      });
+
+    } catch (error) {
+      logger.error('Failed to optimize PPT outline', error instanceof Error ? error : undefined);
+      await communicationService.sendPPTOptimizeOutlineResponse({
+        success: false,
+        error: error instanceof Error ? error.message : 'Optimization failed'
+      });
+    }
+  });
+
   // 🎯 处理文件打开请求
   communicationService.onOpenFile(async (payload) => {
     try {

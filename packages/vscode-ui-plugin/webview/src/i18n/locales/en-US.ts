@@ -559,4 +559,85 @@ export const enUS: Translations = {
     dismiss: 'Remind me later',
     countdown: '{{seconds}}s',
   },
+
+  pptGenerator: {
+    title: 'PPT Generator',
+    buttonTooltip: 'Generate PPT with AI',
+    topicLabel: 'PPT Topic',
+    topicPlaceholder: 'Enter your PPT topic, e.g.: Labubu World Tour',
+    pageCountLabel: 'Pages',
+    pages: 'pages',
+    customPages: 'Custom',
+    customPagesPlaceholder: '1-100',
+    styleLabel: 'Style',
+    colorSchemeLabel: 'Color Scheme',
+    outlineLabel: 'Outline Content',
+    outlinePlaceholder: `Example:
+Slide 1: Labubu in Paris
+Content
+Title: Labubu in Paris
+Subtitle: Encountering French Romance
+Tagline: Unlock Paris landmarks with Labubu
+
+Layout
+Main Visual (2/3 of page): Labubu with Eiffel Tower illustration, light beige background.
+Title Area (top center): Bold artistic font for title, thin font for subtitle, deep brown color.
+Corner Accent (bottom right): Small Paris icons (baguette, tower silhouette) with tagline.
+
+Slide 2: Labubu in Beijing
+Content
+Title: Labubu in Beijing
+Subtitle: Walking Through Ancient and Modern Capital
+Tagline: Explore Beijing's charm with Labubu
+
+Layout
+Main Visual (2/3 of page): Labubu with Forbidden City or Tiananmen, light vermillion background.
+Title Area (top center): Bold calligraphy font for title, simple Song font for subtitle, deep red color.
+Corner Accent (bottom left): Small Beijing icons (palace corner, candied haws) with tagline.`,
+    outlineHint: 'Tip: Provide detailed descriptions for each slide for better results',
+    optimizeButton: 'AI Optimize',
+    optimizing: 'Optimizing...',
+    optimizeTooltip: 'Use AI to optimize outline content',
+    cancelGeneration: 'Cancel generation',
+    customStylePlaceholder: 'Describe your desired PPT style, e.g.: tech, futuristic, cyberpunk, minimalist, vintage...',
+    customColorPlaceholder: 'Describe your desired color style, e.g.: gradient blue-purple, vintage retro, candy colors, Morandi palette...',
+    generateButton: 'Generate PPT',
+    generating: 'Submitting PPT generation task...',
+    generatingHint: 'Browser will open automatically to view progress',
+    generateAnother: 'Generate Another',
+    openEdit: 'Open Editor Again',
+    tryAgain: 'Try Again',
+    style: {
+      auto: 'Auto',
+      business: 'Business',
+      flat: 'Flat',
+      travel: 'Travel',
+      advertising: 'Advertising',
+      anime: 'Anime',
+      custom: 'Custom',
+    },
+    colorScheme: {
+      auto: 'Auto',
+      blue: 'Blue',
+      green: 'Green',
+      red: 'Red',
+      purple: 'Purple',
+      orange: 'Orange',
+      dark: 'Dark',
+      light: 'Light',
+      colorful: 'Colorful',
+      custom: 'Custom',
+    },
+    error: {
+      topicRequired: 'Please enter a PPT topic',
+      outlineRequired: 'Please enter the outline content',
+      customStyleRequired: 'Please enter custom style description',
+      customColorRequired: 'Please enter custom color description',
+      generateFailed: 'Generation failed, please try again',
+    },
+    success: {
+      generated: 'PPT task submitted!',
+      hint: 'Browser opened automatically. Please view the progress and edit your PPT in the web page.',
+    },
+  },
 };
