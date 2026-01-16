@@ -10,6 +10,7 @@ import {
 } from '@google/genai';
 import { CustomModelConfig } from '../types/customModel.js';
 import { MESSAGE_ROLES } from '../config/messageRoles.js';
+import { retryWithBackoff, getErrorStatus } from '../utils/retry.js';
 
 /**
  * 为对象添加 functionCalls getter，兼容不同的结构
@@ -66,6 +67,55 @@ function parseJSONSafe(jsonStr: string): any {
     console.error(`[CustomModel] Failed to parse tool arguments: ${jsonStr}`);
     return { raw: jsonStr, parseError: true };
   }
+}
+
+/**
+ * 创建带状态码的错误对象，便于重试逻辑判断
+ */
+function createHttpError(status: number, message: string, response?: Response): Error & { status: number; response?: { headers: Record<string, string> } } {
+  const error = new Error(message) as Error & { status: number; response?: { headers: Record<string, string> } };
+  error.status = status;
+
+  // 尝试解析 Retry-After 头，传递给重试逻辑
+  if (response) {
+    const retryAfter = response.headers.get('retry-after');
+    if (retryAfter) {
+      error.response = {
+        headers: { 'retry-after': retryAfter }
+      };
+    }
+  }
+
+  return error;
+}
+
+/**
+ * 判断是否应该重试自定义模型请求
+ * 重试条件：429 限流 或 5xx 服务器错误
+ */
+function shouldRetryCustomModel(error: Error): boolean {
+  const status = getErrorStatus(error);
+
+  // ✅ 429 限流 - 重试
+  if (status === 429) {
+    console.warn(`[CustomModel] Rate limited (429), will retry with backoff...`);
+    return true;
+  }
+
+  // ✅ 5xx 服务器错误 - 重试
+  if (status && status >= 500 && status < 600) {
+    console.warn(`[CustomModel] Server error (${status}), will retry...`);
+    return true;
+  }
+
+  // ✅ 检查错误消息中的 429
+  if (error.message.includes('429')) {
+    console.warn(`[CustomModel] Rate limit detected in message, will retry...`);
+    return true;
+  }
+
+  // ❌ 其他错误（如 4xx 客户端错误）不重试
+  return false;
 }
 
 
@@ -189,17 +239,37 @@ const OpenAIConverter = {
 
 /**
  * Anthropic 格式转换工具
+ * 完整支持 Anthropic Messages API 格式，包括：
+ * - system 数组格式（带 cache_control）
+ * - extended thinking 配置
+ * - 完整的 input_schema（含 additionalProperties）
+ * @see https://docs.anthropic.com/en/api/messages
  */
 const AnthropicConverter = {
-  contentsToAnthropic(contents: any[]): { messages: any[], system?: string } {
+  /**
+   * 将 Gemini 格式内容转换为 Anthropic 格式
+   * 自动添加 cache_control 以利用 Anthropic prompt caching：
+   * - 所有 system 消息块添加 cache_control: { type: 'ephemeral' }
+   * - 用户消息的最后一个文本块添加 cache_control: { type: 'ephemeral' }
+   * @see https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching
+   */
+  contentsToAnthropic(contents: any[]): { messages: any[], system?: any[] } {
     const messages: any[] = [];
-    let system: string | undefined = undefined;
+    const systemBlocks: any[] = [];
 
     for (const content of contents) {
       const parts = content.parts || [];
 
       if (content.role === 'system') {
-        system = parts.filter((p: any) => p.text).map((p: any) => p.text).join('\n');
+        // 转换为 Anthropic system 数组格式
+        for (const p of parts) {
+          if (p.text) {
+            const block: any = { type: 'text', text: p.text };
+            // 🆕 自动添加 cache_control（与 Claude Code 行为一致）
+            block.cache_control = p.cache_control || { type: 'ephemeral' };
+            systemBlocks.push(block);
+          }
+        }
         continue;
       }
 
@@ -208,7 +278,12 @@ const AnthropicConverter = {
 
       for (const part of parts) {
         if (part.text) {
-          anthropicParts.push({ type: 'text', text: part.text });
+          const textBlock: any = { type: 'text', text: part.text };
+          // 透传已有的 cache_control（后续会为最后一个文本块自动添加）
+          if (part.cache_control) {
+            textBlock.cache_control = part.cache_control;
+          }
+          anthropicParts.push(textBlock);
         }
         if (part.inlineData) {
           // 转换 Gemini inlineData 格式为 Anthropic image 格式
@@ -261,27 +336,50 @@ const AnthropicConverter = {
       }
     }
 
-    return { messages: merged, system };
+    // 🆕 为最后一条用户消息的最后一个文本块添加 cache_control
+    // 与 Claude Code 行为一致，利用 prompt caching 减少 token 消耗
+    for (let i = merged.length - 1; i >= 0; i--) {
+      if (merged[i].role === 'user' && Array.isArray(merged[i].content)) {
+        const content = merged[i].content;
+        // 找到最后一个文本块
+        for (let j = content.length - 1; j >= 0; j--) {
+          if (content[j].type === 'text' && !content[j].cache_control) {
+            content[j].cache_control = { type: 'ephemeral' };
+            break;
+          }
+        }
+        break; // 只处理最后一条用户消息
+      }
+    }
+
+    return {
+      messages: merged,
+      system: systemBlocks.length > 0 ? systemBlocks : undefined
+    };
   },
 
+  /**
+   * 将工具定义转换为 Anthropic 格式
+   * 完整支持 input_schema（含 additionalProperties: false）
+   */
   toolsToAnthropicTools(tools: any[]): any[] | undefined {
     if (!tools || tools.length === 0) return undefined;
 
-    const cleanSchema = (schema: any): any => {
+    const cleanSchema = (schema: any, isRoot: boolean = false): any => {
       if (!schema || typeof schema !== 'object') return schema;
       const cleaned: any = {};
-      const validFields = ['type', 'properties', 'required', 'items', 'enum', 'description', 'default', 'minimum', 'maximum', 'minLength', 'maxLength', 'pattern', 'format', 'minItems', 'maxItems', 'uniqueItems', 'additionalProperties', 'anyOf', 'oneOf', 'allOf', 'not'];
+      const validFields = ['type', 'properties', 'required', 'items', 'enum', 'description', 'default', 'minimum', 'maximum', 'exclusiveMinimum', 'exclusiveMaximum', 'minLength', 'maxLength', 'pattern', 'format', 'minItems', 'maxItems', 'uniqueItems', 'additionalProperties', 'anyOf', 'oneOf', 'allOf', 'not'];
       for (const key of validFields) {
         if (schema[key] !== undefined) {
           if (key === 'type' && typeof schema[key] === 'string') cleaned[key] = schema[key].toLowerCase();
-          else if (['minimum', 'maximum', 'minLength', 'maxLength', 'minItems', 'maxItems'].includes(key)) {
+          else if (['minimum', 'maximum', 'exclusiveMinimum', 'exclusiveMaximum', 'minLength', 'maxLength', 'minItems', 'maxItems'].includes(key)) {
             const val = parseFloat(schema[key]);
             if (!isNaN(val)) cleaned[key] = val;
           }
           else if (key === 'properties' && typeof schema[key] === 'object') {
             cleaned[key] = {};
-            for (const k in schema[key]) cleaned[key][k] = cleanSchema(schema[key][k]);
-          } else if (key === 'items') cleaned[key] = cleanSchema(schema[key]);
+            for (const k in schema[key]) cleaned[key][k] = cleanSchema(schema[key][k], false);
+          } else if (key === 'items') cleaned[key] = cleanSchema(schema[key], false);
           else cleaned[key] = schema[key];
         }
       }
@@ -291,7 +389,7 @@ const AnthropicConverter = {
     return tools.flatMap((tool: any) => {
       const decls = tool.functionDeclarations || [tool];
       return decls.map((fd: any) => {
-        const cleaned = cleanSchema(fd.parameters || {});
+        const cleaned = cleanSchema(fd.parameters || {}, true);
         return {
           name: fd.name,
           description: fd.description || '',
@@ -300,6 +398,8 @@ const AnthropicConverter = {
             type: 'object',
             properties: cleaned.properties || {},
             ...(cleaned.required && { required: cleaned.required }),
+            // 🔧 关键：添加 additionalProperties: false 以匹配 Claude Code 的行为
+            additionalProperties: false,
           },
         };
       });
@@ -318,6 +418,7 @@ const AnthropicConverter = {
 
 /**
  * OpenAI 兼容模型单次调用
+ * 使用指数退避重试策略处理 429 和 5xx 错误
  */
 export async function callOpenAICompatibleModel(
   modelConfig: CustomModelConfig,
@@ -335,60 +436,82 @@ export async function callOpenAICompatibleModel(
     stream: false,
   };
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-      ...modelConfig.headers,
-    },
-    body: JSON.stringify(requestBody),
-    signal: abortSignal,
-  });
+  // 使用指数退避重试包装 API 调用
+  return retryWithBackoff(
+    async () => {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+          ...modelConfig.headers,
+        },
+        body: JSON.stringify(requestBody),
+        signal: abortSignal,
+      });
 
-  if (!response.ok) throw new Error(`OpenAI API error (${response.status}): ${await response.text()}`);
-
-  const data = await response.json();
-  const choice = data.choices[0];
-  const message = choice.message;
-
-  const parts: any[] = [];
-  if (message.content) parts.push({ text: message.content });
-  if (message.tool_calls) {
-    for (const tc of message.tool_calls) {
-      if (tc.type === 'function') {
-        parts.push({
-          functionCall: {
-            name: tc.function.name,
-            args: parseJSONSafe(tc.function.arguments),
-            id: tc.id,
-          },
-        });
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw createHttpError(response.status, `OpenAI API error (${response.status}): ${errorText}`, response);
       }
-    }
-  }
 
-  const result = {
-    candidates: [{
-      content: { role: MESSAGE_ROLES.MODEL, parts: parts.length ? parts : [{ text: '' }] },
-      finishReason: OpenAIConverter.mapFinishReason(choice.finish_reason),
-      index: 0,
-    }],
-    usageMetadata: {
-      promptTokenCount: data.usage?.prompt_tokens || 0,
-      candidatesTokenCount: data.usage?.completion_tokens || 0,
-      totalTokenCount: data.usage?.total_tokens || 0,
-      // OpenAI prompt caching support
-      cacheCreationInputTokenCount: data.usage?.cache_creation_input_tokens,
-      cacheReadInputTokenCount: data.usage?.cache_read_input_tokens,
-    } as any,
-  };
-  addFunctionCallsGetter(result);
-  return result as GenerateContentResponse;
+      const data = await response.json();
+      const choice = data.choices[0];
+      const message = choice.message;
+
+      const parts: any[] = [];
+      if (message.content) parts.push({ text: message.content });
+      if (message.tool_calls) {
+        for (const tc of message.tool_calls) {
+          if (tc.type === 'function') {
+            parts.push({
+              functionCall: {
+                name: tc.function.name,
+                args: parseJSONSafe(tc.function.arguments),
+                id: tc.id,
+              },
+            });
+          }
+        }
+      }
+
+      // 🔧 OpenAI prompt caching：缓存信息在 usage.prompt_tokens_details.cached_tokens
+      // 参考：https://platform.openai.com/docs/guides/prompt-caching
+      const cachedTokens = data.usage?.prompt_tokens_details?.cached_tokens || 0;
+      const promptTokens = data.usage?.prompt_tokens || 0;
+
+      const result = {
+        candidates: [{
+          content: { role: MESSAGE_ROLES.MODEL, parts: parts.length ? parts : [{ text: '' }] },
+          finishReason: OpenAIConverter.mapFinishReason(choice.finish_reason),
+          index: 0,
+        }],
+        usageMetadata: {
+          promptTokenCount: promptTokens,
+          candidatesTokenCount: data.usage?.completion_tokens || 0,
+          totalTokenCount: data.usage?.total_tokens || 0,
+          // 🔧 OpenAI prompt caching support
+          // OpenAI 使用 prompt_tokens_details.cached_tokens 表示缓存命中的 token
+          // 映射到我们的字段名以保持与 geminiChat.ts 兼容
+          ...(cachedTokens > 0 && { cacheReadInputTokens: cachedTokens }),
+          // OpenAI 不区分 cache creation，只有 cache read
+          // uncachedInputTokens = promptTokens - cachedTokens
+          uncachedInputTokens: promptTokens - cachedTokens,
+        } as any,
+      };
+      addFunctionCallsGetter(result);
+      return result as GenerateContentResponse;
+    },
+    {
+      shouldRetry: shouldRetryCustomModel,
+    }
+  );
 }
 
 /**
  * Anthropic 模型单次调用
+ * 使用指数退避重试策略处理 429 和 5xx 错误
+ * 支持 extended thinking 配置
  */
 export async function callAnthropicModel(
   modelConfig: CustomModelConfig,
@@ -402,53 +525,94 @@ export async function callAnthropicModel(
   const requestBody: any = {
     model: modelConfig.modelId,
     messages,
-    system,
     tools: AnthropicConverter.toolsToAnthropicTools(request.config?.tools),
     max_tokens: modelConfig.maxTokens || 4096,
   };
 
-  const response = await fetch(`${baseUrl}/v1/messages`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      ...modelConfig.headers,
+  // 添加 system（数组格式，带 cache_control 支持）
+  if (system && system.length > 0) {
+    requestBody.system = system;
+  }
+
+  // 🆕 自动启用 extended thinking（budget_tokens = maxTokens - 1，与 Claude Code 行为一致）
+  if (modelConfig.enableThinking) {
+    const maxTokens = modelConfig.maxTokens || 4096;
+    requestBody.thinking = {
+      type: 'enabled',
+      budget_tokens: maxTokens - 1,
+    };
+  }
+
+  // 使用指数退避重试包装 API 调用
+  return retryWithBackoff(
+    async () => {
+      const response = await fetch(`${baseUrl}/v1/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          ...modelConfig.headers,
+        },
+        body: JSON.stringify(requestBody),
+        signal: abortSignal,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw createHttpError(response.status, `Anthropic error (${response.status}): ${errorText}`, response);
+      }
+
+      const data = await response.json();
+      const parts = data.content.map((c: any) => {
+        if (c.type === 'text') return { text: c.text };
+        if (c.type === 'tool_use') return { functionCall: { name: c.name, args: c.input, id: c.id } };
+        // 🆕 支持 thinking 内容块（内部推理，通常不直接展示给用户）
+        if (c.type === 'thinking') return { thought: c.thinking };
+        return null;
+      }).filter(Boolean);
+
+      // 🔧 计算真正的总输入 token：
+      // Anthropic 的 input_tokens 只是非缓存的直接输入，实际总输入需要加上缓存 token
+      const uncachedInputTokens = data.usage?.input_tokens || 0;
+      const cacheCreationTokens = data.usage?.cache_creation_input_tokens || 0;
+      const cacheReadTokens = data.usage?.cache_read_input_tokens || 0;
+      const actualPromptTokens = uncachedInputTokens + cacheCreationTokens + cacheReadTokens;
+      const outputTokens = data.usage?.output_tokens || 0;
+
+      const result = {
+        candidates: [{
+          content: { role: MESSAGE_ROLES.MODEL, parts: parts.length ? parts : [{ text: '' }] },
+          finishReason: AnthropicConverter.mapFinishReason(data.stop_reason),
+          index: 0,
+        }],
+        usageMetadata: {
+          // promptTokenCount 应该反映实际处理的总输入 token（包括缓存）
+          promptTokenCount: actualPromptTokens,
+          candidatesTokenCount: outputTokens,
+          totalTokenCount: actualPromptTokens + outputTokens,
+          // 🔧 Claude prompt caching 详细信息
+          // 字段名与 geminiChat.ts 中读取的一致（不带 Count 后缀）
+          // - cacheCreationInputTokens: 本次写入缓存的 token（1.25x 价格）
+          // - cacheReadInputTokens: 从缓存读取的 token（0.1x 价格，便宜 90%）
+          // - uncachedInputTokens: 非缓存的直接输入 token
+          ...(cacheCreationTokens && { cacheCreationInputTokens: cacheCreationTokens }),
+          ...(cacheReadTokens != null && { cacheReadInputTokens: cacheReadTokens }),
+          uncachedInputTokens: uncachedInputTokens,
+        } as any,
+      };
+      addFunctionCallsGetter(result);
+      return result as GenerateContentResponse;
     },
-    body: JSON.stringify(requestBody),
-    signal: abortSignal,
-  });
-
-  if (!response.ok) throw new Error(`Anthropic error (${response.status}): ${await response.text()}`);
-
-  const data = await response.json();
-  const parts = data.content.map((c: any) => {
-    if (c.type === 'text') return { text: c.text };
-    if (c.type === 'tool_use') return { functionCall: { name: c.name, args: c.input, id: c.id } };
-    return null;
-  }).filter(Boolean);
-
-  const result = {
-    candidates: [{
-      content: { role: MESSAGE_ROLES.MODEL, parts: parts.length ? parts : [{ text: '' }] },
-      finishReason: AnthropicConverter.mapFinishReason(data.stop_reason),
-      index: 0,
-    }],
-    usageMetadata: {
-      promptTokenCount: data.usage?.input_tokens || 0,
-      candidatesTokenCount: data.usage?.output_tokens || 0,
-      totalTokenCount: (data.usage?.input_tokens || 0) + (data.usage?.output_tokens || 0),
-      // Claude prompt caching support
-      cacheCreationInputTokenCount: data.usage?.cache_creation_input_tokens,
-      cacheReadInputTokenCount: data.usage?.cache_read_input_tokens,
-    } as any,
-  };
-  addFunctionCallsGetter(result);
-  return result as GenerateContentResponse;
+    {
+      shouldRetry: shouldRetryCustomModel,
+    }
+  );
 }
 
 /**
  * OpenAI 兼容模型流式调用
+ * 使用指数退避重试策略处理初始连接的 429 和 5xx 错误
  */
 export async function* callOpenAICompatibleModelStream(
   modelConfig: CustomModelConfig,
@@ -466,18 +630,31 @@ export async function* callOpenAICompatibleModelStream(
     stream_options: { include_usage: true } // 请求包含 usage 信息
   };
 
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${apiKey}`,
-      ...modelConfig.headers,
-    },
-    body: JSON.stringify(requestBody),
-    signal: abortSignal,
-  });
+  // 使用指数退避重试包装初始连接
+  const response = await retryWithBackoff(
+    async () => {
+      const res = await fetch(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+          ...modelConfig.headers,
+        },
+        body: JSON.stringify(requestBody),
+        signal: abortSignal,
+      });
 
-  if (!response.ok) throw new Error(`OpenAI Stream error (${response.status}): ${await response.text()}`);
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw createHttpError(res.status, `OpenAI Stream error (${res.status}): ${errorText}`, res);
+      }
+
+      return res;
+    },
+    {
+      shouldRetry: shouldRetryCustomModel,
+    }
+  );
 
   const reader = response.body?.getReader();
   if (!reader) throw new Error('No response body');
@@ -575,15 +752,22 @@ export async function* callOpenAICompatibleModelStream(
           }
 
           if (chunk.usage) {
+            // 🔧 OpenAI prompt caching：缓存信息在 usage.prompt_tokens_details.cached_tokens
+            const cachedTokens = chunk.usage.prompt_tokens_details?.cached_tokens || 0;
+            const promptTokens = chunk.usage.prompt_tokens || 0;
+
             yield {
               candidates: [],
               usageMetadata: {
-                promptTokenCount: chunk.usage.prompt_tokens || 0,
+                promptTokenCount: promptTokens,
                 candidatesTokenCount: chunk.usage.completion_tokens || 0,
                 totalTokenCount: chunk.usage.total_tokens || 0,
-                // OpenAI prompt caching support
-                cacheCreationInputTokenCount: chunk.usage.cache_creation_input_tokens,
-                cacheReadInputTokenCount: chunk.usage.cache_read_input_tokens,
+                // 🔧 OpenAI prompt caching support
+                // OpenAI 使用 prompt_tokens_details.cached_tokens 表示缓存命中的 token
+                // 映射到我们的字段名以保持与 geminiChat.ts 兼容
+                ...(cachedTokens > 0 && { cacheReadInputTokens: cachedTokens }),
+                // OpenAI 不区分 cache creation，只有 cache read
+                uncachedInputTokens: promptTokens - cachedTokens,
               }
             } as any;
           }
@@ -603,6 +787,8 @@ export async function* callOpenAICompatibleModelStream(
 
 /**
  * Anthropic 模型流式调用
+ * 使用指数退避重试策略处理初始连接的 429 和 5xx 错误
+ * 支持 extended thinking 配置
  */
 export async function* callAnthropicModelStream(
   modelConfig: CustomModelConfig,
@@ -616,25 +802,51 @@ export async function* callAnthropicModelStream(
   const requestBody: any = {
     model: modelConfig.modelId,
     messages,
-    system,
     tools: AnthropicConverter.toolsToAnthropicTools(request.config?.tools),
     max_tokens: modelConfig.maxTokens || 4096,
     stream: true,
   };
 
-  const response = await fetch(`${baseUrl}/v1/messages`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      ...modelConfig.headers,
-    },
-    body: JSON.stringify(requestBody),
-    signal: abortSignal,
-  });
+  // 添加 system（数组格式，带 cache_control 支持）
+  if (system && system.length > 0) {
+    requestBody.system = system;
+  }
 
-  if (!response.ok) throw new Error(`Anthropic Stream error (${response.status}): ${await response.text()}`);
+  // 🆕 自动启用 extended thinking（budget_tokens = maxTokens - 1，与 Claude Code 行为一致）
+  if (modelConfig.enableThinking) {
+    const maxTokens = modelConfig.maxTokens || 4096;
+    requestBody.thinking = {
+      type: 'enabled',
+      budget_tokens: maxTokens - 1,
+    };
+  }
+
+  // 使用指数退避重试包装初始连接
+  const response = await retryWithBackoff(
+    async () => {
+      const res = await fetch(`${baseUrl}/v1/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          ...modelConfig.headers,
+        },
+        body: JSON.stringify(requestBody),
+        signal: abortSignal,
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw createHttpError(res.status, `Anthropic Stream error (${res.status}): ${errorText}`, res);
+      }
+
+      return res;
+    },
+    {
+      shouldRetry: shouldRetryCustomModel,
+    }
+  );
 
   const reader = response.body?.getReader();
   if (!reader) throw new Error('No response body');
@@ -642,12 +854,16 @@ export async function* callAnthropicModelStream(
   const decoder = new TextDecoder();
   let buffer = '';
   const aggregatedTools: Map<number, { id: string, name: string, args: string }> = new Map();
+  // 🆕 用于聚合 thinking 内容块
+  const aggregatedThinking: Map<number, string> = new Map();
 
   // 用于累积 token 使用统计
+  // 🔧 修复：缓存 token 来自 message_start（初始值），output_tokens 来自 message_delta（累加）
   let inputTokens = 0;
   let totalOutputTokens = 0;
-  let totalCacheCreationInputTokens = 0;
-  let totalCacheReadInputTokens = 0;
+  // 缓存相关 token（从 message_start 获取，不累加）
+  let cacheCreationInputTokens = 0;
+  let cacheReadInputTokens = 0;
 
   try {
     while (true) {
@@ -667,12 +883,17 @@ export async function* callAnthropicModelStream(
           const chunk = JSON.parse(dataStr);
           const idx = chunk.index ?? 0;
 
-          if (chunk.type === 'content_block_start' && chunk.content_block?.type === 'tool_use') {
-            aggregatedTools.set(idx, {
-              id: chunk.content_block.id,
-              name: chunk.content_block.name,
-              args: ''
-            });
+          if (chunk.type === 'content_block_start') {
+            if (chunk.content_block?.type === 'tool_use') {
+              aggregatedTools.set(idx, {
+                id: chunk.content_block.id,
+                name: chunk.content_block.name,
+                args: ''
+              });
+            } else if (chunk.content_block?.type === 'thinking') {
+              // 🆕 开始聚合 thinking 内容块
+              aggregatedThinking.set(idx, chunk.content_block.thinking || '');
+            }
           } else if (chunk.type === 'content_block_delta') {
             if (chunk.delta?.type === 'text_delta') {
               const content = { role: MESSAGE_ROLES.MODEL, parts: [{ text: chunk.delta.text }] };
@@ -683,6 +904,10 @@ export async function* callAnthropicModelStream(
             } else if (chunk.delta?.type === 'input_json_delta') {
               const tool = aggregatedTools.get(idx);
               if (tool) tool.args += chunk.delta.partial_json;
+            } else if (chunk.delta?.type === 'thinking_delta') {
+              // 🆕 累积 thinking 内容（不立即 yield，等 content_block_stop）
+              const existing = aggregatedThinking.get(idx) || '';
+              aggregatedThinking.set(idx, existing + (chunk.delta.thinking || ''));
             }
           } else if (chunk.type === 'content_block_stop') {
             const tool = aggregatedTools.get(idx);
@@ -699,13 +924,27 @@ export async function* callAnthropicModelStream(
               yield resp as GenerateContentResponse;
               aggregatedTools.delete(idx);
             }
-          } else if (chunk.type === 'message_delta') {
-            // 累积 token 统计（message_delta 包含增量）
-            if (chunk.usage) {
-              totalOutputTokens += chunk.usage.output_tokens || 0;
-              totalCacheCreationInputTokens += chunk.usage.cache_creation_input_tokens || 0;
-              totalCacheReadInputTokens += chunk.usage.cache_read_input_tokens || 0;
+            // 🆕 完成 thinking 内容块后 yield
+            const thinking = aggregatedThinking.get(idx);
+            if (thinking !== undefined) {
+              const content = { role: MESSAGE_ROLES.MODEL, parts: [{ thought: thinking }] } as any;
+              const resp = { candidates: [{ content, index: 0 }] } as any;
+              addFunctionCallsGetter(resp);
+              addFunctionCallsGetter(content);
+              yield resp;
+              aggregatedThinking.delete(idx);
             }
+          } else if (chunk.type === 'message_delta') {
+            // 🔧 message_delta 中的 output_tokens 是最终总数，不是增量，所以用替换而非累加
+            // 参考日志：message_start 有 output_tokens:5，message_delta 有 output_tokens:298（最终值）
+            if (chunk.usage?.output_tokens != null) {
+              totalOutputTokens = chunk.usage.output_tokens;
+            }
+
+            // 🔧 计算真正的总输入 token：
+            // Anthropic 的 input_tokens 只是非缓存的直接输入，实际总输入需要加上缓存 token
+            // 实际总输入 = input_tokens + cache_creation_input_tokens + cache_read_input_tokens
+            const actualPromptTokens = inputTokens + cacheCreationInputTokens + cacheReadInputTokens;
 
             const content = { role: MESSAGE_ROLES.MODEL, parts: [] };
             const resp = {
@@ -715,22 +954,32 @@ export async function* callAnthropicModelStream(
                 index: 0
               }],
               usageMetadata: {
-                promptTokenCount: inputTokens,
+                // promptTokenCount 应该反映实际处理的总输入 token（包括缓存）
+                promptTokenCount: actualPromptTokens,
                 candidatesTokenCount: totalOutputTokens,
-                // Claude prompt caching support - 累积缓存相关 token
-                cacheCreationInputTokenCount: totalCacheCreationInputTokens || undefined,
-                cacheReadInputTokenCount: totalCacheReadInputTokens || undefined,
+                totalTokenCount: actualPromptTokens + totalOutputTokens,
+                // 🔧 Claude prompt caching 详细信息
+                // 字段名与 geminiChat.ts 中读取的一致（不带 Count 后缀）
+                // - cacheCreationInputTokens: 本次写入缓存的 token（1.25x 价格）
+                // - cacheReadInputTokens: 从缓存读取的 token（0.1x 价格，便宜 90%）
+                // - uncachedInputTokens: 非缓存的直接输入 token（原始 input_tokens）
+                ...(cacheCreationInputTokens != null && { cacheCreationInputTokens }),
+                ...(cacheReadInputTokens != null && { cacheReadInputTokens }),
+                // 保留原始的非缓存输入 token 以便精确计费
+                uncachedInputTokens: inputTokens,
               }
             } as any;
             addFunctionCallsGetter(resp);
             addFunctionCallsGetter(content);
             yield resp;
           } else if (chunk.type === 'message_start' && chunk.message?.usage) {
-            // message_start 包含初始状态，仅记录数据不 yield（避免覆盖最后的统计）
-            inputTokens = chunk.message.usage.input_tokens || 0;
-            totalOutputTokens = chunk.message.usage.output_tokens || 0;
-            totalCacheCreationInputTokens = chunk.message.usage.cache_creation_input_tokens || 0;
-            totalCacheReadInputTokens = chunk.message.usage.cache_read_input_tokens || 0;
+            // 🔧 message_start 包含完整的初始 usage，包括缓存 token
+            const usage = chunk.message.usage;
+            inputTokens = usage.input_tokens || 0;
+            totalOutputTokens = usage.output_tokens || 0;
+            // 缓存 token 只在 message_start 中出现，记录后不再累加
+            cacheCreationInputTokens = usage.cache_creation_input_tokens || 0;
+            cacheReadInputTokens = usage.cache_read_input_tokens || 0;
           }
         } catch (e) {}
       }

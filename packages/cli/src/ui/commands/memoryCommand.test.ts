@@ -76,7 +76,7 @@ describe('memoryCommand', () => {
       expect(mockContext.ui.addItem).toHaveBeenCalledWith(
         {
           type: MessageType.INFO,
-          text: '记忆当前为空。',
+          text: 'Memory is currently empty.',
         },
         expect.any(Number),
       );
@@ -95,7 +95,7 @@ describe('memoryCommand', () => {
       expect(mockContext.ui.addItem).toHaveBeenCalledWith(
         {
           type: MessageType.INFO,
-          text: `当前记忆中来自 1 个文件的内容:\n\n---\n${memoryContent}\n---`,
+          text: `Current memory content from 1 file(s):\n\n---\n${memoryContent}\n---`,
         },
         expect.any(Number),
       );

@@ -187,7 +187,7 @@ ${textContent}
   }
 
   validateParams(params: WebFetchToolParams): string | null {
-    const errors = SchemaValidator.validate(this.schema.parameters, params);
+    const errors = SchemaValidator.validate(this.schema.parameters, params, WebFetchTool.Name);
     if (errors) {
       return errors;
     }

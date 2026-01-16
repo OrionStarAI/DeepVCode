@@ -161,10 +161,11 @@ describe('customModelAdapter - Image Content Support', () => {
       expect(Array.isArray(capturedBody.messages[0].content)).toBe(true);
       expect(capturedBody.messages[0].content).toHaveLength(2);
 
-      // Check text part
+      // Check text part (cache_control auto-added since it's the only text block in last user message)
       expect(capturedBody.messages[0].content[0]).toEqual({
         type: 'text',
         text: 'What is in this image?',
+        cache_control: { type: 'ephemeral' },
       });
 
       // Check image part - Anthropic format
@@ -226,6 +227,391 @@ describe('customModelAdapter - Image Content Support', () => {
         type: 'image',
         source: { type: 'base64', media_type: 'image/webp', data: 'base64data2' },
       });
+    });
+  });
+});
+
+describe('customModelAdapter - Anthropic API Compatibility', () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  describe('System message format', () => {
+    it('should convert system messages to Anthropic array format', async () => {
+      let capturedBody: any;
+      const mockResponse = {
+        ok: true,
+        json: async () => ({
+          content: [{ type: 'text', text: 'Hello' }],
+          stop_reason: 'end_turn',
+          usage: { input_tokens: 100, output_tokens: 10 },
+        }),
+      };
+
+      global.fetch = vi.fn().mockImplementation(async (_url, options) => {
+        capturedBody = JSON.parse(options.body);
+        return mockResponse;
+      });
+
+      const modelConfig = {
+        provider: 'anthropic' as const,
+        modelId: 'claude-3-sonnet',
+        baseUrl: 'https://api.anthropic.com',
+        apiKey: 'sk-ant-test',
+        displayName: 'Claude 3 Sonnet',
+      };
+
+      const request = {
+        contents: [
+          {
+            role: 'system',
+            parts: [{ text: 'You are a helpful assistant.' }],
+          },
+          {
+            role: MESSAGE_ROLES.USER,
+            parts: [{ text: 'Hello' }],
+          },
+        ],
+      };
+
+      await callAnthropicModel(modelConfig as any, request);
+
+      // System should be an array with type: 'text' and auto-added cache_control
+      expect(Array.isArray(capturedBody.system)).toBe(true);
+      expect(capturedBody.system).toHaveLength(1);
+      expect(capturedBody.system[0]).toEqual({
+        type: 'text',
+        text: 'You are a helpful assistant.',
+        cache_control: { type: 'ephemeral' },
+      });
+    });
+
+    it('should auto-add cache_control to system messages', async () => {
+      let capturedBody: any;
+      const mockResponse = {
+        ok: true,
+        json: async () => ({
+          content: [{ type: 'text', text: 'Hello' }],
+          stop_reason: 'end_turn',
+          usage: { input_tokens: 100, output_tokens: 10 },
+        }),
+      };
+
+      global.fetch = vi.fn().mockImplementation(async (_url, options) => {
+        capturedBody = JSON.parse(options.body);
+        return mockResponse;
+      });
+
+      const modelConfig = {
+        provider: 'anthropic' as const,
+        modelId: 'claude-3-sonnet',
+        baseUrl: 'https://api.anthropic.com',
+        apiKey: 'sk-ant-test',
+        displayName: 'Claude 3 Sonnet',
+      };
+
+      const request = {
+        contents: [
+          {
+            role: 'system',
+            parts: [{ text: 'You are a helpful assistant.' }], // No cache_control in source
+          },
+          {
+            role: MESSAGE_ROLES.USER,
+            parts: [{ text: 'Hello' }],
+          },
+        ],
+      };
+
+      await callAnthropicModel(modelConfig as any, request);
+
+      // cache_control should be auto-added to system messages
+      expect(capturedBody.system[0].cache_control).toEqual({ type: 'ephemeral' });
+    });
+
+    it('should auto-add cache_control to last user message text block', async () => {
+      let capturedBody: any;
+      const mockResponse = {
+        ok: true,
+        json: async () => ({
+          content: [{ type: 'text', text: 'Hello' }],
+          stop_reason: 'end_turn',
+          usage: { input_tokens: 100, output_tokens: 10 },
+        }),
+      };
+
+      global.fetch = vi.fn().mockImplementation(async (_url, options) => {
+        capturedBody = JSON.parse(options.body);
+        return mockResponse;
+      });
+
+      const modelConfig = {
+        provider: 'anthropic' as const,
+        modelId: 'claude-3-sonnet',
+        baseUrl: 'https://api.anthropic.com',
+        apiKey: 'sk-ant-test',
+        displayName: 'Claude 3 Sonnet',
+      };
+
+      const request = {
+        contents: [
+          {
+            role: MESSAGE_ROLES.USER,
+            parts: [
+              { text: 'First message' },
+              { text: 'Second message' },
+            ],
+          },
+        ],
+      };
+
+      await callAnthropicModel(modelConfig as any, request);
+
+      // Only the last text block should have cache_control
+      expect(capturedBody.messages[0].content[0].cache_control).toBeUndefined();
+      expect(capturedBody.messages[0].content[1].cache_control).toEqual({ type: 'ephemeral' });
+    });
+
+    it('should only add cache_control to the LAST user message in multi-turn conversation', async () => {
+      let capturedBody: any;
+      const mockResponse = {
+        ok: true,
+        json: async () => ({
+          content: [{ type: 'text', text: 'Response' }],
+          stop_reason: 'end_turn',
+          usage: { input_tokens: 100, output_tokens: 10 },
+        }),
+      };
+
+      global.fetch = vi.fn().mockImplementation(async (_url, options) => {
+        capturedBody = JSON.parse(options.body);
+        return mockResponse;
+      });
+
+      const modelConfig = {
+        provider: 'anthropic' as const,
+        modelId: 'claude-3-sonnet',
+        baseUrl: 'https://api.anthropic.com',
+        apiKey: 'sk-ant-test',
+        displayName: 'Claude 3 Sonnet',
+      };
+
+      const request = {
+        contents: [
+          {
+            role: MESSAGE_ROLES.USER,
+            parts: [{ text: 'First user message' }],
+          },
+          {
+            role: MESSAGE_ROLES.MODEL,
+            parts: [{ text: 'Assistant response' }],
+          },
+          {
+            role: MESSAGE_ROLES.USER,
+            parts: [
+              { text: 'System reminder text' },
+              { text: 'Second user message - last text block' },
+            ],
+          },
+        ],
+      };
+
+      await callAnthropicModel(modelConfig as any, request);
+
+      // First user message should NOT have cache_control
+      expect(capturedBody.messages[0].content[0].cache_control).toBeUndefined();
+
+      // Assistant message should NOT have cache_control
+      expect(capturedBody.messages[1].content[0].cache_control).toBeUndefined();
+
+      // Last user message: only the LAST text block should have cache_control
+      expect(capturedBody.messages[2].content[0].cache_control).toBeUndefined();
+      expect(capturedBody.messages[2].content[1].cache_control).toEqual({ type: 'ephemeral' });
+    });
+  });
+
+  describe('Extended thinking support', () => {
+    it('should auto-calculate budget_tokens as maxTokens - 1 when enableThinking is true', async () => {
+      let capturedBody: any;
+      const mockResponse = {
+        ok: true,
+        json: async () => ({
+          content: [{ type: 'text', text: 'Response' }],
+          stop_reason: 'end_turn',
+          usage: { input_tokens: 100, output_tokens: 10 },
+        }),
+      };
+
+      global.fetch = vi.fn().mockImplementation(async (_url, options) => {
+        capturedBody = JSON.parse(options.body);
+        return mockResponse;
+      });
+
+      const modelConfig = {
+        provider: 'anthropic' as const,
+        modelId: 'claude-3-sonnet',
+        baseUrl: 'https://api.anthropic.com',
+        apiKey: 'sk-ant-test',
+        displayName: 'Claude 3 Sonnet',
+        maxTokens: 32000,
+        enableThinking: true,
+      };
+
+      const request = {
+        contents: [
+          {
+            role: MESSAGE_ROLES.USER,
+            parts: [{ text: 'Solve this complex problem' }],
+          },
+        ],
+      };
+
+      await callAnthropicModel(modelConfig as any, request);
+
+      // budget_tokens should be maxTokens - 1 (matching Claude Code behavior)
+      expect(capturedBody.thinking).toEqual({
+        type: 'enabled',
+        budget_tokens: 31999,
+      });
+    });
+
+    it('should use default maxTokens (4096) for budget calculation when not specified', async () => {
+      let capturedBody: any;
+      const mockResponse = {
+        ok: true,
+        json: async () => ({
+          content: [{ type: 'text', text: 'Response' }],
+          stop_reason: 'end_turn',
+          usage: { input_tokens: 100, output_tokens: 10 },
+        }),
+      };
+
+      global.fetch = vi.fn().mockImplementation(async (_url, options) => {
+        capturedBody = JSON.parse(options.body);
+        return mockResponse;
+      });
+
+      const modelConfig = {
+        provider: 'anthropic' as const,
+        modelId: 'claude-3-sonnet',
+        baseUrl: 'https://api.anthropic.com',
+        apiKey: 'sk-ant-test',
+        displayName: 'Claude 3 Sonnet',
+        enableThinking: true,
+        // maxTokens not specified, should use default 4096
+      };
+
+      const request = {
+        contents: [
+          {
+            role: MESSAGE_ROLES.USER,
+            parts: [{ text: 'Solve this' }],
+          },
+        ],
+      };
+
+      await callAnthropicModel(modelConfig as any, request);
+
+      expect(capturedBody.thinking).toEqual({
+        type: 'enabled',
+        budget_tokens: 4095, // 4096 - 1
+      });
+    });
+
+    it('should parse thinking content blocks in response', async () => {
+      const mockResponse = {
+        ok: true,
+        json: async () => ({
+          content: [
+            { type: 'thinking', thinking: 'Let me think about this...' },
+            { type: 'text', text: 'Here is my answer' },
+          ],
+          stop_reason: 'end_turn',
+          usage: { input_tokens: 100, output_tokens: 50 },
+        }),
+      };
+
+      global.fetch = vi.fn().mockResolvedValue(mockResponse);
+
+      const modelConfig = {
+        provider: 'anthropic' as const,
+        modelId: 'claude-3-sonnet',
+        baseUrl: 'https://api.anthropic.com',
+        apiKey: 'sk-ant-test',
+        displayName: 'Claude 3 Sonnet',
+        enableThinking: true,
+      };
+
+      const request = {
+        contents: [
+          {
+            role: MESSAGE_ROLES.USER,
+            parts: [{ text: 'Solve this' }],
+          },
+        ],
+      };
+
+      const response = await callAnthropicModel(modelConfig as any, request);
+
+      const parts = response.candidates?.[0]?.content?.parts;
+      expect(parts).toHaveLength(2);
+      expect(parts?.[0]).toEqual({ thought: 'Let me think about this...' });
+      expect(parts?.[1]).toEqual({ text: 'Here is my answer' });
+    });
+  });
+
+  describe('Tool input_schema with additionalProperties', () => {
+    it('should include additionalProperties: false in tool input_schema', async () => {
+      let capturedBody: any;
+      const mockResponse = {
+        ok: true,
+        json: async () => ({
+          content: [{ type: 'text', text: 'I will search' }],
+          stop_reason: 'end_turn',
+          usage: { input_tokens: 100, output_tokens: 10 },
+        }),
+      };
+
+      global.fetch = vi.fn().mockImplementation(async (_url, options) => {
+        capturedBody = JSON.parse(options.body);
+        return mockResponse;
+      });
+
+      const modelConfig = {
+        provider: 'anthropic' as const,
+        modelId: 'claude-3-sonnet',
+        baseUrl: 'https://api.anthropic.com',
+        apiKey: 'sk-ant-test',
+        displayName: 'Claude 3 Sonnet',
+      };
+
+      const request = {
+        contents: [
+          {
+            role: MESSAGE_ROLES.USER,
+            parts: [{ text: 'Search for something' }],
+          },
+        ],
+        config: {
+          tools: [
+            {
+              name: 'search',
+              description: 'Search the web',
+              parameters: {
+                type: 'object',
+                properties: { query: { type: 'string', description: 'Search query' } },
+                required: ['query'],
+              },
+            },
+          ],
+        },
+      };
+
+      await callAnthropicModel(modelConfig as any, request);
+
+      expect(capturedBody.tools).toHaveLength(1);
+      expect(capturedBody.tools[0].input_schema.additionalProperties).toBe(false);
+      expect(capturedBody.tools[0].input_schema.$schema).toBe('https://json-schema.org/draft/2020-12/schema');
     });
   });
 });
@@ -398,9 +784,85 @@ describe('customModelAdapter - Streaming Tool Calls', () => {
         expect(functionCall?.args).toEqual({ query: 'test' });
       }
 
-      // 关键测试：验证 functionCalls getter 存在
+      // Key test: Verify functionCalls getter exists
       expect(toolCallResponse?.functionCalls).toBeDefined();
       expect(toolCallResponse?.functionCalls?.[0]?.name).toBe('search');
+    });
+
+    it('should correctly parse and accumulate token usage and cache info from stream', async () => {
+      const mockResponse = {
+        ok: true,
+        body: {
+          getReader: () => {
+            let index = 0;
+            // 模拟真实的 Anthropic 流式响应格式：
+            // - message_start 包含初始 usage（包括缓存 token 和初始 output_tokens 预估）
+            // - message_delta 包含最终的 output_tokens（是总数，不是增量）
+            const chunks = [
+              'data: {"type":"message_start","message":{"usage":{"input_tokens":3,"cache_creation_input_tokens":9894,"cache_read_input_tokens":0,"output_tokens":5}}}\n',
+              'data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}\n',
+              'data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello"}}\n',
+              'data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":" World"}}\n',
+              'data: {"type":"content_block_stop","index":0}\n',
+              'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":298}}\n',
+            ];
+
+            return {
+              read: vi.fn(async () => {
+                if (index < chunks.length) {
+                  const value = new TextEncoder().encode(chunks[index]);
+                  index++;
+                  return { done: false, value };
+                }
+                return { done: true, value: undefined };
+              }),
+              releaseLock: vi.fn(),
+            };
+          },
+        },
+      };
+
+      global.fetch = vi.fn().mockResolvedValue(mockResponse);
+
+      const modelConfig = {
+        provider: 'anthropic' as const,
+        modelId: 'claude-3-sonnet',
+        baseUrl: 'https://api.anthropic.com',
+        apiKey: 'sk-ant-test',
+        displayName: 'Claude 3 Sonnet',
+      };
+
+      const request = {
+        contents: [
+          {
+            role: MESSAGE_ROLES.USER,
+            parts: [{ text: 'Test message' }],
+          },
+        ],
+      };
+
+      const responses: any[] = [];
+      for await (const response of callAnthropicModelStream(modelConfig as any, request)) {
+        responses.push(response);
+      }
+
+      // Find the response that contains usageMetadata (it's usually the one from message_delta)
+      const usageResponse = responses.find(r => r.usageMetadata);
+
+      expect(usageResponse).toBeDefined();
+      expect(usageResponse.usageMetadata).toBeDefined();
+      // 🔧 promptTokenCount 现在是实际总输入：input_tokens + cache_creation + cache_read
+      // 3 + 9894 + 0 = 9897
+      expect(usageResponse.usageMetadata.promptTokenCount).toBe(3 + 9894 + 0);
+      // output_tokens in message_delta is the final total (298), not incremental
+      expect(usageResponse.usageMetadata.candidatesTokenCount).toBe(298);
+      expect(usageResponse.usageMetadata.totalTokenCount).toBe((3 + 9894 + 0) + 298);
+      // 🔧 字段名与 geminiChat.ts 中读取的一致（不带 Count 后缀）
+      expect(usageResponse.usageMetadata.cacheCreationInputTokens).toBe(9894);
+      // 0 value is preserved (means no cache hits, which is meaningful info)
+      expect(usageResponse.usageMetadata.cacheReadInputTokens).toBe(0);
+      // 保留原始的非缓存输入 token
+      expect(usageResponse.usageMetadata.uncachedInputTokens).toBe(3);
     });
   });
 });

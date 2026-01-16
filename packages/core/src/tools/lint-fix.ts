@@ -112,7 +112,7 @@ export class LintFixTool extends BaseTool<LintFixParams, ToolResult> {
    * 验证工具参数
    */
   validateToolParams(params: LintFixParams): string | null {
-    const errors = SchemaValidator.validate(this.schema.parameters, params);
+    const errors = SchemaValidator.validate(this.schema.parameters, params, LintFixTool.Name);
     if (errors) return errors;
 
     // 验证文件路径

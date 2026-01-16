@@ -21,10 +21,12 @@ vi.mock('os', async (importOriginal) => {
 });
 
 // Mock creditsService to avoid ProxyAuthManager initialization errors
+const mockGetCreditsInfo = vi.fn().mockResolvedValue(null);
+const mockIsCreditsLow = vi.fn().mockReturnValue(false);
 vi.mock('../services/creditsService.js', () => ({
   getCreditsService: vi.fn(() => ({
-    getCreditsInfo: vi.fn().mockResolvedValue(null),
-    isCreditsLow: vi.fn().mockReturnValue(false),
+    getCreditsInfo: mockGetCreditsInfo,
+    isCreditsLow: mockIsCreditsLow,
   })),
 }));
 
@@ -127,6 +129,79 @@ describe('getUserStartupWarnings', () => {
       const expectedWarning =
         'Could not verify the current directory due to a file system error.';
       expect(warnings).toEqual([expectedWarning, expectedWarning]);
+    });
+  });
+
+  describe('low credits check', () => {
+    beforeEach(() => {
+      mockGetCreditsInfo.mockReset();
+      mockIsCreditsLow.mockReset();
+    });
+
+    it('should show warning when remaining credits is exactly 5%', async () => {
+      // usagePercentage = 95%, remaining = 5%
+      mockGetCreditsInfo.mockResolvedValue({ usagePercentage: 95 });
+      const projectDir = path.join(testRootDir, 'project');
+      await fs.mkdir(projectDir, { recursive: true });
+      const warnings = await getUserStartupWarnings(projectDir, emptySettings);
+      expect(warnings).toContainEqual(expect.stringContaining('5%'));
+    });
+
+    it('should show warning when remaining credits is exactly 1%', async () => {
+      // usagePercentage = 99%, remaining = 1%
+      mockGetCreditsInfo.mockResolvedValue({ usagePercentage: 99 });
+      const projectDir = path.join(testRootDir, 'project');
+      await fs.mkdir(projectDir, { recursive: true });
+      const warnings = await getUserStartupWarnings(projectDir, emptySettings);
+      expect(warnings).toContainEqual(expect.stringContaining('1%'));
+    });
+
+    it('should show warning when remaining credits rounds to 5% (e.g., 5.99%)', async () => {
+      // usagePercentage = 94.01%, remaining = 5.99% -> floor to 5%
+      mockGetCreditsInfo.mockResolvedValue({ usagePercentage: 94.01 });
+      const projectDir = path.join(testRootDir, 'project');
+      await fs.mkdir(projectDir, { recursive: true });
+      const warnings = await getUserStartupWarnings(projectDir, emptySettings);
+      expect(warnings).toContainEqual(expect.stringContaining('5%'));
+    });
+
+    it('should NOT show warning when remaining credits is 6%', async () => {
+      // usagePercentage = 94%, remaining = 6%
+      mockGetCreditsInfo.mockResolvedValue({ usagePercentage: 94 });
+      const projectDir = path.join(testRootDir, 'project');
+      await fs.mkdir(projectDir, { recursive: true });
+      const warnings = await getUserStartupWarnings(projectDir, emptySettings);
+      expect(warnings).not.toContainEqual(expect.stringContaining('credits'));
+      expect(warnings).not.toContainEqual(expect.stringContaining('积分'));
+    });
+
+    it('should NOT show warning when remaining credits is 3%', async () => {
+      // usagePercentage = 97%, remaining = 3%
+      mockGetCreditsInfo.mockResolvedValue({ usagePercentage: 97 });
+      const projectDir = path.join(testRootDir, 'project');
+      await fs.mkdir(projectDir, { recursive: true });
+      const warnings = await getUserStartupWarnings(projectDir, emptySettings);
+      expect(warnings).not.toContainEqual(expect.stringContaining('credits'));
+      expect(warnings).not.toContainEqual(expect.stringContaining('积分'));
+    });
+
+    it('should NOT show warning when remaining credits is 0%', async () => {
+      // usagePercentage = 100%, remaining = 0%
+      mockGetCreditsInfo.mockResolvedValue({ usagePercentage: 100 });
+      const projectDir = path.join(testRootDir, 'project');
+      await fs.mkdir(projectDir, { recursive: true });
+      const warnings = await getUserStartupWarnings(projectDir, emptySettings);
+      expect(warnings).not.toContainEqual(expect.stringContaining('credits'));
+      expect(warnings).not.toContainEqual(expect.stringContaining('积分'));
+    });
+
+    it('should NOT show warning when credits info is null', async () => {
+      mockGetCreditsInfo.mockResolvedValue(null);
+      const projectDir = path.join(testRootDir, 'project');
+      await fs.mkdir(projectDir, { recursive: true });
+      const warnings = await getUserStartupWarnings(projectDir, emptySettings);
+      expect(warnings).not.toContainEqual(expect.stringContaining('credits'));
+      expect(warnings).not.toContainEqual(expect.stringContaining('积分'));
     });
   });
 });

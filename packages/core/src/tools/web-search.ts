@@ -14,6 +14,9 @@ import { Config } from '../config/config.js';
 import { getResponseText } from '../utils/generateContentResponseUtilities.js';
 import { SceneType } from '../core/sceneManager.js';
 import { t } from '../utils/simpleI18n.js';
+import { proxyAuthManager } from '../core/proxyAuth.js';
+import { isDeepXQuotaError } from '../utils/quotaErrorDetection.js';
+import { isCustomModel } from '../types/customModel.js';
 
 // 最大内容长度限制（10K字符），防止token爆炸
 const MAX_CONTENT_LENGTH = 10000;
@@ -94,7 +97,7 @@ export class WebSearchTool extends BaseTool<
    * @returns An error message string if validation fails, null if valid
    */
   validateParams(params: WebSearchToolParams): string | null {
-    const errors = SchemaValidator.validate(this.schema.parameters, params);
+    const errors = SchemaValidator.validate(this.schema.parameters, params, WebSearchTool.Name);
     if (errors) {
       return errors;
     }
@@ -107,6 +110,36 @@ export class WebSearchTool extends BaseTool<
 
   getDescription(params: WebSearchToolParams): string {
     return `Searching the web for: "${params.query}"`;
+  }
+
+  /**
+   * 检测错误是否为 401 未授权错误
+   */
+  private is401Error(error: unknown): boolean {
+    // 检查 error.status
+    if (error && typeof error === 'object' && 'status' in error) {
+      if ((error as { status: number }).status === 401) {
+        return true;
+      }
+    }
+
+    // 检查 error.response.status
+    if (error && typeof error === 'object' && 'response' in error) {
+      const response = (error as { response?: { status?: number } }).response;
+      if (response && response.status === 401) {
+        return true;
+      }
+    }
+
+    // 检查错误消息
+    if (error instanceof Error) {
+      const message = error.message.toLowerCase();
+      if (message.includes('401') || message.includes('unauthorized') || message.includes('authentication')) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   async execute(
@@ -233,6 +266,48 @@ export class WebSearchTool extends BaseTool<
         sources,
       };
     } catch (error: unknown) {
+      // 检测是否使用自定义模型（用户可能未登录 DeepV Code）
+      const currentModel = this.config.getModel();
+      const isUsingCustomModel = isCustomModel(currentModel);
+
+      // 检测未登录错误（401）
+      const is401Error = this.is401Error(error);
+      if (is401Error) {
+        const notLoggedInMessage = isUsingCustomModel
+          ? `This tool (${WebSearchTool.Name}) is currently unavailable because you are not logged in to DeepV Code. ` +
+            `Web search requires a DeepV Code account. ` +
+            `Do NOT retry this tool until the user logs in. ` +
+            `You can continue to assist the user using other tools and your own knowledge.`
+          : `This tool (${WebSearchTool.Name}) is currently unavailable due to authentication failure. ` +
+            `Please ask the user to re-login using the /auth command. ` +
+            `Do NOT retry this tool until authentication is restored.`;
+
+        console.warn(`[WebSearchTool] Authentication error (401) detected for query "${params.query}"`);
+        return {
+          llmContent: notLoggedInMessage,
+          returnDisplay: t('websearch.error.not.logged.in') || 'Not logged in',
+        };
+      }
+
+      // 检测积分不足错误（402 配额错误）
+      if (isDeepXQuotaError(error)) {
+        const quotaExceededMessage = isUsingCustomModel
+          ? `This tool (${WebSearchTool.Name}) is currently unavailable because your DeepV Code account has insufficient credits. ` +
+            `Web search requires available credits in your account. ` +
+            `Do NOT retry this tool until the user's credit balance is restored. ` +
+            `You can continue to assist the user using other tools and your own knowledge.`
+          : `This tool (${WebSearchTool.Name}) is currently unavailable due to insufficient credits in your DeepV Code account. ` +
+            `Please ask the user to check their account balance or upgrade their plan. ` +
+            `Do NOT retry this tool until credits are available.`;
+
+        console.warn(`[WebSearchTool] Quota exceeded error detected for query "${params.query}"`);
+        return {
+          llmContent: quotaExceededMessage,
+          returnDisplay: t('websearch.error.quota.exceeded') || 'Insufficient credits',
+        };
+      }
+
+      // 其他错误
       const errorMessage = `Error during web search for query "${params.query}": ${getErrorMessage(error)}`;
       console.error(errorMessage, error);
       return {

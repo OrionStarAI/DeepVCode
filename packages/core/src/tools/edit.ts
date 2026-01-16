@@ -133,7 +133,7 @@ Expectation for required parameters:
    * @returns Error message string or null if valid
    */
   validateToolParams(params: EditToolParams): string | null {
-    const errors = SchemaValidator.validate(this.schema.parameters, params);
+    const errors = SchemaValidator.validate(this.schema.parameters, params, EditTool.Name);
     if (errors) {
       return errors;
     }

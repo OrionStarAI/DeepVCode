@@ -122,7 +122,7 @@ export class LSTool extends BaseTool<LSToolParams, ToolResult> {
    * @returns An error message string if invalid, null otherwise
    */
   validateToolParams(params: LSToolParams): string | null {
-    const errors = SchemaValidator.validate(this.schema.parameters, params);
+    const errors = SchemaValidator.validate(this.schema.parameters, params, LSTool.Name);
     if (errors) {
       return errors;
     }

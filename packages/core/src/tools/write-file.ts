@@ -100,7 +100,7 @@ export class WriteFileTool
   }
 
   validateToolParams(params: WriteFileToolParams): string | null {
-    const errors = SchemaValidator.validate(this.schema.parameters, params);
+    const errors = SchemaValidator.validate(this.schema.parameters, params, WriteFileTool.Name);
     if (errors) {
       return errors;
     }

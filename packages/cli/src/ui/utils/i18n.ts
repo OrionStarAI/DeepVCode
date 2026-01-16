@@ -396,6 +396,25 @@ export const translations = {
     // Footer - Current Model
     'footer.current.model': 'Model',
 
+    // Context Summary Display
+    'context.summary.using': 'Using',
+    'context.summary.recent.file': 'recent file',
+    'context.summary.recent.files': 'recent files',
+    'context.summary.recent.view': 'ctrl+e to view',
+    'context.summary.memory.file': 'memory file',
+    'context.summary.memory.files': 'memory files',
+    'context.summary.mcp.server': 'MCP server',
+    'context.summary.mcp.servers': 'MCP servers',
+    'context.summary.mcp.connecting': 'connecting...',
+    'context.summary.mcp.failed': 'failed',
+    'context.summary.mcp.blocked': 'Blocked',
+    'context.summary.mcp.toggle': 'ctrl+t to toggle',
+    'context.summary.mcp.view': 'ctrl+t to view',
+
+    // Memory Command Messages
+    'memory.show.content': 'Current memory content from {fileCount} file(s):',
+    'memory.show.empty': 'Memory is currently empty.',
+
     // Tool Confirmation Messages
     'tool.confirmation.modifying': 'Modification in progress:',
     'tool.confirmation.save.editor': 'Save and close external editor to continue',
@@ -576,6 +595,7 @@ export const translations = {
     'auth.deepvlab.cancel.hint': 'Press ESC to cancel authentication',
     'auth.deepvlab.cancelled': 'Authentication cancelled',
     'auth.option.deepvlab': 'Press Enter to sign in to DeepV Code',
+    'auth.option.custom.model': 'Use Custom Model (no login required)',
 
     // Welcome and Dialog Messages
     'welcome.title': '🎉 Welcome to DeepV Code! ✨',
@@ -1683,6 +1703,25 @@ export const translations = {
     // Footer - Current Model
     'footer.current.model': '模型',
 
+    // Context Summary Display
+    'context.summary.using': '使用中',
+    'context.summary.recent.file': '最近打开文件',
+    'context.summary.recent.files': '最近打开文件',
+    'context.summary.recent.view': '按 ctrl+e 查看',
+    'context.summary.memory.file': '记忆文件',
+    'context.summary.memory.files': '记忆文件',
+    'context.summary.mcp.server': 'MCP 服务器',
+    'context.summary.mcp.servers': 'MCP 服务器',
+    'context.summary.mcp.connecting': '连接中...',
+    'context.summary.mcp.failed': '失败',
+    'context.summary.mcp.blocked': '被阻止',
+    'context.summary.mcp.toggle': '按 ctrl+t 切换',
+    'context.summary.mcp.view': '按 ctrl+t 查看',
+
+    // Memory Command Messages
+    'memory.show.content': '当前记忆中来自 {fileCount} 个文件的内容：',
+    'memory.show.empty': '记忆当前为空。',
+
     // Tool Confirmation Messages
     'tool.confirmation.modifying': '修改进行中：',
     'tool.confirmation.save.editor': '保存并关闭外部编辑器以继续',
@@ -1864,6 +1903,7 @@ export const translations = {
     'auth.deepvlab.page.title': 'DeepVlab认证成功',
     'auth.deepvlab.page.success': '✅ DeepVlab认证成功！',
     'auth.option.deepvlab': '按回车键，以便登录DeepV Code',
+    'auth.option.custom.model': '使用自定义模型（无需登录）',
     'welcome.title': '🎉 欢迎使用 DeepV Code！✨',
     'welcome.subtitle': '🚀 开启您的智能编程之旅 💻',
     'welcome.daily.tip.title': '每日技巧',

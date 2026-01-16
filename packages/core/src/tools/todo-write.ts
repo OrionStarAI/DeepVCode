@@ -114,7 +114,7 @@ Example: [{"id": "task_1", "content": "My task", "status": "pending", "priority"
       logger.info(`[TodoWriteTool] First todo item: ${JSON.stringify(params.todos[0], null, 2)}`);
     }
 
-    const errors = SchemaValidator.validate(this.schema.parameters, params);
+    const errors = SchemaValidator.validate(this.schema.parameters, params, TodoWriteTool.Name);
     if (errors) {
       // 增强错误消息，提供具体的格式示例（中英文双语）
       const enhancedError = `${errors}
