@@ -941,6 +941,19 @@ export async function* callAnthropicModelStream(
               totalOutputTokens = chunk.usage.output_tokens;
             }
 
+            // 🔧 鲁棒性增强：一些上游厂商（如 GLM-4 的 Anthropic 兼容接口）在 message_start 中
+            // 返回 input_tokens: 0，但在最后的 message_delta 中才返回真实的 token 用量。
+            // 这里采用"有非零值就更新"的策略，确保能从任何位置获取正确的 token 数据。
+            if (chunk.usage?.input_tokens != null && chunk.usage.input_tokens > 0) {
+              inputTokens = chunk.usage.input_tokens;
+            }
+            if (chunk.usage?.cache_creation_input_tokens != null && chunk.usage.cache_creation_input_tokens > 0) {
+              cacheCreationInputTokens = chunk.usage.cache_creation_input_tokens;
+            }
+            if (chunk.usage?.cache_read_input_tokens != null && chunk.usage.cache_read_input_tokens > 0) {
+              cacheReadInputTokens = chunk.usage.cache_read_input_tokens;
+            }
+
             // 🔧 计算真正的总输入 token：
             // Anthropic 的 input_tokens 只是非缓存的直接输入，实际总输入需要加上缓存 token
             // 实际总输入 = input_tokens + cache_creation_input_tokens + cache_read_input_tokens

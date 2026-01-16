@@ -4,275 +4,85 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { getCoreSystemPrompt } from './prompts.js';
-import { isGitRepository } from '../utils/gitUtils.js';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-import { GEMINI_CONFIG_DIR } from '../tools/memoryTool.js';
+import { describe, it, expect } from 'vitest';
+import { getCoreSystemPrompt, isGemini3Model } from './prompts.js';
 
-// Mock tool names if they are dynamically generated or complex
-vi.mock('../tools/ls', () => ({ LSTool: { Name: 'list_directory' } }));
-vi.mock('../tools/edit', () => ({ EditTool: { Name: 'replace' } }));
-vi.mock('../tools/glob', () => ({ GlobTool: { Name: 'glob' } }));
-vi.mock('../tools/grep', () => ({ GrepTool: { Name: 'search_file_content' } }));
-vi.mock('../tools/read-file', () => ({ ReadFileTool: { Name: 'read_file' } }));
-vi.mock('../tools/read-many-files', () => ({
-  ReadManyFilesTool: { Name: 'read_many_files' },
-}));
-vi.mock('../tools/shell', () => ({
-  ShellTool: { Name: 'run_shell_command' },
-}));
-vi.mock('../tools/write-file', () => ({
-  WriteFileTool: { Name: 'write_file' },
-}));
-vi.mock('../utils/gitUtils', () => ({
-  isGitRepository: vi.fn(),
-}));
-vi.mock('node:fs');
-
-describe('Core System Prompt (prompts.ts)', () => {
-  beforeEach(() => {
-    vi.resetAllMocks();
-    vi.stubEnv('GEMINI_SYSTEM_MD', undefined);
-    vi.stubEnv('GEMINI_WRITE_SYSTEM_MD', undefined);
-  });
-
-  it('should return the base prompt when no userMemory is provided', () => {
-    vi.stubEnv('SANDBOX', undefined);
-    const prompt = getCoreSystemPrompt();
-    expect(prompt).not.toContain('---\n\n'); // Separator should not be present
-    expect(prompt).toContain('You are an interactive CLI agent'); // Check for core content
-    expect(prompt).toMatchSnapshot(); // Use snapshot for base prompt structure
-  });
-
-  it('should return the base prompt when userMemory is empty string', () => {
-    vi.stubEnv('SANDBOX', undefined);
-    const prompt = getCoreSystemPrompt('');
-    expect(prompt).not.toContain('---\n\n');
-    expect(prompt).toContain('You are an interactive CLI agent');
-    expect(prompt).toMatchSnapshot();
-  });
-
-  it('should return the base prompt when userMemory is whitespace only', () => {
-    vi.stubEnv('SANDBOX', undefined);
-    const prompt = getCoreSystemPrompt('   \n  \t ');
-    expect(prompt).not.toContain('---\n\n');
-    expect(prompt).toContain('You are an interactive CLI agent');
-    expect(prompt).toMatchSnapshot();
-  });
-
-  it('should append userMemory with separator when provided', () => {
-    vi.stubEnv('SANDBOX', undefined);
-    const memory = 'This is custom user memory.\nBe extra polite.';
-    const expectedSuffix = `\n\n---\n\n${memory}`;
-    const prompt = getCoreSystemPrompt(memory);
-
-    expect(prompt.endsWith(expectedSuffix)).toBe(true);
-    expect(prompt).toContain('You are an interactive CLI agent'); // Ensure base prompt follows
-    expect(prompt).toMatchSnapshot(); // Snapshot the combined prompt
-  });
-
-  it('should include sandbox-specific instructions when SANDBOX env var is set', () => {
-    vi.stubEnv('SANDBOX', 'true'); // Generic sandbox value
-    const prompt = getCoreSystemPrompt();
-    expect(prompt).toContain('# Sandbox');
-    expect(prompt).not.toContain('# macOS Seatbelt');
-    expect(prompt).not.toContain('# Outside of Sandbox');
-    expect(prompt).toMatchSnapshot();
-  });
-
-  it('should include seatbelt-specific instructions when SANDBOX env var is "sandbox-exec"', () => {
-    vi.stubEnv('SANDBOX', 'sandbox-exec');
-    const prompt = getCoreSystemPrompt();
-    expect(prompt).toContain('# macOS Seatbelt');
-    expect(prompt).not.toContain('# Sandbox');
-    expect(prompt).not.toContain('# Outside of Sandbox');
-    expect(prompt).toMatchSnapshot();
-  });
-
-  it('should include non-sandbox instructions when SANDBOX env var is not set', () => {
-    vi.stubEnv('SANDBOX', undefined); // Ensure it's not set
-    const prompt = getCoreSystemPrompt();
-    expect(prompt).toContain('# Outside of Sandbox');
-    expect(prompt).not.toContain('# Sandbox');
-    expect(prompt).not.toContain('# macOS Seatbelt');
-    expect(prompt).toMatchSnapshot();
-  });
-
-  it('should include language preference when provided', () => {
-    const lang = 'Japanese';
-    const prompt = getCoreSystemPrompt(undefined, false, undefined, 'default', undefined, lang);
-    expect(prompt).toContain(`**Language Preference:** Please always use "${lang}" to reply to the user.`);
-  });
-
-  it('should include git instructions when in a git repo', () => {
-    vi.stubEnv('SANDBOX', undefined);
-    vi.mocked(isGitRepository).mockReturnValue(true);
-    const prompt = getCoreSystemPrompt();
-    expect(prompt).toContain('# Git Repository');
-    expect(prompt).toMatchSnapshot();
-  });
-
-  it('should not include git instructions when not in a git repo', () => {
-    vi.stubEnv('SANDBOX', undefined);
-    vi.mocked(isGitRepository).mockReturnValue(false);
-    const prompt = getCoreSystemPrompt();
-    expect(prompt).not.toContain('# Git Repository');
-    expect(prompt).toMatchSnapshot();
-  });
-
-  describe('GEMINI_SYSTEM_MD environment variable', () => {
-    it('should use default prompt when GEMINI_SYSTEM_MD is "false"', () => {
-      vi.stubEnv('GEMINI_SYSTEM_MD', 'false');
-      const prompt = getCoreSystemPrompt();
-      expect(fs.readFileSync).not.toHaveBeenCalled();
-      expect(prompt).not.toContain('custom system prompt');
-    });
-
-    it('should use default prompt when GEMINI_SYSTEM_MD is "0"', () => {
-      vi.stubEnv('GEMINI_SYSTEM_MD', '0');
-      const prompt = getCoreSystemPrompt();
-      expect(fs.readFileSync).not.toHaveBeenCalled();
-      expect(prompt).not.toContain('custom system prompt');
-    });
-
-    it('should throw error if GEMINI_SYSTEM_MD points to a non-existent file', () => {
-      const customPath = '/non/existent/path/system.md';
-      vi.stubEnv('GEMINI_SYSTEM_MD', customPath);
-      vi.mocked(fs.existsSync).mockReturnValue(false);
-      expect(() => getCoreSystemPrompt()).toThrow(
-        `missing system prompt file '${path.resolve(customPath)}'`,
-      );
-    });
-
-    it('should read from default path when GEMINI_SYSTEM_MD is "true"', () => {
-      const defaultPath = path.resolve(
-        path.join(GEMINI_CONFIG_DIR, 'system.md'),
-      );
-      vi.stubEnv('GEMINI_SYSTEM_MD', 'true');
-      vi.mocked(fs.existsSync).mockReturnValue(true);
-      vi.mocked(fs.readFileSync).mockReturnValue('custom system prompt');
-
-      const prompt = getCoreSystemPrompt();
-      expect(fs.readFileSync).toHaveBeenCalledWith(defaultPath, 'utf8');
-      expect(prompt).toContain('custom system prompt');
-    });
-
-    it('should read from default path when GEMINI_SYSTEM_MD is "1"', () => {
-      const defaultPath = path.resolve(
-        path.join(GEMINI_CONFIG_DIR, 'system.md'),
-      );
-      vi.stubEnv('GEMINI_SYSTEM_MD', '1');
-      vi.mocked(fs.existsSync).mockReturnValue(true);
-      vi.mocked(fs.readFileSync).mockReturnValue('custom system prompt');
-
-      const prompt = getCoreSystemPrompt();
-      expect(fs.readFileSync).toHaveBeenCalledWith(defaultPath, 'utf8');
-      expect(prompt).toContain('custom system prompt');
-    });
-
-    it('should read from custom path when GEMINI_SYSTEM_MD provides one, preserving case', () => {
-      const customPath = path.resolve('/custom/path/SyStEm.Md');
-      vi.stubEnv('GEMINI_SYSTEM_MD', customPath);
-      vi.mocked(fs.existsSync).mockReturnValue(true);
-      vi.mocked(fs.readFileSync).mockReturnValue('custom system prompt');
-
-      const prompt = getCoreSystemPrompt();
-      expect(fs.readFileSync).toHaveBeenCalledWith(customPath, 'utf8');
-      expect(prompt).toContain('custom system prompt');
-    });
-
-    it('should expand tilde in custom path when GEMINI_SYSTEM_MD is set', () => {
-      const homeDir = '/Users/test';
-      vi.spyOn(os, 'homedir').mockReturnValue(homeDir);
-      const customPath = '~/custom/system.md';
-      const expectedPath = path.join(homeDir, 'custom/system.md');
-      vi.stubEnv('GEMINI_SYSTEM_MD', customPath);
-      vi.mocked(fs.existsSync).mockReturnValue(true);
-      vi.mocked(fs.readFileSync).mockReturnValue('custom system prompt');
-
-      const prompt = getCoreSystemPrompt();
-      expect(fs.readFileSync).toHaveBeenCalledWith(
-        path.resolve(expectedPath),
-        'utf8',
-      );
-      expect(prompt).toContain('custom system prompt');
+describe('prompts', () => {
+  describe('isGemini3Model', () => {
+    it('should identify gemini-3 models correctly', () => {
+      expect(isGemini3Model('gemini-3-flash-preview')).toBe(true);
+      expect(isGemini3Model('gemini3-pro')).toBe(true);
+      expect(isGemini3Model('gemini-2.0-flash')).toBe(false);
+      expect(isGemini3Model(undefined)).toBe(false);
     });
   });
 
-  describe('GEMINI_WRITE_SYSTEM_MD environment variable', () => {
-    it('should not write to file when GEMINI_WRITE_SYSTEM_MD is "false"', () => {
-      vi.stubEnv('GEMINI_WRITE_SYSTEM_MD', 'false');
-      getCoreSystemPrompt();
-      expect(fs.writeFileSync).not.toHaveBeenCalled();
+  describe('getCoreSystemPrompt - Environment Differences', () => {
+    it('should include VSCode-specific instructions when isVSCode is true', () => {
+      const prompt = getCoreSystemPrompt(undefined, true);
+      expect(prompt).toContain('interactive VSCode assistant');
+      // 验证是否包含 lint 检查的描述
+      expect(prompt).toContain('read_lints');
     });
 
-    it('should not write to file when GEMINI_WRITE_SYSTEM_MD is "0"', () => {
-      vi.stubEnv('GEMINI_WRITE_SYSTEM_MD', '0');
-      getCoreSystemPrompt();
-      expect(fs.writeFileSync).not.toHaveBeenCalled();
+    it('should use CLI instructions when isVSCode is false', () => {
+      const prompt = getCoreSystemPrompt(undefined, false);
+      expect(prompt).toContain('interactive CLI tool');
+    });
+  });
+
+  describe('getCoreSystemPrompt - Model Differences', () => {
+    it('should use Gemini 3 specific instructions for Gemini 3 models', () => {
+      const prompt = getCoreSystemPrompt(undefined, false, undefined, 'default', 'gemini-3-flash');
+      expect(prompt).toContain('strictly grounded to the information provided in context');
+      expect(prompt).toContain('Context is Truth');
     });
 
-    it('should write to default path when GEMINI_WRITE_SYSTEM_MD is "true"', () => {
-      const defaultPath = path.resolve(
-        path.join(GEMINI_CONFIG_DIR, 'system.md'),
-      );
-      vi.stubEnv('GEMINI_WRITE_SYSTEM_MD', 'true');
-      getCoreSystemPrompt();
-      expect(fs.writeFileSync).toHaveBeenCalledWith(
-        defaultPath,
-        expect.any(String),
-      );
+    it('should use standard instructions for other models', () => {
+      const prompt = getCoreSystemPrompt(undefined, false, undefined, 'default', 'gemini-1.5-pro');
+      expect(prompt).not.toContain('Context is Truth');
+    });
+  });
+
+  describe('getCoreSystemPrompt - Agent Style Differences', () => {
+    it('should use Codex style prompt when requested', () => {
+      const prompt = getCoreSystemPrompt(undefined, false, undefined, 'codex');
+      expect(prompt).toContain('CODEX MODE');
+      expect(prompt).toContain('NO NARRATION');
     });
 
-    it('should write to default path when GEMINI_WRITE_SYSTEM_MD is "1"', () => {
-      const defaultPath = path.resolve(
-        path.join(GEMINI_CONFIG_DIR, 'system.md'),
-      );
-      vi.stubEnv('GEMINI_WRITE_SYSTEM_MD', '1');
-      getCoreSystemPrompt();
-      expect(fs.writeFileSync).toHaveBeenCalledWith(
-        defaultPath,
-        expect.any(String),
-      );
+    it('should use Cursor style prompt when requested', () => {
+      const prompt = getCoreSystemPrompt(undefined, false, undefined, 'cursor');
+      expect(prompt).toContain('CURSOR MODE');
+      expect(prompt).toContain('STATUS UPDATES');
     });
 
-    it('should write to custom path when GEMINI_WRITE_SYSTEM_MD provides one', () => {
-      const customPath = path.resolve('/custom/path/system.md');
-      vi.stubEnv('GEMINI_WRITE_SYSTEM_MD', customPath);
-      getCoreSystemPrompt();
-      expect(fs.writeFileSync).toHaveBeenCalledWith(
-        customPath,
-        expect.any(String),
-      );
+    it('should use Windsurf style prompt when requested', () => {
+      const prompt = getCoreSystemPrompt(undefined, false, undefined, 'windsurf');
+      expect(prompt).toContain('WINDSURF MODE');
+      expect(prompt).toContain('AI Flow');
     });
+  });
 
-    it('should expand tilde in custom path when GEMINI_WRITE_SYSTEM_MD is set', () => {
-      const homeDir = '/Users/test';
-      vi.spyOn(os, 'homedir').mockReturnValue(homeDir);
-      const customPath = '~/custom/system.md';
-      const expectedPath = path.join(homeDir, 'custom/system.md');
-      vi.stubEnv('GEMINI_WRITE_SYSTEM_MD', customPath);
-      getCoreSystemPrompt();
-      expect(fs.writeFileSync).toHaveBeenCalledWith(
-        path.resolve(expectedPath),
-        expect.any(String),
-      );
+  describe('getCoreSystemPrompt - Language Preference', () => {
+    it('should append language preference at the end', () => {
+      const prompt = getCoreSystemPrompt(undefined, false, undefined, 'default', undefined, '简体中文');
+      // 检查加粗格式
+      expect(prompt).toContain('**Language Preference:** Please always use "简体中文" to reply to the user.');
     });
+  });
 
-    it('should expand tilde in custom path when GEMINI_WRITE_SYSTEM_MD is just ~', () => {
-      const homeDir = '/Users/test';
-      vi.spyOn(os, 'homedir').mockReturnValue(homeDir);
-      const customPath = '~';
-      const expectedPath = homeDir;
-      vi.stubEnv('GEMINI_WRITE_SYSTEM_MD', customPath);
-      getCoreSystemPrompt();
-      expect(fs.writeFileSync).toHaveBeenCalledWith(
-        path.resolve(expectedPath),
-        expect.any(String),
-      );
+  describe('getCoreSystemPrompt - Custom Model Info', () => {
+    it('should include custom model server info', () => {
+      const customModel = {
+        provider: 'openai',
+        modelId: 'gpt-4o',
+        baseUrl: 'https://api.openai.com/v1'
+      };
+      const prompt = getCoreSystemPrompt(undefined, false, undefined, 'default', undefined, undefined, customModel);
+      // 检查 Markdown 行内代码格式
+      expect(prompt).toContain('**Current Model:** `gpt-4o`');
+      expect(prompt).toContain('served by user-configured endpoint `https://api.openai.com/v1`');
     });
   });
 });

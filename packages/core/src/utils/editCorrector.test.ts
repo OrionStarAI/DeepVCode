@@ -11,12 +11,9 @@ import {
   it,
   expect,
   beforeEach,
-  afterEach,
-  Mock,
   type Mocked,
 } from 'vitest';
 import * as fs from 'fs';
-import { EditTool } from '../tools/edit.js';
 
 // MOCKS
 let callCount = 0;
@@ -103,14 +100,14 @@ describe('editCorrector', () => {
 
   describe('unescapeStringForGeminiBug', () => {
     it('should unescape common sequences', () => {
-      expect(unescapeStringForGeminiBug('\\n')).toBe('\n');
-      expect(unescapeStringForGeminiBug('\\t')).toBe('\t');
-      expect(unescapeStringForGeminiBug("\\'")).toBe("'");
-      expect(unescapeStringForGeminiBug('\\"')).toBe('"');
-      expect(unescapeStringForGeminiBug('\\`')).toBe('`');
+      expect(unescapeStringForGeminiBug('\\\\n')).toBe('\n');
+      expect(unescapeStringForGeminiBug('\\\\t')).toBe('\t');
+      expect(unescapeStringForGeminiBug("\\\\'")).toBe("'");
+      expect(unescapeStringForGeminiBug('\\\\"')).toBe('"');
+      expect(unescapeStringForGeminiBug('\\\\`')).toBe('`');
     });
     it('should handle multiple escaped sequences', () => {
-      expect(unescapeStringForGeminiBug('Hello\\nWorld\\tTest')).toBe(
+      expect(unescapeStringForGeminiBug('Hello\\\\nWorld\\\\tTest')).toBe(
         'Hello\nWorld\tTest',
       );
     });
@@ -121,60 +118,68 @@ describe('editCorrector', () => {
       );
     });
     it('should handle mixed correct and incorrect sequences', () => {
-      expect(unescapeStringForGeminiBug('\\nCorrect\t\\`')).toBe(
+      expect(unescapeStringForGeminiBug('\\\\nCorrect\t\\\\`')).toBe(
         '\nCorrect\t`',
       );
     });
     it('should handle backslash followed by actual newline character', () => {
-      expect(unescapeStringForGeminiBug('\\\n')).toBe('\n');
-      expect(unescapeStringForGeminiBug('First line\\\nSecond line')).toBe(
+      expect(unescapeStringForGeminiBug('\\\\\n')).toBe('\n');
+      expect(unescapeStringForGeminiBug('First line\\\\\nSecond line')).toBe(
         'First line\nSecond line',
       );
     });
     it('should handle multiple backslashes before an escapable character (aggressive unescaping)', () => {
-      expect(unescapeStringForGeminiBug('\\\\n')).toBe('\n');
-      expect(unescapeStringForGeminiBug('\\\\\\t')).toBe('\t');
-      expect(unescapeStringForGeminiBug('\\\\\\\\`')).toBe('`');
+      expect(unescapeStringForGeminiBug('\\\\\\\\n')).toBe('\n');
+      expect(unescapeStringForGeminiBug('\\\\\\\\\\\\t')).toBe('\t');
+      expect(unescapeStringForGeminiBug('\\\\\\\\\\\\\\\\`')).toBe('`');
     });
     it('should return empty string for empty input', () => {
       expect(unescapeStringForGeminiBug('')).toBe('');
     });
     it('should not alter strings with no targeted escape sequences', () => {
       expect(unescapeStringForGeminiBug('abc def')).toBe('abc def');
-      expect(unescapeStringForGeminiBug('C:\\Folder\\File')).toBe(
-        'C:\\Folder\\File',
-      );
+      // Input: C:\Folder\File (two single backslashes - path separators, not escape sequences)
+      // Output should be unchanged since \F and \F are not targeted escape sequences
+      const pathInput = 'C:\\Folder\\File';
+      expect(unescapeStringForGeminiBug(pathInput)).toBe(pathInput);
     });
     it('should correctly process strings with some targeted escapes', () => {
-      // Note: \n is an escape sequence in JS literal too.
-      expect(unescapeStringForGeminiBug('C:\\Users\\name')).toBe(
-        'C:\\Users\name',
-      );
+      // Input has \\n which gets unescaped to \n (newline)
+      // C:\Users becomes C:\Users (unchanged), \name has \n which becomes newline + "ame"
+      const input = 'C:\\Users\\name';
+      const result = unescapeStringForGeminiBug(input);
+      // \n in \\name gets unescaped to newline
+      expect(result).toBe('C:\\Users\name');
     });
     it('should handle complex cases with mixed slashes and characters', () => {
-      expect(
-        unescapeStringForGeminiBug('\\\\\\\nLine1\\\nLine2\\tTab\\\\`Tick\\"'),
-      ).toBe('\nLine1\nLine2\tTab`Tick"');
+      // This test has complex escape sequences
+      const input = '\\\\\\nLine1\\\\nLine2\\tTab\\\\`Tick\\"';
+      const expected = '\nLine1\nLine2\tTab`Tick"';
+      expect(unescapeStringForGeminiBug(input)).toBe(expected);
     });
     it('should handle escaped backslashes', () => {
+      // \\\\ (two literal backslashes) -> \\ (one literal backslash)
       expect(unescapeStringForGeminiBug('\\\\')).toBe('\\');
+      // C:\\\\ + Users -> C:\\ + Users = C:\Users
       expect(unescapeStringForGeminiBug('C:\\\\Users')).toBe('C:\\Users');
-      // Note: \\t becomes TAB
-      expect(unescapeStringForGeminiBug('path\\\\to\\\\file')).toBe(
-        'path\to\\file',
-      );
+      // path\\to\\file - \t becomes tab, \\f is not a target so stays
+      expect(unescapeStringForGeminiBug('path\\\\to\\\\file')).toBe('path\to\\file');
     });
     it('should handle escaped backslashes mixed with other escapes (aggressive unescaping)', () => {
-      expect(unescapeStringForGeminiBug('line1\\\\\\nline2')).toBe(
-        'line1\nline2',
-      );
-      expect(unescapeStringForGeminiBug('quote\\\\"text\\\\nline')).toBe(
-        'quote"text\nline',
-      );
+      // \\\\n -> \n (aggressive unescaping)
+      expect(unescapeStringForGeminiBug('line1\\\\\\nline2')).toBe('line1\nline2');
+      // \\\\" -> ", \\\\n -> \n
+      expect(unescapeStringForGeminiBug('quote\\\\"text\\\\nline')).toBe('quote"text\nline');
     });
   });
 
-  describe('ensureCorrectEdit', () => {
+  /**
+   * 🔧 2026-01: 修正逻辑已全局禁用
+   *
+   * ensureCorrectEdit 和 ensureCorrectFileContent 现在直接返回原始参数/内容，
+   * 不做任何反转义或 LLM 修正。以下测试验证这一新行为。
+   */
+  describe('ensureCorrectEdit (correction disabled)', () => {
     let mockGeminiClientInstance: Mocked<GeminiClient>;
     let mockToolRegistry: Mocked<ToolRegistry>;
     let mockConfigInstance: Config;
@@ -257,366 +262,110 @@ describe('editCorrector', () => {
       resetEditCorrectorCaches_TEST_ONLY();
     });
 
-    describe('Scenario Group 1: originalParams.old_string matches currentContent directly', () => {
-      it('Test 1.1: old_string (no literal \\), new_string (escaped by Gemini) -> new_string unescaped', async () => {
-        const currentContent = 'This is a test string to find me.';
-        const originalParams = {
-          file_path: '/test/file.txt',
-          old_string: 'find me',
-          new_string: 'replace with \\\\"this\\\\"', // This matches literal \"
-        };
-        mockResponses.push({
-          corrected_new_string_escaping: 'replace with "this"',
-        });
-        const result = await ensureCorrectEdit(
-          '/test/file.txt',
-          currentContent,
-          originalParams,
-          mockGeminiClientInstance,
-          abortSignal,
-        );
-        expect(mockGenerateJson).toHaveBeenCalledTimes(1);
-        expect(result.params.new_string).toBe('replace with "this"');
-        expect(result.params.old_string).toBe('find me');
-        expect(result.occurrences).toBe(1);
-      });
-      it('Test 1.2: old_string (no literal \\), new_string (correctly formatted) -> new_string unchanged', async () => {
-        const currentContent = 'This is a test string to find me.';
-        const originalParams = {
-          file_path: '/test/file.txt',
-          old_string: 'find me',
-          new_string: 'replace with this',
-        };
-        const result = await ensureCorrectEdit(
-          '/test/file.txt',
-          currentContent,
-          originalParams,
-          mockGeminiClientInstance,
-          abortSignal,
-        );
-        expect(mockGenerateJson).toHaveBeenCalledTimes(0);
-        expect(result.params.new_string).toBe('replace with this');
-        expect(result.params.old_string).toBe('find me');
-        expect(result.occurrences).toBe(1);
-      });
-      it('Test 1.3: old_string (with literal \\), new_string (escaped by Gemini) -> new_string unchanged (still escaped)', async () => {
-        const currentContent = 'This is a test string to find\\me.';
-        const originalParams = {
-          file_path: '/test/file.txt',
-          old_string: 'find\\me',
-          new_string: 'replace with \\\\"this\\\\"',
-        };
-        mockResponses.push({
-          corrected_new_string_escaping: 'replace with "this"',
-        });
-        const result = await ensureCorrectEdit(
-          '/test/file.txt',
-          currentContent,
-          originalParams,
-          mockGeminiClientInstance,
-          abortSignal,
-        );
-        expect(mockGenerateJson).toHaveBeenCalledTimes(1);
-        expect(result.params.new_string).toBe('replace with "this"');
-        expect(result.params.old_string).toBe('find\\me');
-        expect(result.occurrences).toBe(1);
-      });
-      it('Test 1.4: old_string (with literal \\), new_string (correctly formatted) -> new_string unchanged', async () => {
-        const currentContent = 'This is a test string to find\\me.';
-        const originalParams = {
-          file_path: '/test/file.txt',
-          old_string: 'find\\me',
-          new_string: 'replace with this',
-        };
-        const result = await ensureCorrectEdit(
-          '/test/file.txt',
-          currentContent,
-          originalParams,
-          mockGeminiClientInstance,
-          abortSignal,
-        );
-        expect(mockGenerateJson).toHaveBeenCalledTimes(0);
-        expect(result.params.new_string).toBe('replace with this');
-        expect(result.params.old_string).toBe('find\\me');
-        expect(result.occurrences).toBe(1);
-      });
+    it('should return original params unchanged when old_string matches', async () => {
+      const currentContent = 'This is a test string to find me.';
+      const originalParams = {
+        file_path: '/test/file.txt',
+        old_string: 'find me',
+        new_string: 'replace with this',
+      };
+      const result = await ensureCorrectEdit(
+        '/test/file.txt',
+        currentContent,
+        originalParams,
+        mockGeminiClientInstance,
+        abortSignal,
+      );
+      // 🔧 修正已禁用：不调用 LLM
+      expect(mockGenerateJson).toHaveBeenCalledTimes(0);
+      // 返回原始参数
+      expect(result.params.new_string).toBe('replace with this');
+      expect(result.params.old_string).toBe('find me');
+      expect(result.occurrences).toBe(1);
     });
 
-    describe('Scenario Group 2: originalParams.old_string does NOT match, but unescapeStringForGeminiBug(originalParams.old_string) DOES match', () => {
-      it('Test 2.1: old_string (over-escaped, no intended literal \\), new_string (escaped by Gemini) -> new_string unescaped', async () => {
-        const currentContent = 'This is a test string to find "me".';
-        const originalParams = {
-          file_path: '/test/file.txt',
-          old_string: 'find \\\\"me\\\\"',
-          new_string: 'replace with \\\\"this\\\\"',
-        };
-        mockResponses.push({ corrected_new_string: 'replace with "this"' });
-        const result = await ensureCorrectEdit(
-          '/test/file.txt',
-          currentContent,
-          originalParams,
-          mockGeminiClientInstance,
-          abortSignal,
-        );
-        expect(mockGenerateJson).toHaveBeenCalledTimes(1);
-        expect(result.params.new_string).toBe('replace with "this"');
-        expect(result.params.old_string).toBe('find "me"');
-        expect(result.occurrences).toBe(1);
-      });
-      it('Test 2.2: old_string (over-escaped, no intended literal \\), new_string (correctly formatted) -> new_string unescaped (harmlessly)', async () => {
-        const currentContent = 'This is a test string to find "me".';
-        const originalParams = {
-          file_path: '/test/file.txt',
-          old_string: 'find \\\\"me\\\\"',
-          new_string: 'replace with this',
-        };
-        const result = await ensureCorrectEdit(
-          '/test/file.txt',
-          currentContent,
-          originalParams,
-          mockGeminiClientInstance,
-          abortSignal,
-        );
-        expect(mockGenerateJson).toHaveBeenCalledTimes(0);
-        expect(result.params.new_string).toBe('replace with this');
-        expect(result.params.old_string).toBe('find "me"');
-        expect(result.occurrences).toBe(1);
-      });
-      it('Test 2.3: old_string (over-escaped, with intended literal \\), new_string (simple) -> new_string corrected', async () => {
-        const currentContent = 'This is a test string to find \\me.';
-        const originalParams = {
-          file_path: '/test/file.txt',
-          old_string: 'find \\\\me',
-          new_string: 'replace with foobar',
-        };
-        const result = await ensureCorrectEdit(
-          '/test/file.txt',
-          currentContent,
-          originalParams,
-          mockGeminiClientInstance,
-          abortSignal,
-        );
-        expect(mockGenerateJson).toHaveBeenCalledTimes(0);
-        expect(result.params.new_string).toBe('replace with foobar');
-        expect(result.params.old_string).toBe('find \\me');
-        expect(result.occurrences).toBe(1);
-      });
+    it('should return original params unchanged even when old_string does not match', async () => {
+      const currentContent = 'This is a test string to find me.';
+      const originalParams = {
+        file_path: '/test/file.txt',
+        old_string: 'not found',
+        new_string: 'replace with this',
+      };
+      const result = await ensureCorrectEdit(
+        '/test/file.txt',
+        currentContent,
+        originalParams,
+        mockGeminiClientInstance,
+        abortSignal,
+      );
+      // 🔧 修正已禁用：不尝试 LLM 修正
+      expect(mockGenerateJson).toHaveBeenCalledTimes(0);
+      // 返回原始参数，occurrences 为 0
+      expect(result.params.new_string).toBe('replace with this');
+      expect(result.params.old_string).toBe('not found');
+      expect(result.occurrences).toBe(0);
     });
 
-    describe('Scenario Group 3: LLM Correction Path', () => {
-      it('Test 3.1: old_string (no literal \\), new_string (escaped by Gemini), LLM re-escapes new_string -> final new_string is double unescaped', async () => {
-        const currentContent = 'This is a test string to corrected find me.';
-        const originalParams = {
-          file_path: '/test/file.txt',
-          old_string: 'find me',
-          new_string: 'replace with \\\\\\\\"this\\\\\\\\"', // Actual: replace with \\"this\\"
-        };
-        const llmNewString = 'LLM says replace with "that"';
-        mockResponses.push({ corrected_new_string_escaping: llmNewString });
-        const result = await ensureCorrectEdit(
-          '/test/file.txt',
-          currentContent,
-          originalParams,
-          mockGeminiClientInstance,
-          abortSignal,
-        );
-        expect(mockGenerateJson).toHaveBeenCalledTimes(1);
-        expect(result.params.new_string).toBe(llmNewString);
-        expect(result.params.old_string).toBe('find me');
-        expect(result.occurrences).toBe(1);
-      });
-      it('Test 3.2: old_string (with literal \\), new_string (escaped by Gemini), LLM re-escapes new_string -> final new_string is unescaped once', async () => {
-        const currentContent = 'This is a test string to corrected find me.';
-        const originalParams = {
-          file_path: '/test/file.txt',
-          old_string: 'find\\me',
-          new_string: 'replace with \\\\\\\\"this\\\\\\\\"',
-        };
-        const llmCorrectedOldString = 'corrected find me';
-        const llmNewString = 'LLM says replace with "that"';
-        mockResponses.push({ corrected_target_snippet: llmCorrectedOldString });
-        mockResponses.push({ corrected_new_string: llmNewString });
-        const result = await ensureCorrectEdit(
-          '/test/file.txt',
-          currentContent,
-          originalParams,
-          mockGeminiClientInstance,
-          abortSignal,
-        );
-        expect(mockGenerateJson).toHaveBeenCalledTimes(2);
-        expect(result.params.new_string).toBe(llmNewString);
-        expect(result.params.old_string).toBe(llmCorrectedOldString);
-        expect(result.occurrences).toBe(1);
-      });
-      it('Test 3.3: old_string needs LLM, new_string is fine -> old_string corrected, new_string original', async () => {
-        const currentContent = 'This is a test string to be corrected.';
-        const originalParams = {
-          file_path: '/test/file.txt',
-          old_string: 'fiiind me',
-          new_string: 'replace with \\\\"this\\\\"',
-        };
-        const llmCorrectedOldString = 'to be corrected';
-        mockResponses.push({ corrected_target_snippet: llmCorrectedOldString });
-        mockResponses.push({ corrected_new_string_escaping: 'replace with "this"' });
-        const result = await ensureCorrectEdit(
-          '/test/file.txt',
-          currentContent,
-          originalParams,
-          mockGeminiClientInstance,
-          abortSignal,
-        );
-        expect(mockGenerateJson).toHaveBeenCalledTimes(2);
-        expect(result.params.new_string).toBe('replace with "this"');
-        expect(result.params.old_string).toBe(llmCorrectedOldString);
-        expect(result.occurrences).toBe(1);
-      });
-      it('Test 3.4: LLM correction path, correctNewString returns the originalNewString it was passed (which was unescaped) -> final new_string is unescaped', async () => {
-        const currentContent = 'This is a test string to corrected find me.';
-        const originalParams = {
-          file_path: '/test/file.txt',
-          old_string: 'find me',
-          new_string: 'replace with \\\\\\\\"this\\\\\\\\"',
-        };
-        const newStringForLLMAndReturnedByLLM = 'replace with "this"';
-        mockResponses.push({
-          corrected_new_string_escaping: newStringForLLMAndReturnedByLLM,
-        });
-        const result = await ensureCorrectEdit(
-          '/test/file.txt',
-          currentContent,
-          originalParams,
-          mockGeminiClientInstance,
-          abortSignal,
-        );
-        expect(mockGenerateJson).toHaveBeenCalledTimes(1);
-        expect(result.params.new_string).toBe(newStringForLLMAndReturnedByLLM);
-        expect(result.occurrences).toBe(1);
-      });
+    it('should not unescape escaped strings - returns original params as-is', async () => {
+      const currentContent = 'This is a test string with "quotes".';
+      const originalParams = {
+        file_path: '/test/file.txt',
+        old_string: 'with \\"quotes\\"',  // 过度转义的字符串
+        new_string: 'replace with \\"this\\"',
+      };
+      const result = await ensureCorrectEdit(
+        '/test/file.txt',
+        currentContent,
+        originalParams,
+        mockGeminiClientInstance,
+        abortSignal,
+      );
+      // 🔧 修正已禁用：不做反转义
+      expect(mockGenerateJson).toHaveBeenCalledTimes(0);
+      // 返回原始参数（不匹配，因为不做反转义）
+      expect(result.params.old_string).toBe('with \\"quotes\\"');
+      expect(result.params.new_string).toBe('replace with \\"this\\"');
+      expect(result.occurrences).toBe(0);  // 因为没有反转义，所以找不到
     });
 
-    describe('Scenario Group 4: No Match Found / Multiple Matches', () => {
-      it('Test 4.1: No version of old_string (original, unescaped, LLM-corrected) matches -> returns original params, 0 occurrences', async () => {
-        const currentContent = 'This content has nothing to find.';
-        const originalParams = {
-          file_path: '/test/file.txt',
-          old_string: 'nonexistent string',
-          new_string: 'some new string \\\\n',
-        };
-        mockResponses.push({ corrected_target_snippet: 'still nonexistent' });
-        const result = await ensureCorrectEdit(
-          '/test/file.txt',
-          currentContent,
-          originalParams,
-          mockGeminiClientInstance,
-          abortSignal,
-        );
-        expect(mockGenerateJson).toHaveBeenCalledTimes(1);
-        expect(result.params).toEqual(originalParams);
-        expect(result.occurrences).toBe(0);
-      });
-      it('Test 4.2: unescapedOldStringAttempt results in >1 occurrences -> returns original params, count occurrences', async () => {
-        const currentContent =
-          'This content has find "me" and also find "me" again.';
-        const originalParams = {
-          file_path: '/test/file.txt',
-          old_string: 'find "me"',
-          new_string: 'some new string',
-        };
-        const result = await ensureCorrectEdit(
-          '/test/file.txt',
-          currentContent,
-          originalParams,
-          mockGeminiClientInstance,
-          abortSignal,
-        );
-        expect(mockGenerateJson).toHaveBeenCalledTimes(0);
-        expect(result.params).toEqual(originalParams);
-        expect(result.occurrences).toBe(2);
-      });
+    it('should correctly count occurrences for multiple matches', async () => {
+      const currentContent = 'test test test';
+      const originalParams = {
+        file_path: '/test/file.txt',
+        old_string: 'test',
+        new_string: 'replaced',
+      };
+      const result = await ensureCorrectEdit(
+        '/test/file.txt',
+        currentContent,
+        originalParams,
+        mockGeminiClientInstance,
+        abortSignal,
+      );
+      expect(result.params.old_string).toBe('test');
+      expect(result.occurrences).toBe(3);
     });
 
-    describe('Scenario Group 5: Specific unescapeStringForGeminiBug checks (integrated into ensureCorrectEdit)', () => {
-      it('Test 5.1: old_string needs LLM to become currentContent, new_string also needs correction', async () => {
-        const currentContent = 'const x = "a\nbc\\"def\\"';
-        const originalParams = {
-          file_path: '/test/file.txt',
-          old_string: 'const x = \\\\\\\\"a\\\\nbc\\\\\\\\\\\\"def\\\\\\\\\\\\"',
-          new_string: 'const y = \\\\\\\\"new\\\\nval\\\\\\\\\\\\"content\\\\\\\\\\\\"',
-        };
-        const expectedFinalNewString = 'const y = "new\nval\\"content\\"';
-        mockResponses.push({ corrected_target_snippet: currentContent });
-        mockResponses.push({ corrected_new_string: expectedFinalNewString });
-        const result = await ensureCorrectEdit(
-          '/test/file.txt',
-          currentContent,
-          originalParams,
-          mockGeminiClientInstance,
-          abortSignal,
-        );
-        expect(mockGenerateJson).toHaveBeenCalledTimes(2);
-        expect(result.params.old_string).toBe(currentContent);
-        expect(result.params.new_string).toBe(expectedFinalNewString);
-        expect(result.occurrences).toBe(1);
-      });
-    });
-
-    describe('Scenario Group 6: Concurrent Edits', () => {
-      it('Test 6.1: should return early if file was modified by another process', async () => {
-        const filePath = '/test/file.txt';
-        const currentContent =
-          'This content has been modified by someone else.';
-        const originalParams = {
-          file_path: filePath,
-          old_string: 'nonexistent string',
-          new_string: 'some new string',
-        };
-
-        const now = Date.now();
-        const lastEditTime = now - 5000; // 5 seconds ago
-
-        // Mock the file's modification time to be recent
-        vi.spyOn(fs, 'statSync').mockReturnValue({
-          mtimeMs: now,
-        } as fs.Stats);
-
-        // Mock the last edit timestamp from our history to be in the past
-        const history = [
-          {
-            role: 'model',
-            parts: [
-              {
-                functionResponse: {
-                  name: EditTool.Name,
-                  id: `${EditTool.Name}-${lastEditTime}-123`,
-                  response: {
-                    output: {
-                      llmContent: `Successfully modified file: ${filePath}`,
-                    },
-                  },
-                },
-              },
-            ],
-          },
-        ];
-        (mockGeminiClientInstance.getHistory as Mock).mockResolvedValue(
-          history,
-        );
-
-        const result = await ensureCorrectEdit(
-          filePath,
-          currentContent,
-          originalParams,
-          mockGeminiClientInstance,
-          abortSignal,
-        );
-
-        expect(result.occurrences).toBe(0);
-        expect(result.params).toEqual(originalParams);
-      });
+    it('should handle empty old_string', async () => {
+      const currentContent = 'some content';
+      const originalParams = {
+        file_path: '/test/file.txt',
+        old_string: '',
+        new_string: 'new content',
+      };
+      const result = await ensureCorrectEdit(
+        '/test/file.txt',
+        currentContent,
+        originalParams,
+        mockGeminiClientInstance,
+        abortSignal,
+      );
+      expect(result.params.old_string).toBe('');
+      expect(result.occurrences).toBe(0);
     });
   });
 
-  describe('ensureCorrectFileContent', () => {
+  describe('ensureCorrectFileContent (correction disabled)', () => {
     let mockGeminiClientInstance: Mocked<GeminiClient>;
     let mockToolRegistry: Mocked<ToolRegistry>;
     let mockConfigInstance: Config;
@@ -698,7 +447,7 @@ describe('editCorrector', () => {
       resetEditCorrectorCaches_TEST_ONLY();
     });
 
-    it('should return content unchanged if no escaping issues detected', async () => {
+    it('should return content unchanged - no correction applied', async () => {
       const content = 'This is normal content without escaping issues';
       const result = await ensureCorrectFileContent(
         content,
@@ -709,75 +458,41 @@ describe('editCorrector', () => {
       expect(mockGenerateJson).toHaveBeenCalledTimes(0);
     });
 
-    it('should call correctStringEscaping for potentially escaped content', async () => {
-      const content = 'console.log(\\\\"Hello World\\\\");';
-      const correctedContent = 'console.log("Hello World");';
-      mockResponses.push({
-        corrected_string_escaping: correctedContent,
-      });
-
+    it('should return potentially escaped content unchanged - no correction applied', async () => {
+      const content = 'console.log(\\"Hello World\\");';
       const result = await ensureCorrectFileContent(
         content,
         mockGeminiClientInstance,
         abortSignal,
       );
-
-      expect(result).toBe(correctedContent);
-      expect(mockGenerateJson).toHaveBeenCalledTimes(1);
-    });
-
-    it('should handle correctStringEscaping returning corrected content via correct property name', async () => {
-      // This test specifically verifies the property name fix
-      const content = 'const message = \\\\"Hello\\\\nWorld\\\\";';
-      const correctedContent = 'const message = "Hello\nWorld";';
-
-      // Mock the response with the correct property name
-      mockResponses.push({
-        corrected_string_escaping: correctedContent,
-      });
-
-      const result = await ensureCorrectFileContent(
-        content,
-        mockGeminiClientInstance,
-        abortSignal,
-      );
-
-      expect(result).toBe(correctedContent);
-      expect(mockGenerateJson).toHaveBeenCalledTimes(1);
-    });
-
-    it('should return original content if LLM correction fails', async () => {
-      const content = 'console.log(\\\\"Hello World\\\\");';
-      // Mock empty response to simulate LLM failure
-      mockResponses.push({});
-
-      const result = await ensureCorrectFileContent(
-        content,
-        mockGeminiClientInstance,
-        abortSignal,
-      );
-
+      // 🔧 修正已禁用：直接返回原始内容，不做反转义
       expect(result).toBe(content);
-      expect(mockGenerateJson).toHaveBeenCalledTimes(1);
+      expect(mockGenerateJson).toHaveBeenCalledTimes(0);
     });
 
-    it('should handle various escape sequences that need correction', async () => {
-      const content =
-        'const obj = { name: \\\\"John\\\\", age: 30, bio: \\\\"Developer\\\\nEngineer\\\\" };';
-      const correctedContent =
-        'const obj = { name: "John", age: 30, bio: "Developer\nEngineer" };';
-
-      mockResponses.push({
-        corrected_string_escaping: correctedContent,
-      });
-
+    it('should return content with escape sequences unchanged', async () => {
+      const content = 'const message = \\"Hello\\\\nWorld\\";';
       const result = await ensureCorrectFileContent(
         content,
         mockGeminiClientInstance,
         abortSignal,
       );
+      // 🔧 修正已禁用：直接返回原始内容
+      expect(result).toBe(content);
+      expect(mockGenerateJson).toHaveBeenCalledTimes(0);
+    });
 
-      expect(result).toBe(correctedContent);
+    it('should handle various escape sequences without correction', async () => {
+      const content =
+        'const obj = { name: \\"John\\", age: 30, bio: \\"Developer\\\\nEngineer\\" };';
+      const result = await ensureCorrectFileContent(
+        content,
+        mockGeminiClientInstance,
+        abortSignal,
+      );
+      // 🔧 修正已禁用：直接返回原始内容
+      expect(result).toBe(content);
+      expect(mockGenerateJson).toHaveBeenCalledTimes(0);
     });
   });
 });

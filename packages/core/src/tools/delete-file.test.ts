@@ -7,9 +7,9 @@
 
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import * as fs from 'fs';
-import * as path from 'path';
-import * as os from 'os';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
+import * as os from 'node:os';
 import { DeleteFileTool, DeleteFileToolParams } from './delete-file.js';
 import { Config, ApprovalMode } from '../config/config.js';
 import { ToolRegistry } from './tool-registry.js';
@@ -21,6 +21,16 @@ vi.mock('../telemetry/metrics.js', () => ({
     DELETE: 'delete',
   },
 }));
+
+// 使用 vi.mock 模拟 node:fs，但保留绝大部分真实功能
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>();
+  return {
+    ...actual,
+    readFileSync: vi.fn(actual.readFileSync),
+    unlinkSync: vi.fn(actual.unlinkSync),
+  };
+});
 
 const rootDir = path.resolve(os.tmpdir(), 'delete-tool-test-root');
 
@@ -59,11 +69,14 @@ describe('DeleteFileTool', () => {
   const testFileContent = 'Hello, World!\nThis is a test file.\n';
 
   beforeEach(() => {
+    vi.clearAllMocks();
     tool = new DeleteFileTool(mockConfig);
 
     // Create a temporary directory for testing
     tempDir = rootDir;
-    fs.mkdirSync(tempDir, { recursive: true });
+    if (!fs.existsSync(tempDir)) {
+      fs.mkdirSync(tempDir, { recursive: true });
+    }
 
     testFilePath = path.join(tempDir, 'test-file.txt');
   });
@@ -112,7 +125,9 @@ describe('DeleteFileTool', () => {
 
     it('should return error for directory path', () => {
       const dirPath = path.join(tempDir, 'test-dir');
-      fs.mkdirSync(dirPath);
+      if (!fs.existsSync(dirPath)) {
+        fs.mkdirSync(dirPath);
+      }
 
       const params: DeleteFileToolParams = {
         file_path: dirPath,
@@ -123,7 +138,7 @@ describe('DeleteFileTool', () => {
     });
 
     it('should return error for file outside target directory', () => {
-      const outsidePath = '/tmp/outside-file.txt';
+      const outsidePath = path.join(os.tmpdir(), 'outside-file.txt');
 
       const params: DeleteFileToolParams = {
         file_path: outsidePath,
@@ -198,12 +213,11 @@ describe('DeleteFileTool', () => {
     });
 
     it('should handle read error before deletion', async () => {
-      // Create file with restricted permissions (if possible)
+      // Create test file
       fs.writeFileSync(testFilePath, testFileContent);
 
-      // Mock fs.readFileSync to throw an error
-      const originalReadFile = fs.readFileSync;
-      vi.spyOn(fs, 'readFileSync').mockImplementation(() => {
+      // 模拟 fs.readFileSync 抛出错误
+      vi.mocked(fs.readFileSync).mockImplementationOnce(() => {
         throw new Error('Permission denied');
       });
 
@@ -215,17 +229,14 @@ describe('DeleteFileTool', () => {
       const result = await tool.execute(params, abortSignal);
 
       expect(result.llmContent).toContain('Error reading file before deletion');
-
-      // Restore original function
-      vi.spyOn(fs, 'readFileSync').mockImplementation(originalReadFile);
     });
 
     it('should handle deletion error while preserving content', async () => {
       // Create test file
       fs.writeFileSync(testFilePath, testFileContent);
 
-      // Mock fs.unlinkSync to throw an error
-      vi.spyOn(fs, 'unlinkSync').mockImplementation(() => {
+      // 模拟 fs.unlinkSync 抛出错误
+      vi.mocked(fs.unlinkSync).mockImplementationOnce(() => {
         throw new Error('Permission denied for deletion');
       });
 
@@ -236,7 +247,6 @@ describe('DeleteFileTool', () => {
       const abortSignal = new AbortController().signal;
       const result = await tool.execute(params, abortSignal);
 
-      expect(result.llmContent).toContain('Error deleting file');
       expect(result.llmContent).toContain('Error deleting file');
       expect(result.returnDisplay).toContain('Error deleting file');
     });
