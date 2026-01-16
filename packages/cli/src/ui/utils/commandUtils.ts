@@ -4,7 +4,10 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { spawn } from 'child_process';
+import { spawn, exec } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
 
 /**
  * Checks if a query string potentially represents an '@' command.
@@ -39,6 +42,54 @@ const isWSLEnvironment = (): boolean => {
   );
 };
 
+/**
+ * Copies text to clipboard on Windows using PowerShell Set-Clipboard
+ * Uses Base64 encoding to properly handle Unicode characters (including Chinese)
+ * @param text The text to copy to clipboard
+ */
+async function copyToClipboardWindows(text: string): Promise<void> {
+  // Encode the text as Base64 to avoid encoding issues with Unicode characters
+  const textBase64 = Buffer.from(text, 'utf8').toString('base64');
+
+  // PowerShell script that decodes Base64 and sets clipboard
+  // Using [System.Text.Encoding]::UTF8 to properly handle Unicode
+  const script = `
+$bytes = [System.Convert]::FromBase64String("${textBase64}")
+$text = [System.Text.Encoding]::UTF8.GetString($bytes)
+Set-Clipboard -Value $text
+`;
+
+  // Encode the PowerShell script as UTF-16LE Base64 for -EncodedCommand
+  const encoded = Buffer.from(script, 'utf16le').toString('base64');
+
+  await execAsync(
+    `powershell.exe -ExecutionPolicy Bypass -NoProfile -EncodedCommand ${encoded}`,
+  );
+}
+
+/**
+ * Copies text to clipboard on WSL using Windows PowerShell via interop
+ * Uses Base64 encoding to properly handle Unicode characters (including Chinese)
+ * @param text The text to copy to clipboard
+ */
+async function copyToClipboardWSL(text: string): Promise<void> {
+  // Same approach as Windows - encode text as Base64
+  const textBase64 = Buffer.from(text, 'utf8').toString('base64');
+
+  const script = `
+$bytes = [System.Convert]::FromBase64String("${textBase64}")
+$text = [System.Text.Encoding]::UTF8.GetString($bytes)
+Set-Clipboard -Value $text
+`;
+
+  // Encode the PowerShell script as UTF-16LE Base64 for -EncodedCommand
+  const encoded = Buffer.from(script, 'utf16le').toString('base64');
+
+  await execAsync(
+    `powershell.exe -ExecutionPolicy Bypass -NoProfile -EncodedCommand ${encoded}`,
+  );
+}
+
 //Copies a string snippet to the clipboard for different platforms
 export const copyToClipboard = async (text: string): Promise<void> => {
   const run = (cmd: string, args: string[]) =>
@@ -61,14 +112,15 @@ export const copyToClipboard = async (text: string): Promise<void> => {
       child.stdin.end();
     });
 
-  // Handle WSL environment specially - use Windows clip.exe
+  // Handle WSL environment specially - use Windows PowerShell via interop
   if (isWSLEnvironment()) {
-    return run('clip.exe', []);
+    return copyToClipboardWSL(text);
   }
 
   switch (process.platform) {
     case 'win32':
-      return run('clip', []);
+      // Use PowerShell Set-Clipboard with Base64 encoding to properly handle Unicode
+      return copyToClipboardWindows(text);
     case 'darwin':
       return run('pbcopy', []);
     case 'linux':
