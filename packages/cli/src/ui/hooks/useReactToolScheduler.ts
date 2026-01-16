@@ -33,6 +33,7 @@ import {
   IndividualToolCallDisplay,
   ToolCallStatus,
   HistoryItemWithoutId,
+  BatchSubToolInfo,
 } from '../types.js';
 import { t, tp } from '../utils/i18n.js';
 
@@ -347,6 +348,97 @@ function flattenToolCallsForConfirmation(toolCalls: TrackedToolCall[]): TrackedT
 }
 
 /**
+ * 🎯 为 batch 工具的子工具生成简短摘要
+ */
+function generateBatchSubToolSummary(tool: string, parameters: Record<string, unknown>): string {
+  switch (tool) {
+    case 'read_file':
+      return extractPathSummary(parameters.absolute_path as string | undefined);
+    case 'read_many_files':
+      const paths = parameters.paths as string[] | undefined;
+      if (paths && paths.length > 0) {
+        return paths.length === 1 ? extractPathSummary(paths[0]) : `${paths.length} files`;
+      }
+      return '';
+    case 'write_file':
+      return extractPathSummary(parameters.file_path as string | undefined);
+    case 'replace':
+    case 'multiedit':
+      return extractPathSummary(parameters.file_path as string | undefined);
+    case 'delete_file':
+      return extractPathSummary(parameters.file_path as string | undefined);
+    case 'run_shell_command':
+      const cmd = parameters.command as string | undefined;
+      if (cmd) {
+        // 取命令的前30个字符
+        return cmd.length > 30 ? cmd.substring(0, 27) + '...' : cmd;
+      }
+      return '';
+    case 'search_file_content':
+      const pattern = parameters.pattern as string | undefined;
+      return pattern ? `"${pattern.substring(0, 20)}${pattern.length > 20 ? '...' : ''}"` : '';
+    case 'glob':
+      return (parameters.pattern as string) || '';
+    case 'list_directory':
+      return extractPathSummary(parameters.path as string | undefined);
+    case 'web_fetch':
+      const prompt = parameters.prompt as string | undefined;
+      // 提取 URL
+      const urlMatch = prompt?.match(/https?:\/\/[^\s]+/);
+      return urlMatch ? urlMatch[0].substring(0, 40) : '';
+    case 'google_web_search':
+      return (parameters.query as string)?.substring(0, 30) || '';
+    default:
+      return '';
+  }
+}
+
+/**
+ * 从路径中提取文件名或简短路径
+ */
+function extractPathSummary(path: string | undefined): string {
+  if (!path) return '';
+  // 提取文件名
+  const parts = path.replace(/\\/g, '/').split('/');
+  const fileName = parts[parts.length - 1];
+  // 如果文件名太长，截断
+  return fileName.length > 40 ? fileName.substring(0, 37) + '...' : fileName;
+}
+
+/**
+ * 🎯 工具名称映射表（原始名称 -> 显示名称）
+ */
+const TOOL_DISPLAY_NAME_MAP: Record<string, string> = {
+  'read_file': 'ReadFile',
+  'read_many_files': 'ReadManyFiles',
+  'write_file': 'WriteFile',
+  'replace': 'Edit',
+  'multiedit': 'MultiEdit',
+  'delete_file': 'DeleteFile',
+  'run_shell_command': 'Shell',
+  'search_file_content': 'SearchText',
+  'glob': 'FindFiles',
+  'list_directory': 'ReadFolder',
+  'web_fetch': 'WebFetch',
+  'google_web_search': 'WebSearch',
+  'save_memory': 'SaveMemory',
+  'task': 'Task',
+  'todo_write': 'TodoWrite',
+  'lsp': 'LSP',
+  'read_lints': 'ReadLints',
+  'lint_fix': 'LintFix',
+  'batch': 'Batch',
+  'codesearch': 'CodeSearch',
+};
+
+/**
+ * 获取工具的显示名称
+ */
+function getToolDisplayName(toolName: string): string {
+  return TOOL_DISPLAY_NAME_MAP[toolName] || toolName;
+}
+
+/**
  * 🎯 抽取公共逻辑：将TrackedToolCall转换为显示所需的基础属性
  */
 function extractBaseDisplayProperties(trackedCall: TrackedToolCall): {
@@ -360,6 +452,7 @@ function extractBaseDisplayProperties(trackedCall: TrackedToolCall): {
   let description = '';
   let renderOutputAsMarkdown = false;
   let forceMarkdown = false;
+  let batchSubTools: BatchSubToolInfo[] | undefined;
 
   const currentToolInstance =
     'tool' in trackedCall && trackedCall.tool
@@ -375,6 +468,18 @@ function extractBaseDisplayProperties(trackedCall: TrackedToolCall): {
     description = JSON.stringify(trackedCall.request.args);
   }
 
+  // 🎯 特殊处理 batch 工具：提取子工具信息用于友好显示
+  if (trackedCall.request.name === 'batch') {
+    const args = trackedCall.request.args as { tool_calls?: Array<{ tool: string; parameters: Record<string, unknown> }> };
+    if (args.tool_calls && Array.isArray(args.tool_calls)) {
+      batchSubTools = args.tool_calls.map(call => ({
+        tool: call.tool,
+        displayName: getToolDisplayName(call.tool),
+        summary: generateBatchSubToolSummary(call.tool, call.parameters),
+      }));
+    }
+  }
+
   const baseDisplayProperties: Omit<IndividualToolCallDisplay, 'status' | 'resultDisplay' | 'confirmationDetails'> = {
     callId: trackedCall.request.callId,
     name: displayName,
@@ -382,6 +487,7 @@ function extractBaseDisplayProperties(trackedCall: TrackedToolCall): {
     description,
     renderOutputAsMarkdown,
     forceMarkdown,
+    batchSubTools,
   };
 
   return { displayName, description, renderOutputAsMarkdown, forceMarkdown, baseDisplayProperties };

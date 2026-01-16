@@ -79,6 +79,15 @@ export interface ToolCallConfirmationDetails {
   affectedFiles?: string[];
 }
 
+/**
+ * 🎯 Batch 工具的子工具调用信息（用于 UI 友好显示）
+ */
+export interface BatchSubToolInfo {
+  tool: string;        // 工具名称（原始名称如 'read_file'）
+  displayName: string; // 显示名称（如 'ReadFile'）
+  summary: string;     // 简短的参数摘要
+}
+
 // 🎯 增强的工具调用接口 - 参考CLI版本的TrackedToolCall
 export interface ToolCall {
   id: string;
@@ -102,6 +111,9 @@ export interface ToolCall {
 
   // 🎯 子工具调用支持
   subToolCalls?: ToolCall[];
+
+  // 🎯 Batch 工具的子工具列表（用于 UI 友好显示）
+  batchSubTools?: BatchSubToolInfo[];
 
   // 🎯 显示控制
   renderOutputAsMarkdown?: boolean;

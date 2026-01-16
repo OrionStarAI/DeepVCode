@@ -1971,7 +1971,9 @@ export class AIService {
             parameters: request.args,
           status: ToolCallStatus.Scheduled,
           startTime: Date.now(),
-          responseSubmittedToGemini: false
+          responseSubmittedToGemini: false,
+          // 🎯 为 batch 工具提取子工具信息
+          batchSubTools: request.name === 'batch' ? this.extractBatchSubTools(request.args, toolRegistry) : undefined
         };
 
         this.currentToolCalls.set(request.callId, toolCall);
@@ -2028,6 +2030,122 @@ export class AIService {
         this.logger.error('Tool update callback error', error instanceof Error ? error : undefined);
       }
     });
+  }
+
+  /**
+   * 🎯 为 batch 工具提取子工具信息用于 UI 友好显示
+   */
+  private extractBatchSubTools(
+    args: Record<string, unknown>,
+    toolRegistry: { getTool: (name: string) => { displayName: string } | undefined }
+  ): { tool: string; displayName: string; summary: string }[] | undefined {
+    const toolCalls = args.tool_calls as Array<{ tool: string; parameters: Record<string, unknown> }> | undefined;
+    if (!toolCalls || !Array.isArray(toolCalls)) {
+      return undefined;
+    }
+
+    return toolCalls.map(call => ({
+      tool: call.tool,
+      displayName: this.getToolDisplayNameForBatch(call.tool, toolRegistry),
+      summary: this.generateBatchSubToolSummary(call.tool, call.parameters),
+    }));
+  }
+
+  /**
+   * 获取工具的显示名称（用于 batch 子工具）
+   */
+  private getToolDisplayNameForBatch(
+    toolName: string,
+    toolRegistry: { getTool: (name: string) => { displayName: string } | undefined }
+  ): string {
+    try {
+      const tool = toolRegistry.getTool(toolName);
+      if (tool) {
+        return tool.displayName;
+      }
+    } catch {
+      // ignore
+    }
+
+    // 回退到静态映射
+    const TOOL_DISPLAY_NAME_MAP: Record<string, string> = {
+      'read_file': 'ReadFile',
+      'read_many_files': 'ReadManyFiles',
+      'write_file': 'WriteFile',
+      'replace': 'Edit',
+      'multiedit': 'MultiEdit',
+      'delete_file': 'DeleteFile',
+      'run_shell_command': 'Shell',
+      'search_file_content': 'SearchText',
+      'glob': 'FindFiles',
+      'list_directory': 'ReadFolder',
+      'web_fetch': 'WebFetch',
+      'google_web_search': 'WebSearch',
+      'save_memory': 'SaveMemory',
+      'task': 'Task',
+      'todo_write': 'TodoWrite',
+      'lsp': 'LSP',
+      'read_lints': 'ReadLints',
+      'lint_fix': 'LintFix',
+      'batch': 'Batch',
+      'codesearch': 'CodeSearch',
+    };
+    return TOOL_DISPLAY_NAME_MAP[toolName] || toolName;
+  }
+
+  /**
+   * 为 batch 工具的子工具生成简短摘要
+   */
+  private generateBatchSubToolSummary(tool: string, parameters: Record<string, unknown>): string {
+    const extractPathSummary = (path: string | undefined): string => {
+      if (!path) return '';
+      const parts = path.replace(/\\/g, '/').split('/');
+      const fileName = parts[parts.length - 1];
+      return fileName.length > 40 ? fileName.substring(0, 37) + '...' : fileName;
+    };
+
+    switch (tool) {
+      case 'read_file':
+        return extractPathSummary(parameters.absolute_path as string | undefined);
+      case 'read_many_files': {
+        const paths = parameters.paths as string[] | undefined;
+        if (paths && paths.length > 0) {
+          return paths.length === 1 ? extractPathSummary(paths[0]) : `${paths.length} files`;
+        }
+        return '';
+      }
+      case 'write_file':
+        return extractPathSummary(parameters.file_path as string | undefined);
+      case 'replace':
+      case 'multiedit':
+        return extractPathSummary(parameters.file_path as string | undefined);
+      case 'delete_file':
+        return extractPathSummary(parameters.file_path as string | undefined);
+      case 'run_shell_command': {
+        const cmd = parameters.command as string | undefined;
+        if (cmd) {
+          return cmd.length > 30 ? cmd.substring(0, 27) + '...' : cmd;
+        }
+        return '';
+      }
+      case 'search_file_content': {
+        const pattern = parameters.pattern as string | undefined;
+        return pattern ? `"${pattern.substring(0, 20)}${pattern.length > 20 ? '...' : ''}"` : '';
+      }
+      case 'glob':
+        return (parameters.pattern as string) || '';
+      case 'list_directory':
+        return extractPathSummary(parameters.path as string | undefined);
+      case 'web_fetch': {
+        const prompt = parameters.prompt as string | undefined;
+        const urlMatch = prompt?.match(/https?:\/\/[^\s]+/);
+        return urlMatch ? urlMatch[0].substring(0, 40) : '';
+      }
+      case 'google_web_search':
+        return (parameters.query as string)?.substring(0, 30) || '';
+      default:
+        return '';
+    }
   }
 
   private handleToolSchedulingError(requests: ToolCallRequestInfo[], error: any) {

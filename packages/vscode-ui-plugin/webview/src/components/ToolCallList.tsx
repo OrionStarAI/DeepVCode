@@ -630,6 +630,23 @@ const ToolCallItem: React.FC<{
         </div>
       </div>
 
+      {/* 🎯 Batch 工具：显示子工具调用列表 */}
+      {toolCall.batchSubTools && toolCall.batchSubTools.length > 0 && (
+        <div className="batch-sub-tools">
+          {toolCall.batchSubTools.map((subTool, index) => (
+            <div key={index} className="batch-sub-tool-item">
+              <span className="batch-connector">
+                {index === toolCall.batchSubTools!.length - 1 ? '└' : '├'}
+              </span>
+              <span className="batch-sub-tool-name">{subTool.displayName}</span>
+              {subTool.summary && (
+                <span className="batch-sub-tool-summary">{subTool.summary}</span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* 确认提示 - 现代设计 */}
       {hasConfirmation && (
         <div className="tool-confirmation-modern">

@@ -44,6 +44,15 @@ export interface ToolCallEvent {
   confirmationDetails: ToolCallConfirmationDetails | undefined;
 }
 
+/**
+ * 🎯 Batch 工具的子工具调用信息（用于 UI 友好显示）
+ */
+export interface BatchSubToolInfo {
+  tool: string;        // 工具名称（原始名称如 'read_file'）
+  displayName: string; // 显示名称（如 'ReadFile'）
+  summary: string;     // 简短的参数摘要
+}
+
 export interface IndividualToolCallDisplay {
   callId: string;
   name: string;
@@ -55,6 +64,8 @@ export interface IndividualToolCallDisplay {
   renderOutputAsMarkdown?: boolean;
   forceMarkdown?: boolean;
   subToolCalls?: IndividualToolCallDisplay[];
+  /** 🎯 Batch 工具的子工具列表（用于 UI 友好显示） */
+  batchSubTools?: BatchSubToolInfo[];
 }
 
 export interface CompressionProps {

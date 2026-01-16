@@ -217,8 +217,49 @@ async function askUserForUpdate(): Promise<boolean> {
 // -------------------------------------------------------------------------
 let startupTimer: NodeJS.Timeout | null = null;
 
+/**
+ * Check if the current command is a non-interactive command that should skip the startup animation.
+ * This is a quick check based on process.argv before full argument parsing.
+ */
+function isNonInteractiveCommand(): boolean {
+  const args = process.argv.slice(2);
+
+  // Skip animation for subcommands like "checkpoint clean"
+  const nonInteractiveCommands = ['checkpoint', 'cp'];
+  if (args.length > 0 && nonInteractiveCommands.includes(args[0])) {
+    return true;
+  }
+
+  // Skip animation for --cloud-mode flag
+  if (args.includes('--cloud-mode')) {
+    return true;
+  }
+
+  // Skip animation for explicit non-interactive flags
+  if (args.includes('--output-format') || args.includes('-p') || args.includes('--prompt')) {
+    return true;
+  }
+
+  // Skip animation for --help and --version
+  if (args.includes('-h') || args.includes('--help') || args.includes('-v') || args.includes('--version')) {
+    return true;
+  }
+
+  // Skip animation for --update flag (it has its own output)
+  if (args.includes('-u') || args.includes('--update')) {
+    return true;
+  }
+
+  return false;
+}
+
 function startStartupAnimation() {
   if (!process.stdout.isTTY || process.env.CI || process.env.DEEPV_SILENT_MODE === 'true' || process.env.NO_COLOR) {
+    return;
+  }
+
+  // Skip animation for non-interactive commands
+  if (isNonInteractiveCommand()) {
     return;
   }
 
