@@ -230,7 +230,7 @@ export function RadioButtonSelect<T>({
 
           return (
             <Box
-              key={item.label}
+              key={itemIndex}
               flexDirection="row"
               alignItems="center"
               marginRight={index < visibleItems.length - 1 ? horizontalSpacing : 0}
@@ -303,7 +303,7 @@ export function RadioButtonSelect<T>({
         )}.`;
 
         return (
-          <Box key={item.label} alignItems="center" justifyContent="space-between" width="100%">
+          <Box key={itemIndex} alignItems="center" justifyContent="space-between" width="100%">
             <Box flexDirection="row" alignItems="center" flexGrow={1} minWidth={0}>
               <Box minWidth={2} flexShrink={0}>
                 <Text color={isSelected ? Colors.AccentGreen : Colors.Foreground}>

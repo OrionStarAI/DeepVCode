@@ -48,6 +48,7 @@ import { MultiEditTool } from '../tools/multiedit.js';
 import { PatchTool } from '../tools/patch.js';
 import { BatchTool } from '../tools/batch.js';
 import { ProjectSettingsManager } from './projectSettings.js';
+import { generateCustomModelId } from '../types/customModel.js';
 import { GeminiClient } from '../core/client.js';
 import { ResourceRegistry } from '../resources/resource-registry.js';
 import { FileDiscoveryService } from '../services/fileDiscoveryService.js';
@@ -535,9 +536,23 @@ export class Config {
   }
 
   getCustomModelConfig(modelId: string): import('../types/customModel.js').CustomModelConfig | undefined {
-    // modelId 格式: custom:{displayName}
-    const displayName = modelId.replace('custom:', '');
-    return this.customModels?.find(model => model.displayName === displayName && model.enabled !== false);
+    // 新格式: custom:{provider}:{modelId}@{hash}
+    // 通过生成每个配置的 ID 来匹配
+    const matchByNewFormat = this.customModels?.find(model => {
+      if (model.enabled === false) return false;
+      return generateCustomModelId(model) === modelId;
+    });
+    if (matchByNewFormat) return matchByNewFormat;
+
+    // 旧格式兼容: custom:{displayName}
+    const withoutPrefix = modelId.replace('custom:', '');
+    // 检查是否为新格式（包含 @ 表示 hash）
+    if (!withoutPrefix.includes('@')) {
+      // 纯旧格式，通过 displayName 匹配
+      return this.customModels?.find(model => model.displayName === withoutPrefix && model.enabled !== false);
+    }
+
+    return undefined;
   }
 
   setCustomModels(models: import('../types/customModel.js').CustomModelConfig[]): void {

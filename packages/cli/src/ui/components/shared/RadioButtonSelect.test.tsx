@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { render } from 'ink-testing-library';
-import { vi } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { RadioButtonSelect, RadioSelectItem } from './RadioButtonSelect.js';
 
 describe('RadioButtonSelect Horizontal Layout', () => {
