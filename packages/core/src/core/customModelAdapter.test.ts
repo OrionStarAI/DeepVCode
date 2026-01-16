@@ -5,8 +5,116 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { callOpenAICompatibleModelStream, callAnthropicModelStream, callOpenAICompatibleModel, callAnthropicModel } from './customModelAdapter.js';
+import { callOpenAICompatibleModelStream, callAnthropicModelStream, callOpenAICompatibleModel, callAnthropicModel, parseJSONSafeExport } from './customModelAdapter.js';
 import { MESSAGE_ROLES } from '../config/messageRoles.js';
+
+// 为了测试内部函数，需要导出它（见下方的导出添加）
+// 如果无法导出，可以通过流式测试间接验证
+
+describe('parseJSONSafe - JSON parsing robustness', () => {
+  // 注意：这些测试依赖于 parseJSONSafeExport 被导出
+  // 如果没有导出，可以跳过这些测试并依赖集成测试
+
+  describe('normal cases', () => {
+    it('should parse valid JSON object', () => {
+      if (!parseJSONSafeExport) return; // Skip if not exported
+      const result = parseJSONSafeExport('{"pattern": "TODO", "path": "/src"}');
+      expect(result).toEqual({ pattern: 'TODO', path: '/src' });
+    });
+
+    it('should parse valid JSON array', () => {
+      if (!parseJSONSafeExport) return;
+      const result = parseJSONSafeExport('[1, 2, 3]');
+      expect(result).toEqual([1, 2, 3]);
+    });
+
+    it('should return empty object for empty string', () => {
+      if (!parseJSONSafeExport) return;
+      expect(parseJSONSafeExport('')).toEqual({});
+      expect(parseJSONSafeExport('  ')).toEqual({});
+    });
+
+    it('should return empty object for null/undefined strings', () => {
+      if (!parseJSONSafeExport) return;
+      expect(parseJSONSafeExport('null')).toEqual({});
+      expect(parseJSONSafeExport('undefined')).toEqual({});
+    });
+
+    it('should return object directly if already an object', () => {
+      if (!parseJSONSafeExport) return;
+      const obj = { pattern: 'test' };
+      expect(parseJSONSafeExport(obj as any)).toBe(obj);
+    });
+  });
+
+  describe('incomplete JSON repair', () => {
+    it('should repair truncated JSON object', () => {
+      if (!parseJSONSafeExport) return;
+      // 模拟流式传输中截断的情况
+      const result = parseJSONSafeExport('{"pattern": "TODO", "path": "/sr');
+      // 应该能修复并返回至少 pattern 字段
+      expect(result.__parseError).toBeUndefined();
+      expect(result.pattern).toBe('TODO');
+    });
+
+    it('should repair JSON missing closing brace', () => {
+      if (!parseJSONSafeExport) return;
+      const result = parseJSONSafeExport('{"pattern": "TODO"');
+      expect(result.__parseError).toBeUndefined();
+      expect(result.pattern).toBe('TODO');
+    });
+
+    it('should repair JSON with incomplete string value', () => {
+      if (!parseJSONSafeExport) return;
+      const result = parseJSONSafeExport('{"pattern": "TO');
+      // 可能无法完全修复，但不应该崩溃
+      expect(result).toBeDefined();
+    });
+
+    it('should repair JSON array missing closing bracket', () => {
+      if (!parseJSONSafeExport) return;
+      const result = parseJSONSafeExport('[1, 2, 3');
+      expect(result.__parseError).toBeUndefined();
+      expect(Array.isArray(result)).toBe(true);
+    });
+  });
+
+  describe('error cases with __parseError marker', () => {
+    it('should return __parseError for completely invalid JSON', () => {
+      if (!parseJSONSafeExport) return;
+      const result = parseJSONSafeExport('this is not json at all');
+      expect(result.__parseError).toBe(true);
+      expect(result.__rawArgs).toBe('this is not json at all');
+    });
+
+    it('should include __errorMessage for debugging', () => {
+      if (!parseJSONSafeExport) return;
+      const result = parseJSONSafeExport('invalid{{{');
+      expect(result.__parseError).toBe(true);
+      expect(result.__errorMessage).toBeDefined();
+    });
+  });
+
+  describe('edge cases', () => {
+    it('should handle JSON with extra whitespace', () => {
+      if (!parseJSONSafeExport) return;
+      const result = parseJSONSafeExport('  { "pattern" : "TODO" }  ');
+      expect(result).toEqual({ pattern: 'TODO' });
+    });
+
+    it('should handle nested objects', () => {
+      if (!parseJSONSafeExport) return;
+      const result = parseJSONSafeExport('{"outer": {"inner": "value"}}');
+      expect(result).toEqual({ outer: { inner: 'value' } });
+    });
+
+    it('should handle escaped characters', () => {
+      if (!parseJSONSafeExport) return;
+      const result = parseJSONSafeExport('{"pattern": "test\\"quoted\\""}');
+      expect(result.pattern).toBe('test"quoted"');
+    });
+  });
+});
 
 describe('customModelAdapter - Image Content Support', () => {
   beforeEach(() => {

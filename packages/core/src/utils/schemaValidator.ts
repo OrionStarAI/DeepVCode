@@ -29,6 +29,16 @@ export class SchemaValidator {
     if (typeof data !== 'object' || data === null) {
       return this.buildParamsMustBeObjectError(schema, data, toolName);
     }
+
+    // 检测 parseJSONSafe 返回的解析错误对象
+    // 这发生在自定义模型返回无效 JSON 格式的工具参数时
+    const dataObj = data as Record<string, unknown>;
+    if (dataObj.__parseError === true) {
+      const rawArgs = dataObj.__rawArgs || '(unknown)';
+      const toolNameHint = toolName ? ` for tool "${toolName}"` : '';
+      return `Model returned invalid JSON for tool arguments${toolNameHint}. The arguments could not be parsed. Raw value: ${String(rawArgs).substring(0, 200)}`;
+    }
+
     const validate = ajValidator.compile(this.toObjectSchema(schema));
     const valid = validate(data);
     if (!valid && validate.errors) {
