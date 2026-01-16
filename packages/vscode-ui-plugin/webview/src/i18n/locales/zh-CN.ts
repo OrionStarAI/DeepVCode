@@ -559,4 +559,85 @@ export const zhCN: Translations = {
     dismiss: '稍后提醒',
     countdown: '{{seconds}}秒',
   },
+
+  pptGenerator: {
+    title: 'PPT 生成器',
+    buttonTooltip: '使用 AI 生成 PPT',
+    topicLabel: 'PPT 主题',
+    topicPlaceholder: '请输入 PPT 主题，例如：拉布布环游世界',
+    pageCountLabel: '页数',
+    pages: '页',
+    customPages: '自定义',
+    customPagesPlaceholder: '1-100',
+    styleLabel: '风格',
+    colorSchemeLabel: '色系',
+    outlineLabel: '大纲内容',
+    outlinePlaceholder: `范例：
+第一页：拉布布环游巴黎
+文案内容
+主标题：拉布布环游巴黎
+副标题：邂逅浪漫之都的法式风情
+点缀语：和拉布布一起，解锁巴黎地标与温柔时光
+
+PPT组件布局
+主视觉区（占页面2/3）：放置拉布布与埃菲尔铁塔同框插画，背景用浅米黄色调，营造法式氛围感。
+标题区（顶部居中）：主标题用加粗艺术字体，副标题用纤细字体，颜色选深咖色。
+角落点缀（右下角）：小型巴黎元素图标（如法棍、铁塔剪影），搭配点缀语，字体偏小。
+
+第二页：拉布布环游北京
+文案内容
+主标题：拉布布环游北京
+副标题：漫步古今交融的帝都烟火
+点缀语：跟着拉布布，打卡京城古韵与新潮
+
+PPT组件布局
+主视觉区（占页面2/3）：拉布布与故宫红墙或天安门同框插画，背景用浅朱红色调，凸显中式韵味。
+标题区（顶部居中）：主标题用加粗书法字体，副标题用简约宋体，颜色选深红色。
+角落点缀（左下角）：小型北京元素图标（如故宫角楼、糖葫芦剪影），搭配点缀语，字体偏小。`,
+    outlineHint: '提示：详细描述每页PPT的内容，将获得更好的生成效果',
+    optimizeButton: 'AI 优化',
+    optimizing: '优化中...',
+    optimizeTooltip: '使用AI优化大纲内容',
+    cancelGeneration: '取消生成',
+    customStylePlaceholder: '请描述你想要的PPT风格，例如：科技感、未来主义、赛博朋克、中国风、ins风...',
+    customColorPlaceholder: '请描述你想要的配色风格，例如：渐变蓝紫色、复古怀旧、糖果色、莫兰迪色系...',
+    generateButton: '生成 PPT',
+    generating: '正在提交 PPT 生成任务...',
+    generatingHint: '任务提交后将自动打开浏览器查看进度',
+    generateAnother: '再生成一个',
+    openEdit: '再次打开编辑页面',
+    tryAgain: '重试',
+    style: {
+      auto: '默认',
+      business: '商务',
+      flat: '扁平插画',
+      travel: '旅游',
+      advertising: '广告',
+      anime: '动漫',
+      custom: '自定义',
+    },
+    colorScheme: {
+      auto: '默认',
+      blue: '蓝色系',
+      green: '绿色系',
+      red: '红色系',
+      purple: '紫色系',
+      orange: '橙色系',
+      dark: '深色系',
+      light: '浅色系',
+      colorful: '多彩',
+      custom: '自定义',
+    },
+    error: {
+      topicRequired: '请输入 PPT 主题',
+      outlineRequired: '请输入大纲内容',
+      customStyleRequired: '请输入自定义风格描述',
+      customColorRequired: '请输入自定义配色描述',
+      generateFailed: '生成失败，请重试',
+    },
+    success: {
+      generated: 'PPT 任务已提交！',
+      hint: '已自动打开浏览器，请在网页中查看生成进度和编辑PPT',
+    },
+  },
 };

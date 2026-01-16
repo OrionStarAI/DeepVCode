@@ -27,6 +27,8 @@ import { PlanModeNotification } from './PlanModeNotification';
 import { ChatHistoryModal } from './ChatHistoryModal';
 import { NanoBananaDialog } from './NanoBananaDialog';
 import { NanoBananaIcon } from './NanoBananaIcon';
+import { PPTGeneratorDialog } from './PPTGeneratorDialog';
+import { PPTGeneratorIcon } from './PPTGeneratorIcon';
 import { CompressionConfirmationDialog } from './CompressionConfirmationDialog';
 import { HealthyUseReminder } from './HealthyUseReminder';
 import { CompressionConfirmationRequest } from '../services/webViewModelService';
@@ -163,6 +165,8 @@ export const MultiSessionApp: React.FC = () => {
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   // 🎯 NanoBanana图像生成对话框状态
   const [isNanoBananaOpen, setIsNanoBananaOpen] = useState(false);
+  // 🎯 PPT生成对话框状态
+  const [isPPTGeneratorOpen, setIsPPTGeneratorOpen] = useState(false);
 
   // 🎯 压缩确认弹窗状态（模型切换时上下文超限）
   const [compressionConfirmation, setCompressionConfirmation] = useState<CompressionConfirmationRequest | null>(null);
@@ -2051,6 +2055,15 @@ User question: ${contentStr}`;
         </div>
 
         <div className="multi-session-app__header-right">
+          {/* 🎯 PPT 生成入口 */}
+          <button
+            className="multi-session-app__manage-btn multi-session-app__ppt-btn"
+            onClick={() => setIsPPTGeneratorOpen(true)}
+            title={t('pptGenerator.buttonTooltip', {}, 'Generate PPT with AI')}
+            style={{ marginRight: '8px' }}
+          >
+            <PPTGeneratorIcon size={18} />
+          </button>
           {/* 🎯 NanoBanana 图像生成入口 */}
           <button
             className="multi-session-app__manage-btn multi-session-app__nanobanana-btn"
@@ -2260,6 +2273,12 @@ User question: ${contentStr}`;
       <NanoBananaDialog
         isOpen={isNanoBananaOpen}
         onClose={() => setIsNanoBananaOpen(false)}
+      />
+
+      {/* 🎯 PPT 生成对话框 */}
+      <PPTGeneratorDialog
+        isOpen={isPPTGeneratorOpen}
+        onClose={() => setIsPPTGeneratorOpen(false)}
       />
 
       {/* 🎯 压缩确认弹窗（模型切换时上下文超限） */}
