@@ -171,9 +171,24 @@ export class DeepVServerAdapter implements ContentGenerator {
       const sceneModel = SceneManager.getModelForScene(scene);
       const userModel = this.config?.getModel();
 
-      // 模型解析优先级：request.model > sceneModel > userModel > 'auto'
-      // 这样固定值场景（如 'gemini-2.5-flash'）会优先，'auto' 场景会回退到用户模型
-      const modelToUse = request.model || sceneModel || userModel || 'auto';
+      // 🆕 如果用户使用自定义模型，辅助场景（非主对话场景）应该也使用用户的自定义模型
+      // 这样可以避免在使用自定义模型时仍然调用 DeepV API
+      let modelToUse: string;
+      if (userModel && isCustomModel(userModel)) {
+        // 用户使用自定义模型时：
+        // - 如果 request.model 也是自定义模型，使用 request.model
+        // - 否则使用用户的自定义模型（忽略场景固定模型）
+        if (request.model && isCustomModel(request.model)) {
+          modelToUse = request.model;
+        } else {
+          modelToUse = userModel;
+        }
+        console.log(`[DeepV Server] User is using custom model, overriding scene model for ${scene}: ${modelToUse}`);
+      } else {
+        // 模型解析优先级：request.model > sceneModel > userModel > 'auto'
+        // 这样固定值场景（如 'gemini-2.5-flash'）会优先，'auto' 场景会回退到用户模型
+        modelToUse = request.model || sceneModel || userModel || 'auto';
+      }
 
       // 检查是否为自定义模型
       if (isCustomModel(modelToUse) && this.config) {
@@ -510,7 +525,20 @@ export class DeepVServerAdapter implements ContentGenerator {
     // 检查是否为自定义模型
     const sceneModel = SceneManager.getModelForScene(scene);
     const userModel = this.config?.getModel();
-    const modelToUse = request.model || sceneModel || userModel || 'auto';
+
+    // 🆕 如果用户使用自定义模型，辅助场景应该也使用用户的自定义模型
+    let modelToUse: string;
+    if (userModel && isCustomModel(userModel)) {
+      // 用户使用自定义模型时：忽略场景固定模型，使用用户的自定义模型
+      if (request.model && isCustomModel(request.model)) {
+        modelToUse = request.model;
+      } else {
+        modelToUse = userModel;
+      }
+      console.log(`[DeepV Server] (Stream) User is using custom model, overriding scene model for ${scene}: ${modelToUse}`);
+    } else {
+      modelToUse = request.model || sceneModel || userModel || 'auto';
+    }
 
     if (isCustomModel(modelToUse) && this.config) {
       const customModelConfig = this.config.getCustomModelConfig(modelToUse);
@@ -557,9 +585,21 @@ export class DeepVServerAdapter implements ContentGenerator {
       const sceneModel = SceneManager.getModelForScene(scene);
       const userModel = this.config?.getModel();
 
-      // 模型解析优先级：request.model > sceneModel > userModel > 'auto'
-      // 这样固定值场景（如 'gemini-2.5-flash'）会优先，'auto' 场景会回退到用户模型
-      const modelToUse = request.model || sceneModel || userModel || 'auto';
+      // 🆕 如果用户使用自定义模型，辅助场景应该也使用用户的自定义模型
+      let modelToUse: string;
+      if (userModel && isCustomModel(userModel)) {
+        // 用户使用自定义模型时：忽略场景固定模型，使用用户的自定义模型
+        if (request.model && isCustomModel(request.model)) {
+          modelToUse = request.model;
+        } else {
+          modelToUse = userModel;
+        }
+        console.log(`[DeepV Server] (_Stream) User is using custom model, overriding scene model for ${scene}: ${modelToUse}`);
+      } else {
+        // 模型解析优先级：request.model > sceneModel > userModel > 'auto'
+        // 这样固定值场景（如 'gemini-2.5-flash'）会优先，'auto' 场景会回退到用户模型
+        modelToUse = request.model || sceneModel || userModel || 'auto';
+      }
 
       // 详细的模型决策日志 - 仅在调试模式下显示
       if (process.env.DEBUG || process.env.NODE_ENV === 'development') {
@@ -1081,7 +1121,19 @@ export class DeepVServerAdapter implements ContentGenerator {
    */
   private buildUnifiedRequest(request: GenerateContentParameters, scene: SceneType): any {
     const sceneModel = SceneManager.getModelForScene(scene);
-    const modelToUse = request.model || sceneModel || 'auto';
+    const userModel = this.config?.getModel();
+
+    // 🆕 如果用户使用自定义模型，忽略场景固定模型
+    let modelToUse: string;
+    if (userModel && isCustomModel(userModel)) {
+      if (request.model && isCustomModel(request.model)) {
+        modelToUse = request.model;
+      } else {
+        modelToUse = userModel;
+      }
+    } else {
+      modelToUse = request.model || sceneModel || 'auto';
+    }
 
     return {
       model: modelToUse,

@@ -864,5 +864,81 @@ describe('customModelAdapter - Streaming Tool Calls', () => {
       // 保留原始的非缓存输入 token
       expect(usageResponse.usageMetadata.uncachedInputTokens).toBe(3);
     });
+
+    it('should handle non-standard Anthropic-compatible providers that return token usage only in message_delta', async () => {
+      // 模拟非标准兼容厂商（如 GLM-4 的 Anthropic 兼容接口）的响应格式：
+      // - message_start 中返回 input_tokens: 0, output_tokens: 0（占位符）
+      // - message_delta 中才返回真实的 token 用量
+      const mockResponse = {
+        ok: true,
+        body: {
+          getReader: () => {
+            let index = 0;
+            const chunks = [
+              'data: {"type":"message_start","message":{"id":"msg_123","type":"message","role":"assistant","model":"glm-4.7","content":[],"stop_reason":null,"usage":{"input_tokens":0,"output_tokens":0}}}\n',
+              'data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}\n',
+              'data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"你好！"}}\n',
+              'data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"很高兴见到你！"}}\n',
+              'data: {"type":"content_block_stop","index":0}\n',
+              // 非标准：token 用量在 message_delta 中返回，包括缓存信息
+              'data: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"input_tokens":19,"output_tokens":99,"cache_read_input_tokens":12928}}\n',
+            ];
+
+            return {
+              read: vi.fn(async () => {
+                if (index < chunks.length) {
+                  const value = new TextEncoder().encode(chunks[index]);
+                  index++;
+                  return { done: false, value };
+                }
+                return { done: true, value: undefined };
+              }),
+              releaseLock: vi.fn(),
+            };
+          },
+        },
+      };
+
+      global.fetch = vi.fn().mockResolvedValue(mockResponse);
+
+      const modelConfig = {
+        provider: 'anthropic' as const,
+        modelId: 'glm-4.7',
+        baseUrl: 'https://proxy.example.com',
+        apiKey: 'sk-test',
+        displayName: 'GLM-4.7 (Anthropic Compatible)',
+      };
+
+      const request = {
+        contents: [
+          {
+            role: MESSAGE_ROLES.USER,
+            parts: [{ text: 'Hello' }],
+          },
+        ],
+      };
+
+      const responses: any[] = [];
+      for await (const response of callAnthropicModelStream(modelConfig as any, request)) {
+        responses.push(response);
+      }
+
+      // 找到包含 usageMetadata 的响应（来自 message_delta）
+      const usageResponse = responses.find(r => r.usageMetadata);
+
+      expect(usageResponse).toBeDefined();
+      expect(usageResponse.usageMetadata).toBeDefined();
+
+      // 🔧 鲁棒性测试：即使 message_start 返回 0，也应该从 message_delta 中获取正确的 token 数据
+      // promptTokenCount = input_tokens + cache_creation + cache_read = 19 + 0 + 12928 = 12947
+      expect(usageResponse.usageMetadata.promptTokenCount).toBe(19 + 0 + 12928);
+      // output_tokens 来自 message_delta
+      expect(usageResponse.usageMetadata.candidatesTokenCount).toBe(99);
+      expect(usageResponse.usageMetadata.totalTokenCount).toBe((19 + 0 + 12928) + 99);
+      // 缓存信息应该正确解析
+      expect(usageResponse.usageMetadata.cacheReadInputTokens).toBe(12928);
+      // 非缓存输入 token
+      expect(usageResponse.usageMetadata.uncachedInputTokens).toBe(19);
+    });
   });
 });

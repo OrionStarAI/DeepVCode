@@ -25,6 +25,15 @@ import { Part, PartListUnion } from '@google/genai';
 
 import { ModifiableTool, ModifyContext } from '../tools/modifiable-tool.js';
 
+const waitUntil = async (cb: () => boolean, timeout = 5000) => {
+  const start = Date.now();
+  while (Date.now() - start < timeout) {
+    if (cb()) return;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error('Timeout waiting for condition');
+};
+
 class MockTool extends BaseTool<Record<string, unknown>, ToolResult> {
   shouldConfirm = false;
   executeFn = vi.fn();
@@ -101,7 +110,7 @@ class MockModifiableTool
   }
 }
 
-describe.skip('CoreToolScheduler', () => {
+describe('CoreToolScheduler', () => {
   it('should cancel a tool call if the signal is aborted before confirmation', async () => {
     const mockTool = new MockTool();
     mockTool.shouldConfirm = true;
@@ -126,6 +135,7 @@ describe.skip('CoreToolScheduler', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => false,
+      getApprovalMode: () => 'default',
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -148,21 +158,6 @@ describe.skip('CoreToolScheduler', () => {
     abortController.abort();
     await scheduler.schedule([request], abortController.signal);
 
-    const _waitingCall = onToolCallsUpdate.mock
-      .calls[1][0][0] as ValidatingToolCall;
-    const confirmationDetails = await mockTool.shouldConfirmExecute(
-      {},
-      abortController.signal,
-    );
-    if (confirmationDetails) {
-      await scheduler.handleConfirmationResponse(
-        '1',
-        ToolConfirmationOutcome.ProceedOnce,
-        undefined,
-        abortController.signal,
-      );
-    }
-
     expect(onAllToolCallsComplete).toHaveBeenCalled();
     const completedCalls = onAllToolCallsComplete.mock
       .calls[0][0] as ToolCall[];
@@ -170,7 +165,7 @@ describe.skip('CoreToolScheduler', () => {
   });
 });
 
-describe.skip('CoreToolScheduler with payload', () => {
+describe('CoreToolScheduler with payload', () => {
   it('should update args and diff and execute tool when payload is provided', async () => {
     const mockTool = new MockModifiableTool();
     const toolRegistry = {
@@ -194,6 +189,7 @@ describe.skip('CoreToolScheduler with payload', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => false,
+      getApprovalMode: () => 'default',
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -213,22 +209,23 @@ describe.skip('CoreToolScheduler with payload', () => {
       prompt_id: 'prompt-id-2',
     };
 
-    await scheduler.schedule([request], abortController.signal);
+    const schedulePromise = scheduler.schedule([request], abortController.signal);
 
-    const confirmationDetails = await mockTool.shouldConfirmExecute(
-      {},
+    // 等待进入待确认状态
+    await waitUntil(() => {
+      const calls = scheduler.getToolCalls();
+      return calls.length > 0 && calls[0].status === 'awaiting_approval';
+    });
+
+    const payload: ToolConfirmationPayload = { newContent: 'final version' };
+    await scheduler.handleConfirmationResponse(
+      '1',
+      ToolConfirmationOutcome.ProceedOnce,
+      payload,
       abortController.signal,
     );
 
-    if (confirmationDetails) {
-      const payload: ToolConfirmationPayload = { newContent: 'final version' };
-      await scheduler.handleConfirmationResponse(
-        '1',
-        ToolConfirmationOutcome.ProceedOnce,
-        payload,
-        abortController.signal,
-      );
-    }
+    await schedulePromise;
 
     expect(onAllToolCallsComplete).toHaveBeenCalled();
     const completedCalls = onAllToolCallsComplete.mock
@@ -425,7 +422,7 @@ describe('convertToFunctionResponse', () => {
   });
 });
 
-describe.skip('CoreToolScheduler edit cancellation', () => {
+describe('CoreToolScheduler edit cancellation', () => {
   it('should preserve diff when an edit is cancelled', async () => {
     class MockEditTool extends BaseTool<Record<string, unknown>, ToolResult> {
       constructor() {
@@ -487,6 +484,7 @@ describe.skip('CoreToolScheduler edit cancellation', () => {
       getSessionId: () => 'test-session-id',
       getUsageStatisticsEnabled: () => true,
       getDebugMode: () => false,
+      getApprovalMode: () => 'default',
     } as unknown as Config;
 
     const scheduler = new CoreToolScheduler({
@@ -506,28 +504,23 @@ describe.skip('CoreToolScheduler edit cancellation', () => {
       prompt_id: 'prompt-id-1',
     };
 
-    await scheduler.schedule([request], abortController.signal);
+    const schedulePromise = scheduler.schedule([request], abortController.signal);
 
-    // Wait for the tool to reach awaiting_approval state
-    const awaitingCall = onToolCallsUpdate.mock.calls.find(
-      (call) => call[0][0].status === 'awaiting_approval',
-    )?.[0][0];
-
-    expect(awaitingCall).toBeDefined();
+    // 等待进入待确认状态
+    await waitUntil(() => {
+      const calls = scheduler.getToolCalls();
+      return calls.length > 0 && calls[0].status === 'awaiting_approval';
+    });
 
     // Cancel the edit
-    const confirmationDetails = await mockEditTool.shouldConfirmExecute(
-      {},
+    await scheduler.handleConfirmationResponse(
+      '1',
+      ToolConfirmationOutcome.Cancel,
+      undefined,
       abortController.signal,
     );
-    if (confirmationDetails) {
-      await scheduler.handleConfirmationResponse(
-        '1',
-        ToolConfirmationOutcome.Cancel,
-        undefined,
-        abortController.signal,
-      );
-    }
+
+    await schedulePromise;
 
     expect(onAllToolCallsComplete).toHaveBeenCalled();
     const completedCalls = onAllToolCallsComplete.mock
