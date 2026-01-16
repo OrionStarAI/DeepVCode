@@ -33,6 +33,7 @@ import { HistoryNavigationPlugin } from './MessageInput/plugins/HistoryNavigatio
 import { slashCommandHandler } from '../services/slashCommandHandler';
 import { UnifiedFileUploadButton } from './MessageInput/components/UnifiedFileUploadButton';
 import { RefineButton } from './MessageInput/components/RefineButton';
+import { AtMentionButton } from './MessageInput/components/AtMentionButton';
 import { ImageReference, resetImageCounter } from './MessageInput/utils/imageProcessor';
 import { FileUploadResult, FileType } from './MessageInput/utils/fileTypes';
 import { PlanModeToggle } from './PlanModeToggle';
@@ -1175,13 +1176,20 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
             )}
           </div>
 
-          {/* 右侧：Plan Mode开关、上传按钮和发送按钮 */}
+          {/* 右侧：Plan Mode开关、@ 按钮、上传按钮和发送按钮 */}
           <div className="input-actions">
-            {/* 🎯 Plan Mode切换开关 - 放在上传按钮左边 */}
+            {/* 🎯 Plan Mode切换开关 - 最左侧 */}
             <PlanModeToggle
               isPlanMode={isPlanMode}
               onToggle={onTogglePlanMode || (() => {})}
               disabled={isLoading || isProcessing}
+            />
+
+            {/* 🎯 @ 上下文按钮 - 第二个位置 */}
+            <AtMentionButton
+              editorRef={editorRef}
+              disabled={isLoading || isProcessing}
+              onFileSelect={handleFileAutoComplete}
             />
 
             {/* 统一文件上传按钮（图片、代码、Markdown） */}

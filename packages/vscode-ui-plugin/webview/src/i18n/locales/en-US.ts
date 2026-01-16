@@ -410,6 +410,7 @@ export const enUS: Translations = {
     selectTerminal: 'Select terminal',
     terminalOutput: 'Terminal output (last 200 lines)',
     loading: 'Loading...',
+    openContextMenu: 'Add context (@)',
   },
 
   systemNotifications: {
