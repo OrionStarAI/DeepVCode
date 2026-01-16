@@ -931,3 +931,40 @@
 .params-json::-webkit-scrollbar-thumb:hover {
   background: var(--vscode-scrollbarSlider-hoverBackground);
 }
+
+/* 🎯 Batch 子工具列表样式 */
+.batch-sub-tools {
+  display: flex;
+  flex-direction: column;
+  padding-left: 24px;
+  margin-top: 4px;
+  margin-bottom: 4px;
+  gap: 2px;
+}
+
+.batch-sub-tool-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.batch-connector {
+  color: var(--vscode-descriptionForeground);
+  font-family: monospace;
+  opacity: 0.6;
+}
+
+.batch-sub-tool-name {
+  color: var(--vscode-editor-foreground);
+  font-weight: 500;
+}
+
+.batch-sub-tool-summary {
+  color: var(--vscode-descriptionForeground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 300px;
+}
