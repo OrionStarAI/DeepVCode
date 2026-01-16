@@ -17,6 +17,7 @@ import {
   getDeepXQuotaErrorMessage,
   isApiError,
   isStructuredError,
+  isCustomModel,
 } from 'deepv-code-core';
 import { isChineseLocale } from './i18n.js';
 
@@ -422,6 +423,23 @@ export function parseAndFormatApiError(
   currentModel?: string,
   fallbackModel?: string,
 ): string {
+  // 🆕 自定义模型：跳过所有特殊错误格式化，直接返回原始错误消息
+  // 这些友好提示（地区限制、配额限制、升级套餐等）都是针对官方 Gemini API 设计的
+  // 自定义模型使用用户自己的 API 端点，不受这些限制约束
+  if (currentModel && isCustomModel(currentModel)) {
+    // 对于自定义模型，只返回简单的错误信息
+    if (typeof error === 'string') {
+      return `[Custom Model Error] ${error}`;
+    }
+    if (error instanceof Error) {
+      return `[Custom Model Error] ${error.message}`;
+    }
+    if (isStructuredError(error)) {
+      return `[Custom Model Error] ${error.message}`;
+    }
+    return `[Custom Model Error] ${String(error)}`;
+  }
+
   // 🆕 最高优先级检查网络连接失败错误 - 显示友好提示
   if (isNetworkConnectionError(error)) {
     return getNetworkConnectionFriendlyMessage();
