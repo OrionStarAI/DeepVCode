@@ -26,7 +26,24 @@ export class BatchTool extends BaseTool<BatchToolParams, ToolResult> {
         super(
             BatchTool.Name,
             'Batch',
-            'Execute multiple tools in parallel (or sequentially if dependencies exist, but this implementation runs them sequentially for safety).',
+            `Execute multiple tools in parallel (or sequentially if dependencies exist, but this implementation runs them sequentially for safety).
+
+WHEN TO USE:
+- Calling 2+ different tool types together (e.g., read_file + search_file_content + glob)
+- Performing 3+ independent operations of the same type
+- Gathering information from multiple sources at once
+
+WHY USE BATCH:
+- JSON format is simpler and less error-prone than nested XML tool calls
+- Clearly expresses "these operations are a group"
+- Reduces cognitive load when generating multiple tool calls
+
+Example: To read a file, search for a pattern, and list files:
+[
+  {"tool": "read_file", "parameters": {"absolute_path": "/path/to/file.ts"}},
+  {"tool": "search_file_content", "parameters": {"pattern": "TODO", "path": "/src"}},
+  {"tool": "glob", "parameters": {"pattern": "**/*.ts"}}
+]`,
             Icon.Tasks,
             {
                 properties: {
@@ -56,6 +73,24 @@ export class BatchTool extends BaseTool<BatchToolParams, ToolResult> {
         // Enforce max calls to prevent abuse/errors
         if (params.tool_calls.length > 20) return 'Maximum 20 tool calls allowed in batch.';
         return null;
+    }
+
+    /**
+     * Returns a concise description of the batch tool calls for UI display.
+     * Format: "N tools: Tool1, Tool2, ..."
+     */
+    override getDescription(params: BatchToolParams): string {
+        if (!params.tool_calls || params.tool_calls.length === 0) {
+            return 'No tools';
+        }
+        const count = params.tool_calls.length;
+        const toolNames = params.tool_calls.map(c => c.tool).join(', ');
+        // Truncate if too long (max 60 chars for tool list)
+        const maxLen = 60;
+        const truncated = toolNames.length > maxLen
+            ? toolNames.substring(0, maxLen - 3) + '...'
+            : toolNames;
+        return `${count} tool${count > 1 ? 's' : ''}: ${truncated}`;
     }
 
     async execute(
