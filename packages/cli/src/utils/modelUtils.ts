@@ -30,12 +30,32 @@ export const AUTO_MODE_CONFIG = {
 };
 
 /**
+ * 格式化 provider 名称（首字母大写）
+ * 'openai' -> 'OpenAI', 'anthropic' -> 'Anthropic'
+ */
+export function formatProviderName(provider: string): string {
+  if (provider === 'openai') return 'OpenAI';
+  if (provider === 'anthropic') return 'Anthropic';
+  // 默认首字母大写
+  return provider.charAt(0).toUpperCase() + provider.slice(1);
+}
+
+/**
+ * 生成自定义模型的显示名称
+ * 格式: [Provider] DisplayName
+ */
+export function formatCustomModelDisplayName(customModel: CustomModelConfig): string {
+  const providerLabel = formatProviderName(customModel.provider);
+  return `[${providerLabel}] ${customModel.displayName}`;
+}
+
+/**
  * 将自定义模型配置转换为ModelInfo格式
  */
 function convertCustomModelToModelInfo(customModel: CustomModelConfig): ModelInfo {
   return {
-    name: generateCustomModelId(customModel.displayName),  // 自动生成 custom:{displayName}
-    displayName: `[Custom] ${customModel.displayName}`,
+    name: generateCustomModelId(customModel),
+    displayName: formatCustomModelDisplayName(customModel),
     creditsPerRequest: 0, // 自定义模型不显示积分
     available: customModel.enabled !== false,
     maxToken: customModel.maxTokens || 0,
@@ -62,7 +82,7 @@ export function createModelDisplayNameMap(models: ModelInfo[], config?: Config |
     const customModels = config.getCustomModels() || [];
     customModels.forEach(customModel => {
       if (customModel.enabled !== false) {
-        map.set(generateCustomModelId(customModel.displayName), `[Custom] ${customModel.displayName}`);
+        map.set(generateCustomModelId(customModel), formatCustomModelDisplayName(customModel));
       }
     });
   }

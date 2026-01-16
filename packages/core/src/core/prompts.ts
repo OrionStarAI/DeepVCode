@@ -981,7 +981,16 @@ function getMcpPromptsContext(promptRegistry?: PromptRegistry): string {
   }
 }
 
-export function getCoreSystemPrompt(userMemory?: string, isVSCode?: boolean, promptRegistry?: PromptRegistry, agentStyle: AgentStyle = 'default', modelId?: string, preferredLanguage?: string): string {
+/**
+ * 自定义模型信息，用于在系统提示中显示
+ */
+export interface CustomModelInfo {
+  provider: string;
+  modelId: string;
+  baseUrl: string;
+}
+
+export function getCoreSystemPrompt(userMemory?: string, isVSCode?: boolean, promptRegistry?: PromptRegistry, agentStyle: AgentStyle = 'default', modelId?: string, preferredLanguage?: string, customModelInfo?: CustomModelInfo): string {
   // if GEMINI_SYSTEM_MD is set (and not 0|false), override system prompt from file
   // default path is .deepv/system.md but can be modified via custom path in GEMINI_SYSTEM_MD
   let systemMdEnabled = false;
@@ -1041,8 +1050,16 @@ export function getCoreSystemPrompt(userMemory?: string, isVSCode?: boolean, pro
 
   const mcpPromptsContext = getMcpPromptsContext(promptRegistry);
 
-  // Inject current model ID if provided
-  const modelIdContext = modelId ? `\n\n---\n\n**Current Model:** \`${modelId}\`` : '';
+  // Inject current model info
+  let modelIdContext = '';
+  if (customModelInfo) {
+    // 自定义模型：显示 modelId、baseUrl 和 provider 协议
+    const providerName = customModelInfo.provider === 'openai' ? 'OpenAI' : 'Anthropic';
+    modelIdContext = `\n\n---\n\n**Current Model:** \`${customModelInfo.modelId}\`, served by user-configured endpoint \`${customModelInfo.baseUrl}\` using ${providerName}-compatible protocol.`;
+  } else if (modelId) {
+    // 内置云端模型：直接显示 modelId
+    modelIdContext = `\n\n---\n\n**Current Model:** \`${modelId}\``;
+  }
 
   let finalPrompt = `${basePrompt}\n\n${dynamicPrompt}${modelIdContext}`;
   if (mcpPromptsContext) {

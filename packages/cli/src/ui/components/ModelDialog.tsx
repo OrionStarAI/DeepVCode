@@ -355,28 +355,45 @@ export function ModelDialog({
               >
                 {/* 自定义模型专用显示 */}
                 {highlightedModel.modelInfo.isCustom ? (
-                  <>
-                    <Text>
-                      <Text bold>{t('model.dialog.details.name')}</Text>
-                      <Text color={Colors.AccentCyan}>{highlightedModel.modelInfo.displayName}</Text>
-                    </Text>
-                    <Text>
-                      <Text bold>Type: </Text>
-                      <Text color={Colors.AccentCyan}>Custom Model</Text>
-                    </Text>
-                    {highlightedModel.modelInfo.maxToken && highlightedModel.modelInfo.maxToken > 0 && (
-                      <Text>
-                        <Text bold>{t('model.dialog.details.context')}</Text>
-                        <Text>{highlightedModel.modelInfo.maxToken.toLocaleString()} tokens</Text>
-                      </Text>
-                    )}
-                    <Text>
-                      <Text bold>{t('model.dialog.details.status')}</Text>
-                      <Text color={highlightedModel.modelInfo.available ? Colors.AccentGreen : Colors.AccentRed}>
-                        {highlightedModel.modelInfo.available ? t('model.dialog.details.available') : t('model.dialog.details.unavailable')}
-                      </Text>
-                    </Text>
-                  </>
+                  (() => {
+                    const customConfig = config.getCustomModelConfig(highlightedModel.value as string);
+                    return (
+                      <>
+                        <Text>
+                          <Text bold>{t('model.dialog.details.name')}</Text>
+                          <Text color={Colors.AccentCyan}>{highlightedModel.modelInfo.displayName}</Text>
+                        </Text>
+                        <Text>
+                          <Text bold>Type: </Text>
+                          <Text color={Colors.AccentCyan}>Custom Model</Text>
+                        </Text>
+                        {customConfig && (
+                          <>
+                            <Text>
+                              <Text bold>Base URL: </Text>
+                              <Text color={Colors.Gray} wrap="truncate">{customConfig.baseUrl}</Text>
+                            </Text>
+                            <Text>
+                              <Text bold>Model ID: </Text>
+                              <Text wrap="truncate">{customConfig.modelId}</Text>
+                            </Text>
+                          </>
+                        )}
+                        {highlightedModel.modelInfo.maxToken && highlightedModel.modelInfo.maxToken > 0 && (
+                          <Text>
+                            <Text bold>{t('model.dialog.details.context')}</Text>
+                            <Text>{highlightedModel.modelInfo.maxToken.toLocaleString()} tokens</Text>
+                          </Text>
+                        )}
+                        <Text>
+                          <Text bold>{t('model.dialog.details.status')}</Text>
+                          <Text color={highlightedModel.modelInfo.available ? Colors.AccentGreen : Colors.AccentRed}>
+                            {highlightedModel.modelInfo.available ? t('model.dialog.details.available') : t('model.dialog.details.unavailable')}
+                          </Text>
+                        </Text>
+                      </>
+                    );
+                  })()
                 ) : (
                   /* 云端模型显示 */
                   <>

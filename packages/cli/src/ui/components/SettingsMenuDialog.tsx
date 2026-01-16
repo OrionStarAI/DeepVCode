@@ -47,30 +47,30 @@ export const SettingsMenuDialog = React.memo(function SettingsMenuDialog({
     ? getModelDisplayName(settings.merged.preferredModel, config)
     : t('config.value.auto');
 
-  // 主菜单选项
+  // 主菜单选项 - 按使用频率排序
   const menuItems: RadioSelectItem<string>[] = [
-    { label: t('config.menu.theme'), value: 'theme', rightText: `(${themeValue})` },
-    { label: t('config.menu.editor'), value: 'editor', rightText: `(${editorValue})` },
     { label: t('config.menu.model'), value: 'model', rightText: `(${modelValue})` },
-    { label: `${settings.merged.vimMode ? '✅' : '❌'} ${t('config.menu.vim')}`, value: 'vim', rightText: settings.merged.vimMode ? `(${t('config.value.on')})` : `(${t('config.value.off')})` },
     {
       label: `${(function () {
         switch (config.getAgentStyle()) {
           case 'codex': return '⚡';
-          case 'cursor': return '🎯';
+          case 'cursor': return '↗️';
           case 'augment': return '🚀';
-          case 'claude-code': return '⌨️';
-          case 'antigravity': return '💎';
+          case 'claude-code': return '✳️';
+          case 'antigravity': return '🌈';
           case 'windsurf': return '🌊';
-          default: return '🧠';
+          default: return '𝓥';
         }
       })()} ${t('config.menu.agent.style')}`,
       value: 'agent-style',
       rightText: `(${t(`agentStyle.style.${config.getAgentStyle()}.label` as any)})`
     },
     { label: `${config.getApprovalMode() === ApprovalMode.YOLO ? '🚀' : '🛡️'} ${t('config.menu.yolo')}`, value: 'yolo', rightText: config.getApprovalMode() === ApprovalMode.YOLO ? `(${t('config.value.on')})` : `(${t('config.value.off')})` },
-    { label: `${config.getHealthyUseEnabled() ? '✅' : '❌'} ${t('config.menu.healthy.use')}`, value: 'healthy-use', rightText: config.getHealthyUseEnabled() ? `(${t('config.value.on')})` : `(${t('config.value.off')})` },
+    { label: t('config.menu.theme'), value: 'theme', rightText: `(${themeValue})` },
     { label: t('config.menu.language'), value: 'language', rightText: settings.merged.preferredLanguage ? `(${settings.merged.preferredLanguage})` : `(${t('config.value.default')})` },
+    { label: t('config.menu.editor'), value: 'editor', rightText: `(${editorValue})` },
+    { label: `${settings.merged.vimMode ? '✅' : '❌'} ${t('config.menu.vim')}`, value: 'vim', rightText: settings.merged.vimMode ? `(${t('config.value.on')})` : `(${t('config.value.off')})` },
+    { label: `${config.getHealthyUseEnabled() ? '✅' : '❌'} ${t('config.menu.healthy.use')}`, value: 'healthy-use', rightText: config.getHealthyUseEnabled() ? `(${t('config.value.on')})` : `(${t('config.value.off')})` },
   ];
 
   // YOLO 模式选项
@@ -99,7 +99,7 @@ export const SettingsMenuDialog = React.memo(function SettingsMenuDialog({
   // 菜单状态
   type MenuView = 'main' | 'yolo' | 'agent-style' | 'healthy-use' | 'language';
   const [currentView, setCurrentView] = useState<MenuView>('main');
-  const [selectedMain, setSelectedMain] = useState<string>('theme');
+  const [selectedMain, setSelectedMain] = useState<string>('model');
 
   const [languageInput, setLanguageInput] = useState(settings.merged.preferredLanguage || '');
 
@@ -108,7 +108,7 @@ export const SettingsMenuDialog = React.memo(function SettingsMenuDialog({
     setLastSelectedBeforeSubMenu(selectedValue);
     setCurrentView(subMenu);
   };
-  const [lastSelectedBeforeSubMenu, setLastSelectedBeforeSubMenu] = useState<string>('theme');
+  const [lastSelectedBeforeSubMenu, setLastSelectedBeforeSubMenu] = useState<string>('model');
   const [selectedYolo, setSelectedYolo] = useState<string>(
     config.getApprovalMode() === ApprovalMode.YOLO ? 'on' : 'off'
   );

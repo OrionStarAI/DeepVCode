@@ -15,6 +15,7 @@ export interface Suggestion {
   description?: string;
   matchScore?: number; // 用于排序的匹配分数
   willAutoExecute?: boolean; // 是否在选择后自动执行命令（用于 /model 等参数补全命令）
+  isHint?: boolean; // 是否为提示信息（不可选择，按回车时跳过补全直接执行命令）
 }
 interface SuggestionsDisplayProps {
   suggestions: Suggestion[];
