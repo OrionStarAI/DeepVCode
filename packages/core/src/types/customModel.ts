@@ -53,21 +53,59 @@ export interface CustomModelConfig {
 }
 
 /**
- * 生成自定义模型的内部ID
- * 格式: custom:{displayName}
+ * 生成自定义模型的唯一键
+ * 基于 provider + baseUrl + modelId 确定唯一性
  */
-export function generateCustomModelId(displayName: string): string {
+export function generateCustomModelKey(config: CustomModelConfig): string {
+  return `${config.provider}|${config.baseUrl}|${config.modelId}`;
+}
+
+/**
+ * 生成自定义模型的内部ID（用于 UI 选择和配置保存）
+ * 格式: custom:{provider}:{modelId}@{baseUrlHash}
+ *
+ * 使用简短的 baseUrl hash 避免 ID 过长，同时保证唯一性
+ */
+export function generateCustomModelId(config: CustomModelConfig): string {
+  // 简单的字符串哈希函数
+  const hashString = (str: string): string => {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const char = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return Math.abs(hash).toString(36).substring(0, 6);
+  };
+
+  const baseUrlHash = hashString(config.baseUrl);
+  return `custom:${config.provider}:${config.modelId}@${baseUrlHash}`;
+}
+
+/**
+ * @deprecated 使用 generateCustomModelId(config) 代替
+ * 仅用于向后兼容旧格式 custom:{displayName}
+ */
+export function generateLegacyCustomModelId(displayName: string): string {
   return `custom:${displayName}`;
 }
 
 /**
- * 从内部ID提取displayName
+ * 从内部ID提取provider
+ * 支持新格式 custom:{provider}:{modelId}@{hash} 和旧格式 custom:{displayName}
  */
-export function extractDisplayName(modelId: string): string | null {
+export function extractProvider(modelId: string): CustomModelProvider | null {
   if (!isCustomModel(modelId)) {
     return null;
   }
-  return modelId.replace('custom:', '');
+  const withoutPrefix = modelId.replace('custom:', '');
+  if (withoutPrefix.startsWith('openai:')) {
+    return 'openai';
+  }
+  if (withoutPrefix.startsWith('anthropic:')) {
+    return 'anthropic';
+  }
+  return null;
 }
 
 /**

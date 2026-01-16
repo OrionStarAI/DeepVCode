@@ -1122,6 +1122,26 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
         </Box>
       ) : null}
 
+      {/* 命令提示：当用户输入特定命令时显示，帮助用户了解正确用法 */}
+      {(() => {
+        const trimmedInput = buffer.text.trim().toLowerCase();
+        if (completion.showSuggestions) return null;
+        let hintText = '';
+        if (trimmedInput.startsWith('/model')) {
+          hintText = t('model.command.hint.press.enter');
+        } else if (trimmedInput.startsWith('/help-ask')) {
+          hintText = t('command.help-ask.hint.press.enter');
+        }
+        if (!hintText) return null;
+        return (
+          <Box paddingX={1}>
+            <Text color={Colors.AccentOrange} inverse>
+              {` 💡 ${hintText} `}
+            </Text>
+          </Box>
+        );
+      })()}
+
       {completion.showSuggestions && (
         <Box>
           <SuggestionsDisplay

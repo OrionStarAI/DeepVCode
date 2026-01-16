@@ -55,13 +55,8 @@ describe('modelCommand', () => {
     expect(result).toBeUndefined();
   });
 
-  it('should provide completion suggestions as Suggestion objects', async () => {
-    // Mock getAvailableModels via global or internal state if possible
-    // For now, test that it returns something
-    const completions = await modelCommand.completion!(mockContext, 'auto');
-    expect(completions).toBeDefined();
-    if (completions.length > 0) {
-      expect(completions[0]).toHaveProperty('willAutoExecute', true);
-    }
+  it('should not have completion function (removed to allow direct command execution)', () => {
+    // completion 函数已移除，用户输入 /model 后直接回车打开选择器
+    expect(modelCommand.completion).toBeUndefined();
   });
 });

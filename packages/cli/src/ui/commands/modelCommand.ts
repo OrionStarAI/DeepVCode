@@ -17,7 +17,8 @@ import {
   createModelDisplayNameMap,
   getModelDisplayName,
   getModelInfo,
-  getModelNameFromDisplayName
+  getModelNameFromDisplayName,
+  formatCustomModelDisplayName
 } from '../../utils/modelUtils.js';
 import { loadCustomModels } from '../../config/customModelsStorage.js';
 
@@ -400,8 +401,8 @@ function getCustomModels(settings?: any, config?: Config): ModelInfo[] {
     fileCustomModels.forEach(customModel => {
       if (customModel.enabled !== false) {
         customModels.push({
-          name: generateCustomModelId(customModel.displayName),  // 自动生成 custom:{displayName}
-          displayName: `[Custom] ${customModel.displayName}`,
+          name: generateCustomModelId(customModel),
+          displayName: formatCustomModelDisplayName(customModel),
           creditsPerRequest: 0,
           available: true,
           maxToken: customModel.maxTokens || 0,
@@ -422,8 +423,8 @@ function getCustomModels(settings?: any, config?: Config): ModelInfo[] {
     configCustomModels.forEach(customModel => {
       if (customModel.enabled !== false) {
         customModels.push({
-          name: generateCustomModelId(customModel.displayName),  // 自动生成 custom:{displayName}
-          displayName: `[Custom] ${customModel.displayName}`,
+          name: generateCustomModelId(customModel),
+          displayName: formatCustomModelDisplayName(customModel),
           creditsPerRequest: 0,
           available: true,
           maxToken: customModel.maxTokens || 0,
@@ -442,8 +443,8 @@ function getCustomModels(settings?: any, config?: Config): ModelInfo[] {
     settingsCustomModels.forEach((customModel: any) => {
       if (customModel.enabled !== false) {
         customModels.push({
-          name: generateCustomModelId(customModel.displayName),  // 自动生成 custom:{displayName}
-          displayName: `[Custom] ${customModel.displayName}`,
+          name: generateCustomModelId(customModel),
+          displayName: formatCustomModelDisplayName(customModel),
           creditsPerRequest: 0,
           available: true,
           maxToken: customModel.maxTokens || 0,
@@ -748,54 +749,6 @@ export const modelCommand: SlashCommand = {
     // 不返回任何内容，避免显示空消息
   },
 
-  // 提供自动完成功能
-  completion: async (context, partialArg) => {
-    const lowerPartial = partialArg.toLowerCase();
-
-    try {
-      const { settings, config } = context.services;
-      const { modelNames, modelInfos } = await getAvailableModels(settings, config || undefined);
-
-      // 如果未登录（modelNames为空），返回空数组
-      if (modelNames.length === 0) {
-        return [];
-      }
-
-      // 使用 displayName 进行补全
-      const displayNames = modelNames.map((modelName: string) =>
-        getModelDisplayName(modelName, config)
-      );
-
-      const matchedModels = displayNames.filter((displayName: string) =>
-        displayName.toLowerCase().includes(lowerPartial)
-      );
-
-      // 返回带有 willAutoExecute 标记的 Suggestion 对象数组，以便选择后自动执行
-      return matchedModels.map((displayName: string) => ({
-        label: displayName,
-        value: displayName,
-        willAutoExecute: true
-      }));
-    } catch (error) {
-      // 检查是否是未登录
-      const authStatus = proxyAuthManager.getStatus();
-      if (!authStatus.hasUserInfo) {
-        return [];
-      }
-
-      // 其他错误，降级到'auto'模式让服务端决定
-      console.warn('[ModelCommand] Model autocomplete: Failed to fetch models from server, falling back to auto mode');
-      const fallbackModels = ['auto', ...FALLBACK_MODELS];
-      const matchedModels = fallbackModels.filter((model: string) =>
-        model.toLowerCase().includes(lowerPartial)
-      );
-
-      // 降级模型也需要支持自动执行
-      return matchedModels.map((model: string) => ({
-        label: model,
-        value: model,
-        willAutoExecute: true
-      }));
-    }
-  },
+  // 不提供参数补全，直接回车打开模型选择器
+  // 返回空数组，让用户可以直接执行命令
 };

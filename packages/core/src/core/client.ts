@@ -24,7 +24,8 @@ import {
 import { Config } from '../config/config.js';
 import { UserTierId } from '../code_assist/types.js';
 import { AgentContext } from '../telemetry/types.js';
-import { getCoreSystemPrompt } from './prompts.js';
+import { getCoreSystemPrompt, CustomModelInfo } from './prompts.js';
+import { isCustomModel } from '../types/customModel.js';
 import { SceneType, SceneManager } from './sceneManager.js';
 import { checkNextSpeaker } from '../utils/nextSpeakerChecker.js';
 import { reportError } from '../utils/errorReporting.js';
@@ -161,6 +162,42 @@ export class GeminiClient {
   }
 
   /**
+   * 获取自定义模型信息（用于系统提示注入）
+   * 如果当前模型是自定义模型，返回其详细信息；否则返回 undefined
+   */
+  private getCustomModelInfo(modelName: string): CustomModelInfo | undefined {
+    if (!isCustomModel(modelName)) {
+      return undefined;
+    }
+    const customConfig = this.config.getCustomModelConfig(modelName);
+    if (!customConfig) {
+      return undefined;
+    }
+    return {
+      provider: customConfig.provider,
+      modelId: customConfig.modelId,
+      baseUrl: customConfig.baseUrl,
+    };
+  }
+
+  /**
+   * 格式化模型名称用于显示（如模型切换消息）
+   * 自定义模型显示为：modelId (via baseUrl, Provider-compatible)
+   * 内置模型直接显示名称
+   */
+  private formatModelForDisplay(modelName: string): string {
+    if (!isCustomModel(modelName)) {
+      return modelName;
+    }
+    const customConfig = this.config.getCustomModelConfig(modelName);
+    if (!customConfig) {
+      return modelName;
+    }
+    const providerName = customConfig.provider === 'openai' ? 'OpenAI' : 'Anthropic';
+    return `${customConfig.modelId} (via ${customConfig.baseUrl}, ${providerName}-compatible)`;
+  }
+
+  /**
    * 获取通用内容生成器
    * DeepVServerAdapter 支持所有模型：Claude模型进行参数转换，Gemini模型直接转发
    */
@@ -218,7 +255,8 @@ export class GeminiClient {
         systemInstruction = 'You are a helpful assistant.';
       }
     } else {
-      systemInstruction = getCoreSystemPrompt(userMemory, false, promptRegistry, agentStyle, modelToUse, this.config.getPreferredLanguage());
+      const customModelInfo = this.getCustomModelInfo(modelToUse);
+      systemInstruction = getCoreSystemPrompt(userMemory, false, promptRegistry, agentStyle, modelToUse, this.config.getPreferredLanguage(), customModelInfo);
     }
 
     const isThinking = isThinkingSupported(modelToUse);
@@ -373,7 +411,9 @@ export class GeminiClient {
     const userMemory = this.config.getUserMemory();
     const isVSCode = this.config.getVsCodePluginMode();
     const agentStyle = this.config.getAgentStyle();
-    const updatedSystemPrompt = getCoreSystemPrompt(userMemory, isVSCode, promptRegistry, agentStyle, this.config.getModel(), this.config.getPreferredLanguage());
+    const currentModel = this.config.getModel();
+    const customModelInfo = this.getCustomModelInfo(currentModel);
+    const updatedSystemPrompt = getCoreSystemPrompt(userMemory, isVSCode, promptRegistry, agentStyle, currentModel, this.config.getPreferredLanguage(), customModelInfo);
 
     if (this.chat) {
       this.chat.setSystemInstruction(updatedSystemPrompt);
@@ -528,10 +568,12 @@ Use Glob and ReadFile tools to explore specific files during our conversation.
       // 使用统一的 getCoreSystemPrompt，根据环境调整内容
       const promptRegistry = this.config.getPromptRegistry();
       const agentStyle = this.config.getAgentStyle();
-      const systemInstruction = getCoreSystemPrompt(userMemory, isVSCode, promptRegistry, agentStyle, this.config.getModel(), this.config.getPreferredLanguage());
+      const currentModel = this.config.getModel();
+      const customModelInfo = this.getCustomModelInfo(currentModel);
+      const systemInstruction = getCoreSystemPrompt(userMemory, isVSCode, promptRegistry, agentStyle, currentModel, this.config.getPreferredLanguage(), customModelInfo);
 
       const generateContentConfigWithThinking = isThinkingSupported(
-        this.config.getModel(),
+        currentModel,
       )
         ? {
             ...this.generateContentConfig,
@@ -950,9 +992,11 @@ Use Glob and ReadFile tools to explore specific files during our conversation.
 
       // 📌 Add model switch awareness message to context without breaking cache
       // This allows AI to understand that the model has been switched
+      const fromModelDisplay = this.formatModelForDisplay(currentModel);
+      const toModelDisplay = this.formatModelForDisplay(newModel);
       const modelSwitchMessage: Content = {
         role: MESSAGE_ROLES.USER,
-        parts: [{ text: `[Model switched from ${currentModel} to ${newModel}]` }],
+        parts: [{ text: `[Model switched from ${fromModelDisplay} to ${toModelDisplay}]` }],
       };
       this.getChat().addHistory(modelSwitchMessage);
 

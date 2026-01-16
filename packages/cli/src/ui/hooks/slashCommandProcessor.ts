@@ -25,6 +25,7 @@ import { LoadedSettings } from '../../config/settings.js';
 import { runExitCleanup } from '../../utils/cleanup.js';
 import { setQuitting, getIsQuitting } from '../../utils/quitState.js';
 import { getCreditsService } from '../../services/creditsService.js';
+import { isCustomModel } from 'deepv-code-core';
 import { type CommandContext, type SlashCommand } from '../commands/types.js';
 import { CommandService } from '../../services/CommandService.js';
 import { BuiltinCommandLoader } from '../../services/BuiltinCommandLoader.js';
@@ -466,10 +467,11 @@ export const useSlashCommandProcessor = (
                     // 🎯 优化：智能退出逻辑
                     // 1. 给 UI 一点时间渲染 SessionSummaryDisplay (至少 500ms)
                     // 2. 同时等待积分接口返回（如果还在加载中）
-                    // 3. 总等待时间不超过 1200ms
+                    // 3. 总等待时间不超过 1700ms
+                    // 4. 如果使用了自定义模型，跳过积分获取（不会有结果）
                     const startTime = Date.now();
                     const MIN_WAIT = 500;
-                    const MAX_WAIT = 1200;
+                    const MAX_WAIT = 1700;
                     let exited = false;
 
                     const performExit = () => {
@@ -486,15 +488,24 @@ export const useSlashCommandProcessor = (
                       }, remaining);
                     };
 
-                    // 尝试等待积分加载完成，然后尽快退出
-                    getCreditsService()
-                      .getCreditsInfo()
-                      .finally(() => {
-                        performExit();
-                      });
+                    // 检查是否使用了自定义模型
+                    const currentModel = config?.getModel() || '';
+                    const isUsingCustomModel = isCustomModel(currentModel);
 
-                    // 安全网：无论积分接口如何，1.2秒内必须退出
-                    setTimeout(performExit, MAX_WAIT);
+                    if (isUsingCustomModel) {
+                      // 自定义模型无法获取积分信息，直接按最少等待时间退出
+                      performExit();
+                    } else {
+                      // 尝试等待积分加载完成，然后尽快退出
+                      getCreditsService()
+                        .getCreditsInfo()
+                        .finally(() => {
+                          performExit();
+                        });
+
+                      // 安全网：无论积分接口如何，1.2秒内必须退出
+                      setTimeout(performExit, MAX_WAIT);
+                    }
                   });
 
                   return { type: 'handled' };
