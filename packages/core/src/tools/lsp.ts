@@ -69,7 +69,7 @@ export class LspTool extends BaseTool<LspToolParams, ToolResult> {
     }
 
     validateToolParams(params: LspToolParams): string | null {
-        const errors = SchemaValidator.validate(this.schema.parameters, params);
+        const errors = SchemaValidator.validate(this.schema.parameters, params, LspTool.Name);
         if (errors) return errors;
 
         if (params.operation !== 'workspaceSymbol') {

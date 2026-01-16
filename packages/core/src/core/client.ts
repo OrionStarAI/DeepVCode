@@ -147,6 +147,20 @@ export class GeminiClient {
   }
 
   /**
+   * 获取当前用户使用的模型名称
+   */
+  getCurrentModel(): string {
+    return this.config.getModel();
+  }
+
+  /**
+   * 获取配置对象（用于编辑校正等内部功能）
+   */
+  getConfiguration(): Config {
+    return this.config;
+  }
+
+  /**
    * 获取通用内容生成器
    * DeepVServerAdapter 支持所有模型：Claude模型进行参数转换，Gemini模型直接转发
    */

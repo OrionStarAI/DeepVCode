@@ -87,7 +87,7 @@ export class ReadFileTool extends BaseTool<ReadFileToolParams, ToolResult> {
   }
 
   validateToolParams(params: ReadFileToolParams): string | null {
-    const errors = SchemaValidator.validate(this.schema.parameters, params);
+    const errors = SchemaValidator.validate(this.schema.parameters, params, ReadFileTool.Name);
     if (errors) {
       return errors;
     }

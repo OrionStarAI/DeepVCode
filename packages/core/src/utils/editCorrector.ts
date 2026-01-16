@@ -23,6 +23,8 @@ import {
   isFunctionResponse,
   isFunctionCall,
 } from '../utils/messageInspectors.js';
+import { isCustomModel } from '../types/customModel.js';
+import { callCustomModel } from '../core/customModelAdapter.js';
 
 import * as fs from 'fs';
 
@@ -52,6 +54,9 @@ const fileContentCorrectionCache = new LruCache<string, string>(MAX_CACHE_SIZE);
 /**
  * 统一的编辑校正API调用函数
  * 替换所有直接的fetch调用，使用DeepVServerAdapter统一接口
+ *
+ * 如果用户当前使用的是自定义模型，则使用该自定义模型进行校正
+ * 否则使用默认的 Flash 模型
  */
 async function callEditCorrectionAPI(
   contents: Content[],
@@ -60,6 +65,50 @@ async function callEditCorrectionAPI(
   requestId: string,
   abortSignal?: AbortSignal,
 ): Promise<any> {
+  // 获取用户当前使用的模型
+  const currentModel = geminiClient.getCurrentModel();
+
+  // 如果用户使用的是自定义模型，则使用该模型进行校正
+  if (isCustomModel(currentModel)) {
+    const config = geminiClient.getConfiguration();
+    const customModelConfig = config.getCustomModelConfig(currentModel);
+
+    if (customModelConfig) {
+      console.log(`[Edit Correction] Using custom model for correction: ${customModelConfig.displayName}`);
+
+      // 构造自定义模型请求
+      const request = {
+        contents: contents,
+        config: {
+          systemInstruction: {
+            text: CODE_CORRECTION_SYSTEM_PROMPT,
+          },
+          abortSignal: abortSignal,
+        }
+      };
+
+      const response = await callCustomModel(customModelConfig, request, abortSignal);
+
+      // 解析自定义模型的响应
+      const responseText = response.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (responseText) {
+        try {
+          console.log(`[Edit Correction] ${requestId} completed successfully (custom model)`);
+          return JSON.parse(responseText);
+        } catch (e) {
+          console.warn(`[Edit Correction] Failed to parse custom model response as JSON: ${e}`);
+          return responseText;
+        }
+      }
+
+      console.log(`[Edit Correction] ${requestId} completed successfully (custom model)`);
+      return response;
+    } else {
+      console.warn(`[Edit Correction] Custom model config not found for: ${currentModel}, falling back to default model`);
+    }
+  }
+
+  // 默认使用 DeepVServerAdapter（Flash 模型）
   const deepVAdapter = geminiClient.getContentGenerator() as any;
   if (!deepVAdapter) {
     throw new Error('DeepVServerAdapter not available');

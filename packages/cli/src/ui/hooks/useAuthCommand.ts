@@ -226,6 +226,23 @@ Logging in with Google... Please restart DeepV Code CLI to continue.
     }
   }, [isPreparingEnvironment, config]);
 
+  // 状态：是否处于"自定义模型专用"流程中
+  const [isCustomModelOnlyMode, setIsCustomModelOnlyMode] = useState(false);
+
+  // 处理"使用自定义模型"选项
+  const handleUseCustomModel = useCallback(() => {
+    console.log('[AuthCommand] User selected "Use Custom Model" option');
+    // 关闭认证对话框
+    setIsAuthDialogOpen(false);
+    // 标记为自定义模型专用模式
+    setIsCustomModelOnlyMode(true);
+  }, []);
+
+  // 重置自定义模型模式
+  const resetCustomModelOnlyMode = useCallback(() => {
+    setIsCustomModelOnlyMode(false);
+  }, []);
+
   return {
     isAuthDialogOpen,
     openAuthDialog,
@@ -233,5 +250,9 @@ Logging in with Google... Please restart DeepV Code CLI to continue.
     isAuthenticating,
     isPreparingEnvironment,
     cancelAuthentication,
+    // 自定义模型专用模式相关
+    handleUseCustomModel,
+    isCustomModelOnlyMode,
+    resetCustomModelOnlyMode,
   };
 };

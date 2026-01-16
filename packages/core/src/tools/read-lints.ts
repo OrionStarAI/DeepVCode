@@ -83,7 +83,7 @@ export class ReadLintsTool extends BaseTool<ReadLintsParams, ToolResult> {
    * 验证工具参数
    */
   validateToolParams(params: ReadLintsParams): string | null {
-    const errors = SchemaValidator.validate(this.schema.parameters, params);
+    const errors = SchemaValidator.validate(this.schema.parameters, params, ReadLintsTool.Name);
     if (errors) {
       return errors;
     }

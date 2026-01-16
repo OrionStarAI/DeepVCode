@@ -50,7 +50,7 @@ export class BatchTool extends BaseTool<BatchToolParams, ToolResult> {
     }
 
     validateToolParams(params: BatchToolParams): string | null {
-        const errors = SchemaValidator.validate(this.schema.parameters, params);
+        const errors = SchemaValidator.validate(this.schema.parameters, params, BatchTool.Name);
         if (errors) return errors;
         if (!params.tool_calls || params.tool_calls.length === 0) return 'At least one tool call is required.';
         // Enforce max calls to prevent abuse/errors

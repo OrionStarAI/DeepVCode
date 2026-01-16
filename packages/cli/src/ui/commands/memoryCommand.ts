@@ -17,7 +17,7 @@ import {
   SlashCommand,
   SlashCommandActionReturn,
 } from './types.js';
-import { t } from '../utils/i18n.js';
+import { t, tp } from '../utils/i18n.js';
 
 export const memoryCommand: SlashCommand = {
   name: 'memory',
@@ -62,8 +62,8 @@ export const memoryCommand: SlashCommand = {
 
         const messageContent =
           memoryContent.length > 0
-            ? `当前记忆中来自 ${fileCount} 个文件的内容:\n\n---\n${memoryContent}\n---`
-            : '记忆当前为空。';
+            ? `${tp('memory.show.content', { fileCount })}\n\n---\n${memoryContent}\n---`
+            : t('memory.show.empty');
 
         context.ui.addItem(
           {

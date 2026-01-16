@@ -15,6 +15,7 @@ import {
   getMCPDiscoveryState,
   MCPDiscoveryState,
 } from 'deepv-code-core';
+import { t } from '../utils/i18n.js';
 
 // 强制恢复终端标题（MCP 启动时 npx 会覆盖标题）
 function forceRestoreTerminalTitle() {
@@ -97,18 +98,16 @@ export const ContextSummaryDisplay: React.FC<ContextSummaryDisplayProps> = ({
     if (count === 0) {
       return '';
     }
-    return `${count} recent file${count > 1 ? 's' : ''} (ctrl+e to view)`;
+    const fileLabel = count > 1 ? t('context.summary.recent.files') : t('context.summary.recent.file');
+    return `${count} ${fileLabel} (${t('context.summary.recent.view')})`;
   })();
 
   const geminiMdText = (() => {
     if (geminiMdFileCount === 0) {
       return '';
     }
-    const allNamesTheSame = new Set(contextFileNames).size < 2;
-    const name = allNamesTheSame ? contextFileNames[0] : 'context';
-    return `${geminiMdFileCount} ${name} file${
-      geminiMdFileCount > 1 ? 's' : ''
-    }`;
+    const fileLabel = geminiMdFileCount > 1 ? t('context.summary.memory.files') : t('context.summary.memory.file');
+    return `${geminiMdFileCount} ${fileLabel}`;
   })();
 
   const mcpText = (() => {
@@ -118,41 +117,43 @@ export const ContextSummaryDisplay: React.FC<ContextSummaryDisplayProps> = ({
 
     const parts = [];
     if (configuredMcpServerCount > 0) {
+      const serverLabel = configuredMcpServerCount > 1 ? t('context.summary.mcp.servers') : t('context.summary.mcp.server');
       // 显示连接状态
       if (discoveryState === MCPDiscoveryState.IN_PROGRESS || connectingMcpServerCount > 0) {
         // 正在连接中
         parts.push(
-          `${connectedMcpServerCount}/${configuredMcpServerCount} MCP server${configuredMcpServerCount > 1 ? 's' : ''} (connecting...)`,
+          `${connectedMcpServerCount}/${configuredMcpServerCount} ${serverLabel} (${t('context.summary.mcp.connecting')})`,
         );
       } else if (connectedMcpServerCount === configuredMcpServerCount) {
         // 全部连接成功
         parts.push(
-          `${connectedMcpServerCount} MCP server${connectedMcpServerCount > 1 ? 's' : ''}`,
+          `${connectedMcpServerCount} ${serverLabel}`,
         );
       } else if (connectedMcpServerCount > 0) {
         // 部分连接成功
         parts.push(
-          `${connectedMcpServerCount}/${configuredMcpServerCount} MCP server${configuredMcpServerCount > 1 ? 's' : ''}`,
+          `${connectedMcpServerCount}/${configuredMcpServerCount} ${serverLabel}`,
         );
       } else {
         // 全部连接失败
         parts.push(
-          `0/${configuredMcpServerCount} MCP server${configuredMcpServerCount > 1 ? 's' : ''} (failed)`,
+          `0/${configuredMcpServerCount} ${serverLabel} (${t('context.summary.mcp.failed')})`,
         );
       }
     }
 
     if (blockedMcpServerCount > 0) {
-      let blockedText = `${blockedMcpServerCount} Blocked`;
+      let blockedText = `${blockedMcpServerCount} ${t('context.summary.mcp.blocked')}`;
       if (configuredMcpServerCount === 0) {
-        blockedText += ` MCP server${blockedMcpServerCount > 1 ? 's' : ''}`;
+        const serverLabel = blockedMcpServerCount > 1 ? t('context.summary.mcp.servers') : t('context.summary.mcp.server');
+        blockedText += ` ${serverLabel}`;
       }
       parts.push(blockedText);
     }
     return parts.join(', ');
   })();
 
-  let summaryText = 'Using: ';
+  let summaryText = `${t('context.summary.using')}: `;
   const summaryParts = [];
   if (recentFilesText) {
     summaryParts.push(recentFilesText);
@@ -168,9 +169,9 @@ export const ContextSummaryDisplay: React.FC<ContextSummaryDisplayProps> = ({
   // Add ctrl+t hint when MCP servers are available
   if (mcpServers && Object.keys(mcpServers).length > 0) {
     if (showToolDescriptions) {
-      summaryText += ' (ctrl+t to toggle)';
+      summaryText += ` (${t('context.summary.mcp.toggle')})`;
     } else {
-      summaryText += ' (ctrl+t to view)';
+      summaryText += ` (${t('context.summary.mcp.view')})`;
     }
   }
 

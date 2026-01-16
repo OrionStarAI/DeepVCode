@@ -112,7 +112,7 @@ export class MultiEditTool extends BaseTool<MultiEditToolParams, ToolResult> {
 
     validateToolParams(params: MultiEditToolParams): string | null {
         const normalizedParams = this.normalizeParams(params);
-        const errors = SchemaValidator.validate(this.schema.parameters, normalizedParams);
+        const errors = SchemaValidator.validate(this.schema.parameters, normalizedParams, MultiEditTool.Name);
         if (errors) return errors;
         if (!normalizedParams.edits || normalizedParams.edits.length === 0) return 'At least one edit is required.';
         return null;

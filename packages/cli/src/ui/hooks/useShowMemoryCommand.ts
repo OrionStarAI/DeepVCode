@@ -7,6 +7,7 @@
 import { Message, MessageType } from '../types.js';
 import { Config } from 'deepv-code-core';
 import { LoadedSettings } from '../../config/settings.js';
+import { t } from '../utils/i18n.js';
 
 export function createShowMemoryAction(
   config: Config | null,
@@ -45,7 +46,7 @@ export function createShowMemoryAction(
 
     if (fileCount > 0) {
       const allNamesTheSame = new Set(contextFileNames).size < 2;
-      const name = allNamesTheSame ? contextFileNames[0] : 'context';
+      const name = allNamesTheSame ? contextFileNames[0] : 'memory';
       addMessage({
         type: MessageType.INFO,
         content: `Loaded memory from ${fileCount} ${name} file${

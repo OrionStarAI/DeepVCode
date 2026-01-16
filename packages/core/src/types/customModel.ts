@@ -42,6 +42,14 @@ export interface CustomModelConfig {
 
   /** 超时时间（毫秒，可选） */
   timeout?: number;
+
+  /**
+   * Enable Anthropic extended thinking (only for anthropic provider)
+   * - true: Auto-enable thinking with budget_tokens = maxTokens - 1
+   * - false/undefined: Disable thinking
+   * @see https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking
+   */
+  enableThinking?: boolean;
 }
 
 /**

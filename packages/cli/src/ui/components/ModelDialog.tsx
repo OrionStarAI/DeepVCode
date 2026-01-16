@@ -33,6 +33,15 @@ interface ModelDialogProps {
 
   /** Terminal width */
   terminalWidth: number;
+
+  /**
+   * 自定义模型专用模式
+   * 当为 true 时：
+   * 1. 不要求登录，不显示登录错误
+   * 2. 隐藏 Auto 选项
+   * 3. 只显示自定义模型和模型管理选项
+   */
+  customModelOnlyMode?: boolean;
 }
 
 export function ModelDialog({
@@ -42,6 +51,7 @@ export function ModelDialog({
   config,
   availableTerminalHeight,
   terminalWidth,
+  customModelOnlyMode = false,
 }: ModelDialogProps): React.JSX.Element {
   const smallWindowConfig = useSmallWindowOptimization();
 
@@ -64,8 +74,9 @@ export function ModelDialog({
         setLoading(true);
         const { modelNames, modelInfos, source } = await getAvailableModels(settings, config);
 
+        // 在自定义模型专用模式下，不显示登录错误
         // 检查是否需要重新登录（401错误或未登录）
-        if (source === 'auth_required' || modelNames.length === 0) {
+        if (!customModelOnlyMode && (source === 'auth_required' || modelNames.length === 0)) {
           setError(t('model.dialog.error.not.logged.in'));
           return;
         }
@@ -78,7 +89,20 @@ export function ModelDialog({
           isCustomModel: false,
         };
 
-        const modelItems = modelNames.map((modelName: string) => {
+        // 在自定义模型专用模式下，过滤掉 'auto' 选项和非自定义模型
+        const filteredModelNames = customModelOnlyMode
+          ? modelNames.filter((name: string) => {
+              // 保留自定义模型（以 custom: 开头）
+              if (name.startsWith('custom:')) return true;
+              // 过滤掉 'auto'
+              if (name === 'auto') return false;
+              // 检查是否是自定义模型
+              const info = getModelInfo(name, config);
+              return info?.isCustom === true;
+            })
+          : modelNames;
+
+        const modelItems = filteredModelNames.map((modelName: string) => {
           const displayName = getModelDisplayName(modelName, config);
           const modelInfo = getModelInfo(modelName, config);
 
@@ -108,9 +132,14 @@ export function ModelDialog({
 
         setModelItems(items);
 
-        // Set initial highlight to current model
+        // Set initial highlight to current model (or first custom model in customModelOnlyMode)
         const currentModel = settings.merged.preferredModel;
-        setHighlightedModelName(currentModel || 'auto');
+        if (customModelOnlyMode && modelItems.length > 0) {
+          // 在自定义模型模式下，默认选中第一个自定义模型
+          setHighlightedModelName(modelItems[0].value);
+        } else {
+          setHighlightedModelName(currentModel || 'auto');
+        }
 
       } catch (err) {
         setError(tp('model.dialog.error.load.failed', { error: err instanceof Error ? err.message : String(err) }));
@@ -154,7 +183,17 @@ export function ModelDialog({
             isCustomModel: false,
           };
 
-          const modelItems = modelNames.map((modelName: string) => {
+          // 在自定义模型专用模式下，过滤掉 'auto' 选项和非自定义模型
+          const filteredModelNames = customModelOnlyMode
+            ? modelNames.filter((name: string) => {
+                if (name.startsWith('custom:')) return true;
+                if (name === 'auto') return false;
+                const info = getModelInfo(name, config);
+                return info?.isCustom === true;
+              })
+            : modelNames;
+
+          const modelItems = filteredModelNames.map((modelName: string) => {
             const displayName = getModelDisplayName(modelName, config);
             const modelInfo = getModelInfo(modelName, config);
             let label = displayName;
@@ -184,7 +223,7 @@ export function ModelDialog({
         }
       }
     },
-    [settings, config],
+    [settings, config, customModelOnlyMode],
   );
 
   // 处理模型管理取消

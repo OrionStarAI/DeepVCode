@@ -226,7 +226,7 @@ This tool automatically enables external file access when absolute paths are det
   }
 
   validateParams(params: ReadManyFilesParams): string | null {
-    const errors = SchemaValidator.validate(this.schema.parameters, params);
+    const errors = SchemaValidator.validate(this.schema.parameters, params, ReadManyFilesTool.Name);
     if (errors) {
       return errors;
     }
