@@ -378,7 +378,7 @@ export class ShellTool extends BaseTool<ShellToolParams, ToolResult> {
       }
       return commandCheck.reason;
     }
-    const errors = SchemaValidator.validate(this.schema.parameters, params);
+    const errors = SchemaValidator.validate(this.schema.parameters, params, ShellTool.Name);
     if (errors) {
       return errors;
     }

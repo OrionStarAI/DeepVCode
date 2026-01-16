@@ -19,6 +19,8 @@ interface AuthDialogProps {
   onSelect: (authMethod: AuthType | undefined, scope: SettingScope) => void;
   settings: LoadedSettings;
   initialErrorMessage?: string | null;
+  /** Callback when user chooses to use custom model without login */
+  onUseCustomModel?: () => void;
 }
 
 function parseDefaultAuthType(
@@ -33,10 +35,14 @@ function parseDefaultAuthType(
   return null;
 }
 
+// 特殊值，表示用户选择使用自定义模型
+export const USE_CUSTOM_MODEL_VALUE = '__use_custom_model__';
+
 export function AuthDialog({
   onSelect,
   settings,
   initialErrorMessage,
+  onUseCustomModel,
 }: AuthDialogProps): React.JSX.Element {
   const [errorMessage, setErrorMessage] = useState<string | null>(() => {
     if (initialErrorMessage) {
@@ -63,12 +69,13 @@ export function AuthDialog({
   // 添加认证URL状态
   const [authUrl, setAuthUrl] = useState<string>('');
 
-  // 功能实现: 只显示DeepVlab统一认证选项
-  // 实现方案: 使用DeepVlab统一认证系统进行认证
+  // 功能实现: 显示DeepVlab统一认证选项和自定义模型选项
+  // 实现方案: 使用DeepVlab统一认证系统进行认证，或使用自定义模型（无需登录）
   // 影响范围: AuthDialog组件的认证选项列表
   // 实现日期: 2025-01-26
   const items = [
     { label: t('auth.option.deepvlab'), value: AuthType.USE_PROXY_AUTH },
+    { label: t('auth.option.custom.model'), value: USE_CUSTOM_MODEL_VALUE },
   ];
 
   // 隐藏的认证选项（保留代码以便未来恢复）:
@@ -93,12 +100,21 @@ export function AuthDialog({
   // 只有一个认证选项（Cheeth OA），直接默认选择
   const initialAuthIndex = 0;
 
-  const handleAuthSelect = (authMethod: AuthType) => {
+  const handleAuthSelect = (authMethod: AuthType | string) => {
     console.log('🔍 AuthDialog: handleAuthSelect called with authMethod:', authMethod);
 
     // 防止重复提交：如果正在认证中，忽略后续的选择
     if (isAuthenticating) {
       console.log('⚠️ AuthDialog: Authentication already in progress, ignoring duplicate selection');
+      return;
+    }
+
+    // 处理"使用自定义模型"选项
+    if (authMethod === USE_CUSTOM_MODEL_VALUE) {
+      console.log('🔧 AuthDialog: Custom model option selected');
+      if (onUseCustomModel) {
+        onUseCustomModel();
+      }
       return;
     }
 
@@ -147,12 +163,12 @@ export function AuthDialog({
     } else {
       console.log('📝 AuthDialog: Other auth method selected:', authMethod);
       // 其他认证方式的原有逻辑（不需要飞书认证）
-      const error = validateAuthMethod(authMethod);
+      const error = validateAuthMethod(authMethod as AuthType);
       if (error) {
         setErrorMessage(error);
       } else {
         setErrorMessage(null);
-        onSelect(authMethod, SettingScope.User);
+        onSelect(authMethod as AuthType, SettingScope.User);
       }
     }
   };

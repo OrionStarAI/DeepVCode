@@ -73,7 +73,7 @@ export class CodeSearchTool extends BaseTool<CodeSearchToolParams, ToolResult> {
   }
 
   validateToolParams(params: CodeSearchToolParams): string | null {
-    const errors = SchemaValidator.validate(this.schema.parameters, params);
+    const errors = SchemaValidator.validate(this.schema.parameters, params, CodeSearchTool.Name);
     if (errors) {
       return errors;
     }

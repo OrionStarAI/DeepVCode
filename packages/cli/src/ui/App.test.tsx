@@ -387,7 +387,7 @@ describe('App UI', () => {
     currentUnmount = unmount;
     await Promise.resolve();
     expect(sanitizeOutput(lastFrame())).toContain(
-      'Using: 1 recent file (ctrl+e to view) | 1 GEMINI.md file',
+      'Using: 1 recent file (ctrl+e to view) | 1 memory file',
     );
   });
 
@@ -407,7 +407,7 @@ describe('App UI', () => {
     );
     currentUnmount = unmount;
     await Promise.resolve(); // Wait for any async updates
-    expect(sanitizeOutput(lastFrame())).toContain('Using: 1 GEMINI.md file');
+    expect(sanitizeOutput(lastFrame())).toContain('Using: 1 memory file');
   });
 
   it('should display default "GEMINI.md" with plural when contextFileName is not set and count is > 1', async () => {
@@ -428,7 +428,7 @@ describe('App UI', () => {
     );
     currentUnmount = unmount;
     await Promise.resolve();
-    expect(sanitizeOutput(lastFrame())).toContain('Using: 2 GEMINI.md files');
+    expect(sanitizeOutput(lastFrame())).toContain('Using: 2 memory files');
   });
 
   it('should display custom contextFileName in footer when set and count is 1', async () => {
@@ -450,7 +450,7 @@ describe('App UI', () => {
     );
     currentUnmount = unmount;
     await Promise.resolve();
-    expect(sanitizeOutput(lastFrame())).toContain('Using: 1 AGENTS.md file');
+    expect(sanitizeOutput(lastFrame())).toContain('Using: 1 memory file');
   });
 
   it('should display a generic message when multiple context files with different names are provided', async () => {
@@ -477,7 +477,7 @@ describe('App UI', () => {
     );
     currentUnmount = unmount;
     await Promise.resolve();
-    expect(sanitizeOutput(lastFrame())).toContain('Using: 2 context files');
+    expect(sanitizeOutput(lastFrame())).toContain('Using: 2 memory files');
   });
 
   it('should display custom contextFileName with plural when set and count is > 1', async () => {
@@ -503,7 +503,7 @@ describe('App UI', () => {
     );
     currentUnmount = unmount;
     await Promise.resolve();
-    expect(sanitizeOutput(lastFrame())).toContain('Using: 3 MY_NOTES.TXT files');
+    expect(sanitizeOutput(lastFrame())).toContain('Using: 3 memory files');
   });
 
   it('should not display context file message if count is 0, even if contextFileName is set', async () => {

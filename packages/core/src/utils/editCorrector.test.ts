@@ -46,6 +46,12 @@ vi.mock('../core/client.js', () => ({
     this.getContentGenerator = vi.fn().mockReturnValue({
       generateContent: vi.fn().mockImplementation((...params: any[]) => mockGenerateJson(...params))
     });
+    // Mock getCurrentModel to return a non-custom model so tests use the default path
+    this.getCurrentModel = vi.fn().mockReturnValue('gemini-2.0-flash');
+    // Mock getConfiguration to return a minimal config object
+    this.getConfiguration = vi.fn().mockReturnValue({
+      getCustomModelConfig: vi.fn().mockReturnValue(null),
+    });
     return this;
   }),
 }));

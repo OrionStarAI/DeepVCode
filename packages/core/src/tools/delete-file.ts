@@ -88,7 +88,7 @@ export class DeleteFileTool extends BaseTool<DeleteFileToolParams, ToolResult> {
    * Validates the parameters for the DeleteFile tool
    */
   validateToolParams(params: DeleteFileToolParams): string | null {
-    const errors = SchemaValidator.validate(this.schema.parameters, params);
+    const errors = SchemaValidator.validate(this.schema.parameters, params, DeleteFileTool.Name);
     if (errors) {
       return errors;
     }

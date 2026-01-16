@@ -69,9 +69,14 @@ const lowCreditsCheck: WarningCheck = {
       const creditsService = getCreditsService();
       const creditsInfo = await creditsService.getCreditsInfo();
 
-      if (creditsInfo && creditsService.isCreditsLow(5)) {
-        const remainingPercentage = (100 - creditsInfo.usagePercentage).toFixed(1);
-        return tp('startup.warning.low.credits', { percentage: remainingPercentage });
+      if (creditsInfo) {
+        const remainingPercentage = 100 - creditsInfo.usagePercentage;
+        // 取整：5.99% -> 5%, 1.5% -> 1%
+        const roundedPercentage = Math.floor(remainingPercentage);
+        // 只在恰好 5% 或 1% 时显示警告，避免频繁打扰
+        if (roundedPercentage === 5 || roundedPercentage === 1) {
+          return tp('startup.warning.low.credits', { percentage: roundedPercentage });
+        }
       }
 
       return null;

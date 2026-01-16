@@ -120,7 +120,7 @@ export class GlobTool extends BaseTool<GlobToolParams, ToolResult> {
    * Validates the parameters for the tool.
    */
   validateToolParams(params: GlobToolParams): string | null {
-    const errors = SchemaValidator.validate(this.schema.parameters, params);
+    const errors = SchemaValidator.validate(this.schema.parameters, params, GlobTool.Name);
     if (errors) {
       return errors;
     }

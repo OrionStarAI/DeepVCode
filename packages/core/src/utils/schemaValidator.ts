@@ -18,13 +18,16 @@ export class SchemaValidator {
   /**
    * Returns null if the data confroms to the schema described by schema (or if schema
    *  is null). Otherwise, returns a string describing the error.
+   * @param schema The schema to validate against
+   * @param data The data to validate
+   * @param toolName Optional tool name for better error messages
    */
-  static validate(schema: Schema | undefined, data: unknown): string | null {
+  static validate(schema: Schema | undefined, data: unknown, toolName?: string): string | null {
     if (!schema) {
       return null;
     }
     if (typeof data !== 'object' || data === null) {
-      return 'Value of params must be an object';
+      return this.buildParamsMustBeObjectError(schema, data, toolName);
     }
     const validate = ajValidator.compile(this.toObjectSchema(schema));
     const valid = validate(data);
@@ -32,6 +35,95 @@ export class SchemaValidator {
       return ajValidator.errorsText(validate.errors, { dataVar: 'params' });
     }
     return null;
+  }
+
+  /**
+   * Builds a detailed error message when params is not an object.
+   * Includes the correct format example based on the schema.
+   */
+  private static buildParamsMustBeObjectError(
+    schema: Schema,
+    receivedData: unknown,
+    toolName?: string
+  ): string {
+    const receivedType = receivedData === null ? 'null' : typeof receivedData;
+    const receivedPreview = typeof receivedData === 'string'
+      ? `"${receivedData.substring(0, 100)}${receivedData.length > 100 ? '...' : ''}"`
+      : String(receivedData);
+
+    // Build example object from schema
+    const exampleObj = this.buildExampleFromSchema(schema);
+    const exampleJson = JSON.stringify(exampleObj, null, 2);
+
+    const toolNameHint = toolName ? ` for tool "${toolName}"` : '';
+
+    return `params must be an object${toolNameHint}, but received ${receivedType}: ${receivedPreview}
+
+CORRECT FORMAT - params must be a JSON object like this:
+${exampleJson}
+
+COMMON MISTAKES:
+1. Passing a string instead of an object: WRONG: "{\\"key\\": \\"value\\"}"  CORRECT: {"key": "value"}
+2. Forgetting to parse JSON string to object
+3. Passing null or undefined
+
+Each parameter should be a proper key-value pair in the object.`;
+  }
+
+  /**
+   * Builds an example object from a schema for error messages.
+   */
+  private static buildExampleFromSchema(schema: Schema): Record<string, unknown> {
+    const example: Record<string, unknown> = {};
+
+    if (schema.properties && typeof schema.properties === 'object') {
+      const requiredFields = Array.isArray(schema.required) ? schema.required : [];
+
+      for (const [key, propSchema] of Object.entries(schema.properties)) {
+        const prop = propSchema as Schema;
+        const isRequired = requiredFields.includes(key);
+
+        // Generate example value based on type
+        let exampleValue: unknown;
+        const propType = String(prop.type || 'string').toLowerCase();
+
+        switch (propType) {
+          case 'string':
+            if (prop.enum && Array.isArray(prop.enum) && prop.enum.length > 0) {
+              exampleValue = prop.enum[0];
+            } else if (key.toLowerCase().includes('path')) {
+              exampleValue = '/absolute/path/to/file.ts';
+            } else if (key.toLowerCase().includes('content') || key.toLowerCase().includes('string')) {
+              exampleValue = 'your content here';
+            } else {
+              exampleValue = `<${key}>`;
+            }
+            break;
+          case 'number':
+          case 'integer':
+            exampleValue = prop.minimum !== undefined ? Number(prop.minimum) : 1;
+            break;
+          case 'boolean':
+            exampleValue = true;
+            break;
+          case 'array':
+            exampleValue = [];
+            break;
+          case 'object':
+            exampleValue = {};
+            break;
+          default:
+            exampleValue = `<${key}>`;
+        }
+
+        // Only include required fields in the example to keep it concise
+        if (isRequired) {
+          example[key] = exampleValue;
+        }
+      }
+    }
+
+    return example;
   }
 
   /**

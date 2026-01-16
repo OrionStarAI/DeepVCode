@@ -233,7 +233,7 @@ export class GrepTool extends BaseTool<GrepToolParams, ToolResult> {
    * @returns An error message string if invalid, null otherwise
    */
   validateToolParams(params: GrepToolParams): string | null {
-    const errors = SchemaValidator.validate(this.schema.parameters, params);
+    const errors = SchemaValidator.validate(this.schema.parameters, params, GrepTool.Name);
     if (errors) {
       return errors;
     }

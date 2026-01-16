@@ -41,7 +41,7 @@ export class PatchTool extends BaseTool<PatchToolParams, ToolResult> {
     }
 
     validateToolParams(params: PatchToolParams): string | null {
-        const errors = SchemaValidator.validate(this.schema.parameters, params);
+        const errors = SchemaValidator.validate(this.schema.parameters, params, PatchTool.Name);
         if (errors) return errors;
         if (!params.patchText) return 'patchText is required';
         return null;

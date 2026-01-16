@@ -757,6 +757,10 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     isAuthenticating,
     isPreparingEnvironment,
     cancelAuthentication,
+    // 自定义模型专用模式
+    handleUseCustomModel,
+    isCustomModelOnlyMode,
+    resetCustomModelOnlyMode,
   } = useAuthCommand(settings, setAuthError, config, setCurrentModel, customProxyUrl);
 
   const {
@@ -777,6 +781,13 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
       appEvents.off(AppEvent.AuthenticationRequired, handleAuthRequired);
     };
   }, [openAuthDialog]);
+
+  // 当用户选择"使用自定义模型"时，自动打开模型选择对话框
+  useEffect(() => {
+    if (isCustomModelOnlyMode) {
+      openModelDialog();
+    }
+  }, [isCustomModelOnlyMode, openModelDialog]);
 
   // BUG修复: 避免在初始化时显示认证错误，只在用户主动选择后验证
   // 修复策略: 移除自动验证逻辑，让用户在选择时才进行验证
@@ -2181,12 +2192,19 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                 </Box>
               ) : null}
               <ModelDialog
-                onSelect={handleModelSelect}
+                onSelect={(modelName) => {
+                  handleModelSelect(modelName);
+                  // 模型选择后重置自定义模型专用模式
+                  if (isCustomModelOnlyMode) {
+                    resetCustomModelOnlyMode();
+                  }
+                }}
                 onHighlight={handleModelHighlight}
                 settings={settings}
                 config={config}
                 availableTerminalHeight={terminalHeight - staticExtraHeight}
                 terminalWidth={mainAreaWidth}
+                customModelOnlyMode={isCustomModelOnlyMode}
               />
             </Box>
           ) : isCustomModelWizardOpen ? (
@@ -2224,6 +2242,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                 onSelect={handleAuthSelect}
                 settings={settings}
                 initialErrorMessage={authError}
+                onUseCustomModel={handleUseCustomModel}
               />
             </Box>
           ) : isLoginDialogOpen ? (
