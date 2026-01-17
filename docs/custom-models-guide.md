@@ -65,6 +65,10 @@ Add custom models to your `custom-models.json` file (located at `~/.deepv/custom
 - **enabled**: Whether the model is enabled (default: true)
 - **headers**: Additional HTTP headers as key-value pairs
 - **timeout**: Request timeout in milliseconds (default: 300000)
+- **enableThinking**: Enable extended thinking for Anthropic models (default: auto-detect)
+  - `true`: Force enable thinking
+  - `false`: Force disable thinking
+  - Omitted: Auto-detect based on model (Claude Sonnet 4.x, Opus 4.x, Haiku 4.x are auto-enabled)
 
 ## Environment Variables
 
@@ -114,6 +118,14 @@ Example:
   "modelId": "claude-sonnet-4-5"
 }
 ```
+
+**Extended Thinking**: For Claude 4.x and 3.7 models, extended thinking is automatically enabled. The thinking process will be displayed in the UI before the response. To disable it, set `"enableThinking": false`.
+
+Supported models for extended thinking:
+- Claude Sonnet 4.5 / 4.x series
+- Claude Opus 4.5 / 4.x series
+- Claude Haiku 4.5 / 4.x series
+- Claude 3.7 Sonnet
 
 ### DeepV Custom (`deepv`)
 
