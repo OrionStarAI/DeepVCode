@@ -140,15 +140,11 @@ export function FileSelectionMenu({
   // 🎯 处理文件夹引用（单击文件夹时触发）
   const handleFolderSelect = useCallback((option: FileOption) => {
     if (onFolderSelect) {
-      // 🎯 如果提供了 onFolderSelect 回调（来自 AtMentionButton），使用它
       const folderPath = option.filePath.replace(/\/$/, ''); // 移除尾部斜杠
       onFolderSelect(option.fileName, folderPath);
-      onClose();
-    } else {
-      // 🎯 如果没有提供 onFolderSelect（来自 FileAutocompletePlugin），通过 onSelectOption 处理
-      onSelectOption(option);
     }
-  }, [onFolderSelect, onSelectOption, onClose]);
+    onClose();
+  }, [onFolderSelect, onClose]);
 
   // 🎯 处理选项点击/选择
   const handleOptionSelect = useCallback((option: FileOption) => {
