@@ -84,6 +84,8 @@ export class AuthServer {
           await this.handleStartDeepvlabAuth(res);
         } else if (reqUrl.pathname === '/start-cheetah-auth' && req.method === 'POST') {
           await this.handleStartCheetahAuth(req, res);
+        } else if (reqUrl.pathname === '/start-vipcard-auth' && req.method === 'POST') {
+          await this.handleStartVipCardAuth(req, res);
         } else if (reqUrl.pathname === '/api/backend/feishu-allowed' && req.method === 'GET') {
           await this.handleFeishuAllowedCheck(res);
         } else {
@@ -123,6 +125,8 @@ export class AuthServer {
               await this.handleStartDeepvlabAuth(res);
             } else if (reqUrl.pathname === '/start-cheetah-auth' && req.method === 'POST') {
               await this.handleStartCheetahAuth(req, res);
+            } else if (reqUrl.pathname === '/start-vipcard-auth' && req.method === 'POST') {
+              await this.handleStartVipCardAuth(req, res);
             } else if (reqUrl.pathname === '/api/backend/feishu-allowed' && req.method === 'GET') {
               await this.handleFeishuAllowedCheck(res);
             } else {
@@ -612,6 +616,253 @@ export class AuthServer {
       });
       res.end(JSON.stringify(response));
     }
+  }
+
+  /**
+   * 处理VIP卡登录请求
+   * 智能处理：先尝试登录，如果失败则尝试注册后再登录
+   */
+  private async handleStartVipCardAuth(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+    try {
+      console.log('🚀 [Auth Server] 启动VIP卡认证流程');
+
+      // 读取请求体
+      let body = '';
+      req.on('data', chunk => {
+        body += chunk.toString();
+      });
+
+      req.on('end', async () => {
+        try {
+          const { code } = JSON.parse(body);
+
+          if (!code || !code.trim()) {
+            const response = {
+              success: false,
+              message: '兑换码不能为空'
+            };
+
+            res.writeHead(400, {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*'
+            });
+            res.end(JSON.stringify(response));
+            return;
+          }
+
+          const trimmedCode = code.trim().toUpperCase();
+          console.log('🔄 [Auth Server] VIP卡兑换码:', trimmedCode);
+
+          const proxyServerUrl = process.env.DEEPX_SERVER_URL || 'https://api-code.deepvlab.ai';
+
+          // 智能处理：先尝试登录
+          console.log('🔄 [Auth Server] 尝试VIP卡登录...');
+          let loginResult = await this.tryVipCardLogin(proxyServerUrl, trimmedCode);
+
+          if (loginResult.success) {
+            // 登录成功
+            console.log('✅ [Auth Server] VIP卡登录成功');
+            await this.handleVipCardSuccess(res, loginResult.data, trimmedCode);
+            return;
+          }
+
+          // 登录失败，检查是否需要先注册
+          if (loginResult.error === '兑换码无效或尚未激活') {
+            console.log('🔄 [Auth Server] VIP卡未激活，尝试快速注册...');
+
+            // 尝试快速注册
+            const registerResult = await this.tryVipCardRegister(proxyServerUrl, trimmedCode);
+
+            if (!registerResult.success) {
+              // 注册失败
+              console.error('❌ [Auth Server] VIP卡注册失败:', registerResult.error);
+              const response = {
+                success: false,
+                message: registerResult.error || '兑换码无效或已过期'
+              };
+
+              res.writeHead(200, {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+              });
+              res.end(JSON.stringify(response));
+              return;
+            }
+
+            console.log('✅ [Auth Server] VIP卡注册成功，自动登录...');
+
+            // 注册成功后再次尝试登录
+            loginResult = await this.tryVipCardLogin(proxyServerUrl, trimmedCode);
+
+            if (!loginResult.success) {
+              console.error('❌ [Auth Server] VIP卡注册后登录失败:', loginResult.error);
+              const response = {
+                success: false,
+                message: loginResult.error || '登录失败，请稍后重试'
+              };
+
+              res.writeHead(200, {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+              });
+              res.end(JSON.stringify(response));
+              return;
+            }
+
+            console.log('✅ [Auth Server] VIP卡激活并登录成功');
+            await this.handleVipCardSuccess(res, loginResult.data, trimmedCode);
+          } else {
+            // 其他登录错误
+            console.error('❌ [Auth Server] VIP卡登录失败:', loginResult.error);
+            const response = {
+              success: false,
+              message: loginResult.error || '登录失败，请检查兑换码'
+            };
+
+            res.writeHead(200, {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*'
+            });
+            res.end(JSON.stringify(response));
+          }
+
+        } catch (parseError) {
+          console.error('❌ [Auth Server] 解析请求体失败:', parseError);
+          const response = {
+            success: false,
+            message: '请求格式错误'
+          };
+
+          res.writeHead(400, {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+          });
+          res.end(JSON.stringify(response));
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ [Auth Server] VIP卡认证启动失败:', error);
+      const response = {
+        success: false,
+        message: error instanceof Error ? error.message : 'VIP卡认证启动失败'
+      };
+
+      res.writeHead(500, {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      });
+      res.end(JSON.stringify(response));
+    }
+  }
+
+  /**
+   * 尝试VIP卡登录
+   */
+  private async tryVipCardLogin(serverUrl: string, code: string): Promise<{ success: boolean; data?: any; error?: string }> {
+    try {
+      const response = await fetch(`${serverUrl}/web-api/code/vip-login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'DeepCode-CLI/1.0.0'
+        },
+        body: JSON.stringify({ code })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        return { success: true, data: data.data };
+      } else {
+        return { success: false, error: data.error || '登录失败' };
+      }
+    } catch (error: any) {
+      console.error('❌ [Auth Server] VIP卡登录请求失败:', error.message);
+      return { success: false, error: this.formatNetworkError(error, 'VIP卡登录') };
+    }
+  }
+
+  /**
+   * 尝试VIP卡快速注册
+   */
+  private async tryVipCardRegister(serverUrl: string, code: string): Promise<{ success: boolean; data?: any; error?: string }> {
+    try {
+      const response = await fetch(`${serverUrl}/web-api/code/quick-register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'DeepCode-CLI/1.0.0'
+        },
+        body: JSON.stringify({ code })
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        return { success: true, data: data.data };
+      } else {
+        return { success: false, error: data.error || '注册失败' };
+      }
+    } catch (error: any) {
+      console.error('❌ [Auth Server] VIP卡注册请求失败:', error.message);
+      return { success: false, error: this.formatNetworkError(error, 'VIP卡注册') };
+    }
+  }
+
+  /**
+   * 处理VIP卡登录成功
+   * @param res HTTP响应对象
+   * @param loginData vip-login接口返回的数据
+   * @param code 兑换码，用于构造用户信息的fallback
+   */
+  private async handleVipCardSuccess(res: http.ServerResponse, loginData: any, code: string): Promise<void> {
+    // 保存JWT令牌和用户信息到~/.deepv/目录
+    const proxyAuthManager = ProxyAuthManager.getInstance();
+
+    // 保存JWT token
+    if (loginData.accessToken) {
+      proxyAuthManager.setJwtTokenData({
+        accessToken: loginData.accessToken,
+        refreshToken: loginData.refreshToken,
+        expiresIn: loginData.expiresIn || 604800 // VIP卡默认7天
+      });
+      console.log('✅ [Auth Server] VIP卡JWT访问令牌和刷新令牌已保存到~/.deepv/');
+    }
+
+    // 保存用户信息（使用code作为显示名称的fallback）
+    const userInfo = {
+      openId: loginData.user?.email || code,
+      userId: loginData.user?.email || code,
+      name: loginData.user?.name || code,
+      enName: loginData.user?.name || code,
+      email: loginData.user?.email || '',
+      avatar: loginData.user?.avatar || ''
+    };
+    proxyAuthManager.setUserInfo(userInfo);
+    console.log(`✅ [Auth Server] VIP卡用户信息已保存到~/.deepv/: ${userInfo.name} (${userInfo.email || code})`)
+
+    // 返回成功响应
+    const response = {
+      success: true,
+      message: '激活并登录成功',
+      data: {
+        email: loginData.user?.email,
+        quota_name: loginData.user?.quota_name,
+        expires_at: loginData.user?.expires_at
+      }
+    };
+
+    res.writeHead(200, {
+      'Content-Type': 'application/json',
+      'Access-Control-Allow-Origin': '*'
+    });
+    res.end(JSON.stringify(response));
+
+    // 延迟恢复终端状态，确保响应已发送
+    setTimeout(() => {
+      this.restoreVSCodeTerminalState();
+    }, 100);
   }
 
   /**

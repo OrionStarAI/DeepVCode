@@ -131,6 +131,26 @@
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
     }
 
+    .vipcard-btn {
+      background: #ffffff;
+      color: #374151;
+      border: 2px solid #e5e7eb;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    .vipcard-btn:hover {
+      background: #f9fafb;
+      border-color: #f59e0b;
+      color: #d97706;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(245, 158, 11, 0.15);
+    }
+
+    .vipcard-btn:active {
+      transform: translateY(0);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
     .icon {
       width: 22px;
       height: 22px;
@@ -359,6 +379,27 @@
       box-shadow: 0 0 0 3px rgba(255, 107, 53, 0.1);
     }
 
+    /* VIP卡表单特殊样式 */
+    .vipcard-form .form-group input:focus {
+      border-color: #f59e0b;
+      box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.1);
+    }
+
+    .vipcard-form .btn-primary {
+      background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    }
+
+    .vipcard-form .btn-primary:hover:not(:disabled) {
+      background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
+    }
+
+    .vipcard-hint {
+      font-size: 12px;
+      color: #9ca3af;
+      margin-top: 8px;
+      text-align: left;
+    }
+
     .form-actions {
       display: flex;
       gap: 12px;
@@ -495,6 +536,11 @@
       <span data-i18n="auth.cheetah.button">Cheetah OA Login</span>
     </button>
 
+    <button id="vipcard-btn" class="auth-button vipcard-btn" onclick="startVipCardAuth()">
+      <span class="icon" style="font-size: 20px;">🎫</span>
+      <span data-i18n="auth.vipcard.button">VIP Card Login</span>
+    </button>
+
     <!-- 猎豹OA登录表单 -->
       <div id="cheetah-form" class="cheetah-form hidden">
         <h3 data-i18n="auth.cheetah.form.title">Cheetah OA Login</h3>
@@ -510,6 +556,22 @@
           <div class="form-actions">
             <button type="button" class="btn-secondary" onclick="cancelCheetahAuth()" data-i18n="auth.cheetah.form.cancel">Cancel</button>
             <button type="submit" class="btn-primary" data-i18n="auth.cheetah.form.submit">Login</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- VIP卡登录表单 -->
+      <div id="vipcard-form" class="cheetah-form vipcard-form hidden">
+        <h3 data-i18n="auth.vipcard.form.title">VIP Card Activation & Login</h3>
+        <form id="vipcard-login-form" onsubmit="submitVipCardAuth(event)">
+          <div class="form-group">
+            <label for="vipcard-code" data-i18n="auth.vipcard.form.code">Redemption Code:</label>
+            <input type="text" id="vipcard-code" name="code" required placeholder="VIP-XXXXXXXX" style="text-transform: uppercase;" />
+            <div class="vipcard-hint" data-i18n="auth.vipcard.form.hint">Enter the code from your VIP card</div>
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn-secondary" onclick="cancelVipCardAuth()" data-i18n="auth.vipcard.form.cancel">Cancel</button>
+            <button type="submit" class="btn-primary" data-i18n="auth.vipcard.form.submit">Activate & Login</button>
           </div>
         </form>
       </div>
@@ -554,7 +616,18 @@
         'auth.message.error.connection.content': 'Unable to connect to authentication server. Please check your network connection and try again.',
         'auth.message.error.connection.button': 'Retry',
         'auth.message.error.feishu.content': 'Unable to start Feishu authentication. Please check your network connection and try again.',
-        'auth.message.error.deepvlab.content': 'Unable to start DeepVlab authentication. Please check your network connection and try again.'
+        'auth.message.error.deepvlab.content': 'Unable to start DeepVlab authentication. Please check your network connection and try again.',
+        'auth.vipcard.button': 'VIP Card Login',
+        'auth.vipcard.form.title': 'VIP Card Activation & Login',
+        'auth.vipcard.form.code': 'Redemption Code',
+        'auth.vipcard.form.hint': 'Enter the code from your VIP card',
+        'auth.vipcard.form.cancel': 'Cancel',
+        'auth.vipcard.form.submit': 'Activate & Login',
+        'auth.vipcard.form.submitting': 'Processing...',
+        'auth.vipcard.success.title': 'Activation Successful!',
+        'auth.vipcard.success.content': 'Your VIP card has been activated and you are now logged in. You can close this window and continue using DeepV Code.',
+        'auth.vipcard.error.empty': 'Please enter the redemption code.',
+        'auth.vipcard.error.invalid': 'Invalid or expired redemption code. Please check and try again.'
       },
       zh: {
         'auth.page.title': '选择认证方式',
@@ -587,7 +660,18 @@
         'auth.message.error.connection.content': '无法连接到认证服务器。请检查您的网络连接并重试。',
         'auth.message.error.connection.button': '重试',
         'auth.message.error.feishu.content': '无法启动飞书认证。请检查您的网络连接并重试。',
-        'auth.message.error.deepvlab.content': '无法启动DeepVlab认证。请检查您的网络连接并重试。'
+        'auth.message.error.deepvlab.content': '无法启动DeepVlab认证。请检查您的网络连接并重试。',
+        'auth.vipcard.button': 'VIP卡登录',
+        'auth.vipcard.form.title': 'VIP卡激活与登录',
+        'auth.vipcard.form.code': '兑换码',
+        'auth.vipcard.form.hint': '请输入VIP卡上的兑换码',
+        'auth.vipcard.form.cancel': '取消',
+        'auth.vipcard.form.submit': '激活并登录',
+        'auth.vipcard.form.submitting': '处理中...',
+        'auth.vipcard.success.title': '激活成功！',
+        'auth.vipcard.success.content': '您的VIP卡已激活并完成登录。现在可以关闭此窗口并继续使用DeepV Code。',
+        'auth.vipcard.error.empty': '请输入兑换码。',
+        'auth.vipcard.error.invalid': '兑换码无效或已过期，请检查后重试。'
       }
     };
 
@@ -912,6 +996,100 @@
           if (submitBtn) {
             submitBtn.disabled = false;
             submitBtn.textContent = t('auth.cheetah.form.submit');
+          }
+        });
+    }
+
+    function startVipCardAuth() {
+      console.log('显示VIP卡登录表单...');
+      // 隐藏所有认证按钮
+      const buttons = document.querySelectorAll('.auth-button');
+      buttons.forEach(btn => btn.style.display = 'none');
+
+      // 显示VIP卡表单
+      const form = document.getElementById('vipcard-form');
+      if (form) {
+        form.classList.remove('hidden');
+        // 聚焦到输入框
+        const codeInput = document.getElementById('vipcard-code');
+        if (codeInput) {
+          codeInput.focus();
+        }
+      }
+    }
+
+    function cancelVipCardAuth() {
+      console.log('取消VIP卡登录...');
+      // 隐藏表单
+      const form = document.getElementById('vipcard-form');
+      if (form) {
+        form.classList.add('hidden');
+      }
+
+      // 清空输入
+      const codeInput = document.getElementById('vipcard-code');
+      if (codeInput) {
+        codeInput.value = '';
+      }
+
+      // 显示所有认证按钮
+      const buttons = document.querySelectorAll('.auth-button');
+      buttons.forEach(btn => btn.style.display = 'flex');
+    }
+
+    function submitVipCardAuth(event) {
+      event.preventDefault();
+      console.log('提交VIP卡登录...');
+
+      const codeInput = document.getElementById('vipcard-code');
+      const code = codeInput ? codeInput.value.trim().toUpperCase() : '';
+
+      if (!code) {
+        showMessage('error', t('auth.message.error.input.title'), t('auth.vipcard.error.empty'), t('auth.message.error.input.button'));
+        return;
+      }
+
+      // 禁用提交按钮
+      const submitBtn = event.target.querySelector('button[type="submit"]');
+      const cancelBtn = event.target.querySelector('button[type="button"]');
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = t('auth.vipcard.form.submitting');
+      }
+      if (cancelBtn) {
+        cancelBtn.disabled = true;
+      }
+
+      fetch('/start-vipcard-auth', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ code })
+      })
+        .then(response => response.json())
+        .then(data => {
+          if (data.success) {
+            // 登录成功，显示成功消息（不允许关闭）
+            showMessage('success', t('auth.vipcard.success.title'), t('auth.vipcard.success.content'), t('auth.message.success.button'), { closable: false });
+            // 隐藏表单，显示按钮
+            cancelVipCardAuth();
+          } else {
+            showMessage('error', t('auth.message.error.login.title'), data.message || t('auth.vipcard.error.invalid'), t('auth.message.error.login.button'));
+          }
+        })
+        .catch(error => {
+          console.error('VIP卡登录失败:', error);
+          showMessage('error', t('auth.message.error.connection.title'), t('auth.message.error.connection.content'), t('auth.message.error.connection.button'));
+        })
+        .finally(() => {
+          // 恢复提交按钮
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = t('auth.vipcard.form.submit');
+          }
+          if (cancelBtn) {
+            cancelBtn.disabled = false;
           }
         });
     }
