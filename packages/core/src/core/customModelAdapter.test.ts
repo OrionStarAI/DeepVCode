@@ -539,7 +539,7 @@ describe('customModelAdapter - Anthropic API Compatibility', () => {
   });
 
   describe('Extended thinking support', () => {
-    it('should auto-calculate budget_tokens as maxTokens - 1 when enableThinking is true', async () => {
+    it('should use budget_tokens capped at 10000 when enableThinking is true', async () => {
       let capturedBody: any;
       const mockResponse = {
         ok: true,
@@ -576,14 +576,16 @@ describe('customModelAdapter - Anthropic API Compatibility', () => {
 
       await callAnthropicModel(modelConfig as any, request);
 
-      // budget_tokens should be maxTokens - 1 (matching Claude Code behavior)
+      // budget_tokens should be capped at 31999 (official recommended value)
       expect(capturedBody.thinking).toEqual({
         type: 'enabled',
         budget_tokens: 31999,
       });
+      // max_tokens should be at least 32000 for thinking mode
+      expect(capturedBody.max_tokens).toBeGreaterThanOrEqual(32000);
     });
 
-    it('should use default maxTokens (4096) for budget calculation when not specified', async () => {
+    it('should auto-enable thinking for all Anthropic models when enableThinking is undefined', async () => {
       let capturedBody: any;
       const mockResponse = {
         ok: true,
@@ -601,12 +603,11 @@ describe('customModelAdapter - Anthropic API Compatibility', () => {
 
       const modelConfig = {
         provider: 'anthropic' as const,
-        modelId: 'claude-3-sonnet',
+        modelId: 'claude-sonnet-4-5-20250929', // Any Anthropic model
         baseUrl: 'https://api.anthropic.com',
         apiKey: 'sk-ant-test',
-        displayName: 'Claude 3 Sonnet',
-        enableThinking: true,
-        // maxTokens not specified, should use default 4096
+        displayName: 'Claude Sonnet 4.5',
+        // enableThinking is undefined - should auto-enable by default
       };
 
       const request = {
@@ -620,13 +621,54 @@ describe('customModelAdapter - Anthropic API Compatibility', () => {
 
       await callAnthropicModel(modelConfig as any, request);
 
+      // Should auto-enable thinking for all Anthropic models
       expect(capturedBody.thinking).toEqual({
         type: 'enabled',
-        budget_tokens: 4095, // 4096 - 1
+        budget_tokens: 31999,
       });
     });
 
-    it('should parse thinking content blocks in response', async () => {
+    it('should respect explicit enableThinking=false to disable thinking', async () => {
+      let capturedBody: any;
+      const mockResponse = {
+        ok: true,
+        json: async () => ({
+          content: [{ type: 'text', text: 'Response' }],
+          stop_reason: 'end_turn',
+          usage: { input_tokens: 100, output_tokens: 10 },
+        }),
+      };
+
+      global.fetch = vi.fn().mockImplementation(async (_url, options) => {
+        capturedBody = JSON.parse(options.body);
+        return mockResponse;
+      });
+
+      const modelConfig = {
+        provider: 'anthropic' as const,
+        modelId: 'claude-3-opus-20240229',
+        baseUrl: 'https://api.anthropic.com',
+        apiKey: 'sk-ant-test',
+        displayName: 'Claude 3 Opus',
+        enableThinking: false, // Explicitly disable thinking
+      };
+
+      const request = {
+        contents: [
+          {
+            role: MESSAGE_ROLES.USER,
+            parts: [{ text: 'Solve this' }],
+          },
+        ],
+      };
+
+      await callAnthropicModel(modelConfig as any, request);
+
+      // Should respect explicit disable
+      expect(capturedBody.thinking).toBeUndefined();
+    });
+
+    it('should parse thinking content blocks as reasoning in response', async () => {
       const mockResponse = {
         ok: true,
         json: async () => ({
@@ -643,10 +685,10 @@ describe('customModelAdapter - Anthropic API Compatibility', () => {
 
       const modelConfig = {
         provider: 'anthropic' as const,
-        modelId: 'claude-3-sonnet',
+        modelId: 'claude-sonnet-4-5',
         baseUrl: 'https://api.anthropic.com',
         apiKey: 'sk-ant-test',
-        displayName: 'Claude 3 Sonnet',
+        displayName: 'Claude Sonnet 4.5',
         enableThinking: true,
       };
 
@@ -663,7 +705,8 @@ describe('customModelAdapter - Anthropic API Compatibility', () => {
 
       const parts = response.candidates?.[0]?.content?.parts;
       expect(parts).toHaveLength(2);
-      expect(parts?.[0]).toEqual({ thought: 'Let me think about this...' });
+      // thinking content is mapped to reasoning format for UI display
+      expect(parts?.[0]).toEqual({ reasoning: 'Let me think about this...' });
       expect(parts?.[1]).toEqual({ text: 'Here is my answer' });
     });
   });
@@ -1047,6 +1090,90 @@ describe('customModelAdapter - Streaming Tool Calls', () => {
       expect(usageResponse.usageMetadata.cacheReadInputTokens).toBe(12928);
       // 非缓存输入 token
       expect(usageResponse.usageMetadata.uncachedInputTokens).toBe(19);
+    });
+
+    it('should stream thinking_delta as reasoning in real-time', async () => {
+      // 模拟 Anthropic thinking 流式响应：thinking 块通过多个 thinking_delta 分块传来
+      const mockResponse = {
+        ok: true,
+        body: {
+          getReader: () => {
+            let index = 0;
+            const chunks = [
+              'data: {"type":"message_start","message":{"usage":{"input_tokens":100,"output_tokens":1}}}\n',
+              'data: {"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":""}}\n',
+              'data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"Let me "}}\n',
+              'data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"think about "}}\n',
+              'data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"this..."}}\n',
+              'data: {"type":"content_block_stop","index":0}\n',
+              'data: {"type":"content_block_start","index":1,"content_block":{"type":"text","text":""}}\n',
+              'data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"Here is my answer"}}\n',
+              'data: {"type":"content_block_stop","index":1}\n',
+              'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":50}}\n',
+            ];
+
+            return {
+              read: vi.fn(async () => {
+                if (index < chunks.length) {
+                  const value = new TextEncoder().encode(chunks[index]);
+                  index++;
+                  return { done: false, value };
+                }
+                return { done: true, value: undefined };
+              }),
+              releaseLock: vi.fn(),
+            };
+          },
+        },
+      };
+
+      global.fetch = vi.fn().mockResolvedValue(mockResponse);
+
+      const modelConfig = {
+        provider: 'anthropic' as const,
+        modelId: 'claude-sonnet-4-5',
+        baseUrl: 'https://api.anthropic.com',
+        apiKey: 'sk-ant-test',
+        displayName: 'Claude Sonnet 4.5',
+        enableThinking: true,
+      };
+
+      const request = {
+        contents: [
+          {
+            role: MESSAGE_ROLES.USER,
+            parts: [{ text: 'Solve this' }],
+          },
+        ],
+      };
+
+      const responses: any[] = [];
+      for await (const response of callAnthropicModelStream(modelConfig as any, request)) {
+        responses.push(response);
+      }
+
+      // 🆕 验证 thinking_delta 被实时流式输出为 reasoning 格式
+      // 应该收到 3 个独立的 reasoning 响应（每个 thinking_delta 一个）
+      const reasoningResponses = responses.filter(r => {
+        const parts = r.candidates?.[0]?.content?.parts;
+        return parts && parts.some((p: any) => p.reasoning !== undefined);
+      });
+
+      expect(reasoningResponses.length).toBe(3); // 3 个 thinking_delta 块
+
+      // 验证每个 reasoning 块的内容
+      const reasoningTexts = reasoningResponses.map(r =>
+        r.candidates[0].content.parts.find((p: any) => p.reasoning)?.reasoning
+      );
+      expect(reasoningTexts).toEqual(['Let me ', 'think about ', 'this...']);
+
+      // 验证 text 响应也正常
+      const textResponse = responses.find(r => {
+        const parts = r.candidates?.[0]?.content?.parts;
+        return parts && parts.some((p: any) => p.text !== undefined);
+      });
+      expect(textResponse).toBeDefined();
+      expect(textResponse?.candidates[0].content.parts[0].text).toBe('Here is my answer');
     });
   });
 });

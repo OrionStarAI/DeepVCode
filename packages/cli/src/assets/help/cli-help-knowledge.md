@@ -291,7 +291,7 @@ prompt = "请重构以下代码为纯函数：{{args}}"
 - `enabled` - 是否启用（`true`/`false`，默认 `true`）
 - `headers` - 额外的 HTTP 请求头（键值对对象）
 - `timeout` - 请求超时时间（毫秒）
-- `enableThinking` - 启用 Anthropic 扩展思考（仅 `anthropic` 提供商）
+- `enableThinking` - 启用 Anthropic 扩展思考（仅 `anthropic` 提供商，默认启用）
 
 #### 🔌 支持的提供商类型
 
@@ -303,7 +303,8 @@ prompt = "请重构以下代码为纯函数：{{args}}"
 
 **Anthropic Claude (`anthropic`)：**
 - Claude API 官方端点
-- 支持 Anthropic 扩展思考功能（`enableThinking: true`）
+- 自动启用 Anthropic 扩展思考（所有模型默认开启，不支持的模型会自动忽略）
+- 可通过 `enableThinking: false` 明确禁用
 
 #### 💡 常见配置示例
 
@@ -354,15 +355,16 @@ prompt = "请重构以下代码为纯函数：{{args}}"
 }
 ```
 
-**Claude API（带扩展思考）：**
+**Claude API（自动启用扩展思考）：**
 ```json
 {
-  "displayName": "Claude Sonnet (Thinking)",
+  "displayName": "Claude Sonnet 4.5",
   "provider": "anthropic",
   "baseUrl": "https://api.anthropic.com",
   "apiKey": "${ANTHROPIC_API_KEY}",
-  "modelId": "claude-sonnet-4-5",
-  "enableThinking": true
+  "modelId": "claude-sonnet-4-5"
+  // enableThinking 默认为 true，所有 Anthropic 模型自动启用
+  // 不支持的模型会自动忽略此参数
 }
 ```
 
@@ -1058,7 +1060,7 @@ prompt = "请重构以下代码为纯函数：{{args}}"
 - `enabled` - 是否启用（`true`/`false`，默认 `true`）
 - `headers` - 额外的 HTTP 请求头（键值对对象）
 - `timeout` - 请求超时时间（毫秒）
-- `enableThinking` - 启用 Anthropic 扩展思考（仅 `anthropic` 提供商）
+- `enableThinking` - 启用 Anthropic 扩展思考（仅 `anthropic` 提供商，默认启用）
 
 #### 🔌 支持的提供商类型
 
@@ -1070,7 +1072,8 @@ prompt = "请重构以下代码为纯函数：{{args}}"
 
 **Anthropic Claude (`anthropic`)：**
 - Claude API 官方端点
-- 支持 Anthropic 扩展思考功能（`enableThinking: true`）
+- 自动启用 Anthropic 扩展思考（所有模型默认开启，不支持的模型会自动忽略）
+- 可通过 `enableThinking: false` 明确禁用
 
 #### 💡 常见配置示例
 
@@ -1121,15 +1124,16 @@ prompt = "请重构以下代码为纯函数：{{args}}"
 }
 ```
 
-**Claude API（带扩展思考）：**
+**Claude API（自动启用扩展思考）：**
 ```json
 {
-  "displayName": "Claude Sonnet (Thinking)",
+  "displayName": "Claude Sonnet 4.5",
   "provider": "anthropic",
   "baseUrl": "https://api.anthropic.com",
   "apiKey": "${ANTHROPIC_API_KEY}",
-  "modelId": "claude-sonnet-4-5",
-  "enableThinking": true
+  "modelId": "claude-sonnet-4-5"
+  // enableThinking 默认为 true，所有 Anthropic 模型自动启用
+  // 不支持的模型会自动忽略此参数
 }
 ```
 
