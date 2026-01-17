@@ -891,6 +891,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
     const hasContent = rawContent.some(part =>
       (part.type === 'text' && part.value.trim()) ||
       part.type === 'file_reference' ||
+      part.type === 'folder_reference' ||  // 🎯 支持文件夹引用
       part.type === 'image_reference' ||
       part.type === 'code_reference' ||  // 🎯 支持代码引用
       part.type === 'text_file_content' ||  // ✨ 包含文本文件内容
