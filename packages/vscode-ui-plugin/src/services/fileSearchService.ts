@@ -8,8 +8,8 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { glob } from 'glob';
-import { 
-  FileDiscoveryService, 
+import {
+  FileDiscoveryService,
   FilterFilesOptions,
   escapePath,
   unescapePath,
@@ -63,7 +63,7 @@ export class FileSearchService {
 
   /**
    * 完全模拟CLI中的@补全搜索逻辑
-   * 
+   *
    * 平台兼容性说明：
    * - 统一使用 / 作为路径分隔符（跨平台标准）
    * - Windows 路径 C:\Users\file 会被规范化为 C:/Users/file
@@ -76,11 +76,11 @@ export class FileSearchService {
     }
 
     const cwd = this.workspaceRoot;
-    
+
     // 🎯 平台兼容性：将路径分隔符统一为 / (适用于 Mac/Linux/Windows)
     // Windows 也支持 / 作为路径分隔符
     const normalizedPath = partialPath.replace(/\\/g, '/');
-    
+
     // 直接复用CLI中的路径解析逻辑
     const lastSlashIndex = normalizedPath.lastIndexOf('/');
     const baseDirRelative = lastSlashIndex === -1 ? '.' : normalizedPath.substring(0, lastSlashIndex + 1);
@@ -90,7 +90,7 @@ export class FileSearchService {
 
     // 🎯 使用 path.resolve 自动处理平台差异
     const baseDirAbsolute = path.resolve(cwd, baseDirRelative);
-    
+
     const filterOptions = DEFAULT_FILE_FILTERING_OPTIONS;
 
     try {
@@ -183,7 +183,7 @@ export class FileSearchService {
     }
 
     return filteredEntries.map((entry) => {
-      // 🎯 生成完整的绝对路径  
+      // 🎯 生成完整的绝对路径
       const absolutePath = path.join(baseDirAbsolute, entry.name);
       const label = entry.isDirectory() ? absolutePath + '/' : absolutePath;
       return {
@@ -226,6 +226,70 @@ export class FileSearchService {
     });
 
     return normalizedSuggestions;
+  }
+
+  /**
+   * 🎯 浏览指定文件夹内容
+   * @param folderPath 文件夹的绝对路径，如果为空则浏览工作区根目录
+   * @returns 文件夹内的文件和子文件夹列表
+   */
+  async browseFolder(folderPath: string): Promise<Array<{ label: string; value: string; isDirectory: boolean }>> {
+    if (!this.workspaceRoot || !this.fileDiscoveryService) {
+      this.logger.warn('FileSearchService not properly initialized');
+      return [];
+    }
+
+    // 如果没有指定路径，使用工作区根目录
+    const targetPath = folderPath || this.workspaceRoot;
+
+    try {
+      const entries = await fs.readdir(targetPath, { withFileTypes: true });
+      const filterOptions = DEFAULT_FILE_FILTERING_OPTIONS;
+
+      const results: Array<{ label: string; value: string; isDirectory: boolean }> = [];
+
+      for (const entry of entries) {
+        // 跳过隐藏文件（以 . 开头）
+        if (entry.name.startsWith('.')) {
+          continue;
+        }
+
+        const absolutePath = path.join(targetPath, entry.name);
+        const relativePath = path.relative(this.workspaceRoot, absolutePath);
+
+        // 检查是否应该忽略
+        if (this.fileDiscoveryService.shouldIgnoreFile(relativePath, filterOptions)) {
+          continue;
+        }
+
+        const isDirectory = entry.isDirectory();
+        // 统一使用正斜杠，文件夹末尾加斜杠
+        const normalizedPath = absolutePath.replace(/\\/g, '/');
+        const label = isDirectory ? normalizedPath + '/' : normalizedPath;
+
+        results.push({
+          label,
+          value: label,
+          isDirectory
+        });
+      }
+
+      // 排序：文件夹在前，文件在后，然后按名称排序
+      results.sort((a, b) => {
+        if (a.isDirectory && !b.isDirectory) return -1;
+        if (!a.isDirectory && b.isDirectory) return 1;
+        return a.label.localeCompare(b.label);
+      });
+
+      return results;
+    } catch (error) {
+      if (isNodeError(error) && error.code === 'ENOENT') {
+        this.logger.warn(`Folder not found: ${targetPath}`);
+        return [];
+      }
+      this.logger.error('Error browsing folder', error instanceof Error ? error : undefined);
+      return [];
+    }
   }
 
   /**

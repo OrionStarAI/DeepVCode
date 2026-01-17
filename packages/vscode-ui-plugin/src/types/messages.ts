@@ -231,6 +231,8 @@ export type WebViewToExtensionMessage =
   | { type: 'save_session_ui_history'; payload: { sessionId: string; messages: ChatMessage[] } }
   // 🎯 文件搜索相关
   | { type: 'file_search'; payload: { prefix: string } }
+  // 🎯 文件夹浏览相关
+  | { type: 'folder_browse'; payload: { folderPath: string } }
   // 🎯 符号搜索相关
   | { type: 'symbol_search'; payload: { query: string } }
   // 🎯 终端列表和输出获取
@@ -331,6 +333,8 @@ export type ExtensionToWebViewMessage =
   | { type: 'update_rollbackable_ids'; payload: { sessionId: string; rollbackableMessageIds: string[] } }
   // 🎯 文件搜索结果
   | { type: 'file_search_result'; payload: { files: Array<{ label: string; value: string; description?: string }> } }
+  // 🎯 文件夹浏览结果
+  | { type: 'folder_browse_result'; payload: { items: Array<{ label: string; value: string; isDirectory: boolean }> } }
   // 🎯 符号搜索结果
   | { type: 'symbol_search_result'; payload: { symbols: Array<{ name: string; kind: number; containerName?: string; location?: any }> } }
   // 🎯 终端列表结果

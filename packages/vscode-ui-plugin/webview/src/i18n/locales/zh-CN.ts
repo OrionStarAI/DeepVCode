@@ -411,6 +411,10 @@ export const zhCN: Translations = {
     terminalOutput: '终端输出（最近 200 行）',
     loading: '加载中...',
     openContextMenu: '添加上下文 (@)',
+    expand: '展开',
+    browse: '浏览',
+    expandTooltip: '点击展开',
+    browseTooltip: '点击浏览文件夹内容（单击文件夹名可直接引用整个文件夹）',
   },
 
   systemNotifications: {
