@@ -108,3 +108,49 @@ export function getFileIcon(fileName: string): React.ReactNode {
   // 3. Fallback
   return <IconImg src={Icons['default_file']} alt="file" />;
 }
+
+// 🎯 文件夹图标映射
+const folderMap: Record<string, string> = {
+  'src': 'folder_type_src',
+  'dist': 'folder_type_dist',
+  'build': 'folder_type_dist',
+  'node_modules': 'folder_type_node',
+  'packages': 'folder_type_package',
+  'components': 'folder_type_component',
+  'assets': 'folder_type_assets',
+  'images': 'folder_type_images',
+  'img': 'folder_type_images',
+  'styles': 'folder_type_css',
+  'css': 'folder_type_css',
+  'utils': 'folder_type_utils',
+  'lib': 'folder_type_lib',
+  'test': 'folder_type_test',
+  'tests': 'folder_type_test',
+  '__tests__': 'folder_type_test',
+  'docs': 'folder_type_docs',
+  'config': 'folder_type_config',
+  '.git': 'folder_type_git',
+  '.vscode': 'folder_type_vscode',
+  'public': 'folder_type_public',
+  'api': 'folder_type_api',
+  'services': 'folder_type_services',
+  'hooks': 'folder_type_hook',
+  'types': 'folder_type_typescript',
+};
+
+export function getFolderIcon(folderName: string): React.ReactNode {
+  const lowerName = folderName.toLowerCase().replace(/\/$/, ''); // 移除尾部斜杠
+
+  // 1. 特定文件夹名
+  if (folderMap[lowerName] && Icons[folderMap[lowerName]]) {
+    return <IconImg src={Icons[folderMap[lowerName]]} alt={lowerName} />;
+  }
+
+  // 2. 默认文件夹图标
+  if (Icons['default_folder']) {
+    return <IconImg src={Icons['default_folder']} alt="folder" />;
+  }
+
+  // 3. 使用 emoji 作为 fallback
+  return <span style={{ fontSize: '16px' }}>📁</span>;
+}

@@ -20,6 +20,7 @@ import { ModelSelector } from './ModelSelector';
 
 // 导入拆分后的组件和节点
 import { FileReferenceNode, $createFileReferenceNode, $isFileReferenceNode } from './MessageInput/nodes/FileReferenceNode';
+import { FolderReferenceNode, $createFolderReferenceNode, $isFolderReferenceNode } from './MessageInput/nodes/FolderReferenceNode';
 import { ImageReferenceNode, $createImageReferenceNode, $isImageReferenceNode } from './MessageInput/nodes/ImageReferenceNode';
 import { CodeReferenceNode, $createCodeReferenceNode, $isCodeReferenceNode } from './MessageInput/nodes/CodeReferenceNode';
 import { TerminalReferenceNode, $isTerminalReferenceNode } from './MessageInput/nodes/TerminalReferenceNode';
@@ -295,7 +296,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
   // 🎯 Lexical 初始化配置
   const initialConfig = {
     namespace: 'MessageInput',
-    nodes: [FileReferenceNode, ImageReferenceNode, CodeReferenceNode, TerminalReferenceNode], // 注册自定义节点
+    nodes: [FileReferenceNode, FolderReferenceNode, ImageReferenceNode, CodeReferenceNode, TerminalReferenceNode], // 注册自定义节点
     onError: (error: Error) => {
       console.error('Lexical Error:', error);
     },
@@ -823,6 +824,16 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
               }
             });
           }
+        } else if ($isFolderReferenceNode(node)) {
+          // 🎯 文件夹引用节点 - 引用整个文件夹
+          console.log(`📁 [DEBUG] FolderReferenceNode: ${node.__folderName}, path: ${node.__folderPath}`);
+          rawContent.push({
+            type: 'folder_reference',
+            value: {
+              folderName: node.__folderName,
+              folderPath: node.__folderPath
+            }
+          });
         } else if ($isImageReferenceNode(node)) {
           // 图片引用节点 - 直接处理，不递归子节点
           rawContent.push({
@@ -880,6 +891,7 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
     const hasContent = rawContent.some(part =>
       (part.type === 'text' && part.value.trim()) ||
       part.type === 'file_reference' ||
+      part.type === 'folder_reference' ||  // 🎯 支持文件夹引用
       part.type === 'image_reference' ||
       part.type === 'code_reference' ||  // 🎯 支持代码引用
       part.type === 'text_file_content' ||  // ✨ 包含文本文件内容

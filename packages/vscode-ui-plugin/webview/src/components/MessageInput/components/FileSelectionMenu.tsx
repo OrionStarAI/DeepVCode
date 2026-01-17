@@ -18,6 +18,7 @@ interface FileSelectionMenuProps {
   onSelectOption: (option: FileOption) => void;
   onClose: () => void;
   onTerminalSelect?: (terminalId: number, name: string, output: string) => void;
+  onFolderSelect?: (folderName: string, folderPath: string) => void;  // 🎯 新增：文件夹引用回调
   isLoading?: boolean;
   queryString?: string;
 }
@@ -34,6 +35,7 @@ export function FileSelectionMenu({
   onSelectOption,
   onClose,
   onTerminalSelect,
+  onFolderSelect,
   isLoading: externalLoading = false,
   queryString = ''
 }: FileSelectionMenuProps) {
@@ -44,6 +46,11 @@ export function FileSelectionMenu({
   const [localSelectedIndex, setLocalSelectedIndex] = useState<number>(0);
   const menuRef = useRef<HTMLDivElement>(null);
 
+  // 🎯 文件夹导航历史栈（用于返回上一级）
+  const [folderHistory, setFolderHistory] = useState<string[]>([]);
+  // 🎯 当前浏览的文件夹路径
+  const [currentFolderPath, setCurrentFolderPath] = useState<string>('');
+
   // 🎯 确定当前显示的选项
   const currentOptions = currentView === 'main' ? options : subMenuOptions;
 
@@ -52,10 +59,13 @@ export function FileSelectionMenu({
     if (option.filePath === '__category_files__') {
       setIsLoading(true);
       try {
-        const files = await atSymbolHandler.searchFiles('');
-        setSubMenuOptions(files);
+        // 🎯 修改：先显示根目录的文件夹和文件列表，而不是搜索所有文件
+        const items = await atSymbolHandler.browseFolder('');
+        setSubMenuOptions(items);
         setCurrentView('files');
         atSymbolHandler.setCurrentView('files');
+        setCurrentFolderPath('');
+        setFolderHistory([]);
         setLocalSelectedIndex(0);
       } catch (error) {
         console.error('Failed to fetch files:', error);
@@ -101,24 +111,101 @@ export function FileSelectionMenu({
     onClose();
   }, [onTerminalSelect, onClose]);
 
+  // 🎯 处理进入文件夹浏览其内容（点击箭头时触发）
+  const handleEnterFolder = useCallback(async (option: FileOption) => {
+    setIsLoading(true);
+    try {
+      // 保存当前路径到历史
+      if (currentFolderPath) {
+        setFolderHistory(prev => [...prev, currentFolderPath]);
+      }
+
+      // 更新当前文件夹路径
+      const folderPath = option.filePath.replace(/\/$/, ''); // 移除尾部斜杠
+      setCurrentFolderPath(folderPath);
+
+      // 获取文件夹内容
+      const items = await atSymbolHandler.browseFolder(folderPath);
+      setSubMenuOptions(items);
+      setCurrentView('files');
+      atSymbolHandler.setCurrentView('files');
+      setLocalSelectedIndex(0);
+    } catch (error) {
+      console.error('Failed to browse folder:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [currentFolderPath]);
+
+  // 🎯 处理文件夹引用（单击文件夹时触发）
+  const handleFolderSelect = useCallback((option: FileOption) => {
+    if (onFolderSelect) {
+      // 🎯 如果提供了 onFolderSelect 回调（来自 AtMentionButton），使用它
+      const folderPath = option.filePath.replace(/\/$/, ''); // 移除尾部斜杠
+      onFolderSelect(option.fileName, folderPath);
+      onClose();
+    } else {
+      // 🎯 如果没有提供 onFolderSelect（来自 FileAutocompletePlugin），通过 onSelectOption 处理
+      onSelectOption(option);
+    }
+  }, [onFolderSelect, onSelectOption, onClose]);
+
   // 🎯 处理选项点击/选择
   const handleOptionSelect = useCallback((option: FileOption) => {
     if (option.itemType === 'category') {
       handleCategoryClick(option);
     } else if (option.itemType === 'terminal') {
       handleTerminalClick(option);
+    } else if (option.itemType === 'folder') {
+      // 🎯 文件夹：单击引用整个文件夹
+      handleFolderSelect(option);
     } else {
+      // 🎯 文件：直接选择引用
       onSelectOption(option);
     }
-  }, [handleCategoryClick, handleTerminalClick, onSelectOption]);
+  }, [handleCategoryClick, handleTerminalClick, handleFolderSelect, onSelectOption]);
 
   // 🎯 处理返回
-  const handleBack = useCallback(() => {
-    setCurrentView('main');
-    setSubMenuOptions([]);
-    atSymbolHandler.resetView();
-    setLocalSelectedIndex(0);
-  }, []);
+  const handleBack = useCallback(async () => {
+    // 如果有文件夹导航历史，返回上一级文件夹
+    if (folderHistory.length > 0) {
+      const prevPath = folderHistory[folderHistory.length - 1];
+      setFolderHistory(prev => prev.slice(0, -1));
+      setCurrentFolderPath(prevPath);
+
+      setIsLoading(true);
+      try {
+        const items = await atSymbolHandler.browseFolder(prevPath);
+        setSubMenuOptions(items);
+        setLocalSelectedIndex(0);
+      } catch (error) {
+        console.error('Failed to go back:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    } else if (currentFolderPath && currentView === 'files') {
+      // 如果在根文件夹列表，返回到文件列表根目录
+      setCurrentFolderPath('');
+      setIsLoading(true);
+      try {
+        const files = await atSymbolHandler.searchFiles('');
+        setSubMenuOptions(files);
+        setLocalSelectedIndex(0);
+      } catch (error) {
+        console.error('Failed to reset to root:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    } else {
+      // 返回主菜单
+      setCurrentView('main');
+      setSubMenuOptions([]);
+      setCurrentFolderPath('');
+      setFolderHistory([]);
+      atSymbolHandler.resetView();
+      setLocalSelectedIndex(0);
+    }
+  }, [folderHistory, currentFolderPath, currentView]);
 
   // 🎯 键盘事件处理
   useEffect(() => {
@@ -230,6 +317,8 @@ export function FileSelectionMenu({
       case 'recent_file':
       case 'file':
         return '📄';
+      case 'folder':
+        return '📁';
       case 'symbol':
         return <SymbolIcon />;
       case 'category':
@@ -243,11 +332,26 @@ export function FileSelectionMenu({
     }
   };
 
+  // 🎯 处理箭头点击（进入文件夹）
+  const handleArrowClick = useCallback((e: React.MouseEvent, option: FileOption) => {
+    e.preventDefault();
+    e.stopPropagation(); // 阻止冒泡，避免触发菜单项点击
+
+    if (option.itemType === 'folder') {
+      handleEnterFolder(option);
+    } else if (option.itemType === 'category') {
+      handleCategoryClick(option);
+    }
+  }, [handleEnterFolder, handleCategoryClick]);
+
   // 🎯 渲染菜单项
   const renderMenuItem = (option: FileOption, index: number) => {
     const isSelected = localSelectedIndex === index;
     const icon = getItemIcon(option);
-    const showArrow = option.hasSubmenu || option.itemType === 'category';
+    // 🎯 分类和文件夹显示可点击箭头
+    const showArrow = option.hasSubmenu || option.itemType === 'category' || option.itemType === 'folder';
+    // 🎯 箭头是否可点击（文件夹和分类的箭头可点击进入）
+    const isArrowClickable = option.itemType === 'folder' || option.itemType === 'category';
 
     return (
       <div
@@ -267,7 +371,18 @@ export function FileSelectionMenu({
           )}
         </div>
         {showArrow && (
-          <span className="at-menu-item-arrow">›</span>
+          isArrowClickable ? (
+            <button
+              className={`at-menu-item-arrow-btn ${option.itemType === 'folder' ? 'folder-expand' : ''}`}
+              onClick={(e) => handleArrowClick(e, option)}
+              onMouseDown={(e) => e.preventDefault()}
+              title={option.itemType === 'folder' ? t('atMention.browseTooltip') : t('atMention.expandTooltip')}
+            >
+              {option.itemType === 'folder' ? t('atMention.browse') : t('atMention.expand')} ›
+            </button>
+          ) : (
+            <span className="at-menu-item-arrow">›</span>
+          )
         )}
       </div>
     );
@@ -389,8 +504,18 @@ export function FileSelectionMenu({
         <>
           <div className="at-menu-header">
             <button className="at-menu-back" onClick={handleBack}>←</button>
-            <span>{t('atMention.filesAndFolders')}</span>
+            <span>
+              {currentFolderPath
+                ? currentFolderPath.split('/').pop() || currentFolderPath
+                : t('atMention.filesAndFolders')}
+            </span>
           </div>
+          {/* 🎯 显示当前路径（如果在子文件夹中） */}
+          {currentFolderPath && (
+            <div className="at-menu-breadcrumb" title={currentFolderPath}>
+              {currentFolderPath}
+            </div>
+          )}
           {subMenuOptions.map((option, index) => renderMenuItem(option, index))}
         </>
       )}

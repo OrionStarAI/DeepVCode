@@ -36,6 +36,7 @@ export interface ToolExecutionResult {
 export type MessageContentPart =
   | { type: 'text'; value: string }
   | { type: 'file_reference'; value: { fileName: string; filePath: string } }
+  | { type: 'folder_reference'; value: { folderName: string; folderPath: string } }  // 🎯 文件夹引用
   | { type: 'image_reference'; value: { id: string; fileName: string; data: string; mimeType: string; originalSize: number; compressedSize: number; width?: number; height?: number } }
   | { type: 'code_reference'; value: { fileName: string; filePath: string; code: string; startLine?: number; endLine?: number } }
   | { type: 'text_file_content'; value: { fileName: string; content: string; language?: string; size: number } }
@@ -249,6 +250,7 @@ export interface MessageFromExtension {
   'chat_error' |
   'context_update' |
   'file_search_result' |          // 🎯 新增：文件搜索结果
+  'folder_browse_result' |        // 🎯 新增：文件夹浏览结果
   'symbol_search_result' |        // 🎯 新增：符号搜索结果
   'extension_version_response' |  // 🎯 新增：扩展版本响应
   'update_check_response' |       // 🎯 新增：更新检测响应
@@ -264,6 +266,7 @@ export interface MessageToExtension {
   'chat_message' |
   'get_context' |
   'file_search' |                // 🎯 新增：文件搜索
+  'folder_browse' |              // 🎯 新增：文件夹浏览
   'symbol_search' |              // 🎯 新增：符号搜索
   'get_terminals' |              // 🎯 新增：获取终端列表
   'get_terminal_output' |        // 🎯 新增：获取终端输出

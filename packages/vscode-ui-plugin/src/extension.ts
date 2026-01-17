@@ -1167,6 +1167,18 @@ function setupBasicMessageHandlers() {
     }
   });
 
+  // 🎯 处理文件夹浏览请求
+  communicationService.onFolderBrowse(async (data) => {
+    try {
+      logger.info(`Received folder browse request for path: ${data.folderPath}`);
+      const items = await fileSearchService.browseFolder(data.folderPath);
+      await communicationService.sendFolderBrowseResult(items);
+    } catch (error) {
+      logger.error('Failed to browse folder', error instanceof Error ? error : undefined);
+      await communicationService.sendFolderBrowseResult([]);
+    }
+  });
+
   // 🎯 处理符号搜索请求
   communicationService.onSymbolSearch(async (data) => {
     try {
