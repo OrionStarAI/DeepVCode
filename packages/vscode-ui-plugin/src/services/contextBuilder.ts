@@ -232,6 +232,12 @@ Please follow the above custom rules and guidelines when processing user request
           }
           break;
 
+        case 'folder_reference':
+          if (!part.value.folderName || !part.value.folderPath) {
+            errors.push(`Part ${i}: folder must have folderName and folderPath`);
+          }
+          break;
+
         case 'image_reference':
           if (!part.value.data || !part.value.mimeType) {
             errors.push(`Part ${i}: image must have data and mimeType`);

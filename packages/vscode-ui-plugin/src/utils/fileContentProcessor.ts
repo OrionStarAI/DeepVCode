@@ -290,3 +290,112 @@ export async function processMultipleFilesToPartsList(
     }
   };
 }
+
+export interface FolderProcessingResult {
+  parts: Part[];
+  fileCount: number;
+  skippedCount: number;
+  warnings: string[];
+}
+
+/**
+ * 🎯 处理文件夹，读取其中所有可读文件的内容
+ * @param folderPath 文件夹的绝对路径
+ * @param workspaceRoot 工作区根目录（用于生成相对路径）
+ * @param maxDepth 最大递归深度，默认为 3
+ * @param maxFiles 最大文件数量，默认为 50
+ */
+export async function processFolderToPartsList(
+  folderPath: string,
+  workspaceRoot?: string,
+  maxDepth: number = 3,
+  maxFiles: number = 50
+): Promise<FolderProcessingResult> {
+  const allParts: Part[] = [];
+  const warnings: string[] = [];
+  let fileCount = 0;
+  let skippedCount = 0;
+
+  // 忽略的文件夹名称
+  const ignoredFolders = new Set([
+    'node_modules', '.git', '.svn', '.hg', 'dist', 'build', 'out',
+    '__pycache__', '.cache', '.next', '.nuxt', 'coverage', '.nyc_output',
+    'vendor', 'target', 'bin', 'obj', '.idea', '.vscode'
+  ]);
+
+  // 递归读取文件夹
+  async function readFolder(currentPath: string, depth: number): Promise<void> {
+    if (depth > maxDepth || fileCount >= maxFiles) {
+      return;
+    }
+
+    try {
+      const entries = fs.readdirSync(currentPath, { withFileTypes: true });
+
+      for (const entry of entries) {
+        if (fileCount >= maxFiles) {
+          warnings.push(`Reached maximum file limit (${maxFiles})`);
+          break;
+        }
+
+        const fullPath = path.join(currentPath, entry.name);
+
+        if (entry.isDirectory()) {
+          // 跳过忽略的文件夹
+          if (ignoredFolders.has(entry.name) || entry.name.startsWith('.')) {
+            continue;
+          }
+          // 递归处理子文件夹
+          await readFolder(fullPath, depth + 1);
+        } else if (entry.isFile()) {
+          // 跳过隐藏文件
+          if (entry.name.startsWith('.')) {
+            continue;
+          }
+
+          // 检测文件类型
+          const fileType = detectFileType(fullPath);
+          if (fileType === 'binary') {
+            skippedCount++;
+            continue;
+          }
+
+          // 处理文件
+          const result = await processFileToPartsList(
+            { fileName: entry.name, filePath: fullPath },
+            workspaceRoot
+          );
+
+          if (result.skipped) {
+            skippedCount++;
+            if (result.skipReason) {
+              warnings.push(`Skipped ${entry.name}: ${result.skipReason}`);
+            }
+          } else {
+            allParts.push(...result.parts);
+            fileCount++;
+          }
+        }
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      warnings.push(`Error reading folder ${currentPath}: ${errorMessage}`);
+    }
+  }
+
+  await readFolder(folderPath, 0);
+
+  // 如果达到限制，添加提示
+  if (fileCount >= maxFiles) {
+    allParts.push({
+      text: `\n--- Note: Only first ${maxFiles} files shown. Folder may contain more files. ---`
+    });
+  }
+
+  return {
+    parts: allParts,
+    fileCount,
+    skippedCount,
+    warnings
+  };
+}

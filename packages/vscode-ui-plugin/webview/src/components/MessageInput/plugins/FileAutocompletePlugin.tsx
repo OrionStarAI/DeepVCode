@@ -14,6 +14,7 @@ import { atSymbolHandler, FileOption } from '../../../services/atSymbolHandler';
 import { FileSelectionMenu } from '../components/FileSelectionMenu';
 import { $createCodeReferenceNode } from '../nodes/CodeReferenceNode';
 import { $createFileReferenceNode } from '../nodes/FileReferenceNode';
+import { $createFolderReferenceNode } from '../nodes/FolderReferenceNode';
 import { $createTerminalReferenceNode } from '../nodes/TerminalReferenceNode';
 import { FilesIcon, TerminalIcon, SymbolIcon } from '../../MenuIcons';
 
@@ -175,6 +176,10 @@ export function FileAutocompletePlugin({ onFileSelect, onTerminalSelect }: FileA
           selectedOption.range.startLine,
           selectedOption.range.endLine
         );
+      } else if (selectedOption.itemType === 'folder') {
+        // 🎯 文件夹引用节点
+        const folderPath = selectedOption.filePath.replace(/\/$/, ''); // 移除尾部斜杠
+        referenceNode = $createFolderReferenceNode(selectedOption.fileName, folderPath);
       } else {
         // 否则创建普通文件引用节点
         referenceNode = $createFileReferenceNode(selectedOption.fileName, selectedOption.filePath);
@@ -237,8 +242,8 @@ export function FileAutocompletePlugin({ onFileSelect, onTerminalSelect }: FileA
             selectedIndex={selectedIndex}
             setHighlightedIndex={setHighlightedIndex}
             onSelectOption={(option) => {
-              // 文件类型的选项触发替换
-              if (option.itemType === 'file' || option.itemType === 'recent_file' || option.itemType === 'symbol') {
+              // 文件和文件夹类型的选项触发替换
+              if (option.itemType === 'file' || option.itemType === 'recent_file' || option.itemType === 'symbol' || option.itemType === 'folder') {
                 selectOptionAndCleanUp(option);
               }
             }}

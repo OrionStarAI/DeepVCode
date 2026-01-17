@@ -34,6 +34,8 @@ export function assembleForDisplay(content: MessageContent): string {
         return part.value;
       case 'file_reference':
         return `@[${part.value.fileName}]`;
+      case 'folder_reference':  // 🎯 文件夹引用
+        return `@[📁${part.value.folderName}]`;
       case 'image_reference':
         return `[IMAGE:${part.value.fileName}]`;
       case 'code_reference':
@@ -77,6 +79,10 @@ export function assembleForLLM(content: MessageContent): {
       case 'file_reference':
         textParts.push(`@[${part.value.fileName}]`);
         files.push(part.value);
+        break;
+      case 'folder_reference':  // 🎯 文件夹引用
+        textParts.push(`@[📁${part.value.folderName}]`);
+        // 文件夹引用在后端处理时会展开为多个文件
         break;
       case 'image_reference':
         textParts.push(`[IMAGE:${part.value.fileName}]`);
@@ -263,6 +269,10 @@ export function isValidRawContent(content: MessageContent): boolean {
         return part.value &&
                typeof part.value.fileName === 'string' &&
                typeof part.value.filePath === 'string';
+      case 'folder_reference':  // 🎯 文件夹引用
+        return part.value &&
+               typeof part.value.folderName === 'string' &&
+               typeof part.value.folderPath === 'string';
       case 'image_reference':
         return part.value && typeof part.value === 'object';
       case 'code_reference':

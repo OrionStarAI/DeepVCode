@@ -36,6 +36,7 @@ export interface ToolExecutionResult {
 export type MessageContentPart =
   | { type: 'text'; value: string }
   | { type: 'file_reference'; value: { fileName: string; filePath: string } }
+  | { type: 'folder_reference'; value: { folderName: string; folderPath: string } }  // 🎯 文件夹引用
   | { type: 'image_reference'; value: { id: string; fileName: string; data: string; mimeType: string; originalSize: number; compressedSize: number; width?: number; height?: number } }
   | { type: 'code_reference'; value: { fileName: string; filePath: string; code: string; startLine?: number; endLine?: number } }
   | { type: 'text_file_content'; value: { fileName: string; content: string; language?: string; size: number } }

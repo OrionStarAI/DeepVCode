@@ -35,6 +35,7 @@ export interface ToolExecutionResult {
 export type MessageContentPart =
   | { type: 'text'; value: string }  // 原始文本片段
   | { type: 'file_reference'; value: { fileName: string; filePath: string } }  // 文件引用（项目中的文件）
+  | { type: 'folder_reference'; value: { folderName: string; folderPath: string } }  // 🎯 文件夹引用（整个文件夹）
   | { type: 'image_reference'; value: { fileName: string; data: string; mimeType: string; originalSize: number; compressedSize: number; width?: number; height?: number } }  // 图片引用
   | { type: 'code_reference'; value: { fileName: string; filePath: string; code: string; startLine?: number; endLine?: number } }  // 🎯 代码引用（带行号）
   | { type: 'text_file_content'; value: { fileName: string; content: string; language?: string; size: number } }  // 文本文件内容（直接嵌入，不依赖文件路径）
