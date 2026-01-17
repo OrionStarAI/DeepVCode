@@ -154,7 +154,7 @@ export class AuthTemplates {
         try {
           if (fs.existsSync(testPath)) {
             foundPath = testPath;
-            console.log(`✅ [AuthTemplates] Template loaded: ${filename} from ${testPath}`);
+            console.error(`✅ [AuthTemplates] Template loaded: ${filename} from ${testPath}`);
             break;
           }
         } catch (e) {
