@@ -709,6 +709,18 @@ export async function callOpenAICompatibleModel(
 }
 
 /**
+ * 检查是否应该启用 Extended Thinking
+ * 对于 Anthropic 协议，默认启用 thinking（让服务端决定是否支持）
+ * 不支持的模型会忽略此参数，因此统一启用更简单通用
+ * @see https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking
+ */
+function shouldEnableThinkingByDefault(): boolean {
+  // 对于所有 Anthropic 协议的模型，默认启用 thinking
+  // 如果模型不支持，服务端会自动忽略此参数
+  return true;
+}
+
+/**
  * Anthropic 模型单次调用
  * 使用指数退避重试策略处理 429 和 5xx 错误
  * 支持 extended thinking 配置
@@ -734,13 +746,22 @@ export async function callAnthropicModel(
     requestBody.system = system;
   }
 
-  // 🆕 自动启用 extended thinking（budget_tokens = maxTokens - 1，与 Claude Code 行为一致）
-  if (modelConfig.enableThinking) {
-    const maxTokens = modelConfig.maxTokens || 4096;
+  // 🆕 Extended Thinking 智能启用策略：
+  // 1. 如果用户明确设置了 enableThinking，遵循用户配置
+  // 2. 如果用户未设置（undefined），默认启用（所有 Anthropic 协议）
+  // 3. 不支持的模型会自动忽略 thinking 参数，因此统一启用更简单
+  const shouldEnableThinking = modelConfig.enableThinking !== undefined
+    ? modelConfig.enableThinking
+    : shouldEnableThinkingByDefault();
+
+  if (shouldEnableThinking) {
+    const maxTokens = modelConfig.maxTokens || 32000; // 思考模式建议使用较大的 max_tokens
     requestBody.thinking = {
       type: 'enabled',
-      budget_tokens: maxTokens - 1,
+      budget_tokens: Math.min(maxTokens - 1, 31999), // budget_tokens 必须小于 max_tokens，默认使用官方推荐的 31999
     };
+    // 确保 max_tokens 足够大以容纳 thinking + 回复
+    requestBody.max_tokens = Math.max(maxTokens, 32000);
   }
 
   // 使用指数退避重试包装 API 调用
@@ -767,8 +788,9 @@ export async function callAnthropicModel(
       const parts = data.content.map((c: any) => {
         if (c.type === 'text') return { text: c.text };
         if (c.type === 'tool_use') return { functionCall: { name: c.name, args: c.input, id: c.id } };
-        // 🆕 支持 thinking 内容块（内部推理，通常不直接展示给用户）
-        if (c.type === 'thinking') return { thought: c.thinking };
+        // 🆕 支持 thinking 内容块 - 映射为 reasoning 格式以便 UI 显示
+        // Anthropic 的 thinking 块包含模型的内部推理过程，类似于 Gemini 的 reasoning 字段
+        if (c.type === 'thinking') return { reasoning: c.thinking };
         return null;
       }).filter(Boolean);
 
@@ -1012,13 +1034,22 @@ export async function* callAnthropicModelStream(
     requestBody.system = system;
   }
 
-  // 🆕 自动启用 extended thinking（budget_tokens = maxTokens - 1，与 Claude Code 行为一致）
-  if (modelConfig.enableThinking) {
-    const maxTokens = modelConfig.maxTokens || 4096;
+  // 🆕 Extended Thinking 智能启用策略（流式调用）：
+  // 1. 如果用户明确设置了 enableThinking，遵循用户配置
+  // 2. 如果用户未设置（undefined），默认启用（所有 Anthropic 协议）
+  // 3. 不支持的模型会自动忽略 thinking 参数，因此统一启用更简单
+  const shouldEnableThinking = modelConfig.enableThinking !== undefined
+    ? modelConfig.enableThinking
+    : shouldEnableThinkingByDefault();
+
+  if (shouldEnableThinking) {
+    const maxTokens = modelConfig.maxTokens || 32000; // 思考模式建议使用较大的 max_tokens
     requestBody.thinking = {
       type: 'enabled',
-      budget_tokens: maxTokens - 1,
+      budget_tokens: Math.min(maxTokens - 1, 31999), // budget_tokens 必须小于 max_tokens，默认使用官方推荐的 31999
     };
+    // 确保 max_tokens 足够大以容纳 thinking + 回复
+    requestBody.max_tokens = Math.max(maxTokens, 32000);
   }
 
   // 使用指数退避重试包装初始连接
@@ -1054,7 +1085,7 @@ export async function* callAnthropicModelStream(
   const decoder = new TextDecoder();
   let buffer = '';
   const aggregatedTools: Map<number, { id: string, name: string, args: string }> = new Map();
-  // 🆕 用于聚合 thinking 内容块
+  // 🆕 用于聚合 thinking 内容块（流式累积后一次性发送）
   const aggregatedThinking: Map<number, string> = new Map();
 
   // 用于累积 token 使用统计
@@ -1105,9 +1136,18 @@ export async function* callAnthropicModelStream(
               const tool = aggregatedTools.get(idx);
               if (tool) tool.args += chunk.delta.partial_json;
             } else if (chunk.delta?.type === 'thinking_delta') {
-              // 🆕 累积 thinking 内容（不立即 yield，等 content_block_stop）
+              // 🆕 实时流式输出 thinking 内容，让 UI 能显示模型思考过程
+              const thinkingChunk = chunk.delta.thinking || '';
+              if (thinkingChunk) {
+                const content = { role: MESSAGE_ROLES.MODEL, parts: [{ reasoning: thinkingChunk }] } as any;
+                const resp = { candidates: [{ content, index: 0 }] } as any;
+                addFunctionCallsGetter(resp);
+                addFunctionCallsGetter(content);
+                yield resp;
+              }
+              // 同时累积完整内容，以便在 content_block_stop 时可用（如果需要）
               const existing = aggregatedThinking.get(idx) || '';
-              aggregatedThinking.set(idx, existing + (chunk.delta.thinking || ''));
+              aggregatedThinking.set(idx, existing + thinkingChunk);
             }
           } else if (chunk.type === 'content_block_stop') {
             const tool = aggregatedTools.get(idx);
@@ -1124,14 +1164,9 @@ export async function* callAnthropicModelStream(
               yield resp as GenerateContentResponse;
               aggregatedTools.delete(idx);
             }
-            // 🆕 完成 thinking 内容块后 yield
-            const thinking = aggregatedThinking.get(idx);
-            if (thinking !== undefined) {
-              const content = { role: MESSAGE_ROLES.MODEL, parts: [{ thought: thinking }] } as any;
-              const resp = { candidates: [{ content, index: 0 }] } as any;
-              addFunctionCallsGetter(resp);
-              addFunctionCallsGetter(content);
-              yield resp;
+            // 🆕 thinking 内容已在 thinking_delta 中实时流式输出，这里只需清理状态
+            // 不再重复 yield 完整内容，避免 UI 显示重复
+            if (aggregatedThinking.has(idx)) {
               aggregatedThinking.delete(idx);
             }
           } else if (chunk.type === 'message_delta') {

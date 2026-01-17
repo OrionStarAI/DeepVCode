@@ -232,6 +232,314 @@ DeepV Code's AI interacts with the external environment through an extensible to
 
 ---
 
+## 🔗 MCP Protocol Support
+
+**Model Context Protocol (MCP)** is the core protocol for DeepV Code's deep context understanding.
+
+### What is MCP?
+
+MCP allows AI models to:
+- Connect to external data sources and tools
+- Access real-time information
+- Interact with third-party services
+
+### Configuring MCP Servers
+
+Create `.deepvcode/settings.json` in your project root:
+
+#### Method 1: Standard Mode (Command-based)
+
+For local MCP servers that start via command line.
+
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@anthropic/mcp-server-filesystem", "/path/to/allowed/dir"]
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@anthropic/mcp-server-github"],
+      "env": {
+        "GITHUB_TOKEN": "your-token"
+      }
+    }
+  }
+}
+```
+
+**Field descriptions:**
+- `command` (required): Command to start the server
+- `args` (optional): Command arguments array
+- `env` (optional): Environment variables object
+- `cwd` (optional): Working directory
+- `timeout` (optional): Request timeout (milliseconds)
+- `trust` (optional): Trust server, skip confirmation
+- `includeTools` (optional): Whitelist specific tools
+- `excludeTools` (optional): Blacklist specific tools
+
+#### Method 2: Streamable HTTP Mode (Recommended for Cloud Services)
+
+For remote MCP servers that support HTTP, no local process needed.
+
+```json
+{
+  "mcpServers": {
+    "Web-Search-by-Z.ai": {
+      "httpUrl": "https://open.bigmodel.cn/api/mcp-broker/proxy/web-search/mcp",
+      "headers": {
+        "Authorization": "Bearer **************************"
+      }
+    },
+    "myHttpServer": {
+      "httpUrl": "https://api.example.com/mcp/endpoint",
+      "headers": {
+        "Authorization": "Bearer YOUR_API_KEY",
+        "Custom-Header": "custom-value"
+      }
+    }
+  }
+}
+```
+
+**Streamable HTTP mode field descriptions:**
+- `httpUrl` (required): HTTP endpoint URL of the MCP server
+- `headers` (optional): HTTP request headers for authentication or custom info
+  - Common auth method: `Authorization: Bearer <token>`
+- Other fields (`includeTools`, `excludeTools`, `trust`, etc.) also apply
+
+**Mode comparison:**
+
+| Feature | Standard Mode | Streamable HTTP Mode |
+|:---|:---|:---|
+| **Connection** | Local process | HTTP request |
+| **Use Case** | Local MCP servers | Cloud services, remote MCP |
+| **Config Complexity** | Command and path required | URL and optional headers only |
+| **Resource Usage** | Local process resources | No local process |
+| **Network Requirement** | Not required | Required |
+
+### Managing MCP Servers
+
+```bash
+# View all MCP server status
+/mcp
+
+# Add new server
+/mcp add github
+
+# Refresh server connection
+/mcp refresh github
+
+# OAuth authentication
+/mcp auth github
+```
+
+---
+
+## 🤖 Custom Model Support
+
+DeepV Code supports configuring custom models with OpenAI-compatible and Anthropic Claude API formats, allowing you to use any compatible AI service.
+
+### Why Use Custom Models?
+
+- 🔓 **Freedom of Choice** - Use your favorite AI service provider
+- 💰 **Cost Control** - Pay directly to providers, no middleman
+- 🏠 **Local Deployment** - Support for local models (LM Studio, Ollama, etc.)
+- 🚀 **Flexible Configuration** - Adjust parameters and endpoints as needed
+
+### Quick Configuration
+
+#### Method 1: Configuration Wizard (Recommended)
+
+In the CLI, type:
+
+```bash
+/add-model
+```
+
+Follow the wizard prompts:
+1. Select provider type (OpenAI Compatible / Anthropic Claude)
+2. Enter display name
+3. Enter API base URL
+4. Enter API key (environment variable format `${OPENAI_API_KEY}` recommended)
+5. Enter model ID
+6. Set max tokens (optional)
+7. Confirm configuration
+
+#### Method 2: Manual Configuration File
+
+Edit `~/.deepv/custom-models.json`:
+
+```json
+{
+  "models": [
+    {
+      "displayName": "GPT-4 Turbo",
+      "provider": "openai",
+      "baseUrl": "https://api.openai.com/v1",
+      "apiKey": "${OPENAI_API_KEY}",
+      "modelId": "gpt-4-turbo",
+      "maxTokens": 128000,
+      "enabled": true
+    },
+    {
+      "displayName": "Claude Sonnet",
+      "provider": "anthropic",
+      "baseUrl": "https://api.anthropic.com",
+      "apiKey": "${ANTHROPIC_API_KEY}",
+      "modelId": "claude-sonnet-4-5",
+      "maxTokens": 200000,
+      "enabled": true
+    }
+  ]
+}
+```
+
+### Supported Providers
+
+#### OpenAI Compatible (`openai`)
+
+For any API following the OpenAI Chat Completions format:
+
+- **OpenAI Official API**
+  ```json
+  {
+    "displayName": "GPT-4 Turbo",
+    "provider": "openai",
+    "baseUrl": "https://api.openai.com/v1",
+    "apiKey": "${OPENAI_API_KEY}",
+    "modelId": "gpt-4-turbo"
+  }
+  ```
+
+- **Azure OpenAI**
+  ```json
+  {
+    "displayName": "Azure GPT-4",
+    "provider": "openai",
+    "baseUrl": "https://your-resource.openai.azure.com/openai/deployments/your-deployment",
+    "apiKey": "${AZURE_OPENAI_KEY}",
+    "modelId": "gpt-4",
+    "headers": {
+      "api-version": "2024-02-01"
+    }
+  }
+  ```
+
+- **Local Models (LM Studio, Ollama)**
+  ```json
+  {
+    "displayName": "Local Llama",
+    "provider": "openai",
+    "baseUrl": "http://localhost:1234/v1",
+    "apiKey": "not-needed",
+    "modelId": "llama-3-70b"
+  }
+  ```
+
+- **Third-party Services (Groq, Together AI, etc.)**
+  ```json
+  {
+    "displayName": "Groq Llama 3",
+    "provider": "openai",
+    "baseUrl": "https://api.groq.com/openai/v1",
+    "apiKey": "${GROQ_API_KEY}",
+    "modelId": "llama-3-70b-8192"
+  }
+  ```
+
+#### Anthropic Claude (`anthropic`)
+
+For Claude API endpoints with extended thinking support:
+
+```json
+{
+  "displayName": "Claude Sonnet (Thinking)",
+  "provider": "anthropic",
+  "baseUrl": "https://api.anthropic.com",
+  "apiKey": "${ANTHROPIC_API_KEY}",
+  "modelId": "claude-sonnet-4-5",
+  "enableThinking": true
+}
+```
+
+### Configuration Fields
+
+**Required Fields:**
+
+| Field | Description | Example |
+|-------|-------------|---------|
+| `displayName` | Display name | `GPT-4 Turbo` |
+| `provider` | Provider type | `openai` or `anthropic` |
+| `baseUrl` | API base URL | `https://api.openai.com/v1` |
+| `apiKey` | API key | `${OPENAI_API_KEY}` |
+| `modelId` | Model name | `gpt-4-turbo` |
+
+**Optional Fields:**
+
+| Field | Description | Default |
+|-------|-------------|---------|
+| `maxTokens` | Maximum context window | Provider-dependent |
+| `enabled` | Whether enabled | `true` |
+| `headers` | Additional HTTP headers | None |
+| `timeout` | Request timeout (ms) | `300000` |
+| `enableThinking` | Enable Anthropic extended thinking | `false` |
+
+### Using Custom Models
+
+#### Via Model Selection Dialog
+
+```bash
+/model
+```
+
+Custom models display with a `[Custom]` tag and cyan color, use arrow keys to select.
+
+#### Direct Switch
+
+```bash
+/model custom:openai:gpt-4-turbo@abc123
+```
+
+### Environment Variables
+
+Recommended to use environment variables for API keys:
+
+**Linux/macOS:**
+```bash
+export OPENAI_API_KEY="sk-your-key-here"
+export ANTHROPIC_API_KEY="sk-ant-your-key-here"
+```
+
+**Windows PowerShell:**
+```powershell
+$env:OPENAI_API_KEY="sk-your-key-here"
+$env:ANTHROPIC_API_KEY="sk-ant-your-key-here"
+```
+
+### Features and Limitations
+
+✅ **Supported Features:**
+- Streaming and non-streaming responses
+- Tool calling (Function Calling)
+- Multimodal input (text, images)
+- Full integration with all DeepV Code features
+
+⚠️ **Notes:**
+- Custom models don't consume DeepV credits
+- Pay directly to API providers
+- Some advanced features may be unavailable depending on provider limitations
+- Token counting determined by provider
+
+### Related Documentation
+
+- 📖 [Custom Models Quickstart](./docs/custom-models-quickstart.md)
+- 📖 [Custom Models Guide](./docs/custom-models-guide.md)
+- 📖 [Custom Models Architecture](./docs/custom-models-architecture.md)
+
+---
+
 ## 📖 Documentation
 
 - 📘 **[Whitepaper](./DeepV_Code_Whitepaper.md)** - Complete product and technical documentation

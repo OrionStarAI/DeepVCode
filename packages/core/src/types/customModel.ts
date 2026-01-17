@@ -45,8 +45,13 @@ export interface CustomModelConfig {
 
   /**
    * Enable Anthropic extended thinking (only for anthropic provider)
-   * - true: Auto-enable thinking with budget_tokens = maxTokens - 1
-   * - false/undefined: Disable thinking
+   * - true: Force enable thinking with budget_tokens = min(maxTokens - 1, 31999)
+   * - false: Force disable thinking
+   * - undefined (default): Auto-enable for all Anthropic models
+   *   (Models that don't support thinking will ignore this parameter)
+   *
+   * When enabled, thinking content will be displayed in the UI as "Reasoning" before the response.
+   * Official recommended budget_tokens: 31999
    * @see https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking
    */
   enableThinking?: boolean;

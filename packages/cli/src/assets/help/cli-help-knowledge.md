@@ -91,6 +91,10 @@ prompt = "请重构以下代码为纯函数：{{args}}"
 - 全局命令：`~/.deepv/`（所有项目可用）
 - 项目命令：`<项目根目录>/.deepv/`（仅当前项目）
 
+#### 方式一：标准模式（通过命令启动）
+
+适用于本地 MCP 服务器，通过命令行启动进程。
+
 ```json
 {
   "mcpServers": {
@@ -119,6 +123,46 @@ prompt = "请重构以下代码为纯函数：{{args}}"
 - `trust`（可选）：信任服务器，跳过确认
 - `includeTools`（可选）：白名单，仅启用指定工具
 - `excludeTools`（可选）：黑名单，排除指定工具
+
+#### 方式二：Streamable HTTP 模式（推荐用于云服务）
+
+适用于支持 HTTP 的远程 MCP 服务器，无需本地启动进程。
+
+```json
+{
+  "mcpServers": {
+    "Web-Search-by-Z.ai": {
+      "httpUrl": "https://open.bigmodel.cn/api/mcp-broker/proxy/web-search/mcp",
+      "headers": {
+        "Authorization": "Bearer **************************"
+      }
+    },
+    "myHttpServer": {
+      "httpUrl": "https://api.example.com/mcp/endpoint",
+      "headers": {
+        "Authorization": "Bearer YOUR_API_KEY",
+        "Custom-Header": "custom-value"
+      }
+    }
+  }
+}
+```
+
+**Streamable HTTP 模式字段说明：**
+- `httpUrl`（必需）：MCP 服务器的 HTTP 端点 URL
+- `headers`（可选）：HTTP 请求头对象，用于认证或传递自定义信息
+  - 常用认证方式：`Authorization: Bearer <token>`
+- 其他字段（`includeTools`、`excludeTools`、`trust` 等）同样适用
+
+**两种模式对比：**
+
+| 特性 | 标准模式 | Streamable HTTP 模式 |
+|-----|---------|---------------------|
+| **连接方式** | 本地启动进程 | HTTP 请求 |
+| **适用场景** | 本地 MCP 服务器 | 云服务、远程 MCP |
+| **配置复杂度** | 需要配置命令、路径 | 只需 URL 和可选 Headers |
+| **资源占用** | 本地进程资源 | 无本地进程 |
+| **网络要求** | 无需网络 | 需要网络连接 |
 
 **查看 MCP 状态：** `/mcp` 或 `/mcp desc`
 
@@ -163,6 +207,222 @@ prompt = "请重构以下代码为纯函数：{{args}}"
    - **Vim 模式**：切换内置输入的 Vim 体验。
    - **🌐 语言偏好**：设置 AI 的回复语言。
 3. 使用方向键上下移动，按回车进入子菜单或确认选择，按 `Esc` 返回或退出。
+
+---
+
+### Q11: 如何配置自定义模型（OpenAI/Claude API）？
+**A:** DeepV Code 支持配置 OpenAI 兼容格式和 Anthropic Claude API 格式的自定义模型。
+
+#### 📝 配置文件位置
+
+自定义模型配置保存在：`~/.deepv/custom-models.json`
+
+**为什么使用独立文件？**
+- 避免与 `settings.json` 产生冲突
+- 防止云端模型更新覆盖自定义配置
+- 支持多个 DeepV Code 实例并发运行
+
+#### 🚀 方式一：使用配置向导（推荐）
+
+在 CLI 中输入：
+
+```
+/add-model
+```
+
+按照向导提示填写：
+1. **选择提供商类型**：OpenAI Compatible / Anthropic Claude
+2. **输入显示名称**：如 `GPT-4 Turbo`
+3. **输入 API 基础 URL**：如 `https://api.openai.com/v1`
+4. **输入 API 密钥**：推荐使用环境变量格式 `${OPENAI_API_KEY}`
+5. **输入模型 ID**：如 `gpt-4-turbo`
+6. **最大 Token 数**（可选）：如 `128000`
+7. **确认配置**：输入 `y` 保存
+
+#### ⚙️ 方式二：手动编辑配置文件
+
+编辑 `~/.deepv/custom-models.json`：
+
+```json
+{
+  "models": [
+    {
+      "displayName": "GPT-4 Turbo",
+      "provider": "openai",
+      "baseUrl": "https://api.openai.com/v1",
+      "apiKey": "${OPENAI_API_KEY}",
+      "modelId": "gpt-4-turbo",
+      "maxTokens": 128000,
+      "enabled": true
+    },
+    {
+      "displayName": "Claude Sonnet",
+      "provider": "anthropic",
+      "baseUrl": "https://api.anthropic.com",
+      "apiKey": "${ANTHROPIC_API_KEY}",
+      "modelId": "claude-sonnet-4-5",
+      "maxTokens": 200000,
+      "enabled": true
+    },
+    {
+      "displayName": "Local Llama",
+      "provider": "openai",
+      "baseUrl": "http://localhost:1234/v1",
+      "apiKey": "not-needed",
+      "modelId": "llama-3-70b",
+      "maxTokens": 8192,
+      "enabled": true
+    }
+  ]
+}
+```
+
+#### 📋 配置字段说明
+
+**必需字段：**
+- `displayName` - 显示名称（也作为唯一标识符）
+- `provider` - 提供商类型：`openai` 或 `anthropic`
+- `baseUrl` - API 基础 URL（不要以 `/` 结尾）
+- `apiKey` - API 密钥（支持环境变量：`${VAR_NAME}`）
+- `modelId` - 实际的模型名称（传递给 API）
+
+**可选字段：**
+- `maxTokens` - 最大上下文窗口大小（数字）
+- `enabled` - 是否启用（`true`/`false`，默认 `true`）
+- `headers` - 额外的 HTTP 请求头（键值对对象）
+- `timeout` - 请求超时时间（毫秒）
+- `enableThinking` - 启用 Anthropic 扩展思考（仅 `anthropic` 提供商，默认启用）
+
+#### 🔌 支持的提供商类型
+
+**OpenAI Compatible (`openai`)：**
+- OpenAI 官方 API
+- Azure OpenAI
+- 本地模型（LM Studio, Ollama, text-generation-webui）
+- 第三方兼容服务（Groq, Together AI, DeepInfra 等）
+
+**Anthropic Claude (`anthropic`)：**
+- Claude API 官方端点
+- 自动启用 Anthropic 扩展思考（所有模型默认开启，不支持的模型会自动忽略）
+- 可通过 `enableThinking: false` 明确禁用
+
+#### 💡 常见配置示例
+
+**OpenAI 官方 API：**
+```json
+{
+  "displayName": "GPT-4 Turbo",
+  "provider": "openai",
+  "baseUrl": "https://api.openai.com/v1",
+  "apiKey": "${OPENAI_API_KEY}",
+  "modelId": "gpt-4-turbo"
+}
+```
+
+**Azure OpenAI：**
+```json
+{
+  "displayName": "Azure GPT-4",
+  "provider": "openai",
+  "baseUrl": "https://your-resource.openai.azure.com/openai/deployments/your-deployment",
+  "apiKey": "${AZURE_OPENAI_KEY}",
+  "modelId": "gpt-4",
+  "headers": {
+    "api-version": "2024-02-01"
+  }
+}
+```
+
+**Groq：**
+```json
+{
+  "displayName": "Groq Llama 3",
+  "provider": "openai",
+  "baseUrl": "https://api.groq.com/openai/v1",
+  "apiKey": "${GROQ_API_KEY}",
+  "modelId": "llama-3-70b-8192"
+}
+```
+
+**本地 LM Studio：**
+```json
+{
+  "displayName": "Local Llama",
+  "provider": "openai",
+  "baseUrl": "http://localhost:1234/v1",
+  "apiKey": "not-needed",
+  "modelId": "local-model"
+}
+```
+
+**Claude API（自动启用扩展思考）：**
+```json
+{
+  "displayName": "Claude Sonnet 4.5",
+  "provider": "anthropic",
+  "baseUrl": "https://api.anthropic.com",
+  "apiKey": "${ANTHROPIC_API_KEY}",
+  "modelId": "claude-sonnet-4-5"
+  // enableThinking 默认为 true，所有 Anthropic 模型自动启用
+  // 不支持的模型会自动忽略此参数
+}
+```
+
+#### 🎯 使用自定义模型
+
+**通过模型选择对话框：**
+```
+/model
+```
+自定义模型会显示 `[Custom]` 标签和青色，使用方向键选择。
+
+**直接切换：**
+```
+/model custom:openai:gpt-4-turbo@abc123
+```
+
+#### 🔧 环境变量设置
+
+**Linux/macOS：**
+```bash
+export OPENAI_API_KEY="sk-your-key-here"
+export ANTHROPIC_API_KEY="sk-ant-your-key-here"
+```
+
+**Windows PowerShell：**
+```powershell
+$env:OPENAI_API_KEY="sk-your-key-here"
+$env:ANTHROPIC_API_KEY="sk-ant-your-key-here"
+```
+
+**Windows CMD：**
+```cmd
+set OPENAI_API_KEY=sk-your-key-here
+set ANTHROPIC_API_KEY=sk-ant-your-key-here
+```
+
+#### ⚠️ 注意事项
+
+- **安全性**：推荐使用环境变量存储 API 密钥，避免明文写入配置文件
+- **Base URL 格式**：必须以 `http://` 或 `https://` 开头，不要以 `/` 结尾
+- **重启生效**：修改配置后需要重启 DeepV Code
+- **Token 计费**：自定义模型不消耗 DeepV 积分，直接向提供商付费
+- **功能限制**：某些高级功能可能因提供商 API 限制而不可用
+
+#### 🐛 故障排除
+
+| 问题 | 解决方案 |
+|-----|---------|
+| 模型不显示 | 检查 `enabled` 是否为 `true`，重启 CLI |
+| API 调用失败 | 验证 API Key、Base URL、Model ID 是否正确 |
+| 环境变量未生效 | 确保使用 `${VAR_NAME}` 格式（带花括号） |
+| 网络错误 | 检查网络连接，确认 URL 可访问 |
+
+#### 📚 更多文档
+
+- [自定义模型快速入门](../../docs/custom-models-quickstart.md)
+- [自定义模型完整指南](../../docs/custom-models-guide.md)
+- [自定义模型架构说明](../../docs/custom-models-architecture.md)
 
 ---
 
@@ -600,6 +860,10 @@ prompt = "请重构以下代码为纯函数：{{args}}"
 - 全局命令：`~/.deepv/`（所有项目可用）
 - 项目命令：`<项目根目录>/.deepv/`（仅当前项目）
 
+#### 方式一：标准模式（通过命令启动）
+
+适用于本地 MCP 服务器，通过命令行启动进程。
+
 ```json
 {
   "mcpServers": {
@@ -628,6 +892,46 @@ prompt = "请重构以下代码为纯函数：{{args}}"
 - `trust`（可选）：信任服务器，跳过确认
 - `includeTools`（可选）：白名单，仅启用指定工具
 - `excludeTools`（可选）：黑名单，排除指定工具
+
+#### 方式二：Streamable HTTP 模式（推荐用于云服务）
+
+适用于支持 HTTP 的远程 MCP 服务器，无需本地启动进程。
+
+```json
+{
+  "mcpServers": {
+    "Web-Search-by-Z.ai": {
+      "httpUrl": "https://open.bigmodel.cn/api/mcp-broker/proxy/web-search/mcp",
+      "headers": {
+        "Authorization": "Bearer **************************"
+      }
+    },
+    "myHttpServer": {
+      "httpUrl": "https://api.example.com/mcp/endpoint",
+      "headers": {
+        "Authorization": "Bearer YOUR_API_KEY",
+        "Custom-Header": "custom-value"
+      }
+    }
+  }
+}
+```
+
+**Streamable HTTP 模式字段说明：**
+- `httpUrl`（必需）：MCP 服务器的 HTTP 端点 URL
+- `headers`（可选）：HTTP 请求头对象，用于认证或传递自定义信息
+  - 常用认证方式：`Authorization: Bearer <token>`
+- 其他字段（`includeTools`、`excludeTools`、`trust` 等）同样适用
+
+**两种模式对比：**
+
+| 特性 | 标准模式 | Streamable HTTP 模式 |
+|-----|---------|---------------------|
+| **连接方式** | 本地启动进程 | HTTP 请求 |
+| **适用场景** | 本地 MCP 服务器 | 云服务、远程 MCP |
+| **配置复杂度** | 需要配置命令、路径 | 只需 URL 和可选 Headers |
+| **资源占用** | 本地进程资源 | 无本地进程 |
+| **网络要求** | 无需网络 | 需要网络连接 |
 
 **查看 MCP 状态：** `/mcp` 或 `/mcp desc`
 
@@ -672,6 +976,222 @@ prompt = "请重构以下代码为纯函数：{{args}}"
    - **Vim 模式**：切换内置输入的 Vim 体验。
    - **🌐 语言偏好**：设置 AI 的回复语言。
 3. 使用方向键上下移动，按回车进入子菜单或确认选择，按 `Esc` 返回或退出。
+
+---
+
+### Q11: 如何配置自定义模型（OpenAI/Claude API）？
+**A:** DeepV Code 支持配置 OpenAI 兼容格式和 Anthropic Claude API 格式的自定义模型。
+
+#### 📝 配置文件位置
+
+自定义模型配置保存在：`~/.deepv/custom-models.json`
+
+**为什么使用独立文件？**
+- 避免与 `settings.json` 产生冲突
+- 防止云端模型更新覆盖自定义配置
+- 支持多个 DeepV Code 实例并发运行
+
+#### 🚀 方式一：使用配置向导（推荐）
+
+在 CLI 中输入：
+
+```
+/add-model
+```
+
+按照向导提示填写：
+1. **选择提供商类型**：OpenAI Compatible / Anthropic Claude
+2. **输入显示名称**：如 `GPT-4 Turbo`
+3. **输入 API 基础 URL**：如 `https://api.openai.com/v1`
+4. **输入 API 密钥**：推荐使用环境变量格式 `${OPENAI_API_KEY}`
+5. **输入模型 ID**：如 `gpt-4-turbo`
+6. **最大 Token 数**（可选）：如 `128000`
+7. **确认配置**：输入 `y` 保存
+
+#### ⚙️ 方式二：手动编辑配置文件
+
+编辑 `~/.deepv/custom-models.json`：
+
+```json
+{
+  "models": [
+    {
+      "displayName": "GPT-4 Turbo",
+      "provider": "openai",
+      "baseUrl": "https://api.openai.com/v1",
+      "apiKey": "${OPENAI_API_KEY}",
+      "modelId": "gpt-4-turbo",
+      "maxTokens": 128000,
+      "enabled": true
+    },
+    {
+      "displayName": "Claude Sonnet",
+      "provider": "anthropic",
+      "baseUrl": "https://api.anthropic.com",
+      "apiKey": "${ANTHROPIC_API_KEY}",
+      "modelId": "claude-sonnet-4-5",
+      "maxTokens": 200000,
+      "enabled": true
+    },
+    {
+      "displayName": "Local Llama",
+      "provider": "openai",
+      "baseUrl": "http://localhost:1234/v1",
+      "apiKey": "not-needed",
+      "modelId": "llama-3-70b",
+      "maxTokens": 8192,
+      "enabled": true
+    }
+  ]
+}
+```
+
+#### 📋 配置字段说明
+
+**必需字段：**
+- `displayName` - 显示名称（也作为唯一标识符）
+- `provider` - 提供商类型：`openai` 或 `anthropic`
+- `baseUrl` - API 基础 URL（不要以 `/` 结尾）
+- `apiKey` - API 密钥（支持环境变量：`${VAR_NAME}`）
+- `modelId` - 实际的模型名称（传递给 API）
+
+**可选字段：**
+- `maxTokens` - 最大上下文窗口大小（数字）
+- `enabled` - 是否启用（`true`/`false`，默认 `true`）
+- `headers` - 额外的 HTTP 请求头（键值对对象）
+- `timeout` - 请求超时时间（毫秒）
+- `enableThinking` - 启用 Anthropic 扩展思考（仅 `anthropic` 提供商，默认启用）
+
+#### 🔌 支持的提供商类型
+
+**OpenAI Compatible (`openai`)：**
+- OpenAI 官方 API
+- Azure OpenAI
+- 本地模型（LM Studio, Ollama, text-generation-webui）
+- 第三方兼容服务（Groq, Together AI, DeepInfra 等）
+
+**Anthropic Claude (`anthropic`)：**
+- Claude API 官方端点
+- 自动启用 Anthropic 扩展思考（所有模型默认开启，不支持的模型会自动忽略）
+- 可通过 `enableThinking: false` 明确禁用
+
+#### 💡 常见配置示例
+
+**OpenAI 官方 API：**
+```json
+{
+  "displayName": "GPT-4 Turbo",
+  "provider": "openai",
+  "baseUrl": "https://api.openai.com/v1",
+  "apiKey": "${OPENAI_API_KEY}",
+  "modelId": "gpt-4-turbo"
+}
+```
+
+**Azure OpenAI：**
+```json
+{
+  "displayName": "Azure GPT-4",
+  "provider": "openai",
+  "baseUrl": "https://your-resource.openai.azure.com/openai/deployments/your-deployment",
+  "apiKey": "${AZURE_OPENAI_KEY}",
+  "modelId": "gpt-4",
+  "headers": {
+    "api-version": "2024-02-01"
+  }
+}
+```
+
+**Groq：**
+```json
+{
+  "displayName": "Groq Llama 3",
+  "provider": "openai",
+  "baseUrl": "https://api.groq.com/openai/v1",
+  "apiKey": "${GROQ_API_KEY}",
+  "modelId": "llama-3-70b-8192"
+}
+```
+
+**本地 LM Studio：**
+```json
+{
+  "displayName": "Local Llama",
+  "provider": "openai",
+  "baseUrl": "http://localhost:1234/v1",
+  "apiKey": "not-needed",
+  "modelId": "local-model"
+}
+```
+
+**Claude API（自动启用扩展思考）：**
+```json
+{
+  "displayName": "Claude Sonnet 4.5",
+  "provider": "anthropic",
+  "baseUrl": "https://api.anthropic.com",
+  "apiKey": "${ANTHROPIC_API_KEY}",
+  "modelId": "claude-sonnet-4-5"
+  // enableThinking 默认为 true，所有 Anthropic 模型自动启用
+  // 不支持的模型会自动忽略此参数
+}
+```
+
+#### 🎯 使用自定义模型
+
+**通过模型选择对话框：**
+```
+/model
+```
+自定义模型会显示 `[Custom]` 标签和青色，使用方向键选择。
+
+**直接切换：**
+```
+/model custom:openai:gpt-4-turbo@abc123
+```
+
+#### 🔧 环境变量设置
+
+**Linux/macOS：**
+```bash
+export OPENAI_API_KEY="sk-your-key-here"
+export ANTHROPIC_API_KEY="sk-ant-your-key-here"
+```
+
+**Windows PowerShell：**
+```powershell
+$env:OPENAI_API_KEY="sk-your-key-here"
+$env:ANTHROPIC_API_KEY="sk-ant-your-key-here"
+```
+
+**Windows CMD：**
+```cmd
+set OPENAI_API_KEY=sk-your-key-here
+set ANTHROPIC_API_KEY=sk-ant-your-key-here
+```
+
+#### ⚠️ 注意事项
+
+- **安全性**：推荐使用环境变量存储 API 密钥，避免明文写入配置文件
+- **Base URL 格式**：必须以 `http://` 或 `https://` 开头，不要以 `/` 结尾
+- **重启生效**：修改配置后需要重启 DeepV Code
+- **Token 计费**：自定义模型不消耗 DeepV 积分，直接向提供商付费
+- **功能限制**：某些高级功能可能因提供商 API 限制而不可用
+
+#### 🐛 故障排除
+
+| 问题 | 解决方案 |
+|-----|---------|
+| 模型不显示 | 检查 `enabled` 是否为 `true`，重启 CLI |
+| API 调用失败 | 验证 API Key、Base URL、Model ID 是否正确 |
+| 环境变量未生效 | 确保使用 `${VAR_NAME}` 格式（带花括号） |
+| 网络错误 | 检查网络连接，确认 URL 可访问 |
+
+#### 📚 更多文档
+
+- [自定义模型快速入门](../../docs/custom-models-quickstart.md)
+- [自定义模型完整指南](../../docs/custom-models-guide.md)
+- [自定义模型架构说明](../../docs/custom-models-architecture.md)
 
 ---
 
