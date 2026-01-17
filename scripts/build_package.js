@@ -18,7 +18,7 @@
 // limitations under the License.
 
 import { execSync } from 'child_process';
-import { writeFileSync, readFileSync } from 'fs';
+import { writeFileSync, readFileSync, existsSync, mkdirSync, readdirSync, copyFileSync } from 'fs';
 import { join } from 'path';
 import ora from 'ora';
 import chalk from 'chalk';
@@ -87,6 +87,40 @@ try {
   copySpinner.fail(chalk.red('Failed to synchronize resource files.'));
   console.error(error.message);
   process.exit(1);
+}
+
+// Special handling for deepv-code-core templates: sync to bundle directory for dev mode
+if (packageName === 'deepv-code-core') {
+  const templateSpinner = ora({
+    text: chalk.blue('Syncing templates to bundle (dev mode)...'),
+    spinner: 'dots12'
+  }).start();
+
+  try {
+    const templateSrc = join(process.cwd(), 'src', 'auth', 'login', 'templates');
+    // Assume we are in packages/core, so root is ../../
+    const bundleDest = join(process.cwd(), '..', '..', 'bundle', 'login', 'templates');
+
+    if (existsSync(templateSrc)) {
+      if (!existsSync(bundleDest)) {
+        mkdirSync(bundleDest, { recursive: true });
+      }
+
+      const files = readdirSync(templateSrc);
+      let copiedCount = 0;
+      for (const file of files) {
+        if (file.endsWith('.html') || file.endsWith('.ico')) {
+          copyFileSync(join(templateSrc, file), join(bundleDest, file));
+          copiedCount++;
+        }
+      }
+      templateSpinner.succeed(chalk.green(`Synced ${copiedCount} template files to bundle directory.`));
+    } else {
+      templateSpinner.info(chalk.yellow('Templates directory not found, skipping sync.'));
+    }
+  } catch (error) {
+    templateSpinner.warn(chalk.yellow(`Failed to sync templates: ${error.message}`));
+  }
 }
 
 // Create build timestamp
