@@ -11,10 +11,10 @@
 import { MenuTextMatch, MenuOption } from '@lexical/react/LexicalTypeaheadMenuPlugin';
 import React from 'react';
 import { FilesIcon, TerminalIcon, SymbolIcon } from '../components/MenuIcons';
-import { getFileIcon } from '../components/FileIcons';
+import { getFileIcon, getFolderIcon } from '../components/FileIcons';
 
 // 🎯 菜单项类型
-export type MenuItemType = 'recent_file' | 'file' | 'category' | 'terminal' | 'symbol';
+export type MenuItemType = 'recent_file' | 'file' | 'folder' | 'category' | 'terminal' | 'symbol';
 
 // 文件选项类型（用于菜单显示）
 export class FileOption extends MenuOption {
@@ -282,6 +282,71 @@ export class AtSymbolHandler {
    */
   private getFileIcon(filePath: string): React.ReactNode {
     return getFileIcon(filePath);
+  }
+
+  /**
+   * 🎯 浏览指定文件夹内容
+   * @param folderPath 文件夹的绝对路径
+   * @returns 文件夹内的文件和子文件夹列表
+   */
+  async browseFolder(folderPath: string): Promise<FileOption[]> {
+    return new Promise((resolve) => {
+      if (window.vscode) {
+        const messageListener = (event: MessageEvent) => {
+          const message = event.data;
+          if (message.type === 'folder_browse_result') {
+            window.removeEventListener('message', messageListener);
+            const items: Array<{label: string; value: string; isDirectory: boolean}> = message.payload.items || [];
+
+            // 转换为 FileOption 格式，区分文件和文件夹
+            const options = items.map(item => {
+              const name = item.label.split('/').pop()?.replace(/\/$/, '') || item.label;
+              if (item.isDirectory) {
+                return new FileOption(
+                  name,
+                  item.label,
+                  'folder',
+                  {
+                    icon: getFolderIcon(name),
+                    hasSubmenu: true  // 文件夹可以继续展开
+                  }
+                );
+              } else {
+                return new FileOption(
+                  name,
+                  item.label,
+                  'file',
+                  { icon: this.getFileIcon(item.label) }
+                );
+              }
+            });
+
+            // 排序：文件夹在前，文件在后
+            options.sort((a, b) => {
+              if (a.itemType === 'folder' && b.itemType !== 'folder') return -1;
+              if (a.itemType !== 'folder' && b.itemType === 'folder') return 1;
+              return a.fileName.localeCompare(b.fileName);
+            });
+
+            resolve(options);
+          }
+        };
+
+        window.addEventListener('message', messageListener);
+        window.vscode.postMessage({
+          type: 'folder_browse',
+          payload: { folderPath }
+        });
+
+        // 超时处理
+        setTimeout(() => {
+          window.removeEventListener('message', messageListener);
+          resolve([]);
+        }, 5000);
+      } else {
+        resolve([]);
+      }
+    });
   }
 
   /**

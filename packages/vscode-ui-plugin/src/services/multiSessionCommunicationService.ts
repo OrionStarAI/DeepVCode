@@ -404,6 +404,13 @@ export class MultiSessionCommunicationService {
     });
   }
 
+  async sendFolderBrowseResult(items: Array<{ label: string; value: string; isDirectory: boolean }>) {
+    await this.sendMessage({
+      type: 'folder_browse_result',
+      payload: { items }
+    });
+  }
+
   async sendSymbolSearchResult(symbols: any[]) {
     await this.sendMessage({
       type: 'symbol_search_result',
@@ -571,6 +578,11 @@ export class MultiSessionCommunicationService {
   // 🎯 文件搜索相关监听器
   onFileSearch(handler: (data: { prefix: string }) => void): vscode.Disposable {
     return this.addMessageHandler('file_search', handler);
+  }
+
+  // 🎯 文件夹浏览相关监听器
+  onFolderBrowse(handler: (data: { folderPath: string }) => void): vscode.Disposable {
+    return this.addMessageHandler('folder_browse', handler);
   }
 
   onSymbolSearch(handler: (data: { query: string }) => void): vscode.Disposable {

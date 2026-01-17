@@ -248,6 +248,92 @@
   background: none !important;
 }
 
+/* 🎯 文件夹引用节点容器 */
+.folder-reference-node {
+  display: inline !important;
+  vertical-align: baseline !important;
+  line-height: inherit !important;
+  font-size: inherit !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: none !important;
+  background: none !important;
+}
+
+/* 🎯 内联文件夹引用标签样式 */
+.inline-folder-ref-tag {
+  display: inline-flex !important;
+  align-items: center;
+  background-color: var(--vscode-textLink-foreground, #3794ff);
+  color: white;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  padding: 1px 2px;
+  font-size: 11px;
+  font-weight: 500;
+  margin: 0 1px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+  vertical-align: baseline !important;
+  line-height: 1 !important;
+  max-width: 150px;
+  height: auto;
+  min-height: auto;
+}
+
+.inline-folder-ref-tag:hover {
+  background-color: var(--vscode-textLink-activeForeground, #2c85d4);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.folder-ref-icon {
+  font-size: 12px;
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+
+.folder-ref-name {
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-right: 1px;
+  font-size: inherit;
+  line-height: inherit;
+}
+
+.folder-ref-remove-btn {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  margin-left: 1px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+  vertical-align: middle;
+}
+
+.folder-ref-remove-btn:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+  transform: scale(1.1);
+}
+
+.folder-ref-remove-btn:active {
+  transform: scale(0.95);
+}
+
 /* 🎯 代码引用标签样式（类似文件引用，但颜色不同） */
 .inline-code-ref-tag {
   display: inline-flex !important;
@@ -571,6 +657,18 @@
   background-color: var(--vscode-list-hoverBackground);
 }
 
+/* 🎯 面包屑路径显示 */
+.at-menu-breadcrumb {
+  padding: 4px 12px 8px;
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-bottom: 1px solid var(--vscode-dropdown-border);
+  margin-bottom: 4px;
+}
+
 /* 🎯 分组标题 */
 .at-menu-section-header {
   padding: 6px 12px 4px;
@@ -668,6 +766,61 @@
 
 .at-menu-item.selected .at-menu-item-arrow {
   color: var(--vscode-list-activeSelectionForeground);
+}
+
+/* 🎯 可点击箭头按钮（用于进入文件夹） */
+.at-menu-item-arrow-btn {
+  font-size: 12px;
+  color: var(--vscode-textLink-foreground, #3794ff);
+  flex-shrink: 0;
+  margin-left: auto;
+  background-color: var(--vscode-textLink-foreground, #3794ff);
+  background-color: rgba(55, 148, 255, 0.15);
+  border: 1px solid var(--vscode-textLink-foreground, #3794ff);
+  cursor: pointer;
+  padding: 3px 8px;
+  border-radius: 4px;
+  transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* 按钮文字通过 React 组件传入，支持 i18n */
+
+.at-menu-item-arrow-btn:hover {
+  background-color: var(--vscode-textLink-foreground, #3794ff);
+  color: white;
+  transform: translateX(2px);
+}
+
+.at-menu-item.selected .at-menu-item-arrow-btn {
+  color: var(--vscode-textLink-foreground, #3794ff);
+  background-color: rgba(55, 148, 255, 0.2);
+  border-color: var(--vscode-textLink-foreground, #3794ff);
+}
+
+.at-menu-item.selected .at-menu-item-arrow-btn:hover {
+  background-color: var(--vscode-textLink-foreground, #3794ff);
+  color: white;
+}
+
+/* 🎯 文件夹展开按钮特殊样式 - 更醒目 */
+.at-menu-item-arrow-btn.folder-expand {
+  background-color: rgba(55, 148, 255, 0.2);
+  border-width: 1.5px;
+  font-weight: 600;
+}
+
+/* 文件夹浏览按钮文字通过 React 组件传入，支持 i18n */
+
+.at-menu-item-arrow-btn.folder-expand:hover {
+  background-color: var(--vscode-textLink-foreground, #3794ff);
+  color: white;
+  box-shadow: 0 2px 4px rgba(55, 148, 255, 0.3);
 }
 
 /* 🎯 分类项特殊样式 */

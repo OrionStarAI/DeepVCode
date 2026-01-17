@@ -249,6 +249,7 @@ export interface MessageFromExtension {
   'chat_error' |
   'context_update' |
   'file_search_result' |          // 🎯 新增：文件搜索结果
+  'folder_browse_result' |        // 🎯 新增：文件夹浏览结果
   'symbol_search_result' |        // 🎯 新增：符号搜索结果
   'extension_version_response' |  // 🎯 新增：扩展版本响应
   'update_check_response' |       // 🎯 新增：更新检测响应
@@ -264,6 +265,7 @@ export interface MessageToExtension {
   'chat_message' |
   'get_context' |
   'file_search' |                // 🎯 新增：文件搜索
+  'folder_browse' |              // 🎯 新增：文件夹浏览
   'symbol_search' |              // 🎯 新增：符号搜索
   'get_terminals' |              // 🎯 新增：获取终端列表
   'get_terminal_output' |        // 🎯 新增：获取终端输出

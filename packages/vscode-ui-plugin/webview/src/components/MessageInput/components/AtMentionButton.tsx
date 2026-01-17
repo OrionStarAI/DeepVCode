@@ -12,6 +12,7 @@ import { useTranslation } from '../../../hooks/useTranslation';
 import { FileSelectionMenu } from './FileSelectionMenu';
 import { atSymbolHandler, FileOption } from '../../../services/atSymbolHandler';
 import { $createFileReferenceNode } from '../nodes/FileReferenceNode';
+import { $createFolderReferenceNode } from '../nodes/FolderReferenceNode';
 import { $createCodeReferenceNode } from '../nodes/CodeReferenceNode';
 import { $createTerminalReferenceNode } from '../nodes/TerminalReferenceNode';
 import './AtMentionButton.css';
@@ -20,6 +21,7 @@ interface AtMentionButtonProps {
   editorRef: React.MutableRefObject<LexicalEditor | null>;
   disabled?: boolean;
   onFileSelect: (fileName: string, filePath: string) => void;
+  onFolderSelect?: (folderName: string, folderPath: string) => void;
   onTerminalSelect?: (terminalId: number, terminalName: string, terminalOutput: string) => void;
 }
 
@@ -43,6 +45,7 @@ export function AtMentionButton({
   editorRef,
   disabled = false,
   onFileSelect,
+  onFolderSelect,
   onTerminalSelect
 }: AtMentionButtonProps) {
   const { t } = useTranslation();
@@ -223,6 +226,49 @@ export function AtMentionButton({
     }, 0);
   }, [editorRef, onTerminalSelect, handleCloseMenu]);
 
+  // 🎯 处理文件夹选择
+  const handleFolderSelectCallback = useCallback((
+    folderName: string,
+    folderPath: string
+  ) => {
+    const editor = editorRef.current;
+    if (!editor) return;
+
+    editor.update(() => {
+      const selection = $getSelection();
+      if (!$isRangeSelection(selection)) return;
+
+      // 创建文件夹引用节点
+      const folderReferenceNode = $createFolderReferenceNode(
+        folderName,
+        folderPath
+      );
+
+      // 插入节点
+      selection.insertNodes([folderReferenceNode]);
+
+      // 在引用后添加空格
+      const spaceNode = $createTextNode(' ');
+      folderReferenceNode.insertAfter(spaceNode);
+      spaceNode.selectNext();
+    });
+
+    // 关闭菜单
+    handleCloseMenu();
+
+    // 通知父组件
+    if (onFolderSelect) {
+      onFolderSelect(folderName, folderPath);
+    }
+
+    // 聚焦编辑器
+    setTimeout(() => {
+      if (editorRef.current) {
+        editorRef.current.focus();
+      }
+    }, 0);
+  }, [editorRef, onFolderSelect, handleCloseMenu]);
+
   // 🎯 点击外部关闭菜单
   useEffect(() => {
     if (!isMenuOpen) return;
@@ -300,6 +346,7 @@ export function AtMentionButton({
             onSelectOption={handleSelectOption}
             onClose={handleCloseMenu}
             onTerminalSelect={handleTerminalSelect}
+            onFolderSelect={handleFolderSelectCallback}
             isLoading={isLoading}
             queryString=""
           />

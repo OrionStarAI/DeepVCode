@@ -411,6 +411,10 @@ export const enUS: Translations = {
     terminalOutput: 'Terminal output (last 200 lines)',
     loading: 'Loading...',
     openContextMenu: 'Add context (@)',
+    expand: 'Expand',
+    browse: 'Browse',
+    expandTooltip: 'Click to expand',
+    browseTooltip: 'Click to browse folder contents (click folder name to reference entire folder)',
   },
 
   systemNotifications: {

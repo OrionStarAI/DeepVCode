@@ -469,6 +469,10 @@ export interface Translations {
     terminalOutput: string;
     loading: string;
     openContextMenu: string;
+    expand: string;
+    browse: string;
+    expandTooltip: string;
+    browseTooltip: string;
   };
 
   systemNotifications: {
