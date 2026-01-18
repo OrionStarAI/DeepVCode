@@ -118,6 +118,7 @@ Use slash commands in interactive mode for quick common tasks:
 | Command | Description |
 |:---:|:---|
 | `/help` | Display help information |
+| `/issue <description>` | Submit a GitHub Issue (auto-attached error logs) |
 | `/model` | Switch AI model |
 | `/session` | Session management (list/new/select) |
 | `/mcp` | MCP server management |
