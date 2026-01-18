@@ -48,7 +48,6 @@ function FolderReferenceComponent({
       title={folderPath}
       onClick={handleClick}
     >
-      <span className="folder-ref-icon">📁</span>
       <span className="folder-ref-name">{folderName}</span>
       <button
         className="folder-ref-remove-btn"
@@ -94,7 +93,7 @@ export class FolderReferenceNode extends DecoratorNode<JSX.Element> {
   }
 
   getTextContent(): string {
-    return `@[📁${this.__folderName}]`;
+    return `@[${this.__folderName}]`;
   }
 
   decorate(): JSX.Element {

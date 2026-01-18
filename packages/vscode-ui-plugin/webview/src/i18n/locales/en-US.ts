@@ -415,6 +415,8 @@ export const enUS: Translations = {
     browse: 'Browse',
     expandTooltip: 'Click to expand',
     browseTooltip: 'Click to browse folder contents (click folder name to reference entire folder)',
+    filterPlaceholder: 'Search files and folders...',
+    noMatches: 'No matches',
   },
 
   systemNotifications: {

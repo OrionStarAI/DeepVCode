@@ -45,7 +45,7 @@ export const copyCommand: SlashCommand = {
         return {
           type: 'message',
           messageType: 'info',
-          content: '📋已复制到粘贴板',
+          content: t('command.copy.success'),
         };
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);

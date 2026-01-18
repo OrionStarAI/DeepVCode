@@ -415,6 +415,8 @@ export const zhCN: Translations = {
     browse: '浏览',
     expandTooltip: '点击展开',
     browseTooltip: '点击浏览文件夹内容（单击文件夹名可直接引用整个文件夹）',
+    filterPlaceholder: '搜索文件和文件夹...',
+    noMatches: '无匹配结果',
   },
 
   systemNotifications: {

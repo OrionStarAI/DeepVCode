@@ -669,6 +669,29 @@
   margin-bottom: 4px;
 }
 
+/* 🎯 文件列表过滤输入框 */
+.at-menu-filter {
+  padding: 6px 12px 8px;
+  border-bottom: 1px solid var(--vscode-dropdown-border);
+}
+
+.at-menu-filter-input {
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--vscode-input-background);
+  color: var(--vscode-input-foreground);
+  border: 1px solid var(--vscode-input-border);
+  border-radius: 4px;
+  padding: 6px 8px;
+  font-size: 12px;
+  outline: none;
+}
+
+.at-menu-filter-input:focus {
+  border-color: var(--vscode-focusBorder);
+  box-shadow: 0 0 0 1px var(--vscode-focusBorder);
+}
+
 /* 🎯 分组标题 */
 .at-menu-section-header {
   padding: 6px 12px 4px;
@@ -749,6 +772,16 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.at-menu-item-path-text {
+  display: block;
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  direction: rtl;
+  text-align: left;
 }
 
 .at-menu-item.selected .at-menu-item-path {
