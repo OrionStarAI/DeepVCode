@@ -473,6 +473,8 @@ export interface Translations {
     browse: string;
     expandTooltip: string;
     browseTooltip: string;
+    filterPlaceholder: string;
+    noMatches: string;
   };
 
   systemNotifications: {

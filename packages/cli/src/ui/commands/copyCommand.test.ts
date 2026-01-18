@@ -9,6 +9,7 @@ import { copyCommand } from './copyCommand.js';
 import { type CommandContext } from './types.js';
 import { createMockCommandContext } from '../../test-utils/mockCommandContext.js';
 import { copyToClipboard } from '../utils/commandUtils.js';
+import { t } from '../utils/i18n.js';
 
 vi.mock('../utils/commandUtils.js', () => ({
   copyToClipboard: vi.fn(),
@@ -119,7 +120,7 @@ describe('copyCommand', () => {
     expect(result).toEqual({
       type: 'message',
       messageType: 'info',
-      content: '📋已复制到粘贴板',
+      content: t('command.copy.success'),
     });
 
     expect(mockCopyToClipboard).toHaveBeenCalledWith(
@@ -146,7 +147,7 @@ describe('copyCommand', () => {
     expect(result).toEqual({
       type: 'message',
       messageType: 'info',
-      content: '📋已复制到粘贴板',
+      content: t('command.copy.success'),
     });
   });
 
@@ -173,7 +174,7 @@ describe('copyCommand', () => {
     expect(result).toEqual({
       type: 'message',
       messageType: 'info',
-      content: '📋已复制到粘贴板',
+      content: t('command.copy.success'),
     });
   });
 
@@ -204,7 +205,7 @@ describe('copyCommand', () => {
     expect(result).toEqual({
       type: 'message',
       messageType: 'info',
-      content: '📋已复制到粘贴板',
+      content: t('command.copy.success'),
     });
   });
 

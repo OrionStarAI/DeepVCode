@@ -35,7 +35,7 @@ export function assembleForDisplay(content: MessageContent): string {
       case 'file_reference':
         return `@[${part.value.fileName}]`;
       case 'folder_reference':  // 🎯 文件夹引用
-        return `@[📁${part.value.folderName}]`;
+        return `@[${part.value.folderName}]`;
       case 'image_reference':
         return `[IMAGE:${part.value.fileName}]`;
       case 'code_reference':
@@ -81,8 +81,7 @@ export function assembleForLLM(content: MessageContent): {
         files.push(part.value);
         break;
       case 'folder_reference':  // 🎯 文件夹引用
-        textParts.push(`@[📁${part.value.folderName}]`);
-        // 文件夹引用在后端处理时会展开为多个文件
+        textParts.push(`@[${part.value.folderName}]`);
         break;
       case 'image_reference':
         textParts.push(`[IMAGE:${part.value.fileName}]`);

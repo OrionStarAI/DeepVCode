@@ -86,7 +86,7 @@ export class AtSymbolHandler {
 
   constructor(config: AtSymbolHandlerConfig = {}) {
     this.config = {
-      debounceDelay: 200,
+      debounceDelay: 500,
       maxResults: 20,
       cacheExpireTime: 5 * 60 * 1000,
       ...config,
@@ -300,7 +300,9 @@ export class AtSymbolHandler {
 
             // 转换为 FileOption 格式，区分文件和文件夹
             const options = items.map(item => {
-              const name = item.label.split('/').pop()?.replace(/\/$/, '') || item.label;
+              const normalizedLabel = item.label.replace(/\\/g, '/');
+              const trimmedLabel = normalizedLabel.replace(/\/+$/, '');
+              const name = trimmedLabel.split('/').pop() || item.label;
               if (item.isDirectory) {
                 return new FileOption(
                   name,

@@ -6,9 +6,10 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+
 import { FileOption, atSymbolHandler } from '../../../services/atSymbolHandler';
 import { useTranslation } from '../../../hooks/useTranslation';
-import { FilesIcon, TerminalIcon, SymbolIcon } from '../../MenuIcons';
+import { FilesIcon, TerminalIcon, SymbolIcon, FileIcon, FolderIcon } from '../../MenuIcons';
 
 interface FileSelectionMenuProps {
   anchorElementRef: React.RefObject<HTMLElement>;
@@ -21,6 +22,7 @@ interface FileSelectionMenuProps {
   onFolderSelect?: (folderName: string, folderPath: string) => void;  // 🎯 新增：文件夹引用回调
   isLoading?: boolean;
   queryString?: string;
+  enableFilterInput?: boolean;
 }
 
 // 🎯 菜单视图类型
@@ -37,22 +39,37 @@ export function FileSelectionMenu({
   onTerminalSelect,
   onFolderSelect,
   isLoading: externalLoading = false,
-  queryString = ''
+  queryString = '',
+  enableFilterInput = false
 }: FileSelectionMenuProps) {
   const { t } = useTranslation();
   const [currentView, setCurrentView] = useState<MenuView>('main');
   const [subMenuOptions, setSubMenuOptions] = useState<FileOption[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [localSelectedIndex, setLocalSelectedIndex] = useState<number>(0);
+  const [fileFilterQuery, setFileFilterQuery] = useState<string>('');
+  const [filterResults, setFilterResults] = useState<FileOption[]>([]);
+  const [isFilterLoading, setIsFilterLoading] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  // 🎯 格式化路径，只显示后半段
+  const formatPath = useCallback((path: string): string => {
+    if (!path) return '';
+
+    return path.replace(/\\/g, '/');
+  }, []);
 
   // 🎯 文件夹导航历史栈（用于返回上一级）
   const [folderHistory, setFolderHistory] = useState<string[]>([]);
   // 🎯 当前浏览的文件夹路径
   const [currentFolderPath, setCurrentFolderPath] = useState<string>('');
 
+  const filteredSubMenuOptions = fileFilterQuery.trim() ? filterResults : subMenuOptions;
+
   // 🎯 确定当前显示的选项
-  const currentOptions = currentView === 'main' ? options : subMenuOptions;
+  const currentOptions = currentView === 'main'
+    ? options
+    : (currentView === 'files' ? filteredSubMenuOptions : subMenuOptions);
 
   // 🎯 处理分类点击
   const handleCategoryClick = useCallback(async (option: FileOption) => {
@@ -140,12 +157,12 @@ export function FileSelectionMenu({
   // 🎯 处理文件夹引用（单击文件夹时触发）
   const handleFolderSelect = useCallback((option: FileOption) => {
     if (onFolderSelect) {
-      // 🎯 如果提供了 onFolderSelect 回调（来自 AtMentionButton），使用它
+      // 🎯 如果提供了 onFolderSelect 回调（来自 AtMentionButton），使用完整路径作为显示名，避免截断影响引用
       const folderPath = option.filePath.replace(/\/$/, ''); // 移除尾部斜杠
-      onFolderSelect(option.fileName, folderPath);
+      onFolderSelect(folderPath, folderPath);
       onClose();
     } else {
-      // 🎯 如果没有提供 onFolderSelect（来自 FileAutocompletePlugin），通过 onSelectOption 处理
+      // 🎯 如果没有提供 onFolderSelect（来自 FileAutocompletePlugin），统一走 onSelectOption 由上层处理
       onSelectOption(option);
     }
   }, [onFolderSelect, onSelectOption, onClose]);
@@ -210,6 +227,11 @@ export function FileSelectionMenu({
   // 🎯 键盘事件处理
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && target instanceof HTMLInputElement) {
+        return;
+      }
+
       if (!currentOptions.length) return;
 
       switch (e.key) {
@@ -284,6 +306,40 @@ export function FileSelectionMenu({
     }
   }, [currentView]);
 
+  // 🎯 离开文件视图时清空过滤条件
+  useEffect(() => {
+    if (currentView !== 'files') {
+      setFileFilterQuery('');
+      setFilterResults([]);
+      setIsFilterLoading(false);
+    }
+  }, [currentView]);
+
+  // 🎯 文件过滤：递归搜索（全局文件搜索）
+  useEffect(() => {
+    const shouldSearch = enableFilterInput && currentView === 'files' && fileFilterQuery.trim();
+    if (!shouldSearch) {
+      setFilterResults([]);
+      setIsFilterLoading(false);
+      return;
+    }
+
+    let isCancelled = false;
+    setIsFilterLoading(true);
+
+    atSymbolHandler.searchFilesWithDebounce(fileFilterQuery.trim(), (results) => {
+      if (isCancelled) return;
+      setFilterResults(results);
+      setIsFilterLoading(false);
+      setLocalSelectedIndex(0);
+      setHighlightedIndex(0);
+    });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [enableFilterInput, currentView, fileFilterQuery, setHighlightedIndex]);
+
   // 🎯 自动滚动到选中项
   useEffect(() => {
     if (menuRef.current) {
@@ -316,9 +372,9 @@ export function FileSelectionMenu({
     switch (option.itemType) {
       case 'recent_file':
       case 'file':
-        return '📄';
+        return <FileIcon />;
       case 'folder':
-        return '📁';
+        return <FolderIcon />;
       case 'symbol':
         return <SymbolIcon />;
       case 'category':
@@ -328,7 +384,7 @@ export function FileSelectionMenu({
       case 'terminal':
         return <TerminalIcon />;
       default:
-        return '📄';
+        return <FileIcon />;
     }
   };
 
@@ -366,8 +422,10 @@ export function FileSelectionMenu({
         <span className="at-menu-item-icon">{icon}</span>
         <div className="at-menu-item-content">
           <div className="at-menu-item-name">{option.fileName}</div>
-          {(option.itemType === 'file' || option.itemType === 'recent_file' || option.itemType === 'symbol') && option.filePath && (
-            <div className="at-menu-item-path">{option.filePath}</div>
+          {(option.itemType === 'file' || option.itemType === 'recent_file' || option.itemType === 'symbol' || option.itemType === 'folder') && option.filePath && (
+            <div className="at-menu-item-path" title={option.filePath}>
+              <span className="at-menu-item-path-text">{formatPath(option.filePath)}</span>
+            </div>
           )}
         </div>
         {showArrow && (
@@ -389,7 +447,7 @@ export function FileSelectionMenu({
   };
 
   // 🎯 加载指示器
-  const loadingIndicator = (isLoading || externalLoading) && (
+  const loadingIndicator = (isLoading || externalLoading || isFilterLoading) && (
     <div className="at-menu-loading">
       <span className="at-menu-loading-spinner"></span>
       {t('atMention.loading')}
@@ -409,7 +467,7 @@ export function FileSelectionMenu({
         </div>
       );
     }
-    if (currentView === 'files') {
+    if (currentView === 'files' && !enableFilterInput) {
       return (
         <div className="at-autocomplete-menu" ref={menuRef}>
           <div className="at-menu-header">
@@ -417,6 +475,35 @@ export function FileSelectionMenu({
             <span>{t('atMention.filesAndFolders')}</span>
           </div>
           <div className="at-menu-empty">{t('atMention.noRecentFiles')}</div>
+        </div>
+      );
+    }
+
+    if (currentView === 'files' && enableFilterInput) {
+      return (
+        <div className="at-autocomplete-menu" ref={menuRef}>
+          <div className="at-menu-header">
+            <button className="at-menu-back" onClick={handleBack}>←</button>
+            <span>{t('atMention.filesAndFolders')}</span>
+          </div>
+          <div className="at-menu-filter">
+            <input
+              className="at-menu-filter-input"
+              type="text"
+              value={fileFilterQuery}
+              autoFocus
+              onChange={(event) => {
+                setFileFilterQuery(event.target.value);
+                setLocalSelectedIndex(0);
+              }}
+              placeholder={t('atMention.filterPlaceholder')}
+              aria-label={t('atMention.filterPlaceholder')}
+              spellCheck={false}
+            />
+          </div>
+          <div className="at-menu-empty">
+            {fileFilterQuery.trim() ? t('atMention.noMatches') : t('atMention.noRecentFiles')}
+          </div>
         </div>
       );
     }
@@ -431,7 +518,9 @@ export function FileSelectionMenu({
         </div>
       );
     }
-    return null;
+    if (currentView !== 'files') {
+      return null;
+    }
   }
 
   // 🎯 主视图：分离不同类型的选项
@@ -516,7 +605,28 @@ export function FileSelectionMenu({
               {currentFolderPath}
             </div>
           )}
-          {subMenuOptions.map((option, index) => renderMenuItem(option, index))}
+          {enableFilterInput && (
+            <div className="at-menu-filter">
+              <input
+                className="at-menu-filter-input"
+                type="text"
+                value={fileFilterQuery}
+                autoFocus
+                onChange={(event) => {
+                  setFileFilterQuery(event.target.value);
+                  setLocalSelectedIndex(0);
+                }}
+                placeholder={t('atMention.filterPlaceholder')}
+                aria-label={t('atMention.filterPlaceholder')}
+                spellCheck={false}
+              />
+            </div>
+          )}
+          {filteredSubMenuOptions.length === 0 && fileFilterQuery.trim() ? (
+            <div className="at-menu-empty">{t('atMention.noMatches')}</div>
+          ) : (
+            filteredSubMenuOptions.map((option, index) => renderMenuItem(option, index))
+          )}
         </>
       )}
 

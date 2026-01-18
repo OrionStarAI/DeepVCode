@@ -48,7 +48,7 @@ export async function convertMessageContentToParts(
       case 'file_reference':
         return `@[${item.value.fileName}]`;
       case 'folder_reference':  // 🎯 文件夹引用
-        return `@[📁${item.value.folderName}]`;
+        return `@[${item.value.folderName}]`;
       case 'image_reference':
         return `[IMAGE:${item.value.fileName}]`;
       case 'code_reference':  // 🎯 代码引用
@@ -120,27 +120,12 @@ export async function convertMessageContentToParts(
         }
         fileParts++; // 计入文件部分（作为上下文内容）
       } else if (item.type === 'folder_reference') {
-        // 🎯 文件夹引用：读取文件夹内所有文件内容
+        // 🚫 严禁展开文件夹内容：只传递路径文本。
+        // 原因：展开会将整个文件夹文件塞入上下文，瞬间耗尽模型上下文窗口，导致响应失败/错乱。
+        // 如需展开，必须通过显式的“文件夹展开”功能并加上限制/确认，不得在此处修改。
         console.log(`📁 [MessageConverter] 处理 folder_reference: ${item.value.folderName}, path: ${item.value.folderPath}`);
         const folderInfo = `--- Folder: ${item.value.folderName} (${item.value.folderPath}) ---`;
         allParts.push({ text: folderInfo });
-
-        // 读取文件夹内的文件
-        try {
-          const result = await processFolderToPartsList(item.value.folderPath, workspaceRoot);
-          if (result.parts.length > 0) {
-            console.log(`✅ [MessageConverter] 文件夹内容已添加: ${item.value.folderName}, ${result.parts.length} parts, ${result.fileCount} files`);
-            allParts.push(...result.parts);
-            fileParts += result.fileCount;
-          } else {
-            console.warn(`⚠️ [MessageConverter] 文件夹为空或无可读文件: ${item.value.folderName}`);
-            allParts.push({ text: '(Folder is empty or contains no readable files)' });
-          }
-        } catch (error) {
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          console.error(`❌ [MessageConverter] 读取文件夹失败: ${item.value.folderName}`, errorMessage);
-          warnings.push(`Error reading folder ${item.value.folderName}: ${errorMessage}`);
-        }
       }
       // text类型已经在第一步处理了，这里跳过
     } catch (error) {
