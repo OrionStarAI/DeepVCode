@@ -52,6 +52,7 @@ import { nanoBananaCommand } from '../ui/commands/nanoBananaCommand.js';
 import { skillCommand } from '../ui/commands/skillCommand.js';
 import { pptCommand } from '../ui/commands/pptCommand.js';
 import { hooksCommand } from '../ui/commands/hooksCommand.js';
+import { issueCommand } from '../ui/commands/issueCommand.js';
 
 /**
  * Loads the core, hard-coded slash commands that are an integral part
@@ -86,6 +87,7 @@ export class BuiltinCommandLoader implements ICommandLoader {
       helpCommand,
       helpAskCommand,
       hooksCommand,
+      issueCommand,
       ideCommand(this.config),
       initCommand,
       memoryCommand,
