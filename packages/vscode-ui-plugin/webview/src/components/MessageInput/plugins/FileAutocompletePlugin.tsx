@@ -177,9 +177,9 @@ export function FileAutocompletePlugin({ onFileSelect, onTerminalSelect }: FileA
           selectedOption.range.endLine
         );
       } else if (selectedOption.itemType === 'folder') {
-        // 🎯 文件夹引用节点
+        // 🎯 文件夹引用节点 - 使用完整路径作为显示名，确保插入内容一致
         const folderPath = selectedOption.filePath.replace(/\/$/, ''); // 移除尾部斜杠
-        referenceNode = $createFolderReferenceNode(selectedOption.fileName, folderPath);
+        referenceNode = $createFolderReferenceNode(folderPath, folderPath);
       } else {
         // 否则创建普通文件引用节点
         referenceNode = $createFileReferenceNode(selectedOption.fileName, selectedOption.filePath);

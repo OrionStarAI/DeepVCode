@@ -349,6 +349,7 @@ export function AtMentionButton({
             onFolderSelect={handleFolderSelectCallback}
             isLoading={isLoading}
             queryString=""
+            enableFilterInput={true}
           />
         </div>,
         document.body

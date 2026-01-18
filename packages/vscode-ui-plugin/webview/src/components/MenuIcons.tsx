@@ -29,3 +29,17 @@ export const SymbolIcon = () => (
     <path d="M9 3L7 13" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
   </svg>
 );
+
+export const FileIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M9 2L13 6V13.5C13 14.0523 12.5523 14.5 12 14.5H4C3.44772 14.5 3 14.0523 3 13.5V2.5C3 1.94772 3.44772 1.5 4 1.5H9Z" stroke="currentColor" strokeWidth="1.2"/>
+    <path d="M9 2V6H13" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
+  </svg>
+);
+
+export const FolderIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path fill="#FFA000" d="M40,12H22l-4-4H8c-2.2,0-4,1.8-4,4v8h40v-4C44,13.8,42.2,12,40,12z"/>
+    <path fill="#FFCA28" d="M40,12H8c-2.2,0-4,1.8-4,4v20c0,2.2,1.8,4,4,4h32c2.2,0,4-1.8,4-4V16C44,13.8,42.2,12,40,12z"/>
+  </svg>
+);

@@ -6,6 +6,7 @@
  */
 import React from 'react';
 import { Icons } from './IconAssets';
+import { FolderIcon } from './MenuIcons';
 
 // Helper to render the icon
 const IconImg = ({ src, alt }: { src: string; alt: string }) => (
@@ -151,6 +152,6 @@ export function getFolderIcon(folderName: string): React.ReactNode {
     return <IconImg src={Icons['default_folder']} alt="folder" />;
   }
 
-  // 3. 使用 emoji 作为 fallback
-  return <span style={{ fontSize: '16px' }}>📁</span>;
+  // 3. 使用 MenuIcons 的 FolderIcon 作为 fallback（避免 emoji）
+  return <FolderIcon />;
 }
