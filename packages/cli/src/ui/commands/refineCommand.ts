@@ -204,6 +204,41 @@ function parseRefineArguments(args: string): { text?: string; options: RefineOpt
 /**
  * 执行文本润色
  */
+/**
+ * 过滤历史记录，移除包含工具调用（functionCall）和工具响应（functionResponse）的消息
+ *
+ * 某些模型（如 OpenAI/GPT）要求工具调用必须有对应的工具结果，
+ * 如果历史中有工具调用但没有完整的回环，会导致错误：
+ * "No tool output found for function call"
+ *
+ * 润色功能只需要纯文本上下文，因此过滤掉所有工具相关消息
+ */
+function filterHistoryForRefine(history: any[]): any[] {
+  if (!Array.isArray(history)) return [];
+
+  return history.filter(content => {
+    // 检查消息中是否包含工具调用或工具响应
+    if (!content.parts || !Array.isArray(content.parts)) return true;
+
+    const hasToolCall = content.parts.some((part: any) =>
+      part.functionCall !== undefined || part.functionResponse !== undefined
+    );
+
+    // 如果消息包含工具调用/响应，过滤掉整条消息
+    if (hasToolCall) return false;
+
+    // 只保留有有效文本内容的消息
+    const hasTextContent = content.parts.some((part: any) =>
+      part.text !== undefined && part.text.trim() !== ''
+    );
+
+    return hasTextContent;
+  });
+}
+
+/**
+ * 执行文本润色
+ */
 async function refineText(
   context: CommandContext,
   text: string,
@@ -230,7 +265,11 @@ async function refineText(
   try {
     // 获取当前会话历史，使润色具有上下文感知能力
     const chat = geminiClient.getChat();
-    const history = await chat.getHistory();
+    const rawHistory = await chat.getHistory();
+
+    // 🔧 过滤历史记录：移除工具调用/响应消息
+    // 解决某些模型（如 OpenAI）报错 "No tool output found for function call" 的问题
+    const history = filterHistoryForRefine(rawHistory);
 
     // 使用 generateContent 方法调用模型
     const contentGenerator = geminiClient.getContentGenerator();
