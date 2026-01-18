@@ -350,15 +350,15 @@ DeepV Code supports configuring custom models with OpenAI-compatible and Anthrop
 
 ### Quick Configuration
 
-#### Method 1: Configuration Wizard (Recommended)
+#### Method 1: Model Management UI (Recommended)
 
 In the CLI, type:
 
 ```bash
-/add-model
+/model
 ```
 
-Follow the wizard prompts:
+Then select **"Model Management"** option and follow the wizard prompts:
 1. Select provider type (OpenAI Compatible / Anthropic Claude)
 2. Enter display name
 3. Enter API base URL

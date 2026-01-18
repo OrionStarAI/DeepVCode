@@ -755,15 +755,15 @@ DeepV Code 支持配置 OpenAI 兼容格式和 Anthropic Claude API 格式的自
 
 ### 快速配置
 
-#### 方式一：使用配置向导（推荐）
+#### 方式一：使用模型管理界面（推荐）
 
 在 CLI 中输入：
 
 ```bash
-/add-model
+/model
 ```
 
-按照向导提示填写：
+然后选择 **"Model Management"**（模型管理）选项，按向导提示填写：
 1. 选择提供商类型（OpenAI Compatible / Anthropic Claude）
 2. 输入显示名称
 3. 输入 API 基础 URL
