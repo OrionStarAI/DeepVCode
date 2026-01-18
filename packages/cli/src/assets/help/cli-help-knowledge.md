@@ -511,6 +511,17 @@ set ANTHROPIC_API_KEY=sk-ant-your-key-here
 
 ---
 
+### `/issue` - 提交 Issue 反馈
+快速提交 GitHub Issue，并自动附加当前会话的错误日志（已脱敏）。
+
+**用法：** `/issue <问题描述>`
+
+**说明：**
+- 会自动打开 GitHub Issue 页面
+- 仅附带 error 日志，敏感内容将以 `*` 脱敏
+
+---
+
 ### `/init` - 初始化项目上下文
 自动分析项目并生成 `DEEPV.md` 文件，提供项目上下文。
 
@@ -1277,6 +1288,17 @@ set ANTHROPIC_API_KEY=sk-ant-your-key-here
 **退出帮助：** 按 `Esc` 键
 
 **注意：** 此功能会消耗 API token，如果只想查看命令列表，请使用 `/help`
+
+---
+
+### `/issue` - 提交 Issue 反馈
+快速提交 GitHub Issue，并自动附加当前会话的错误日志（已脱敏）。
+
+**用法：** `/issue <问题描述>`
+
+**说明：**
+- 会自动打开 GitHub Issue 页面
+- 仅附带 error 日志，敏感内容将以 `*` 脱敏
 
 ---
 
