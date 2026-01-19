@@ -29,20 +29,24 @@ export interface RetryOptions {
 }
 
 /**
- * 默认重试配置 - 符合 Google Cloud 指数退避建议
+ * 默认重试配置 - 优化后的指数退避策略
  * @see https://cloud.google.com/storage/docs/retry-strategy#exponential-backoff
  *
+ * 🆕 优化说明：
+ * - 首次重试延迟从 1s 提升到 3s，避免在限流期间过早重试
+ * - 429 错误通常需要更长的冷却时间，3-5秒是更合理的起点
+ *
  * 标准退避序列 (jitter ±30%):
- * - 第1次重试: ~1s (0.7s - 1.3s)
- * - 第2次重试: ~2s (1.4s - 2.6s)
- * - 第3次重试: ~4s (2.8s - 5.2s)
- * - 第4次重试: ~8s (5.6s - 10.4s)
- * - 第5次重试: ~16s (11.2s - 20.8s)
+ * - 第1次重试: ~3s (2.1s - 3.9s)
+ * - 第2次重试: ~6s (4.2s - 7.8s)
+ * - 第3次重试: ~12s (8.4s - 15.6s)
+ * - 第4次重试: ~24s (16.8s - 31.2s)
+ * - 第5次重试: ~32s -> capped at 32s
  * - 第6次重试: ~32s -> capped at 32s
  */
 const DEFAULT_RETRY_OPTIONS: RetryOptions = {
-  maxAttempts: 6, // 增加到6次，更宽容的重试
-  initialDelayMs: 1000, // 从1秒开始，符合标准指数退避
+  maxAttempts: 6, // 6次尝试，更宽容的重试
+  initialDelayMs: 3000, // 🆕 从3秒开始，给服务端更多冷却时间
   maxDelayMs: 32000, // 32秒最大延迟，符合 Google 建议
   shouldRetry: defaultShouldRetry,
   aggressiveBackoff: false,
@@ -229,30 +233,15 @@ export async function retryWithBackoff<T>(
         throw error;
       }
 
-      const { delayDurationMs, errorStatus: delayErrorStatus } =
-        getDelayDurationAndStatus(error);
+      // 使用指数退避 + 抖动策略
+      // Google recommends: delay = min(maxDelay, initialDelay * 2^attempt + random_jitter)
+      // Add jitter: +/- 30% of currentDelay
+      const jitter = currentDelay * 0.3 * (Math.random() * 2 - 1);
+      const delayWithJitter = Math.max(0, currentDelay + jitter);
 
-      if (delayDurationMs > 0) {
-        // Respect Retry-After header if present and parsed
-        // 服务端返回的 Retry-After 通常更准确，优先使用
-        console.warn(
-          `[Retry] Attempt ${attempt}/${maxAttempts} failed (${delayErrorStatus ?? 'unknown'}). ` +
-          `Server requested retry after ${Math.round(delayDurationMs / 1000)}s`
-        );
-        await delay(delayDurationMs);
-        // Reset currentDelay for next potential non-429 error, or if Retry-After is not present next time
-        currentDelay = initialDelayMs;
-      } else {
-        // Fall back to exponential backoff with jitter
-        // Google recommends: delay = min(maxDelay, initialDelay * 2^attempt + random_jitter)
-        // Add jitter: +/- 30% of currentDelay
-        const jitter = currentDelay * 0.3 * (Math.random() * 2 - 1);
-        const delayWithJitter = Math.max(0, currentDelay + jitter);
-
-        logRetryAttempt(attempt, maxAttempts, error, errorStatus, delayWithJitter);
-        await delay(delayWithJitter);
-        currentDelay = Math.min(maxDelayMs, currentDelay * 2);
-      }
+      logRetryAttempt(attempt, maxAttempts, error, errorStatus, delayWithJitter);
+      await delay(delayWithJitter);
+      currentDelay = Math.min(maxDelayMs, currentDelay * 2);
     }
   }
   // This line should theoretically be unreachable due to the throw in the catch block.
@@ -285,62 +274,6 @@ export function getErrorStatus(error: unknown): number | undefined {
     }
   }
   return undefined;
-}
-
-/**
- * Extracts the Retry-After delay from an error object's headers.
- * @param error The error object.
- * @returns The delay in milliseconds, or 0 if not found or invalid.
- */
-function getRetryAfterDelayMs(error: unknown): number {
-  if (typeof error === 'object' && error !== null) {
-    // Check for error.response.headers (common in axios errors)
-    if (
-      'response' in error &&
-      typeof (error as { response?: unknown }).response === 'object' &&
-      (error as { response?: unknown }).response !== null
-    ) {
-      const response = (error as { response: { headers?: unknown } }).response;
-      if (
-        'headers' in response &&
-        typeof response.headers === 'object' &&
-        response.headers !== null
-      ) {
-        const headers = response.headers as { 'retry-after'?: unknown };
-        const retryAfterHeader = headers['retry-after'];
-        if (typeof retryAfterHeader === 'string') {
-          const retryAfterSeconds = parseInt(retryAfterHeader, 10);
-          if (!isNaN(retryAfterSeconds)) {
-            return retryAfterSeconds * 1000;
-          }
-          // It might be an HTTP date
-          const retryAfterDate = new Date(retryAfterHeader);
-          if (!isNaN(retryAfterDate.getTime())) {
-            return Math.max(0, retryAfterDate.getTime() - Date.now());
-          }
-        }
-      }
-    }
-  }
-  return 0;
-}
-
-/**
- * Determines the delay duration based on the error, prioritizing Retry-After header.
- * @param error The error object.
- * @returns An object containing the delay duration in milliseconds and the error status.
- */
-function getDelayDurationAndStatus(error: unknown): {
-  delayDurationMs: number;
-  errorStatus: number | undefined;
-} {
-  const errorStatus = getErrorStatus(error);
-  let delayDurationMs = 0;
-
-  if (errorStatus === 429) {
-    delayDurationMs = getRetryAfterDelayMs(error);
-  }
-  return { delayDurationMs, errorStatus };
 }
 
 /**

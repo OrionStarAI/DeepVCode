@@ -777,17 +777,9 @@ export class DeepVServerAdapter implements ContentGenerator {
           throw new Error(`REGION_BLOCKED_451: ${errorText}`);
         }
 
-        // 🆕 为 429/5xx 错误创建带状态码的错误对象，便于重试逻辑判断
+        // 为 429/5xx 错误创建带状态码的错误对象，便于重试逻辑判断
         const apiError = new Error(`Stream API error (${response.status}): ${errorText}`);
         (apiError as any).status = response.status;
-        // 🆕 尝试解析 Retry-After 头，传递给重试逻辑
-        const retryAfter = response.headers.get('retry-after');
-        if (retryAfter) {
-          (apiError as any).response = {
-            status: response.status,
-            headers: { 'retry-after': retryAfter }
-          };
-        }
         throw apiError;
       }
 
