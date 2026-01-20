@@ -8,6 +8,7 @@
 import open from 'open';
 import process from 'node:process';
 import { getCliVersion } from '../../utils/version.js';
+import { getModelDisplayName } from '../../utils/modelUtils.js';
 import { t, tp } from '../utils/i18n.js';
 import {
   CommandContext,
@@ -64,6 +65,12 @@ const getRuntimeInfo = (): string => {
   return `- Runtime: Node ${nodeVersion}`;
 };
 
+const getModelInfo = (context: CommandContext): string => {
+  const preferredModel = context.services.settings.merged.preferredModel || 'auto';
+  const displayName = getModelDisplayName(preferredModel, context.services.config);
+  return `- Model: ${displayName}`;
+};
+
 const buildIssueBody = async (
   context: CommandContext,
   description: string,
@@ -73,6 +80,7 @@ const buildIssueBody = async (
     `- CLI: ${cliVersion}`,
     `- OS: ${process.platform}`,
     getRuntimeInfo(),
+    getModelInfo(context),
   ].join('\n');
 
   const normalizedDescription = formatDescription(description);

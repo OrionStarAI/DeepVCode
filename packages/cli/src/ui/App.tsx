@@ -30,6 +30,7 @@ import { useCustomModelWizard } from './hooks/useCustomModelWizard.js';
 import { useAuthCommand } from './hooks/useAuthCommand.js';
 import { useLoginCommand } from './hooks/useLoginCommand.js';
 import { useEditorSettings } from './hooks/useEditorSettings.js';
+import { useInitChoice } from './hooks/useInitChoice.js';
 import { useSettingsMenu } from './hooks/useSettingsMenu.js';
 import { useSlashCommandProcessor } from './hooks/slashCommandProcessor.js';
 import { useAutoAcceptIndicator } from './hooks/useAutoAcceptIndicator.js';
@@ -54,6 +55,7 @@ import { AuthDialog } from './components/AuthDialog.js';
 import { LoginDialog } from './components/LoginDialog.js';
 import { AuthInProgress } from './components/AuthInProgress.js';
 import { EditorSettingsDialog } from './components/EditorSettingsDialog.js';
+import { InitChoiceDialog } from './components/InitChoiceDialog.js';
 import { SessionSelectDialog } from './components/SessionSelectDialog.js';
 import { SettingsMenuDialog } from './components/SettingsMenuDialog.js';
 import { Colors } from './colors.js';
@@ -841,6 +843,14 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     exitEditorDialog,
   } = useEditorSettings(settings, setEditorError, addItem);
 
+  const {
+    isInitChoiceDialogOpen,
+    initChoiceMetadata,
+    openInitChoiceDialog,
+    handleInitChoice,
+    exitInitChoiceDialog,
+  } = useInitChoice(addItem);
+
   const [sessionSelectData, setSessionSelectData] = useState<SessionOption[] | null>(null);
 
   const toggleCorgiMode = useCallback(() => {
@@ -1087,6 +1097,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     consoleMessages,
     lastTokenUsage,
     openSettingsMenuDialog, // 🆕 传递 openSettingsMenuDialog
+    openInitChoiceDialog, // 🆕 传递 openInitChoiceDialog
   );
 
   const {
@@ -2274,6 +2285,30 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                 onExit={exitEditorDialog}
               />
             </Box>
+          ) : isInitChoiceDialogOpen && initChoiceMetadata ? (
+            <Box flexDirection="column">
+              <InitChoiceDialog
+                fileSize={initChoiceMetadata.fileSize}
+                lineCount={initChoiceMetadata.lineCount}
+                onChoice={(choice) => {
+                  const result = handleInitChoice(choice);
+                  exitInitChoiceDialog();
+                  if (result.action === 'message') {
+                    addItem(
+                      {
+                        type: result.messageType === 'error'
+                          ? MessageType.ERROR
+                          : MessageType.INFO,
+                        text: result.content!,
+                      },
+                      Date.now(),
+                    );
+                  } else if (result.action === 'submit_prompt' && result.content) {
+                    handlePromptOrQueue(result.content);
+                  }
+                }}
+              />
+            </Box>
           ) : isSettingsMenuDialogOpen ? (
             <Box flexDirection="column">
               <SettingsMenuDialog
@@ -2530,7 +2565,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                   focus={isFocused}
                   vimHandleInput={vimHandleInput}
                   placeholder={placeholder}
-                  isModalOpen={isModelDialogOpen || isCustomModelWizardOpen || isAuthDialogOpen || isThemeDialogOpen || isEditorDialogOpen || isToolConfirmationMenuOpen || showBackgroundTaskPanel}
+                  isModalOpen={isModelDialogOpen || isCustomModelWizardOpen || isAuthDialogOpen || isThemeDialogOpen || isEditorDialogOpen || isInitChoiceDialogOpen || isToolConfirmationMenuOpen || showBackgroundTaskPanel}
                   isExecutingTools={isExecutingTools}
                   isBusy={streamingState !== StreamingState.Idle || queuedPrompts.length > 0}
                   isInSpecialMode={!!refineResult || queueEditMode}

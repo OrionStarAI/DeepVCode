@@ -74,9 +74,37 @@ describe('issueCommand', () => {
     expect(decoded).toContain('## Environment');
     expect(decoded).toContain('- CLI: 1.2.3');
     expect(decoded).toContain('- Runtime: Node');
+    expect(decoded).toContain('- Model:');
     expect(decoded).toContain('## Error Logs');
     expect(decoded).toContain('Boom');
     expect(decoded).not.toContain('Ignored warn');
+  });
+
+  it('includes model displayName in environment info', async () => {
+    if (!issueCommand.action) {
+      throw new Error('issueCommand must have an action.');
+    }
+
+    // Mock context with preferredModel set
+    const contextWithModel = createMockCommandContext({
+      ui: {
+        debugMessages: [],
+      },
+      services: {
+        settings: {
+          merged: {
+            preferredModel: 'gemini-2.0-flash',
+          },
+        },
+      },
+    });
+
+    await issueCommand.action(contextWithModel, 'Test model info');
+
+    const url = lastOpenUrl();
+    const decoded = decodeURIComponent(url);
+    // Without config, getModelDisplayName returns the model name itself
+    expect(decoded).toContain('- Model: gemini-2.0-flash');
   });
 
   it('masks sensitive data in error logs', async () => {

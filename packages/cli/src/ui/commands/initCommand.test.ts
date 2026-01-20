@@ -15,6 +15,8 @@ import { type CommandContext } from './types.js';
 vi.mock('fs', () => ({
   existsSync: vi.fn(),
   writeFileSync: vi.fn(),
+  statSync: vi.fn(),
+  readFileSync: vi.fn(),
 }));
 
 describe('initCommand', () => {
@@ -38,22 +40,44 @@ describe('initCommand', () => {
     vi.clearAllMocks();
   });
 
-  it('should inform the user if DEEPV.md already exists', async () => {
-    // Arrange: Simulate that the file exists
+  it('should open init-choice dialog if DEEPV.md exists and is not empty', async () => {
+    // Arrange: Simulate that the file exists and is not empty
     vi.mocked(fs.existsSync).mockReturnValue(true);
+    vi.mocked(fs.statSync).mockReturnValue({ size: 1024 } as any);
+    vi.mocked(fs.readFileSync).mockReturnValue('Some content\nMore content');
 
     // Act: Run the command's action
     const result = await initCommand.action!(mockContext, '');
 
-    // Assert: Check for the correct informational message
+    // Assert: Check that the dialog action is returned
     expect(result).toEqual({
-      type: 'message',
-      messageType: 'info',
-      content:
-        'A DEEPV.md file already exists in this directory. No changes were made.',
+      type: 'dialog',
+      dialog: 'init-choice',
+      metadata: {
+        filePath: deepvMdPath,
+        fileSize: 1,
+        lineCount: 2,
+      },
     });
     // Assert: Ensure no file was written
     expect(fs.writeFileSync).not.toHaveBeenCalled();
+  });
+
+  it('should proceed with init when DEEPV.md is empty (0 bytes)', async () => {
+    // Arrange: Simulate that the file exists but is empty
+    vi.mocked(fs.existsSync).mockReturnValue(true);
+    vi.mocked(fs.statSync).mockReturnValue({ size: 0 } as any);
+
+    // Act: Run the command's action
+    const result = await initCommand.action!(mockContext, '');
+
+    // Assert: Check that a submit_prompt action is returned
+    expect(result).toEqual(
+      expect.objectContaining({
+        type: 'submit_prompt',
+        content: expect.stringContaining('You are a DeepV Code AI assistant'),
+      }),
+    );
   });
 
   it('should create DEEPV.md and submit a prompt if it does not exist', async () => {
@@ -70,7 +94,7 @@ describe('initCommand', () => {
     expect(mockContext.ui.addItem).toHaveBeenCalledWith(
       {
         type: 'info',
-        text: 'Empty DEEPV.md created. Now analyzing the project to populate it.',
+        text: 'Creating DEEPV.md... Now analyzing the project to populate it.',
       },
       expect.any(Number),
     );

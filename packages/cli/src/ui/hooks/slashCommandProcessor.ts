@@ -65,6 +65,11 @@ export const useSlashCommandProcessor = (
   consoleMessages: ConsoleMessageItem[], // 🆕 接收 consoleMessages
   lastTokenUsage?: TokenUsageInfo | null, // 🆕 接收 lastTokenUsage
   openSettingsMenuDialog?: () => void, // 🆕 接收 openSettingsMenuDialog
+  openInitChoiceDialog?: (metadata: {
+    filePath: string;
+    fileSize: number;
+    lineCount: number;
+  }) => void, // 🆕 接收 openInitChoiceDialog
 ) => {
   const session = useSessionStats();
   const [commands, setCommands] = useState<readonly SlashCommand[]>([]);
@@ -388,6 +393,12 @@ export const useSlashCommandProcessor = (
                       setShowHelp(false);
                       if (openSettingsMenuDialog) {
                         openSettingsMenuDialog();
+                      }
+                      return { type: 'handled' };
+                    case 'init-choice':
+                      setShowHelp(false);
+                      if (result.metadata && openInitChoiceDialog) {
+                        openInitChoiceDialog(result.metadata as any);
                       }
                       return { type: 'handled' };
                     default: {
