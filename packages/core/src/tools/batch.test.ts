@@ -63,6 +63,72 @@ describe('BatchTool', () => {
       const result = batchTool.getDescription({ tool_calls: undefined as any });
       expect(result).toBe('No tools');
     });
+
+    it('should handle tool name aliases (robustness)', () => {
+      const result = batchTool.getDescription({
+        tool_calls: [
+          { tool: '', parameters: {}, name: 'read_file' } as any,
+          { tool: '', parameters: {}, function: 'write_file' } as any,
+          { tool: '', parameters: {}, tool_name: 'glob' } as any,
+        ],
+      });
+      expect(result).toBe('3 tools: read_file, write_file, glob');
+    });
+
+    it('should handle missing tool names', () => {
+        const result = batchTool.getDescription({
+          tool_calls: [{ tool: '', parameters: {} } as any],
+        });
+        expect(result).toBe('1 tool: Unknown');
+    });
+
+    it('should handle stringified JSON tool calls (LLM hallucination)', () => {
+        const result = batchTool.getDescription({
+            tool_calls: [
+                '{"tool": "read_file", "parameters": {}}',
+                '{"tool": "write_file", "parameters": {}}'
+            ] as any
+        });
+        expect(result).toBe('2 tools: read_file, write_file');
+    });
+  });
+
+  describe('execute', () => {
+    it('should handle tool name aliases during execution', async () => {
+      const mockTool = { execute: vi.fn().mockResolvedValue({ llmContent: 'success' }) };
+      const mockRegistry = { getTool: vi.fn().mockReturnValue(mockTool) };
+      (mockConfig.getToolRegistry as any).mockResolvedValue(mockRegistry);
+
+      const params = {
+        tool_calls: [
+            { tool: '', parameters: { path: 'a' }, name: 'read_file' } as any
+        ]
+      };
+
+      const result = await batchTool.execute(params, new AbortController().signal);
+
+      expect(mockRegistry.getTool).toHaveBeenCalledWith('read_file');
+      expect(mockTool.execute).toHaveBeenCalled();
+      expect(result.llmContent).toContain('1/1 succeeded');
+    });
+
+    it('should handle stringified JSON tool calls during execution', async () => {
+        const mockTool = { execute: vi.fn().mockResolvedValue({ llmContent: 'success' }) };
+        const mockRegistry = { getTool: vi.fn().mockReturnValue(mockTool) };
+        (mockConfig.getToolRegistry as any).mockResolvedValue(mockRegistry);
+
+        const params = {
+          tool_calls: [
+              '{"tool": "read_file", "parameters": {"path": "a"}}'
+          ] as any
+        };
+
+        const result = await batchTool.execute(params, new AbortController().signal);
+
+        expect(mockRegistry.getTool).toHaveBeenCalledWith('read_file');
+        expect(mockTool.execute).toHaveBeenCalled();
+        expect(result.llmContent).toContain('1/1 succeeded');
+      });
   });
 
   describe('validateToolParams', () => {
