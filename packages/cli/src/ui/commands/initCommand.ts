@@ -34,21 +34,52 @@ export const initCommand: SlashCommand = {
     const deepvMdPath = path.join(targetDir, 'DEEPV.md');
 
     if (fs.existsSync(deepvMdPath)) {
+      const stats = fs.statSync(deepvMdPath);
+      const fileSizeKB = Math.round(stats.size / 1024 * 100) / 100;
+
+      // If file size is 0, treat it as empty and proceed with init
+      if (stats.size === 0) {
+        context.ui.addItem(
+          {
+            type: 'info',
+            text: t('command.init.emptyFileDetected'),
+          },
+          Date.now(),
+        );
+
+        // 延迟100毫秒后清屏，避免显示长提示词
+        setTimeout(() => {
+          context.ui.clear();
+        }, 100);
+
+        return {
+          type: 'submit_prompt',
+          content: INIT_COMMAND_PROMPT,
+        };
+      }
+
+      // File exists and is not empty - show choice dialog
+      const fileContent = fs.readFileSync(deepvMdPath, 'utf8');
+      const lineCount = fileContent.split('\n').length - (fileContent.endsWith('\n') ? 1 : 0);
+
       return {
-        type: 'message',
-        messageType: 'info',
-        content:
-          'A DEEPV.md file already exists in this directory. No changes were made.',
+        type: 'dialog',
+        dialog: 'init-choice',
+        metadata: {
+          filePath: deepvMdPath,
+          fileSize: fileSizeKB,
+          lineCount: lineCount,
+        },
       };
     }
 
-    // Create an empty DEEPV.md file
+    // File doesn't exist - create it and proceed with init
     fs.writeFileSync(deepvMdPath, '', 'utf8');
 
     context.ui.addItem(
       {
         type: 'info',
-        text: 'Empty DEEPV.md created. Now analyzing the project to populate it.',
+        text: t('command.init.fileCreating'),
       },
       Date.now(),
     );
