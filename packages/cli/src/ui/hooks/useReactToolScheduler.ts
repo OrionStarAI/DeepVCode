@@ -472,11 +472,32 @@ function extractBaseDisplayProperties(trackedCall: TrackedToolCall): {
   if (trackedCall.request.name === 'batch') {
     const args = trackedCall.request.args as { tool_calls?: Array<{ tool: string; parameters: Record<string, unknown> }> };
     if (args.tool_calls && Array.isArray(args.tool_calls)) {
-      batchSubTools = args.tool_calls.map(call => ({
-        tool: call.tool,
-        displayName: getToolDisplayName(call.tool),
-        summary: generateBatchSubToolSummary(call.tool, call.parameters),
-      }));
+      batchSubTools = args.tool_calls.map(call => {
+        let callObj = call;
+        // Handle stringified JSON (LLM sometimes returns ["{...}", "{...}"])
+        if (typeof call === 'string') {
+            try {
+                callObj = JSON.parse(call);
+            } catch (e) {
+                console.warn('[useReactToolScheduler] Failed to parse stringified tool call:', call);
+                callObj = { tool: 'unknown', parameters: {} };
+            }
+        }
+
+        if (!callObj || typeof callObj !== 'object') {
+            callObj = { tool: 'unknown', parameters: {} };
+        }
+
+        // Robustly handle potential property aliases
+        const toolName = (callObj as any).tool || (callObj as any).name || (callObj as any).function || (callObj as any).tool_name || 'Unknown';
+        const parameters = (callObj as any).parameters || (callObj as any).args || (callObj as any).arguments || {};
+
+        return {
+          tool: toolName,
+          displayName: getToolDisplayName(toolName),
+          summary: generateBatchSubToolSummary(toolName, parameters),
+        };
+      });
     }
   }
 

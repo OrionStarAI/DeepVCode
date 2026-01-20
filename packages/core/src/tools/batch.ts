@@ -76,6 +76,38 @@ Example: To read a file, search for a pattern, and list files:
     }
 
     /**
+     * Helper to normalize tool calls, handling:
+     * 1. Stringified JSON objects (LLM hallucination)
+     * 2. Property aliases (tool vs name vs function)
+     */
+    private normalizeToolCalls(toolCalls: any[]): Array<{ tool: string; parameters: Record<string, unknown> }> {
+        if (!Array.isArray(toolCalls)) return [];
+
+        return toolCalls.map(call => {
+            let callObj = call;
+            // Handle stringified JSON (LLM sometimes returns ["{...}", "{...}"])
+            if (typeof call === 'string') {
+                try {
+                    callObj = JSON.parse(call);
+                } catch (e) {
+                    console.warn('[BatchTool] Failed to parse stringified tool call:', call);
+                    return { tool: 'unknown', parameters: {} };
+                }
+            }
+
+            if (!callObj || typeof callObj !== 'object') {
+                return { tool: 'unknown', parameters: {} };
+            }
+
+            // Handle property aliases
+            const toolName = callObj.tool || callObj.name || callObj.function || callObj.tool_name || 'unknown';
+            const parameters = callObj.parameters || callObj.args || callObj.arguments || {};
+
+            return { tool: toolName, parameters };
+        });
+    }
+
+    /**
      * Returns a concise description of the batch tool calls for UI display.
      * Format: "N tools: Tool1, Tool2, ..."
      */
@@ -83,8 +115,11 @@ Example: To read a file, search for a pattern, and list files:
         if (!params.tool_calls || params.tool_calls.length === 0) {
             return 'No tools';
         }
-        const count = params.tool_calls.length;
-        const toolNames = params.tool_calls.map(c => c.tool).join(', ');
+
+        const normalizedCalls = this.normalizeToolCalls(params.tool_calls);
+        const count = normalizedCalls.length;
+        const toolNames = normalizedCalls.map(c => c.tool).join(', ');
+
         // Truncate if too long (max 60 chars for tool list)
         const maxLen = 60;
         const truncated = toolNames.length > maxLen
@@ -102,22 +137,32 @@ Example: To read a file, search for a pattern, and list files:
         const registry = await this.config.getToolRegistry();
         const results: Array<{ tool: string; success: boolean; result?: string; error?: string }> = [];
 
+        const normalizedCalls = this.normalizeToolCalls(params.tool_calls);
+
         // Execute sequentially to ensure order and consistency (e.g. edit then test)
         // Parallel execution would be faster but riskier for file operations.
         // Opencode implementation uses Promise.all for parallel, but marks disallowed tools.
         // We will stick to sequential for safety in this port unless parallel is requested.
 
-        for (const call of params.tool_calls) {
+        for (const call of normalizedCalls) {
             if (signal.aborted) break;
 
-            if (call.tool === 'batch') {
-                results.push({ tool: call.tool, success: false, error: 'Cannot nest batch calls.' });
+            const toolName = call.tool;
+
+            if (!toolName || toolName === 'unknown') {
+                console.warn('[BatchTool] Missing tool name in call:', call);
+                results.push({ tool: 'unknown', success: false, error: 'Missing or invalid tool name in batch call.' });
                 continue;
             }
 
-            const tool = registry.getTool(call.tool);
+            if (toolName === 'batch') {
+                results.push({ tool: toolName, success: false, error: 'Cannot nest batch calls.' });
+                continue;
+            }
+
+            const tool = registry.getTool(toolName);
             if (!tool) {
-                results.push({ tool: call.tool, success: false, error: `Tool ${call.tool} not found.` });
+                results.push({ tool: toolName, success: false, error: `Tool ${toolName} not found.` });
                 continue;
             }
 
