@@ -2304,7 +2304,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                       Date.now(),
                     );
                   } else if (result.action === 'submit_prompt' && result.content) {
-                    handleSlashCommand(result.content);
+                    handlePromptOrQueue(result.content);
                   }
                 }}
               />
