@@ -134,9 +134,12 @@
     "yargs": "17.7.2"
   },
   "dependencies": {
+    "-": "^0.0.1",
     "@vscode/ripgrep": "^1.15.14",
     "axios": "^1.6.0",
+    "deepv-code": "file:deepv-code-1.0.280.tgz",
     "fs-extra": "^11.3.1",
+    "g": "^2.0.1",
     "gradient-string": "^2.0.2",
     "open": "^10.0.0",
     "pidtree": "^0.6.0",
