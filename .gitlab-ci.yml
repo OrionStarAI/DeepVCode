@@ -85,11 +85,31 @@ release-vscode:
     - cd packages/vscode-ui-plugin
     - npm version "$NEW_VERSION" --no-git-tag-version --force
     - npm run build:prod
-    # 发布到 VSCode Marketplace
-    - npx @vscode/vsce publish -p "${VSCE_TOKEN}"
+    # 发布到 VSCode Marketplace（版本已存在时打印警告并继续）
+    - |
+      if npx @vscode/vsce publish -p "${VSCE_TOKEN}" 2>&1 | tee /tmp/vsce_output.log; then
+        echo "✅ Successfully published to VSCode Marketplace"
+      else
+        if grep -q "already exists" /tmp/vsce_output.log; then
+          echo "⚠️ WARNING: Version already exists on VSCode Marketplace, skipping..."
+        else
+          echo "❌ Failed to publish to VSCode Marketplace"
+          exit 1
+        fi
+      fi
     - npx @vscode/vsce package -o ../../deepv-code-vscode-"$NEW_VERSION".vsix
-    # 发布到 Open VSX
-    - npx ovsx publish -p "${OVSX_TOKEN}" --packagePath ../../deepv-code-vscode-"$NEW_VERSION".vsix
+    # 发布到 Open VSX（版本已存在时打印警告并继续）
+    - |
+      if npx ovsx publish -p "${OVSX_TOKEN}" --packagePath ../../deepv-code-vscode-"$NEW_VERSION".vsix 2>&1 | tee /tmp/ovsx_output.log; then
+        echo "✅ Successfully published to Open VSX"
+      else
+        if grep -q "already exists" /tmp/ovsx_output.log; then
+          echo "⚠️ WARNING: Version already exists on Open VSX, skipping..."
+        else
+          echo "❌ Failed to publish to Open VSX"
+          exit 1
+        fi
+      fi
   artifacts:
     paths:
       - "*.vsix"
