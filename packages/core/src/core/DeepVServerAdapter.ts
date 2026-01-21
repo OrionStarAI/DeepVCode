@@ -278,10 +278,35 @@ export class DeepVServerAdapter implements ContentGenerator {
           if (error.message.match(/5\d{2}/)) {
             return true;
           }
+          // ✅ 传输中断/连接异常 - 重试
+          const errorMessage = error.message.toLowerCase();
+          const errorCode = (error as any)?.cause?.code || (error as any)?.code;
+          if (
+            errorMessage.includes('terminated') ||
+            errorMessage.includes('socket hang up') ||
+            errorMessage.includes('connection closed') ||
+            errorMessage.includes('other side closed')
+          ) {
+            return true;
+          }
+          if (
+            errorCode &&
+            [
+              'ECONNRESET',
+              'ECONNABORTED',
+              'ECONNREFUSED',
+              'EPIPE',
+              'ETIMEDOUT',
+              'UND_ERR_SOCKET',
+              'UND_ERR_CONNECT_TIMEOUT',
+              'UND_ERR_HEADERS_TIMEOUT',
+              'UND_ERR_BODY_TIMEOUT'
+            ].includes(errorCode)
+          ) {
+            return true;
+          }
           // ✅ 网络连接错误 - 重试
-          if (error instanceof TypeError &&
-              (error.message.includes('fetch failed') ||
-               error.message.includes('ECONNREFUSED'))) {
+          if (error instanceof TypeError && error.message.includes('fetch failed')) {
             return true;
           }
           return false;
@@ -673,10 +698,35 @@ export class DeepVServerAdapter implements ContentGenerator {
           if (error.message.match(/5\d{2}/)) {
             return true;
           }
+          // ✅ 传输中断/连接异常 - 重试
+          const errorMessage = error.message.toLowerCase();
+          const errorCode = (error as any)?.cause?.code || (error as any)?.code;
+          if (
+            errorMessage.includes('terminated') ||
+            errorMessage.includes('socket hang up') ||
+            errorMessage.includes('connection closed') ||
+            errorMessage.includes('other side closed')
+          ) {
+            return true;
+          }
+          if (
+            errorCode &&
+            [
+              'ECONNRESET',
+              'ECONNABORTED',
+              'ECONNREFUSED',
+              'EPIPE',
+              'ETIMEDOUT',
+              'UND_ERR_SOCKET',
+              'UND_ERR_CONNECT_TIMEOUT',
+              'UND_ERR_HEADERS_TIMEOUT',
+              'UND_ERR_BODY_TIMEOUT'
+            ].includes(errorCode)
+          ) {
+            return true;
+          }
           // ✅ 网络连接错误 - 重试
-          if (error instanceof TypeError &&
-              (error.message.includes('fetch failed') ||
-               error.message.includes('ECONNREFUSED'))) {
+          if (error instanceof TypeError && error.message.includes('fetch failed')) {
             return true;
           }
           return false;
