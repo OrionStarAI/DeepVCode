@@ -958,6 +958,40 @@ export class DeepVServerAdapter implements ContentGenerator {
             console.log('[DeepV Server] Stream read cancelled - exiting');
             break;
           }
+
+          // 🆕 捕获 TCP 中断错误（如服务器重启导致的连接断开）
+          if (readError instanceof TypeError) {
+            const errorMessage = readError.message.toLowerCase();
+            const errorCode = (readError as any)?.cause?.code || (readError as any)?.code;
+
+            const isTCPInterrupt =
+              errorMessage.includes('terminated') ||
+              errorMessage.includes('socket hang up') ||
+              errorMessage.includes('connection closed') ||
+              errorMessage.includes('other side closed') ||
+              (errorCode && [
+                'ECONNRESET',
+                'ECONNABORTED',
+                'EPIPE',
+                'ETIMEDOUT',
+                'UND_ERR_SOCKET',
+              ].includes(errorCode));
+
+            if (isTCPInterrupt) {
+              // 创建一个带标记的错误，便于上层识别和处理
+              const streamInterruptError = new Error(
+                `Stream interrupted: Connection was terminated mid-stream. ` +
+                `This may be caused by server restart or network issues. ` +
+                `Please retry your request. (Original: ${readError.message})`
+              );
+              (streamInterruptError as any).isStreamInterrupt = true;
+              (streamInterruptError as any).isRetryable = true;
+              (streamInterruptError as any).bytesReceived = totalBytesRead;
+              console.warn(`⚠️  [DeepV Server] Stream connection interrupted after ${totalBytesRead} bytes. Cause: ${readError.message}`);
+              throw streamInterruptError;
+            }
+          }
+
           // 其他错误继续抛出
           throw readError;
         }

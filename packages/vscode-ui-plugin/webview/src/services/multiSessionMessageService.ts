@@ -87,7 +87,11 @@ interface MultiSessionMessageFromExtension {
        // 🎯 Token使用情况更新（压缩后）
        'token_usage_update' |
        // 🎯 模型切换完成
-       'model_switch_complete';
+       'model_switch_complete' |
+       // 🆕 流中断恢复倒计时
+       'stream_recovery_start' |
+       'stream_recovery_countdown' |
+       'stream_recovery_end';
   payload: Record<string, unknown> & {
     sessionId?: string; // 大部分消息都包含sessionId
   };

@@ -25,6 +25,10 @@ export enum AppEvent {
   SelectionWarning = 'selection-warning',
   PasteTimeout = 'paste-timeout',
   Flicker = 'flicker',
+  // Stream recovery events
+  StreamRecoveryStart = 'stream-recovery-start',
+  StreamRecoveryCountdown = 'stream-recovery-countdown',
+  StreamRecoveryEnd = 'stream-recovery-end',
 }
 
 export const appEvents = new EventEmitter();

@@ -567,6 +567,11 @@ export const zhCN: Translations = {
     countdown: '{{seconds}}秒',
   },
 
+  streamRecovery: {
+    jitter: '传输抖动',
+    resuming: '即将恢复',
+  },
+
   pptGenerator: {
     title: 'PPT 生成器',
     buttonTooltip: '使用 AI 生成 PPT',

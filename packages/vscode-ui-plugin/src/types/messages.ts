@@ -383,6 +383,10 @@ export type ExtensionToWebViewMessage =
   // 🔌 MCP 相关消息类型
   | { type: 'mcp_status_update'; payload: MCPStatusPayload }
   | { type: 'mcp_enabled_states'; payload: { states: Record<string, boolean> } }
+  // 🆕 流中断恢复倒计时
+  | { type: 'stream_recovery_start'; payload: { sessionId: string; total: number } }
+  | { type: 'stream_recovery_countdown'; payload: { sessionId: string; remaining: number } }
+  | { type: 'stream_recovery_end'; payload: { sessionId: string } }
   // 🎯 自定义斜杠命令相关
   | { type: 'slash_commands_list'; payload: { commands: SlashCommandInfo[] } }
   | { type: 'slash_command_result'; payload: { success: boolean; prompt?: string; error?: string } }

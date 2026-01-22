@@ -618,6 +618,11 @@ export interface Translations {
     dismiss: string;
     countdown: string;
   };
+
+  streamRecovery: {
+    jitter: string;
+    resuming: string;
+  };
 }
 
 export type SupportedLocale = 'zh-CN' | 'en-US';

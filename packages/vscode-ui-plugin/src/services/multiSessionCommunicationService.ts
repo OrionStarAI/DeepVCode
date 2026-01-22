@@ -286,6 +286,28 @@ export class MultiSessionCommunicationService {
     });
   }
 
+  // 🆕 流中断恢复倒计时消息
+  async sendStreamRecoveryStart(sessionId: string, total: number) {
+    await this.sendMessage({
+      type: 'stream_recovery_start',
+      payload: { sessionId, total }
+    });
+  }
+
+  async sendStreamRecoveryCountdown(sessionId: string, remaining: number) {
+    await this.sendMessage({
+      type: 'stream_recovery_countdown',
+      payload: { sessionId, remaining }
+    });
+  }
+
+  async sendStreamRecoveryEnd(sessionId: string) {
+    await this.sendMessage({
+      type: 'stream_recovery_end',
+      payload: { sessionId }
+    });
+  }
+
   async sendContextUpdate(context: ContextInfo, sessionId?: string) {
     await this.sendMessage({
       type: 'context_update',
