@@ -29,11 +29,6 @@ import { cleanupCheckpoints, registerCleanup, runExitCleanup } from './utils/cle
 import { getIsQuitting } from './utils/quitState.js';
 import { getCliVersion } from './utils/version.js';
 import { checkForUpdates, executeUpdateCommand } from './ui/utils/updateCheck.js';
-import {
-  getHistoryDir,
-  getDirectorySize,
-  formatBytes
-} from './utils/historyUtils.js';
 import { t, tp } from './ui/utils/i18n.js';
 import {
   ApprovalMode,
@@ -53,7 +48,6 @@ import { validateNonInteractiveAuth } from './validateNonInterActiveAuth.js';
 import { enableSilentMode, disableSilentMode, logIfNotSilent } from './utils/silentMode.js';
 import { setSilentMode } from 'deepv-code-core';
 import { appEvents, AppEvent } from './utils/events.js';
-import * as readline from 'node:readline';
 import { createConfirmationReadlineInterface } from './ui/utils/readlineOptimized.js';
 import { setupGitErrorMonitoring, canDisableCheckpointing } from './utils/gitErrorHandler.js';
 import { AudioNotification } from './utils/audioNotification.js';
@@ -213,149 +207,12 @@ async function askUserForUpdate(): Promise<boolean> {
 }
 
 // -------------------------------------------------------------------------
-// Startup Animation Logic
-// -------------------------------------------------------------------------
-let startupTimer: NodeJS.Timeout | null = null;
-
-/**
- * Check if the current command is a non-interactive command that should skip the startup animation.
- * This is a quick check based on process.argv before full argument parsing.
- */
-function isNonInteractiveCommand(): boolean {
-  const args = process.argv.slice(2);
-
-  // Skip animation for subcommands like "checkpoint clean"
-  const nonInteractiveCommands = ['checkpoint', 'cp'];
-  if (args.length > 0 && nonInteractiveCommands.includes(args[0])) {
-    return true;
-  }
-
-  // Skip animation for --cloud-mode flag
-  if (args.includes('--cloud-mode')) {
-    return true;
-  }
-
-  // Skip animation for explicit non-interactive flags
-  if (args.includes('--output-format') || args.includes('-p') || args.includes('--prompt')) {
-    return true;
-  }
-
-  // Skip animation for --help and --version
-  if (args.includes('-h') || args.includes('--help') || args.includes('-v') || args.includes('--version')) {
-    return true;
-  }
-
-  // Skip animation for --update flag (it has its own output)
-  if (args.includes('-u') || args.includes('--update')) {
-    return true;
-  }
-
-  return false;
-}
-
-function startStartupAnimation() {
-  if (!process.stdout.isTTY || process.env.CI || process.env.DEEPV_SILENT_MODE === 'true' || process.env.NO_COLOR) {
-    return;
-  }
-
-  // Skip animation for non-interactive commands
-  if (isNonInteractiveCommand()) {
-    return;
-  }
-
-  let count = 0;
-  const maxChars = 20; // Maximum number of '=' chars
-
-  // Hide cursor to prevent flickering
-  process.stdout.write('\x1b[?25l');
-
-  // Print the static message first with a newline
-  process.stdout.write('DeepV Code is starting...\n');
-
-  const renderFrame = () => {
-    // \x1b[2K: Clear entire line
-    // \r: Return to start of line
-    // Only animate the second line
-    process.stdout.write(`\x1b[2K\r${'='.repeat(count)}`);
-  };
-
-  // Render first frame immediately
-  renderFrame();
-
-  startupTimer = setInterval(() => {
-    count = (count + 1) % (maxChars + 1);
-    renderFrame();
-  }, 100);
-}
-
-function stopStartupAnimation() {
-  if (startupTimer) {
-    clearInterval(startupTimer);
-    startupTimer = null;
-
-    if (process.stdout.isTTY) {
-      // Clear the animation line (current line)
-      // Then move up one line (\x1b[1A) and clear the text line
-      // Finally restore cursor (\x1b[?25h)
-      process.stdout.write('\x1b[2K\r\x1b[1A\x1b[2K\r\x1b[?25h');
-    }
-  }
-}
+// Note: Startup animation removed for instant startup experience
+// Technical users prefer seeing the input prompt immediately
 // -------------------------------------------------------------------------
 
-/**
- * Check if checkpoint history size exceeds 2GB and prompt for cleanup
- */
-async function checkAndPromptHistoryCleanup(settings: LoadedSettings) {
-  // 检查是否在 7 天内已经检查过
-  const lastCheck = settings.merged.lastHistoryCleanupCheck;
-  const now = Date.now();
-  const sevenDaysInMs = 7 * 24 * 60 * 60 * 1000;
-
-  if (lastCheck && now - lastCheck < sevenDaysInMs) {
-    return;
-  }
-
-  const historyDir = getHistoryDir();
-  try {
-    // 检查目录是否存在
-    await fs.promises.access(historyDir);
-
-    // 计算大小
-    const size = await getDirectorySize(historyDir);
-    const threshold = 2 * 1024 * 1024 * 1024; // 2GB
-
-    if (size > threshold) {
-      console.log(`\n${tp('checkpoint.history.large.warning', { size: formatBytes(size) })}`);
-
-      const rl = createConfirmationReadlineInterface({
-        input: process.stdin,
-        output: process.stdout
-      });
-
-      const shouldClean = await new Promise<boolean>((resolve) => {
-        rl.question(t('checkpoint.history.large.question'), (answer) => {
-          rl.close();
-          resolve(answer.toLowerCase().trim() === 'y' || answer.toLowerCase().trim() === 'yes');
-        });
-      });
-
-      if (shouldClean) {
-        console.log(t('checkpoint.clean.deleting'));
-        await fs.promises.rm(historyDir, { recursive: true, force: true });
-        console.log(tp('checkpoint.clean.success', { size: formatBytes(size) }));
-      }
-
-      // 用户做了选择（无论是清理还是不清理），记录时间戳
-      settings.setValue(SettingScope.User, 'lastHistoryCleanupCheck', now);
-    } else {
-      // 如果大小未超过阈值，也记录时间戳，避免每次启动都进行目录扫描
-      settings.setValue(SettingScope.User, 'lastHistoryCleanupCheck', now);
-    }
-  } catch (error) {
-    // 如果目录不存在或出现其他错误，静默跳过
-  }
-}
+// Note: checkAndPromptHistoryCleanup moved to App component for non-blocking startup
+// See packages/cli/src/ui/hooks/useHistoryCleanup.ts
 
 /**
  * Handle and validate the --workdir parameter.
@@ -398,26 +255,50 @@ function processWorkdirParameter(workdirPath: string | undefined): string | null
 }
 
 export async function main() {
+  // 🔬 Startup timing analysis - enable with STARTUP_TIMING=1
+  const TIMING_ENABLED = process.env.STARTUP_TIMING === '1';
+  const startupStart = Date.now();
+  const timings: Array<{ step: string; duration: number; total: number }> = [];
+  let lastTime = startupStart;
+
+  const logTiming = (step: string) => {
+    if (!TIMING_ENABLED) return;
+    const now = Date.now();
+    const duration = now - lastTime;
+    const total = now - startupStart;
+    timings.push({ step, duration, total });
+    console.log(`⏱️  [${total.toString().padStart(5)}ms total, +${duration.toString().padStart(4)}ms] ${step}`);
+    lastTime = now;
+  };
+
   // Clear screen at startup for clean interface
   console.clear();
 
-  // Start simple loading animation
-  startStartupAnimation();
+  // 🚀 Instant startup: No loading animation - render UI as fast as possible
+  // Technical users prefer seeing the input prompt immediately
+
+  logTiming('console.clear()');
 
   setupUnhandledRejectionHandler();
+  logTiming('setupUnhandledRejectionHandler()');
 
   // Setup Git error monitoring early to catch initialization errors
   setupGitErrorMonitoring();
+  logTiming('setupGitErrorMonitoring()');
 
   // Load environment variables early to ensure Claude configuration works
   loadEnvironment();
+  logTiming('loadEnvironment()');
 
   // Initialize Skills system context (async, non-blocking)
   // This loads Skills metadata for AI context injection
   try {
     const { initializeSkillsContext } = await import('./services/skill/skills-integration.js');
+    logTiming('import skills-integration');
     await initializeSkillsContext();
+    logTiming('initializeSkillsContext()');
   } catch (error) {
+    logTiming('initializeSkillsContext() (failed)');
     // Skills system is optional, silently continue if not available
     // console.warn('[Skills] Initialization failed:', error);
   }
@@ -426,11 +307,13 @@ export async function main() {
   // 这样可以避免 MaxListenersExceededWarning，并提升性能
   // 注意：terminalSizeManager 是单例，此调用确保其在应用启动时初始化
   terminalSizeManager.getTerminalSize();
+  logTiming('terminalSizeManager.getTerminalSize()');
 
   // Need to parse arguments twice:
   // 1. First pass with minimal setup to get --workdir
   // This is needed to determine the workspace before loading extensions
   let tempArgv = await parseArguments([]);
+  logTiming('parseArguments([]) - first pass');
 
   // Handle --workdir parameter before setting up workspace
   if (tempArgv.workdir) {
@@ -442,24 +325,28 @@ export async function main() {
 
   const workspaceRoot = process.cwd();
   const settings = loadSettings(workspaceRoot);
+  logTiming('loadSettings()');
 
   // Load extensions early (before final argument parsing)
   // This allows extension commands to be registered dynamically
   const extensions = await loadExtensions(workspaceRoot);
+  logTiming('loadExtensions()');
 
   // Load prompt extensions (Gemini CLI compatible TOML prompts)
   const { loadPromptExtensions } = await import('./config/prompt-extensions.js');
+  logTiming('import prompt-extensions');
   const promptExtensions = await loadPromptExtensions(extensions);
+  logTiming('loadPromptExtensions()');
 
   // Second pass: parse arguments with extension commands registered
   const argv = await parseArguments(extensions);
+  logTiming('parseArguments(extensions) - second pass');
 
   // Enable silent mode early for -p flag to suppress startup logs
 
 
   // Handle --update flag
   if (argv.update) {
-    stopStartupAnimation();
     console.log(t('update.force.checking'));
     const updateMessage = await checkForUpdates(true, true);
 
@@ -529,6 +416,7 @@ export async function main() {
   } else {
     // 正常启动时检查强制更新（显示检查状态）
     const updateMessage = await checkForUpdates(true);
+    logTiming('checkForUpdates()');
     if (updateMessage?.startsWith('FORCE_UPDATE:')) {
       // 正确解析：根据消息标记来分割，避免URL中的冒号干扰
       const prefix = 'FORCE_UPDATE:';
@@ -596,7 +484,6 @@ export async function main() {
 
   // Early check for list-sessions to avoid unnecessary session management
   if (argv.listSessions) {
-    stopStartupAnimation();
     const tempConfig = await loadCliConfig(
       settings.merged,
       extensions,
@@ -609,7 +496,6 @@ export async function main() {
 
   // Handle --export-session flag
   if (argv.exportSession) {
-    stopStartupAnimation();
     try {
       const sessionId = argv.exportSession;
       console.log(tp('export.exporting', { sessionId }));
@@ -624,7 +510,6 @@ export async function main() {
 
   // Handle --test-audio flag
   if (argv.testAudio) {
-    stopStartupAnimation();
     console.log('🎵 Testing audio notifications...');
     console.log('This will test all three notification sounds with a 1-second delay between each.');
     console.log('Make sure your speakers/headphones are on and volume is audible.\n');
@@ -644,8 +529,10 @@ export async function main() {
 
   // Initialize session management
   let finalSessionId = getSessionId(); // Default session ID
+  logTiming('pre-session setup');
 
   const { SessionManager } = await import('deepv-code-core');
+  logTiming('import SessionManager');
   const sessionManager = new SessionManager(workspaceRoot);
 
   // 添加进程信号处理器，确保在意外退出时也能清理空会话
@@ -728,6 +615,7 @@ export async function main() {
     finalSessionId = newSession.sessionId as any;
     // logIfNotSilent('log', `📝 Created new session: ${finalSessionId}`);
   }
+  logTiming('session management');
 
   // Perform session cleanup after creating/selecting current session (runs in background)
   if (sessionCleanupConfig.enabled && sessionCleanupConfig.cleanupOnStartup) {
@@ -759,6 +647,7 @@ export async function main() {
     finalSessionId,
     argv,
   );
+  logTiming('loadCliConfig()');
 
   if (argv.promptInteractive && !process.stdin.isTTY) {
     console.error(
@@ -768,7 +657,6 @@ export async function main() {
   }
 
   if (config.getListExtensions()) {
-    stopStartupAnimation();
     logIfNotSilent('log', 'Installed extensions:');
     for (const extension of extensions) {
       logIfNotSilent('log', `- ${extension.config.name}`);
@@ -791,6 +679,7 @@ export async function main() {
   setMaxSizedBoxDebugging(config.getDebugMode());
 
   await config.initialize();
+  logTiming('config.initialize()');
 
   // 注册登录成功回调：刷新云端模型列表
   if (!shouldEnableSilentMode) {
@@ -828,6 +717,7 @@ export async function main() {
   if (config.getCheckpointingEnabled()) {
     try {
       const gitService = await config.getGitService();
+      logTiming('config.getGitService()');
       if (gitService.isGitDisabled()) {
         // Git is disabled, but we can continue - the error message was already displayed
         logIfNotSilent('log', 'ℹ️  Continuing with Git checkpointing disabled...\n');
@@ -840,6 +730,7 @@ export async function main() {
 
   // Load custom themes from settings
   themeManager.loadCustomThemes(settings.merged.customThemes);
+  logTiming('themeManager.loadCustomThemes()');
 
   if (settings.merged.theme) {
     if (!themeManager.setActiveTheme(settings.merged.theme)) {
@@ -888,10 +779,12 @@ export async function main() {
   }
 
   let input = config.getQuestion();
+  logTiming('pre-startupWarnings');
   const startupWarnings = [
     ...(await getStartupWarnings()),
     ...(await getUserStartupWarnings(workspaceRoot, settings)),
   ];
+  logTiming('getStartupWarnings()');
 
   // Get custom proxy server URL if configured
   const customProxyUrl = settings.user?.settings?.customProxyServerUrl ||
@@ -900,7 +793,6 @@ export async function main() {
 
   // Check for cloud mode
   if (argv.cloudMode) {
-    stopStartupAnimation();
     const { startCloudMode } = await import('./remote/remoteServer.js');
     const { maskServerUrl } = await import('./utils/urlMask.js');
     const cloudServerUrl = argv.cloudServer || 'https://api-code.deepvlab.ai';
@@ -927,21 +819,34 @@ export async function main() {
 
   // Render UI, passing necessary config values. Check that there is no command line question.
   if (shouldBeInteractive) {
-    stopStartupAnimation();
-
-    // 检查历史记录大小并提示清理
-    await checkAndPromptHistoryCleanup(settings);
+    // 🚀 Instant startup optimization: render UI immediately
+    // History cleanup check moved to App component (non-blocking)
 
     // Perform VSCode terminal startup resize calibration before UI renders
     performStartupResize();
+    logTiming('performStartupResize()');
 
     const version = await getCliVersion();
+    logTiming('getCliVersion()');
     setWindowTitle(basename(workspaceRoot), settings);
 
-    // 🚀 启动优化：给事件循环一个喘息机会，确保之前的初始化任务（如 Git, 进程检测）不会挤占首屏渲染
-    await new Promise(resolve => setImmediate(resolve));
+    // Print startup timing summary before clearing screen
+    if (TIMING_ENABLED) {
+      console.log('\n📊 Startup Timing Summary:');
+      console.log('─'.repeat(60));
+      timings.forEach(t => {
+        const bar = '█'.repeat(Math.min(Math.floor(t.duration / 10), 40));
+        console.log(`${t.total.toString().padStart(5)}ms │ ${bar} ${t.step} (+${t.duration}ms)`);
+      });
+      console.log('─'.repeat(60));
+      console.log(`Total: ${Date.now() - startupStart}ms before render()`);
+      console.log('\nPress Enter to continue...');
+      await new Promise<void>(resolve => {
+        process.stdin.once('data', () => resolve());
+      });
+    }
 
-    // Clear screen again before rendering Welcome UI to ensure cleanliness
+    // Clear screen before rendering Welcome UI
     console.clear();
 
     const instance = render(
@@ -1013,7 +918,6 @@ export async function main() {
   });
 
   // Non-interactive mode handled by runNonInteractive
-  stopStartupAnimation(); // Ensure stopped before non-interactive mode
   const nonInteractiveConfig = await loadNonInteractiveConfig(
     config,
     extensions,
