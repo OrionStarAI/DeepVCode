@@ -70,6 +70,7 @@ import {
 } from './useReactToolScheduler.js';
 import { useSessionStats } from '../contexts/SessionContext.js';
 import { SceneType } from 'deepv-code-core';
+import { appEvents, AppEvent } from '../../utils/events.js';
 // TaskStateManager 已移除，直接基于现有状态判断
 
 /**
@@ -1140,8 +1141,25 @@ export const useGeminiStream = (
       const currentModel = config.getModel();
       const usingCustomModel = currentModel && isCustomModel(currentModel);
 
-      // 451错误特殊处理 - 直接结束会话（仅对非自定义模型生效）
       const errorString = String(eventValue.error);
+      const errorMessage = typeof eventValue.error === 'object' && eventValue.error !== null && 'message' in eventValue.error
+        ? String((eventValue.error as any).message)
+        : errorString;
+
+      // 🆕 流中断错误特殊处理 - 抛出特殊异常让外层处理自动重试
+      const isStreamInterruptError =
+        errorMessage.includes('Stream interrupted') ||
+        errorMessage.includes('terminated mid-stream') ||
+        errorMessage.includes('Connection was terminated');
+
+      if (isStreamInterruptError) {
+        // 抛出带标记的异常，让外层 catch 处理自动重试
+        const streamInterruptError = new Error(errorMessage);
+        (streamInterruptError as any).isStreamInterrupt = true;
+        throw streamInterruptError;
+      }
+
+      // 451错误特殊处理 - 直接结束会话（仅对非自定义模型生效）
       const is451Error = errorString.includes('451') ||
                           (eventValue.error && typeof eventValue.error === 'object' &&
                            'status' in eventValue.error && eventValue.error.status === 451);
@@ -1688,6 +1706,52 @@ User question: ${queryStr}`;
           loopTypeRef.current = undefined;
         }
       } catch (error: unknown) {
+        // 🆕 TCP 流中断错误特殊处理 - 等待后自动继续
+        // 当服务器重启或网络异常导致流式传输中途断开时，自动恢复
+        // 检测方式：1. isStreamInterrupt 属性标记  2. 错误消息包含特定文本
+        const isStreamInterruptError = error instanceof Error && (
+          (error as any).isStreamInterrupt ||
+          error.message.includes('Stream interrupted') ||
+          error.message.includes('terminated mid-stream')
+        );
+
+        if (isStreamInterruptError) {
+          const bytesReceived = (error as any).bytesReceived || 0;
+          console.log(`⚠️  ${t('stream.interrupted')} (${bytesReceived} bytes received)`);
+
+          // 保存已收到的部分内容到历史
+          if (pendingHistoryItemRef.current) {
+            addItem(pendingHistoryItemRef.current, userMessageTimestamp);
+            setPendingHistoryItem(null);
+          }
+
+          // 倒计时 10 秒，通过事件系统在 UI 组件中显示
+          const countdownTotal = 10;
+          appEvents.emit(AppEvent.StreamRecoveryStart, { total: countdownTotal });
+
+          for (let remaining = countdownTotal; remaining > 0; remaining--) {
+            appEvents.emit(AppEvent.StreamRecoveryCountdown, { remaining });
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+
+          appEvents.emit(AppEvent.StreamRecoveryEnd);
+
+          // 重置状态以便重新发送
+          processingRef.current = false;
+          setIsResponding(false);
+
+          // 自动发送继续消息（静默模式，用户不可见）
+          const continueMessage = t('stream.continue.prompt');
+          console.log(`🔄 ${t('stream.autoRetry')}: "${continueMessage}"`);
+
+          // 递归调用 submitQuery 发送继续消息
+          // 使用 setTimeout 确保状态已更新，silent: true 让用户看不到这条消息
+          setTimeout(() => {
+            submitQuery(continueMessage, { silent: true });
+          }, 100);
+          return;
+        }
+
         // 🆕 自定义模型：跳过 451 地区限制错误的特殊处理
         const currentModel = config.getModel();
         const usingCustomModel = currentModel && isCustomModel(currentModel);

@@ -71,6 +71,7 @@ import { TokenUsageDisplay, type TokenUsageInfo } from './components/TokenUsageD
 import { tokenUsageEventManager, IDEConnectionStatus, type BackgroundTask, getBackgroundTaskManager } from 'deepv-code-core';
 import { HistoryItemDisplay } from './components/HistoryItemDisplay.js';
 import { ImagePollingSpinner } from './components/ImagePollingSpinner.js';
+import { StreamRecoverySpinner } from './components/StreamRecoverySpinner.js';
 import { appEvents, AppEvent } from '../utils/events.js';
 import {
   getCreditsService,
@@ -82,6 +83,8 @@ import { ContextSummaryDisplay } from './components/ContextSummaryDisplay.js';
 import { IDEContextDetailDisplay } from './components/IDEContextDetailDisplay.js';
 import { ReasoningDisplay } from './components/ReasoningDisplay.js';
 import { HealthyUseReminder } from './components/HealthyUseReminder.js';
+import { useHistoryCleanup } from './hooks/useHistoryCleanup.js';
+import { HistoryCleanupDialog } from './components/HistoryCleanupDialog.js';
 import { useHistory } from './hooks/useHistoryManager.js';
 import { useSessionRestore, useSessionAutoSave } from './hooks/useSessionRestore.js';
 import process from 'node:process';
@@ -246,6 +249,13 @@ export const AppWrapper = (props: AppProps) => {
 const App = ({ config, settings, startupWarnings = [], version, promptExtensions = [], customProxyUrl }: AppProps) => {
   const isFocused = useFocus();
   useBracketedPaste();
+
+  // 🚀 History cleanup check (non-blocking, runs in background after 2s)
+  const {
+    state: historyCleanupState,
+    performCleanup: performHistoryCleanup,
+    dismissCleanup: dismissHistoryCleanup,
+  } = useHistoryCleanup(settings);
 
   // Token usage tracking
   const [lastTokenUsage, setLastTokenUsage] = useState<TokenUsageInfo | null>(null);
@@ -565,6 +575,10 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     elapsed: 0,
     estimated: 30,
   });
+  const [streamRecovery, setStreamRecovery] = useState<{ isVisible: boolean; remaining: number }>({
+    isVisible: false,
+    remaining: 10,
+  });
 
   // 调试：监听 refineResult 变化
   useEffect(() => {
@@ -699,9 +713,34 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
       }));
     };
 
+    // Handle stream recovery events
+    const handleStreamRecoveryStart = (data: { total: number }) => {
+      setStreamRecovery({
+        isVisible: true,
+        remaining: data.total,
+      });
+    };
+
+    const handleStreamRecoveryCountdown = (data: { remaining: number }) => {
+      setStreamRecovery(prev => ({
+        ...prev,
+        remaining: data.remaining,
+      }));
+    };
+
+    const handleStreamRecoveryEnd = () => {
+      setStreamRecovery(prev => ({
+        ...prev,
+        isVisible: false,
+      }));
+    };
+
     appEvents.on(AppEvent.ImagePollingStart, handlePollingStart);
     appEvents.on(AppEvent.ImagePollingProgress, handlePollingProgress);
     appEvents.on(AppEvent.ImagePollingEnd, handlePollingEnd);
+    appEvents.on(AppEvent.StreamRecoveryStart, handleStreamRecoveryStart);
+    appEvents.on(AppEvent.StreamRecoveryCountdown, handleStreamRecoveryCountdown);
+    appEvents.on(AppEvent.StreamRecoveryEnd, handleStreamRecoveryEnd);
 
     return () => {
       appEvents.off(AppEvent.OpenDebugConsole, openDebugConsole);
@@ -709,6 +748,9 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
       appEvents.off(AppEvent.ImagePollingStart, handlePollingStart);
       appEvents.off(AppEvent.ImagePollingProgress, handlePollingProgress);
       appEvents.off(AppEvent.ImagePollingEnd, handlePollingEnd);
+      appEvents.off(AppEvent.StreamRecoveryStart, handleStreamRecoveryStart);
+      appEvents.off(AppEvent.StreamRecoveryCountdown, handleStreamRecoveryCountdown);
+      appEvents.off(AppEvent.StreamRecoveryEnd, handleStreamRecoveryEnd);
     };
   }, [handleNewMessage]);
 
@@ -2351,6 +2393,12 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                 setShowHealthyUseReminder(false);
               }}
             />
+          ) : historyCleanupState.needsCleanup ? (
+            <HistoryCleanupDialog
+              sizeFormatted={historyCleanupState.historySizeFormatted}
+              onConfirm={performHistoryCleanup}
+              onDismiss={dismissHistoryCleanup}
+            />
           ) : (
             <>
               {/* 🎯 Checkpoint创建中提示 */}
@@ -2431,6 +2479,16 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                     isVisible={imagePolling.isVisible}
                     elapsed={imagePolling.elapsed}
                     estimated={imagePolling.estimated}
+                  />
+                </Box>
+              ) : null}
+
+              {/* 流中断恢复倒计时动画 */}
+              {streamRecovery.isVisible ? (
+                <Box marginY={0} marginBottom={1}>
+                  <StreamRecoverySpinner
+                    isVisible={streamRecovery.isVisible}
+                    remaining={streamRecovery.remaining}
                   />
                 </Box>
               ) : null}

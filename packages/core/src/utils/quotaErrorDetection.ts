@@ -140,6 +140,14 @@ export function isDeepXQuotaError(error: unknown): boolean {
         return true;
       }
     }
+
+    // 🆕 检测500错误且message包含 quota exceeded (DeepV Server)
+    if (gaxiosError.response?.status === 500 && gaxiosError.response.data) {
+      const data = gaxiosError.response.data as any;
+      if (data && typeof data.message === 'string' && data.message.includes('quota exceeded')) {
+        return true;
+      }
+    }
   }
 
   // 检测Error对象message中的DeepX配额错误
@@ -148,6 +156,14 @@ export function isDeepXQuotaError(error: unknown): boolean {
     if (error.message.includes('API request failed (402):') &&
         (error.message.includes('"error":"Quota limit exceeded"') ||
          error.message.includes('"error":"No quota configuration"'))) {
+      return true;
+    }
+    // 🆕 检测500配额错误 (DeepV Server)
+    if (error.message.includes('API request failed (500):') && error.message.includes('quota exceeded')) {
+      return true;
+    }
+    // 🆕 检测流式 API 错误消息 (Stream API error (500))
+    if (error.message.includes('Stream API error (500):') && error.message.includes('quota exceeded')) {
       return true;
     }
   }
@@ -168,11 +184,23 @@ export function isDeepXQuotaError(error: unknown): boolean {
            obj.message.includes('"error":"No quota configuration"'))) {
         return true;
       }
+      // 🆕 500 配额错误
+      if ((obj.message.includes('API request failed (500):') || obj.message.includes('Stream API error (500):')) &&
+          obj.message.includes('quota exceeded')) {
+        return true;
+      }
     }
 
     // 直接对象检测
-    return (obj.error === 'Quota limit exceeded' || obj.error === 'No quota configuration') &&
-           typeof obj.message === 'string';
+    if ((obj.error === 'Quota limit exceeded' || obj.error === 'No quota configuration') &&
+        typeof obj.message === 'string') {
+      return true;
+    }
+
+    // 🆕 500 配额错误直接对象检测
+    if (obj.status === 500 && typeof obj.message === 'string' && obj.message.includes('quota exceeded')) {
+      return true;
+    }
   }
 
   // 检测字符串形式的错误
@@ -181,14 +209,15 @@ export function isDeepXQuotaError(error: unknown): boolean {
            error.includes('No quota configuration') ||
            error.includes('Daily token limit would be exceeded') ||
            error.includes('Daily request limit exceeded') ||
-           error.includes('Daily cost limit would be exceeded');
+           error.includes('Daily cost limit would be exceeded') ||
+           (error.includes('500') && error.includes('quota exceeded'));
   }
 
   return false;
 }
 
 export function getDeepXQuotaErrorMessage(error: unknown): string | null {
-  let quotaError: DeepXQuotaError | null = null;
+  let quotaError: DeepXQuotaError | any = null;
 
   // 从HTTP响应中提取配额错误信息
   if (error && typeof error === 'object' && 'response' in error) {
@@ -202,19 +231,28 @@ export function getDeepXQuotaErrorMessage(error: unknown): string | null {
     // 402 Payment Required - 配额相关错误统一状态码
     if (gaxiosError.response?.status === 402 && gaxiosError.response.data) {
       quotaError = gaxiosError.response.data as DeepXQuotaError;
+    } else if (gaxiosError.response?.status === 500 && gaxiosError.response.data) {
+      // 🆕 处理 500 配额错误
+      const data = gaxiosError.response.data as any;
+      if (data && typeof data.message === 'string' && data.message.includes('quota exceeded')) {
+        quotaError = data;
+      }
     }
   } else if (typeof error === 'object' && error !== null) {
     const obj = error as any;
 
     // 处理对象有message属性且包含DeepX配额错误的情况
     if (obj.message && typeof obj.message === 'string') {
-      if (obj.message.includes('API request failed (402):') &&
+      if ((obj.message.includes('API request failed (402):') ||
+           obj.message.includes('API request failed (500):') ||
+           obj.message.includes('Stream API error (500):')) &&
           (obj.message.includes('"error":"Quota limit exceeded"') ||
-           obj.message.includes('"error":"No quota configuration"'))) {
+           obj.message.includes('"error":"No quota configuration"') ||
+           obj.message.includes('quota exceeded'))) {
         try {
           const jsonMatch = obj.message.match(/\{.*\}$/);
           if (jsonMatch) {
-            quotaError = JSON.parse(jsonMatch[0]) as DeepXQuotaError;
+            quotaError = JSON.parse(jsonMatch[0]) as any;
           }
         } catch (parseError) {
           // JSON解析失败，继续其他检查
@@ -224,56 +262,109 @@ export function getDeepXQuotaErrorMessage(error: unknown): string | null {
 
     // 如果还没找到，尝试直接对象检测
     if (!quotaError) {
-      quotaError = error as DeepXQuotaError;
+      quotaError = error as any;
     }
   }
 
   // 从Error对象message中提取DeepX配额错误信息
   if (!quotaError && error instanceof Error && error.message) {
-    if (error.message.includes('API request failed (402):') &&
+    if ((error.message.includes('API request failed (402):') ||
+         error.message.includes('API request failed (500):') ||
+         error.message.includes('Stream API error (500):')) &&
         (error.message.includes('"error":"Quota limit exceeded"') ||
-         error.message.includes('"error":"No quota configuration"'))) {
+         error.message.includes('"error":"No quota configuration"') ||
+         error.message.includes('quota exceeded'))) {
       try {
         const jsonMatch = error.message.match(/\{.*\}$/);
         if (jsonMatch) {
-          quotaError = JSON.parse(jsonMatch[0]) as DeepXQuotaError;
+          quotaError = JSON.parse(jsonMatch[0]) as any;
         }
       } catch (parseError) {
-        // JSON解析失败，尝试手动提取错误类型
-        if (error.message.includes('"error":"No quota configuration"')) {
-          quotaError = { error: 'No quota configuration', message: 'User must be assigned a quota template by administrator' };
-        } else if (error.message.includes('"error":"Quota limit exceeded"')) {
-          quotaError = { error: 'Quota limit exceeded', message: 'Service quota limit exceeded' };
-        }
-      }
-    }
-  }
-
-  // 从纯字符串中提取DeepX配额错误信息
-  if (!quotaError && typeof error === 'string') {
-    if (error.includes('API request failed (402):') &&
-        (error.includes('"error":"Quota limit exceeded"') ||
-         error.includes('"error":"No quota configuration"'))) {
-      try {
-        const jsonMatch = error.match(/\{.*\}$/);
-        if (jsonMatch) {
-          quotaError = JSON.parse(jsonMatch[0]) as DeepXQuotaError;
-        }
-      } catch (parseError) {
-        // JSON解析失败，尝试手动提取错误类型
-        if (error.includes('"error":"No quota configuration"')) {
-          quotaError = { error: 'No quota configuration', message: 'User must be assigned a quota template by administrator' };
-        } else if (error.includes('"error":"Quota limit exceeded"')) {
-          quotaError = { error: 'Quota limit exceeded', message: 'Service quota limit exceeded' };
-        }
+        // 继续手动处理
       }
     }
   }
 
   if (!quotaError) return null;
 
+  // 🆕 特殊处理 500 quota exceeded 错误
+  if (quotaError.message && quotaError.message.includes('quota exceeded')) {
+    return formatDeepVServerQuotaError(quotaError);
+  }
+
   return formatDeepXQuotaError(quotaError);
 }
+
+// 格式化 DeepV Server 500 配额错误
+function formatDeepVServerQuotaError(errorData: any): string {
+  // 简单检测系统语言环境
+  const isChineseEnvironment = (): boolean => {
+    try {
+      const env = process.env;
+      const locale = env.LC_ALL || env.LC_CTYPE || env.LANG || '';
+      return locale.toLowerCase().includes('zh') || locale.toLowerCase().includes('chinese');
+    } catch {
+      return false;
+    }
+  };
+
+  const isChinese = isChineseEnvironment();
+
+  // 提取 Role 信息
+  let roleInfo = '';
+  let limitInfo = '';
+  let usedInfo = '';
+  let cycleInfo = '';
+
+  const message = errorData.message || '';
+
+  const roleMatch = message.match(/Role:\s*([^,]+)/);
+  if (roleMatch) {
+    roleInfo = roleMatch[1].trim();
+  }
+
+  const limitMatch = message.match(/Limit:\s*([^,]+)/);
+  if (limitMatch) {
+    limitInfo = limitMatch[1].trim();
+  }
+
+  const usedMatch = message.match(/Used:\s*([^,]+)/);
+  if (usedMatch) {
+    usedInfo = usedMatch[1].trim();
+  }
+
+  const cycleMatch = message.match(/Cycle:\s*([^,]+)/);
+  if (cycleMatch) {
+    cycleInfo = cycleMatch[1].trim();
+  }
+
+  if (isChinese) {
+    let result = '─────────────────────────────────────────────────────\n';
+    result += '🚫 当前模型的循环配额已用尽 (Cycle Quota Exceeded)\n';
+    if (roleInfo) result += `👤 角色信息: ${roleInfo}\n`;
+    if (limitInfo) result += `📊 额度上限: ${limitInfo}\n`;
+    if (usedInfo) result += `📈 已用额度: ${usedInfo}\n`;
+    if (cycleInfo) result += `🕒 重置周期: ${cycleInfo}\n`;
+
+    result += '\n💡 请切换模型使用，或等待周期结束后恢复。\n';
+    result += '🔗 了解更多: https://dvcode.deepvlab.ai/\n';
+    result += '─────────────────────────────────────────────────────';
+    return result;
+  } else {
+    let result = '─────────────────────────────────────────────────────\n';
+    result += '🚫 Current model cycle quota exceeded\n';
+    if (roleInfo) result += `👤 Role: ${roleInfo}\n`;
+    if (limitInfo) result += `📊 Limit: ${limitInfo}\n`;
+    if (usedInfo) result += `📈 Used: ${usedInfo}\n`;
+    if (cycleInfo) result += `🕒 Cycle: ${cycleInfo}\n`;
+
+    result += '\n💡 Please switch to another model or wait for the cycle to reset.\n';
+    result += '🔗 More info: https://dvcode.deepvlab.ai/\n';
+    result += '─────────────────────────────────────────────────────';
+    return result;
+  }
+}
+
 
 // 格式化DeepX配额错误消息，支持i18n
 function formatDeepXQuotaError(quotaError: DeepXQuotaError): string {

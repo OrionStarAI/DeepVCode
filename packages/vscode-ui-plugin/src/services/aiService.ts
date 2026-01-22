@@ -1690,8 +1690,21 @@ export class AIService {
             return;
 
           case GeminiEventType.Error:
+            // 🆕 检测流中断错误，抛出异常让外层 catch 处理自动恢复
+            const errorMessage = event.value.error?.message || 'Unknown error';
+            const isStreamInterrupt =
+              errorMessage.includes('Stream interrupted') ||
+              errorMessage.includes('terminated mid-stream') ||
+              errorMessage.includes('Connection was terminated');
+
+            if (isStreamInterrupt) {
+              const streamInterruptError = new Error(errorMessage);
+              (streamInterruptError as any).isStreamInterrupt = true;
+              throw streamInterruptError;
+            }
+
             if (this.communicationService && this.sessionId) {
-              await this.communicationService.sendChatError(this.sessionId, `❌ AI响应时出现错误：${event.value.error?.message || 'Unknown error'}`);
+              await this.communicationService.sendChatError(this.sessionId, `❌ AI响应时出现错误：${errorMessage}`);
             }
             return;
 
@@ -1721,11 +1734,63 @@ export class AIService {
       }
 
     } catch (streamError) {
+      // 🆕 检测流中断错误（TCP连接中断、服务器重启等）
+      const isStreamInterruptError = streamError instanceof Error && (
+        (streamError as any).isStreamInterrupt ||
+        streamError.message.includes('Stream interrupted') ||
+        streamError.message.includes('terminated mid-stream') ||
+        streamError.message.includes('Connection was terminated')
+      );
+
+      if (isStreamInterruptError) {
+        this.logger.warn('⚠️ Stream interrupted, attempting auto-recovery...');
+
+        // 🆕 通过专门的消息类型发送恢复倒计时通知给 WebView
+        if (this.communicationService && this.sessionId) {
+          const countdownTotal = 10;
+
+          // 发送开始恢复的消息
+          await this.communicationService.sendStreamRecoveryStart(this.sessionId, countdownTotal);
+
+          // 倒计时
+          for (let remaining = countdownTotal; remaining > 0; remaining--) {
+            await this.communicationService.sendStreamRecoveryCountdown(this.sessionId, remaining);
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+
+          // 发送恢复结束的消息
+          await this.communicationService.sendStreamRecoveryEnd(this.sessionId);
+        }
+
+        // 🆕 重置状态并自动发送继续消息
+        this.isCurrentlyResponding = false;
+
+        // 自动发送继续消息
+        const continueMessage = '[系统] 上次回复因网络问题中断了，请从中断处继续。';
+        this.logger.info(`🔄 Auto-retry: "${continueMessage}"`);
+
+        try {
+          // 重新发送继续消息
+          await this.processStreamingResponseWithParts(
+            responseId,
+            [{ text: continueMessage }],
+            `recovery-${Date.now()}`
+          );
+        } catch (retryError) {
+          this.logger.error('❌ Auto-recovery failed', retryError instanceof Error ? retryError : undefined);
+          this.setProcessingState(false, null, false);
+          if (this.communicationService && this.sessionId) {
+            await this.communicationService.sendChatError(this.sessionId, `❌ 自动恢复失败，请重新发送消息`);
+          }
+        }
+        return;
+      }
+
       this.logger.error('Error processing stream events', streamError instanceof Error ? streamError : undefined);
       this.isCurrentlyResponding = false;
       this.setProcessingState(false, null, false);
 
-        if (this.communicationService && this.sessionId) {
+      if (this.communicationService && this.sessionId) {
         await this.communicationService.sendChatError(this.sessionId, `❌ 处理AI流式响应时出错`);
       }
     }
