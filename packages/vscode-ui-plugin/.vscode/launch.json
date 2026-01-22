@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Run Extension (Fast)",
+      "name": "Run Extension (Fast) - Remote",
       "type": "extensionHost",
       "request": "launch",
       "args": [
@@ -10,10 +10,13 @@
       ],
       "outFiles": [
         "${workspaceFolder}/dist/**/*.js"
-      ]
+      ],
+      "env": {
+        "DEEPX_SERVER_URL": "https://api-code.deepvlab.ai"
+      }
     },
     {
-      "name": "Run Extension (Local-Fast)",
+      "name": "Run Extension (Fast) - Local",
       "type": "extensionHost",
       "request": "launch",
       "args": [
@@ -28,7 +31,7 @@
     },
     {
       "name": "Run Extension (With Build)",
-      "type": "extensionHost", 
+      "type": "extensionHost",
       "request": "launch",
       "args": [
         "--extensionDevelopmentPath=${workspaceFolder}"

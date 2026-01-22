@@ -705,6 +705,13 @@ export const translations = {
     'cloud.cleanup.existing': '🧹 Cleaning up existing cloud connection...',
     'cloud.reconnect.scheduled': '🔄 Reconnecting in {delay} seconds (attempt {attempt})',
 
+    // Stream interruption recovery
+    'stream.interrupted': 'Connection hiccup detected',
+    'stream.interrupted.prefix': '⚠️ Oops, connection hiccup!',
+    'stream.interrupted.suffix': 'DeepV Code will resume in {seconds}s...',
+    'stream.continue.prompt': '[System] The previous response was interrupted due to a network issue. Please continue from where you left off.',
+    'stream.autoRetry': 'Resuming',
+
     // Cloud WebSocket
     'cloud.websocket.connected': '🔌 WebSocket connection established',
     'cloud.websocket.closed': '📡 WebSocket connection closed: {code} {reason}',
@@ -2039,6 +2046,13 @@ export const translations = {
     'cloud.reinit.failed': '❌ 完全重新初始化也失败: {error}',
     'cloud.cleanup.existing': '🧹 清理现有的云端连接...',
     'cloud.reconnect.scheduled': '🔄 {delay}秒后重连 (第{attempt}次)',
+
+    // Stream interruption recovery
+    'stream.interrupted': '传输过程遇到抖动',
+    'stream.interrupted.prefix': '⚠️ 哎呀，传输遇到小抖动！',
+    'stream.interrupted.suffix': 'DeepV Code 将在 {seconds} 秒后恢复...',
+    'stream.continue.prompt': '[系统] 上次回复因网络问题中断了，请从中断处继续。',
+    'stream.autoRetry': '恢复中',
 
     // Cloud WebSocket
     'cloud.websocket.connected': '🔌 WebSocket连接已建立',

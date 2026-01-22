@@ -31,6 +31,7 @@ import { PPTGeneratorDialog } from './PPTGeneratorDialog';
 import { PPTGeneratorIcon } from './PPTGeneratorIcon';
 import { CompressionConfirmationDialog } from './CompressionConfirmationDialog';
 import { HealthyUseReminder } from './HealthyUseReminder';
+import { StreamRecoveryOverlay } from './StreamRecoveryOverlay';
 import { CompressionConfirmationRequest } from '../services/webViewModelService';
 import { SessionType, SessionStatus } from '../../../src/constants/sessionConstants';
 import { SessionInfo } from '../../../src/types/sessionTypes';
@@ -174,6 +175,11 @@ export const MultiSessionApp: React.FC = () => {
   const [isCompressing, setIsCompressing] = useState(false);
   // 🎯 保存取消压缩时需要回滚到的原模型
   const [previousModelBeforeSwitch, setPreviousModelBeforeSwitch] = useState<string | null>(null);
+
+  // 🆕 流中断恢复状态
+  const [streamRecoveryVisible, setStreamRecoveryVisible] = useState(false);
+  const [streamRecoveryRemaining, setStreamRecoveryRemaining] = useState(0);
+  const [streamRecoveryTotal, setStreamRecoveryTotal] = useState(10);
 
   const {
     state,
@@ -866,6 +872,23 @@ export const MultiSessionApp: React.FC = () => {
     // 🚨 REMOVED: onChatResponse 监听器已移除
     // 原因: 与 onChatStart 重复创建消息，我们只使用流式路径 (onChatStart + onChatChunk + onChatComplete)
     // messageService.onChatResponse(...) - DELETED
+
+    // 🆕 监听流中断恢复消息
+    messageService.onExtensionMessage('stream_recovery_start', (payload: any) => {
+      console.log('🔄 [MultiSessionApp] Stream recovery started:', payload);
+      setStreamRecoveryTotal(payload.total || 10);
+      setStreamRecoveryRemaining(payload.total || 10);
+      setStreamRecoveryVisible(true);
+    });
+
+    messageService.onExtensionMessage('stream_recovery_countdown', (payload: any) => {
+      setStreamRecoveryRemaining(payload.remaining || 0);
+    });
+
+    messageService.onExtensionMessage('stream_recovery_end', () => {
+      console.log('🔄 [MultiSessionApp] Stream recovery ended');
+      setStreamRecoveryVisible(false);
+    });
 
     messageService.onChatError(({ sessionId, error }) => {
       // 🎯 检测认证错误，切换到登录页面
@@ -2423,6 +2446,13 @@ User question: ${contentStr}`;
 
       {/* 🎯 全局拖拽测试组件 - 恢复启用但非干扰模式 */}
       <DragDropGlobalTest enabled={false} />
+
+      {/* 🆕 流中断恢复倒计时动画 */}
+      <StreamRecoveryOverlay
+        isVisible={streamRecoveryVisible}
+        remaining={streamRecoveryRemaining}
+        total={streamRecoveryTotal}
+      />
 
       {/* 🌙 健康使用提醒（全屏蒙层） */}
       {showHealthyUseReminder && (

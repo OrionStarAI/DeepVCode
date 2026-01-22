@@ -567,6 +567,11 @@ export const enUS: Translations = {
     countdown: '{{seconds}}s',
   },
 
+  streamRecovery: {
+    jitter: 'Jitter',
+    resuming: 'Resuming',
+  },
+
   pptGenerator: {
     title: 'PPT Generator',
     buttonTooltip: 'Generate PPT with AI',

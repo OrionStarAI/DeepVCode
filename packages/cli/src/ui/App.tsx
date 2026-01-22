@@ -71,6 +71,7 @@ import { TokenUsageDisplay, type TokenUsageInfo } from './components/TokenUsageD
 import { tokenUsageEventManager, IDEConnectionStatus, type BackgroundTask, getBackgroundTaskManager } from 'deepv-code-core';
 import { HistoryItemDisplay } from './components/HistoryItemDisplay.js';
 import { ImagePollingSpinner } from './components/ImagePollingSpinner.js';
+import { StreamRecoverySpinner } from './components/StreamRecoverySpinner.js';
 import { appEvents, AppEvent } from '../utils/events.js';
 import {
   getCreditsService,
@@ -565,6 +566,10 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     elapsed: 0,
     estimated: 30,
   });
+  const [streamRecovery, setStreamRecovery] = useState<{ isVisible: boolean; remaining: number }>({
+    isVisible: false,
+    remaining: 10,
+  });
 
   // 调试：监听 refineResult 变化
   useEffect(() => {
@@ -699,9 +704,34 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
       }));
     };
 
+    // Handle stream recovery events
+    const handleStreamRecoveryStart = (data: { total: number }) => {
+      setStreamRecovery({
+        isVisible: true,
+        remaining: data.total,
+      });
+    };
+
+    const handleStreamRecoveryCountdown = (data: { remaining: number }) => {
+      setStreamRecovery(prev => ({
+        ...prev,
+        remaining: data.remaining,
+      }));
+    };
+
+    const handleStreamRecoveryEnd = () => {
+      setStreamRecovery(prev => ({
+        ...prev,
+        isVisible: false,
+      }));
+    };
+
     appEvents.on(AppEvent.ImagePollingStart, handlePollingStart);
     appEvents.on(AppEvent.ImagePollingProgress, handlePollingProgress);
     appEvents.on(AppEvent.ImagePollingEnd, handlePollingEnd);
+    appEvents.on(AppEvent.StreamRecoveryStart, handleStreamRecoveryStart);
+    appEvents.on(AppEvent.StreamRecoveryCountdown, handleStreamRecoveryCountdown);
+    appEvents.on(AppEvent.StreamRecoveryEnd, handleStreamRecoveryEnd);
 
     return () => {
       appEvents.off(AppEvent.OpenDebugConsole, openDebugConsole);
@@ -709,6 +739,9 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
       appEvents.off(AppEvent.ImagePollingStart, handlePollingStart);
       appEvents.off(AppEvent.ImagePollingProgress, handlePollingProgress);
       appEvents.off(AppEvent.ImagePollingEnd, handlePollingEnd);
+      appEvents.off(AppEvent.StreamRecoveryStart, handleStreamRecoveryStart);
+      appEvents.off(AppEvent.StreamRecoveryCountdown, handleStreamRecoveryCountdown);
+      appEvents.off(AppEvent.StreamRecoveryEnd, handleStreamRecoveryEnd);
     };
   }, [handleNewMessage]);
 
@@ -2431,6 +2464,16 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                     isVisible={imagePolling.isVisible}
                     elapsed={imagePolling.elapsed}
                     estimated={imagePolling.estimated}
+                  />
+                </Box>
+              ) : null}
+
+              {/* 流中断恢复倒计时动画 */}
+              {streamRecovery.isVisible ? (
+                <Box marginY={0} marginBottom={1}>
+                  <StreamRecoverySpinner
+                    isVisible={streamRecovery.isVisible}
+                    remaining={streamRecovery.remaining}
                   />
                 </Box>
               ) : null}
