@@ -83,6 +83,8 @@ import { ContextSummaryDisplay } from './components/ContextSummaryDisplay.js';
 import { IDEContextDetailDisplay } from './components/IDEContextDetailDisplay.js';
 import { ReasoningDisplay } from './components/ReasoningDisplay.js';
 import { HealthyUseReminder } from './components/HealthyUseReminder.js';
+import { useHistoryCleanup } from './hooks/useHistoryCleanup.js';
+import { HistoryCleanupDialog } from './components/HistoryCleanupDialog.js';
 import { useHistory } from './hooks/useHistoryManager.js';
 import { useSessionRestore, useSessionAutoSave } from './hooks/useSessionRestore.js';
 import process from 'node:process';
@@ -247,6 +249,13 @@ export const AppWrapper = (props: AppProps) => {
 const App = ({ config, settings, startupWarnings = [], version, promptExtensions = [], customProxyUrl }: AppProps) => {
   const isFocused = useFocus();
   useBracketedPaste();
+
+  // 🚀 History cleanup check (non-blocking, runs in background after 2s)
+  const {
+    state: historyCleanupState,
+    performCleanup: performHistoryCleanup,
+    dismissCleanup: dismissHistoryCleanup,
+  } = useHistoryCleanup(settings);
 
   // Token usage tracking
   const [lastTokenUsage, setLastTokenUsage] = useState<TokenUsageInfo | null>(null);
@@ -2383,6 +2392,12 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                 }
                 setShowHealthyUseReminder(false);
               }}
+            />
+          ) : historyCleanupState.needsCleanup ? (
+            <HistoryCleanupDialog
+              sizeFormatted={historyCleanupState.historySizeFormatted}
+              onConfirm={performHistoryCleanup}
+              onDismiss={dismissHistoryCleanup}
             />
           ) : (
             <>

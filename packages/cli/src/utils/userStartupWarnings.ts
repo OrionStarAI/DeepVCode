@@ -7,9 +7,8 @@
 import fs from 'fs/promises';
 import * as os from 'os';
 import path from 'path';
-import { t, tp } from '../ui/utils/i18n.js';
+import { t } from '../ui/utils/i18n.js';
 import { LoadedSettings } from '../config/settings.js';
-import { getCreditsService } from '../services/creditsService.js';
 
 type WarningCheck = {
   id: string;
@@ -61,38 +60,16 @@ const customProxyServerCheck: WarningCheck = {
   },
 };
 
-const lowCreditsCheck: WarningCheck = {
-  id: 'low-credits',
-  check: async (_workspaceRoot: string, _settings: LoadedSettings) => {
-    try {
-      // 异步获取积分信息，不阻塞启动
-      const creditsService = getCreditsService();
-      const creditsInfo = await creditsService.getCreditsInfo();
-
-      if (creditsInfo) {
-        const remainingPercentage = 100 - creditsInfo.usagePercentage;
-        // 取整：5.99% -> 5%, 1.5% -> 1%
-        const roundedPercentage = Math.floor(remainingPercentage);
-        // 只在恰好 5% 或 1% 时显示警告，避免频繁打扰
-        if (roundedPercentage === 5 || roundedPercentage === 1) {
-          return tp('startup.warning.low.credits', { percentage: roundedPercentage });
-        }
-      }
-
-      return null;
-    } catch (_err: unknown) {
-      // 积分获取失败不应该阻塞启动，静默处理
-      return null;
-    }
-  },
-};
+// Note: lowCreditsCheck moved to App component for non-blocking startup
+// See packages/cli/src/ui/hooks/useLowCreditsWarning.ts
+// The credits check was causing 1-2 second delays due to network requests
 
 // All warning checks
+// Note: lowCreditsCheck removed - moved to App for non-blocking startup
 const WARNING_CHECKS: readonly WarningCheck[] = [
   homeDirectoryCheck,
   rootDirectoryCheck,
   customProxyServerCheck,
-  lowCreditsCheck,
 ];
 
 export async function getUserStartupWarnings(
