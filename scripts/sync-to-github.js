@@ -116,9 +116,11 @@ function getGithubMainLastCommit() {
 }
 
 // 获取当前分支中某个 commit 之后的所有非 merge commits
-function getCommitsSince(commitHash, currentBranch) {
+// maxCount: 限制返回的最大提交数量，用于优化 dry-run 性能
+function getCommitsSince(commitHash, currentBranch, maxCount = null) {
+  const limitArg = maxCount ? `-n ${maxCount}` : '';
   const commits = execQuiet(
-    `git log --oneline --no-merges --reverse ${commitHash}..${currentBranch}`
+    `git log --oneline --no-merges --reverse ${limitArg} ${commitHash}..${currentBranch}`
   );
 
   if (!commits) {
@@ -256,21 +258,35 @@ async function main() {
     originalCommitHash = execQuiet(`git rev-list --max-parents=0 ${currentBranch}`);
   }
 
-  // 获取需要同步的 commits
-  const commits = getCommitsSince(originalCommitHash, currentBranch);
+  // 默认只扫描最近 50 次提交用于 dry-run，以优化性能
+  const DRY_RUN_COMMIT_LIMIT = 50;
+
+  // 获取需要同步的 commits（限制数量用于 dry-run）
+  const commits = getCommitsSince(originalCommitHash, currentBranch, DRY_RUN_COMMIT_LIMIT);
 
   if (commits.length === 0) {
     log('✅ 无需同步，github_main 已经是最新的！', colors.green);
     process.exit(0);
   }
 
-  log(`\n📦 发现 ${commits.length} 个新提交需要同步:\n`, colors.bright);
+  // 检查是否有更多提交未显示
+  const allCommitsCount = parseInt(execQuiet(`git rev-list --count --no-merges ${originalCommitHash}..${currentBranch}`) || '0', 10);
+  const hasMoreCommits = allCommitsCount > commits.length;
+
+  if (hasMoreCommits) {
+    log(`\n📦 发现 ${allCommitsCount} 个新提交需要同步（仅显示最近 ${commits.length} 个）:\n`, colors.bright);
+  } else {
+    log(`\n📦 发现 ${commits.length} 个新提交需要同步:\n`, colors.bright);
+  }
   commits.forEach((commit, index) => {
     log(`  ${index + 1}. ${commit.hash} ${commit.message}`, colors.cyan);
   });
+  if (hasMoreCommits) {
+    log(`  ... 还有 ${allCommitsCount - commits.length} 个较早的提交`, colors.yellow);
+  }
 
-  // Dry-run 模式
-  log(`\n🔍 开始 Dry-run 模拟检测...`, colors.blue);
+  // Dry-run 模式（仅检测限制数量内的提交）
+  log(`\n🔍 开始 Dry-run 模拟检测（最近 ${commits.length} 个提交）...`, colors.blue);
   exec('git checkout github_main');
 
   let dryRunFailed = false;
@@ -302,18 +318,21 @@ async function main() {
     process.exit(0);
   }
 
+  // 获取所有需要同步的提交（不限制数量）
+  const allCommits = getCommitsSince(originalCommitHash, currentBranch);
+
   // 切换到 github_main 分支
   log(`\n🔄 切换到 github_main 分支...`, colors.blue);
   exec('git checkout github_main');
 
   // Cherry-pick commits
-  log(`\n⚙️  开始 cherry-pick (使用 theirs 策略自动解决冲突)...\n`, colors.blue);
+  log(`\n⚙️  开始 cherry-pick ${allCommits.length} 个提交 (使用 theirs 策略自动解决冲突)...\n`, colors.blue);
 
   let successCount = 0;
   let conflictCount = 0;
   let failedCommits = [];
 
-  for (const commit of commits) {
+  for (const commit of allCommits) {
     process.stdout.write(`  ${commit.hash.substring(0, 8)} ${commit.message.substring(0, 50)}... `);
 
     const result = cherryPickCommit(commit.hash);
