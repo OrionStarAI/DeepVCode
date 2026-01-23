@@ -635,9 +635,38 @@ export class MarketplaceManager {
 
         const fullPath = path.join(basePath, candidate);
         if (await fs.pathExists(fullPath)) {
-          const relPath = path.relative(marketplacePath, fullPath);
-          skillPaths.push(relPath);
-          items.push({ path: relPath, type });
+          const stat = await fs.stat(fullPath);
+
+          // 如果是一个目录，且类型是 SKILL，且该目录下没有 SKILL.md
+          // 尝试扫描子目录（支持 everything-claude-code 这种 "skills": "./skills" 的配置）
+          let isContainerDir = false;
+          if (type === SkillType.SKILL && stat.isDirectory()) {
+            const hasSkillFile = await fs.pathExists(path.join(fullPath, 'SKILL.md'));
+            if (!hasSkillFile) {
+              isContainerDir = true;
+              const children = await fs.readdir(fullPath);
+              for (const child of children) {
+                if (child.startsWith('.')) continue;
+                const childPath = path.join(fullPath, child);
+                const childStat = await fs.stat(childPath);
+                if (childStat.isDirectory() && await fs.pathExists(path.join(childPath, 'SKILL.md'))) {
+                  const relPath = path.relative(marketplacePath, childPath);
+                  skillPaths.push(relPath);
+                  items.push({ path: relPath, type });
+                }
+              }
+            }
+          }
+
+          // 如果不是容器目录（即是普通 Skill 或 Command/Agent），或者是容器目录但我们仍然保留其作为入口（不太可能，但为了兼容性）
+          // 通常如果是容器目录，我们就不把容器本身加进去了，只加子元素
+          // 但原逻辑是只要存在就加进去。为了安全起见，如果不含 SKILL.md 的目录被视为容器，我们只加子元素。
+          // 如果它包含 SKILL.md，它就是一个 Skill。
+          if (!isContainerDir) {
+            const relPath = path.relative(marketplacePath, fullPath);
+            skillPaths.push(relPath);
+            items.push({ path: relPath, type });
+          }
         } else {
           console.warn(`${type} path not found: ${fullPath}`);
         }
