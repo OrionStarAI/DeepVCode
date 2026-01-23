@@ -689,9 +689,19 @@ export class MarketplaceManager {
       };
 
       // 按照 Claude Code 的约定发现 agents, commands, skills
-      await autoDiscoverDirs('agents', SkillType.AGENT);
-      await autoDiscoverDirs('commands', SkillType.COMMAND);
-      await autoDiscoverDirs('skills', SkillType.SKILL);
+      // 支持标准目录和 .claude/ 下的目录
+      const discoveryTasks = [
+        { name: 'agents', type: SkillType.AGENT },
+        { name: 'commands', type: SkillType.COMMAND },
+        { name: 'skills', type: SkillType.SKILL },
+        { name: '.claude/agents', type: SkillType.AGENT },
+        { name: '.claude/commands', type: SkillType.COMMAND },
+        { name: '.claude/skills', type: SkillType.SKILL },
+      ];
+
+      for (const task of discoveryTasks) {
+        await autoDiscoverDirs(task.name, task.type);
+      }
     } else {
       // 如果明确定义了，使用明确的定义
       await processItems(finalPluginDef.skills, SkillType.SKILL);
