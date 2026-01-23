@@ -20,7 +20,7 @@ import {
   SkillType,
   PluginSource,
   MarketplaceSource,
-} from './types.js';
+} from './skill-types.js';
 import { SettingsManager, SkillsPaths } from './settings-manager.js';
 import { MarketplaceManager } from './marketplace-manager.js';
 

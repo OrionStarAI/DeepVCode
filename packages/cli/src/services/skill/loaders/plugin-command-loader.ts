@@ -6,9 +6,7 @@
  */
 import { ICommandLoader } from '../../types.js';
 import { SlashCommand, CommandContext, CommandKind, SubmitPromptActionReturn } from '../../../ui/commands/types.js';
-import { SkillLoader } from '../skill-loader.js';
-import { SkillType, SkillLoadLevel } from '../types.js';
-import { SettingsManager } from '../settings-manager.js';
+import { SkillLoader, SkillType, SkillLoadLevel, SettingsManager } from 'deepv-code-core';
 
 /**
  * 插件命令加载器

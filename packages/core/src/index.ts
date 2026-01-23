@@ -137,3 +137,6 @@ export { OAuthUtils } from './mcp/oauth-utils.js';
 export * from './telemetry/index.js';
 export { sessionId, getSessionId, setSessionId, resetSessionId } from './utils/session.js';
 export * from './utils/browser.js';
+
+// Export skills system (consolidated from cli package)
+export * from './skills/index.js';

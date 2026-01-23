@@ -18,7 +18,7 @@ import {
   SkillContextResult,
   SkillError,
   SkillErrorCode,
-} from './types.js';
+} from './skill-types.js';
 import { SkillLoader } from './skill-loader.js';
 import { SettingsManager } from './settings-manager.js';
 

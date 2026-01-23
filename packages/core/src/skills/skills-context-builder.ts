@@ -14,7 +14,7 @@ import type {
   MarketplaceManifest,
   SkillInfo,
   SkillsContext,
-} from './types.js';
+} from './skill-types.js';
 
 export class SkillsContextBuilder {
   private readonly skillsDir: string;

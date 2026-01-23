@@ -7,7 +7,7 @@ import fs from 'fs-extra';
 import path from 'path';
 import os from 'os';
 import { ScriptExecutor } from './script-executor.js';
-import { ScriptType, type SkillScript } from './types.js';
+import { ScriptType, type SkillScript } from './skill-types.js';
 
 describe.skip('ScriptExecutor', () => {
   let executor: ScriptExecutor;

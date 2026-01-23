@@ -3,6 +3,10 @@
  *
  * Allows AI to activate a skill and load its full instructions (Level 2).
  * Similar to Claude Code's Skill tool.
+ *
+ * This tool now directly imports from the skills module in core package,
+ * eliminating the need for dynamic path resolution that was problematic
+ * in bundled environments.
  */
 
 import {
@@ -13,6 +17,19 @@ import {
   type ToolLocation,
 } from './tools.js';
 import { Type } from '@google/genai';
+
+import path from 'path';
+
+// Direct imports from skills module - no dynamic path resolution needed
+import {
+  SkillContextInjector,
+  SkillLoader,
+  SettingsManager,
+  MarketplaceManager,
+  SkillLoadLevel,
+  SkillsPaths,
+  type Skill,
+} from '../skills/index.js';
 
 interface UseSkillParams {
   /** The skill name to activate (e.g., "pdf" or "test-pdf") */
@@ -86,12 +103,12 @@ Important:
     return `Loading skill: ${params.skillName}`;
   }
 
-  override toolLocations(params: UseSkillParams): ToolLocation[] {
+  override toolLocations(_params: UseSkillParams): ToolLocation[] {
     return []; // Skills don't affect file system
   }
 
   override async shouldConfirmExecute(
-    params: UseSkillParams,
+    _params: UseSkillParams,
     _abortSignal: AbortSignal,
   ): Promise<ToolCallConfirmationDetails | false> {
     // No confirmation needed - just loading documentation
@@ -111,17 +128,6 @@ Important:
     }
 
     try {
-      // Dynamic import with runtime path resolution to avoid TypeScript compile-time errors
-      // This works because at runtime, both packages are compiled
-      const path = await import('path');
-      const { pathToFileURL } = await import('url');
-
-      // Get skill module path using cross-platform safe method
-      // In VSCode extension: use global __extensionPath if available
-      // In CLI: use process.cwd() based resolution
-      // In dev: use relative path from __dirname
-      let skillModulePath: string;
-
       // Check if we're in VSCode extension environment (extensionPath is set globally)
       const extensionPath = (globalThis as any).__extensionPath;
       if (extensionPath) {
@@ -138,51 +144,7 @@ To use skills, please run DeepV Code from the command line.`,
         };
       }
 
-      // CLI environment - resolve path using global __cliRoot or fallback to process.cwd()
-      const cliRoot = (globalThis as any).__cliRoot;
-
-      // Try multiple possible locations
-      const possiblePaths = [
-        // Primary: use __cliRoot set by CLI at startup
-        ...(cliRoot ? [path.resolve(cliRoot, 'dist', 'src', 'services', 'skill', 'index.js')] : []),
-        // Fallback: When running from CLI dist directory
-        path.resolve(process.cwd(), 'dist', 'src', 'services', 'skill', 'index.js'),
-        // Fallback: When running from monorepo root
-        path.resolve(process.cwd(), 'packages', 'cli', 'dist', 'src', 'services', 'skill', 'index.js'),
-      ];
-
-      const fs = await import('fs');
-      skillModulePath = '';
-      for (const testPath of possiblePaths) {
-        if (fs.existsSync(testPath)) {
-          skillModulePath = testPath;
-          break;
-        }
-      }
-
-      if (!skillModulePath) {
-        const searchedPaths = possiblePaths.map(p => `  - ${p}`).join('\n');
-        return {
-          llmContent: `❌ Skill system module not found.
-
-The skill system requires the CLI to be properly built.
-Please ensure you have run 'npm run build' in the project root.
-
-Searched paths:
-${searchedPaths}`,
-          returnDisplay: 'Skill module not found',
-        };
-      }
-
-      const {
-        SkillContextInjector,
-        SkillLoader,
-        SettingsManager,
-        MarketplaceManager,
-        SkillLoadLevel,
-      } = await import(pathToFileURL(skillModulePath).href);
-
-      // Initialize Skills system
+      // Initialize Skills system - directly using imported modules
       const settings = new SettingsManager();
       await settings.initialize();
 
@@ -195,7 +157,7 @@ ${searchedPaths}`,
 
       // 更健壮的匹配逻辑：支持多种格式
       const normalizedSearchName = params.skillName.toLowerCase().trim();
-      const matchingSkills = skills.filter((s: any) => {
+      const matchingSkills = skills.filter((s: Skill) => {
         const skillName = (s.name || '').toLowerCase().trim();
         const skillId = (s.id || '').toLowerCase();
 
@@ -215,7 +177,7 @@ ${searchedPaths}`,
       });
 
       if (matchingSkills.length === 0) {
-        const availableSkills = skills.map((s: any) => `${s.name} (id: ${s.id})`).join(', ');
+        const availableSkills = skills.map((s: Skill) => `${s.name} (id: ${s.id})`).join(', ');
         return {
           llmContent: `❌ Skill "${params.skillName}" not found.
 
@@ -241,7 +203,7 @@ To see detailed skill information, check the "Available Skills" section in the s
       const hasScripts = skill.scripts && skill.scripts.length > 0;
 
       // Get actual skill paths from the skill object
-      if (!(skill as any).path) {
+      if (!skill.path) {
         return {
           llmContent: `❌ Internal error: Skill ${skill.id} is missing required 'path' property.
 
@@ -254,23 +216,43 @@ If the problem persists, this may be a system bug.`,
           returnDisplay: `Skill "${params.skillName}" configuration error`,
         };
       }
-      const skillRootDir = (skill as any).path;
-      const scriptsDir = (skill as any).scriptsPath || `${skillRootDir}/scripts`;
+      const skillRootDir = skill.path;
+      const scriptsDir = skill.scriptsPath || `${skillRootDir}/scripts`;
+
+      // Determine plugin root directory based on skill source
+      let pluginRootDir = '';
+      if (skill.marketplaceId) {
+        // Marketplace skills: plugin root is ~/.deepv/marketplace/{marketplaceId}
+        pluginRootDir = path.join(SkillsPaths.MARKETPLACE_ROOT, skill.marketplaceId);
+      } else if (skill.location?.rootPath) {
+        // Use location.rootPath if available
+        pluginRootDir = skill.location.rootPath;
+      }
 
       // 格式化输出：简洁清晰
       let output = '';
 
+      // Build path info section
+      const pathInfoLines = [
+        `**Skill directory**: ${skillRootDir}`,
+      ];
+
+      if (pluginRootDir && pluginRootDir !== skillRootDir) {
+        pathInfoLines.unshift(`**Plugin root directory**: ${pluginRootDir}`);
+      }
+
       if (hasScripts) {
         // For skills with scripts, generate simple script list
         const scriptList = skill.scripts!
-          .map((s: any) => `- ${s.name}`)
+          .map((s) => `- ${s.name} (${s.path})`)
           .join('\n');
+
+        pathInfoLines.push(`**Scripts directory**: ${scriptsDir}`);
 
         output = [
           `## Skill: ${skill.name}`,
           ``,
-          `**Base directory**: ${skillRootDir}`,
-          `**Scripts directory**: ${scriptsDir}`,
+          ...pathInfoLines,
           ``,
           `**Available scripts**:`,
           scriptList,
@@ -282,7 +264,7 @@ If the problem persists, this may be a system bug.`,
         output = [
           `## Skill: ${skill.name}`,
           ``,
-          `**Base directory**: ${skillRootDir}`,
+          ...pathInfoLines,
           ``,
           fullContent
         ].join('\n');

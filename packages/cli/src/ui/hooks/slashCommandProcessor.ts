@@ -34,9 +34,7 @@ import { FileCommandLoader } from '../../services/FileCommandLoader.js';
 import { InlineCommandLoader } from '../../services/InlineCommandLoader.js';
 import { McpPromptLoader } from '../../services/McpPromptLoader.js';
 import { PluginCommandLoader } from '../../services/skill/loaders/plugin-command-loader.js';
-import { SettingsManager } from '../../services/skill/settings-manager.js';
-import { MarketplaceManager } from '../../services/skill/marketplace-manager.js';
-import { SkillLoader } from '../../services/skill/skill-loader.js';
+import { SettingsManager, MarketplaceManager, SkillLoader } from 'deepv-code-core';
 
 /**
  * Hook to define and process slash commands (e.g., /help, /clear).

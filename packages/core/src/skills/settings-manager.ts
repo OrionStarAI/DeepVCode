@@ -19,7 +19,7 @@ import {
   SkillErrorCode,
   MarketplaceConfig,
   InstalledPluginInfo,
-} from './types.js';
+} from './skill-types.js';
 
 /**
  * Skills 系统路径常量

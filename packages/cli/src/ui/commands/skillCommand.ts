@@ -22,11 +22,11 @@ import {
   SkillLoader,
   SkillLoadLevel,
   SkillsPaths,
+  clearSkillsContextCache,
   type Marketplace,
   type Plugin,
   type Skill,
-} from '../../services/skill/index.js';
-import { clearSkillsContextCache } from '../../services/skill/skills-integration.js';
+} from 'deepv-code-core';
 import { PROJECT_DIR_PREFIX } from 'deepv-code-core';
 
 /**

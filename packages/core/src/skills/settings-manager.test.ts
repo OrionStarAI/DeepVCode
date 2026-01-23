@@ -12,7 +12,7 @@ import {
   MarketplaceSource,
   InstalledPluginInfo,
   SkillErrorCode,
-} from './types.js';
+} from './skill-types.js';
 
 describe('SettingsManager', () => {
   let manager: SettingsManager;

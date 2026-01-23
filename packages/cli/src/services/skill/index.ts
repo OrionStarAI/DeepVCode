@@ -1,56 +1,62 @@
 /**
  * Skills System - Public API
  *
- * Export all public interfaces for the Skills system
- */
-
-// Types
-export * from './types.js';
-
-// Core Services
-export { SettingsManager, SkillsPaths, settingsManager } from './settings-manager.js';
-export { MarketplaceManager, marketplaceManager } from './marketplace-manager.js';
-export { PluginInstaller, pluginInstaller } from './plugin-installer.js';
-export { SkillLoader, skillLoader } from './skill-loader.js';
-export { SkillContextInjector, skillContextInjector } from './skill-context-injector.js';
-export { ScriptExecutor, scriptExecutor } from './script-executor.js';
-export type {
-  ScriptExecutionOptions,
-  ScriptExecutionResult,
-} from './script-executor.js';
-
-/**
- * Initialize Skills System
+ * This module re-exports the Skills system from core package.
+ * The Skills system has been consolidated into core to ensure proper
+ * bundling and avoid cross-package dynamic imports.
  *
- * This should be called once at startup to initialize the Skills system
+ * For new code, prefer importing directly from 'deepv-code-core'.
+ * This file is kept for backward compatibility with existing imports.
  */
-export async function initializeSkillsSystem(): Promise<void> {
-  const { SettingsManager } = await import('./settings-manager.js');
-  const settings = new SettingsManager();
-  await settings.initialize();
-}
 
-/**
- * Create Skills System instances with proper dependency injection
- */
-export function createSkillsSystem() {
-  const { SettingsManager } = require('./settings-manager.js');
-  const { MarketplaceManager } = require('./marketplace-manager.js');
-  const { PluginInstaller } = require('./plugin-installer.js');
-  const { SkillLoader } = require('./skill-loader.js');
-  const { SkillContextInjector } = require('./skill-context-injector.js');
+// Re-export everything from core's skills module
+export {
+  // Types
+  type Skill,
+  type SkillMetadata,
+  type SkillScript,
+  type SkillsSettings,
+  type InstalledPluginsRecord,
+  type InstalledPluginInfo,
+  type MarketplaceConfig,
+  type Plugin,
+  type Marketplace,
+  type SkillContextResult,
+  type SkillInfo,
+  type SkillsContext,
+  SkillLoadLevel,
+  SkillType,
+  SkillSource,
+  ScriptType,
+  SkillErrorCode,
+  MarketplaceSource,
 
-  const settings = new SettingsManager();
-  const marketplace = new MarketplaceManager(settings);
-  const installer = new PluginInstaller(settings, marketplace);
-  const loader = new SkillLoader(settings, marketplace);
-  const injector = new SkillContextInjector(loader, settings);
+  // Core Services
+  SettingsManager,
+  SkillsPaths,
+  settingsManager,
+  MarketplaceManager,
+  marketplaceManager,
+  PluginInstaller,
+  pluginInstaller,
+  SkillLoader,
+  skillLoader,
+  SkillContextInjector,
+  skillContextInjector,
+  ScriptExecutor,
+  scriptExecutor,
+  type ScriptExecutionOptions,
+  type ScriptExecutionResult,
 
-  return {
-    settings,
-    marketplace,
-    installer,
-    loader,
-    injector,
-  };
-}
+  // Integration
+  initializeSkillsContext,
+  getSkillsContext,
+  clearSkillsContextCache,
+
+  // Utilities
+  initializeSkillsSystem,
+  createSkillsSystem,
+} from 'deepv-code-core';
+
+// CLI-specific: PluginCommandLoader (depends on CLI UI types)
+export { PluginCommandLoader } from './loaders/plugin-command-loader.js';

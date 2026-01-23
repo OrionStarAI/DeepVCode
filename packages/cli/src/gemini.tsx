@@ -9,8 +9,7 @@ import { render } from 'ink';
 import { AppWrapper } from './ui/App.js';
 import { loadCliConfig, parseArguments, CliArgs } from './config/config.js';
 import { readStdin } from './utils/readStdin.js';
-import { basename, resolve, normalize, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { basename, resolve, normalize } from 'node:path';
 import v8 from 'node:v8';
 import os from 'node:os';
 import fs from 'node:fs';
@@ -256,14 +255,6 @@ function processWorkdirParameter(workdirPath: string | undefined): string | null
 }
 
 export async function main() {
-  // Set CLI root path globally for use by core tools (e.g., use_skill)
-  // This allows tools in the core package to locate CLI resources
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = dirname(__filename);
-  // CLI dist structure: packages/cli/dist/src/gemini.js
-  // So CLI root is 3 levels up: dist/src -> dist -> cli root
-  (globalThis as any).__cliRoot = resolve(__dirname, '..', '..');
-
   // 🔬 Startup timing analysis - enable with STARTUP_TIMING=1
   const TIMING_ENABLED = process.env.STARTUP_TIMING === '1';
   const startupStart = Date.now();
@@ -302,8 +293,8 @@ export async function main() {
   // Initialize Skills system context (async, non-blocking)
   // This loads Skills metadata for AI context injection
   try {
-    const { initializeSkillsContext } = await import('./services/skill/skills-integration.js');
-    logTiming('import skills-integration');
+    const { initializeSkillsContext } = await import('deepv-code-core');
+    logTiming('import initializeSkillsContext');
     await initializeSkillsContext();
     logTiming('initializeSkillsContext()');
   } catch (error) {

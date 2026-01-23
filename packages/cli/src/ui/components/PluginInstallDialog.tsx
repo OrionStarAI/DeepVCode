@@ -14,8 +14,8 @@ import {
   SettingsManager,
   MarketplaceManager,
   PluginInstaller,
-} from '../../services/skill/index.js';
-import { clearSkillsContextCache } from '../../services/skill/skills-integration.js';
+  clearSkillsContextCache,
+} from 'deepv-code-core';
 
 interface PluginOption {
   name: string;

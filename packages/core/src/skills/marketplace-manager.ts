@@ -24,7 +24,7 @@ import {
   SkillErrorCode,
   MarketplaceScanResult,
   ValidationError,
-} from './types.js';
+} from './skill-types.js';
 import { SettingsManager, SkillsPaths } from './settings-manager.js';
 
 const execAsync = promisify(exec);
