@@ -186,18 +186,10 @@ describe('DeleteFileTool', () => {
       // File should be deleted
       expect(fs.existsSync(testFilePath)).toBe(false);
 
-      // Result should contain FileDiff in returnDisplay
+      // Result should show deletion confirmation
       expect(result.llmContent).toContain('Successfully deleted file');
       expect(result.llmContent).toContain('test deletion');
-      expect(result.returnDisplay).toHaveProperty('fileDiff');
-      expect(result.returnDisplay).toHaveProperty('fileName');
-      expect(result.returnDisplay).toHaveProperty('originalContent');
-      expect(result.returnDisplay).toHaveProperty('newContent');
-
-      const fileDiff = result.returnDisplay as any;
-      expect(fileDiff.originalContent).toBe(testFileContent);
-      expect(fileDiff.newContent).toBe(''); // File deleted, so empty content
-      expect(fileDiff.fileName).toBe('test-file.txt');
+      expect(result.returnDisplay).toBe('File deleted: test-file.txt');
     });
 
     it('should return error for invalid parameters', async () => {

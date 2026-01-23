@@ -36,6 +36,31 @@ describe('attachmentFormatter', () => {
       expect(output).toContain('@[File #');
       expect(output).toContain('D:\\projects\\file.ts');
     });
+
+    it('should NOT convert email addresses with @ symbol', () => {
+      const input = 'Contact me at user@example.com for help';
+      const output = formatAttachmentReferencesForDisplay(input);
+      // Email should not be converted to [File #...]
+      expect(output).not.toContain('@[File #');
+      expect(output).toBe(input); // Should remain unchanged
+    });
+
+    it('should NOT convert multiple email addresses', () => {
+      const input = 'Contact: alice@company.com or bob@example.org';
+      const output = formatAttachmentReferencesForDisplay(input);
+      expect(output).not.toContain('@[File #');
+      expect(output).not.toContain('@[Image #');
+      expect(output).toBe(input);
+    });
+
+    it('should handle valid @ command with email in text', () => {
+      const input = 'Send to user@example.com or use @src/config.ts';
+      const output = formatAttachmentReferencesForDisplay(input);
+      // Email should not be converted, but file path should be
+      expect(output).not.toContain('user@[File #');
+      expect(output).toContain('@[File #');
+      expect(output).toContain('src/config.ts');
+    });
   });
 
   describe('ensureQuotesAroundAttachments', () => {

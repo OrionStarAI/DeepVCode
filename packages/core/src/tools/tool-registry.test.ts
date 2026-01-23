@@ -176,6 +176,20 @@ describe('ToolRegistry', () => {
       toolRegistry.registerTool(tool);
       expect(toolRegistry.getTool('mock-tool')).toBe(tool);
     });
+
+    it('should support tool aliases (e.g., bash -> run_shell_command)', () => {
+      const tool = new MockTool('run_shell_command', 'Run Shell Command');
+      toolRegistry.registerTool(tool);
+
+      // Both the real name and alias should return the same tool
+      expect(toolRegistry.getTool('run_shell_command')).toBe(tool);
+      expect(toolRegistry.getTool('bash')).toBe(tool);
+    });
+
+    it('should return undefined for non-existent tools and their aliases', () => {
+      expect(toolRegistry.getTool('nonexistent-tool')).toBeUndefined();
+      expect(toolRegistry.getTool('unknown-alias')).toBeUndefined();
+    });
   });
 
   describe('getAllTools', () => {

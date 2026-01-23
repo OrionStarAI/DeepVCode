@@ -8,12 +8,10 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import * as Diff from 'diff';
 import { Config, ApprovalMode } from '../config/config.js';
 import {
   BaseTool,
   ToolResult,
-  FileDiff,
   ToolCallConfirmationDetails,
   ToolConfirmationOutcome,
   ToolDeleteConfirmationDetails,
@@ -28,7 +26,6 @@ import {
   recordFileOperationMetric,
   FileOperation,
 } from '../telemetry/metrics.js';
-import { DEFAULT_DIFF_OPTIONS } from './diffOptions.js';
 
 /**
  * Parameters for the DeleteFile tool
@@ -273,17 +270,7 @@ export class DeleteFileTool extends BaseTool<DeleteFileToolParams, ToolResult> {
         extension,
       );
 
-      // Generate diff for display result - show file content being removed
       const fileName = path.basename(params.file_path);
-      const fileDiff = Diff.createPatch(
-        fileName,
-        originalContent, // Original content
-        '', // New content is empty (file deleted)
-        'Original',
-        'Deleted',
-        DEFAULT_DIFF_OPTIONS,
-      );
-
       const llmContentParts = [
         `Successfully deleted file: ${params.file_path}`,
         `File contained ${lines} lines (${fileStats?.size || 0} bytes)`,
@@ -297,17 +284,9 @@ export class DeleteFileTool extends BaseTool<DeleteFileToolParams, ToolResult> {
         `Original content has been preserved in the tool result for potential rollback.`
       );
 
-      const displayResult: FileDiff = {
-        fileDiff,
-        fileName,
-        filePath: params.file_path,
-        originalContent,
-        newContent: '', // File is deleted, so new content is empty
-      };
-
       return {
         llmContent: llmContentParts.join('. ') + '.',
-        returnDisplay: displayResult,
+        returnDisplay: `File deleted: ${fileName}`,
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);

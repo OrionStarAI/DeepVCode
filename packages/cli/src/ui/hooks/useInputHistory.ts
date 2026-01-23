@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 
 interface UseInputHistoryProps {
   userMessages: readonly string[];
@@ -28,12 +28,20 @@ export function useInputHistory({
   onChange,
 }: UseInputHistoryProps): UseInputHistoryReturn {
   const [historyIndex, setHistoryIndex] = useState<number>(-1);
-  const [originalQueryBeforeNav, setOriginalQueryBeforeNav] =
-    useState<string>('');
+  // 🔧 保存"正在输入中"的内容（持续更新的缓存区）
+  const draftInputRef = useRef<string>('');
+
+  // 🔧 每当 currentQuery 变化时，更新 draftInput 缓存
+  // 只在用户实际有输入内容时更新，避免清空状态覆盖之前的草稿
+  useEffect(() => {
+    if (historyIndex === -1 && currentQuery.length > 0) {
+      // 只有在：1) 不导航历史  2) 输入框有内容 时才更新缓存
+      draftInputRef.current = currentQuery;
+    }
+  }, [currentQuery, historyIndex]);
 
   const resetHistoryNav = useCallback(() => {
     setHistoryIndex(-1);
-    setOriginalQueryBeforeNav('');
   }, []);
 
   const handleSubmit = useCallback(
@@ -53,8 +61,6 @@ export function useInputHistory({
 
     let nextIndex = historyIndex;
     if (historyIndex === -1) {
-      // Store the current query from the parent before navigating
-      setOriginalQueryBeforeNav(currentQuery);
       nextIndex = 0;
     } else if (historyIndex < userMessages.length - 1) {
       nextIndex = historyIndex + 1;
@@ -75,8 +81,6 @@ export function useInputHistory({
     onChange,
     userMessages,
     isActive,
-    currentQuery, // Use currentQuery from props
-    setOriginalQueryBeforeNav,
   ]);
 
   const navigateDown = useCallback(() => {
@@ -87,8 +91,8 @@ export function useInputHistory({
     setHistoryIndex(nextIndex);
 
     if (nextIndex === -1) {
-      // Reached the end of history navigation, restore original query
-      onChange(originalQueryBeforeNav);
+      // 🔧 回到 draft 输入（保留之前的缓存内容）
+      onChange(draftInputRef.current);
     } else {
       const newValue = userMessages[userMessages.length - 1 - nextIndex];
       onChange(newValue);
@@ -97,7 +101,6 @@ export function useInputHistory({
   }, [
     historyIndex,
     setHistoryIndex,
-    originalQueryBeforeNav,
     onChange,
     userMessages,
     isActive,

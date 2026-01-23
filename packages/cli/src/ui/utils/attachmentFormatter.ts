@@ -28,7 +28,8 @@ export function formatAttachmentReferencesForDisplay(text: string): string {
   // 再处理 @path 形式（不含引号）
   // 匹配非空白、非引号、非特殊标点的字符（包括点号用于扩展名，冒号用于 Windows 盘符或行号）
   // 但后面必须跟空格、标点或行末
-  result = result.replace(/@([a-zA-Z0-9_\-./\\:]+)(?=\s|$|[，,;；:：!！?？、。\)\]）】》>])/g, (match, path) => {
+  // 负向后查 (?<![a-zA-Z0-9]) 确保 @ 前面不是字母或数字（避免匹配邮箱中的 @）
+  result = result.replace(/(?<![a-zA-Z0-9])@([a-zA-Z0-9_\-./\\:]+)(?=\s|$|[，,;；:：!！?？、。\)\]）】》>])/g, (match, path) => {
     const isImage = /\.(png|jpg|jpeg|gif|webp|bmp|svg|ico|heic|heif|avif|tiff?|raw)$/i.test(path);
     const type = isImage ? 'Image' : 'File';
     return `@[${type} #${invisibleQuote}${path}${invisibleQuote}]`;
@@ -50,7 +51,7 @@ export interface AttachmentSegment {
  */
 export function getAttachmentSegments(text: string): AttachmentSegment[] {
   const segments: AttachmentSegment[] = [];
-  const regex = /@"([^"]+)"|@([a-zA-Z0-9_\-./\\:]+)(?=\s|$|[，,;；:：!！?？、。\)\]）】》>])/g;
+  const regex = /@"([^"]+)"|(?<![a-zA-Z0-9])@([a-zA-Z0-9_\-./\\:]+)(?=\s|$|[，,;；:：!！?？、。\)\]）】》>])/g;
 
   let lastIndex = 0;
   let match;
@@ -163,7 +164,8 @@ export function ensureQuotesAroundAttachments(text: string): string {
 
   // 3. 处理 @path 形式（不含引号，不是 @[...] 格式，不是 @clipboard）
   // 匹配文件路径字符（字母、数字、点、斜杠、下划线、连字符、冒号）
-  result = result.replace(/@(?!clipboard)(?!\[)([a-zA-Z0-9_\-./\\:]+)(?=\s|$|[，,;；:：!！?？、。\)\]）】》>])/g, (match, path) => {
+  // 负向后查 (?<![a-zA-Z0-9]) 确保 @ 前面不是字母或数字（避免匹配邮箱中的 @）
+  result = result.replace(/(?<![a-zA-Z0-9])@(?!clipboard)(?!\[)([a-zA-Z0-9_\-./\\:]+)(?=\s|$|[，,;；:：!！?？、。\)\]）】》>])/g, (match, path) => {
     return `@"${path}"`;
   });
 

@@ -195,10 +195,33 @@ export class ToolRegistry {
   registerTool(tool: Tool): void {
     // 🎯 验证工具名称是否符合规范（兼容 Gemini 和 Claude）
     const validToolNamePattern = /^[a-zA-Z0-9_-]{1,128}$/;
-    if (!tool.name || !validToolNamePattern.test(tool.name)) {
-      console.warn(
-        `[ToolRegistry] Rejecting tool with invalid name: "${tool.name}" (must match ^[a-zA-Z0-9_-]{1,128}$)`,
+
+    // 检测是否是"参数被塞入 name"的明确标志
+    if (tool.name && (tool.name.includes('"') || tool.name.includes('{') || tool.name.includes('}'))) {
+      console.error(
+        `[ToolRegistry] CRITICAL ERROR: Tool name contains JSON characters!\n` +
+        `Tool name: "${tool.name.substring(0, 100)}${tool.name.length > 100 ? '...' : ''}"\n` +
+        `This indicates parameters were incorrectly placed in the tool name instead of args.\n` +
+        `Correct format: name="tool_name", args={parameters}\n` +
+        `Do NOT include parameters, JSON, or escaped quotes in the tool name field.`
       );
+      return; // 拒绝注册
+    }
+
+    if (!tool.name || !validToolNamePattern.test(tool.name)) {
+      const length = tool.name?.length || 0;
+      if (length > 128) {
+        console.error(
+          `[ToolRegistry] ERROR: Tool name exceeds 128 character limit!\n` +
+          `Tool name length: ${length} characters\n` +
+          `This usually means parameters were incorrectly packed into the name field.\n` +
+          `Tool name must be a simple identifier like "read_file" or "write_file".`
+        );
+      } else {
+        console.warn(
+          `[ToolRegistry] Rejecting tool with invalid name: "${tool.name}" (must match ^[a-zA-Z0-9_-]{1,128}$)`,
+        );
+      }
       return; // 🎯 拒绝注册无效的工具
     }
 
@@ -552,9 +575,17 @@ export class ToolRegistry {
 
   /**
    * Get the definition of a specific tool.
+   * Supports tool aliases for backward compatibility and model training variations.
+   * For example, 'bash' is aliased to 'run_shell_command'.
    */
   getTool(name: string): Tool | undefined {
-    return this.tools.get(name);
+    // Handle tool aliases
+    const toolAlias: Record<string, string> = {
+      'bash': 'run_shell_command',
+    };
+
+    const actualName = toolAlias[name] || name;
+    return this.tools.get(actualName);
   }
 }
 
