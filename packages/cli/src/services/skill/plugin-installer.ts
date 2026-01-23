@@ -421,6 +421,47 @@ export class PluginInstaller {
     // 验证 Skill 路径是否存在
     // Use new items structure if available
     if (plugin.items && plugin.items.length > 0) {
+      // 新增：递归检查命令/Agent 目录中是否包含可用文件
+      const hasCommandOrAgentFiles = async (dirPath: string): Promise<boolean> => {
+        const entries = await fs.readdir(dirPath);
+        for (const entry of entries) {
+          if (entry.startsWith('.')) continue;
+          const entryPath = path.join(dirPath, entry);
+          const entryStat = await fs.stat(entryPath);
+          if (entryStat.isFile()) {
+            if (
+              entry.endsWith('.md') ||
+              entry.endsWith('.py') ||
+              entry.endsWith('.sh')
+            ) {
+              return true;
+            }
+          } else if (entryStat.isDirectory()) {
+            if (await hasCommandOrAgentFiles(entryPath)) {
+              return true;
+            }
+          }
+        }
+        return false;
+      };
+
+      // 新增：允许 skills/ 作为容器目录（子目录内含 SKILL.md）
+      const hasNestedSkillDir = async (dirPath: string): Promise<boolean> => {
+        const entries = await fs.readdir(dirPath);
+        for (const entry of entries) {
+          if (entry.startsWith('.')) continue;
+          const entryPath = path.join(dirPath, entry);
+          const entryStat = await fs.stat(entryPath);
+          if (entryStat.isDirectory()) {
+            const skillFile = path.join(entryPath, 'SKILL.md');
+            if (await fs.pathExists(skillFile)) {
+              return true;
+            }
+          }
+        }
+        return false;
+      };
+
       for (const item of plugin.items) {
         const fullPath = path.join(marketplacePath, item.path);
 
@@ -428,7 +469,31 @@ export class PluginInstaller {
         if (item.type === SkillType.SKILL) {
           // Skills must be directories with SKILL.md
           const skillFile = path.join(fullPath, 'SKILL.md');
-          if (!(await fs.pathExists(skillFile))) {
+          if (await fs.pathExists(skillFile)) {
+            continue;
+          }
+
+          // 新增：允许 skill 目录不存在时给出更明确的错误
+          const exists = await fs.pathExists(fullPath);
+          if (!exists) {
+            throw new ValidationError(
+              `Skill path not found: ${fullPath}`,
+              { skillPath: item.path },
+            );
+          }
+
+          // 新增：防止 skill 指向文件
+          const stat = await fs.stat(fullPath);
+          if (!stat.isDirectory()) {
+            throw new ValidationError(
+              `Skill path is not a directory: ${fullPath}`,
+              { skillPath: item.path },
+            );
+          }
+
+          // 新增：允许 skill 组目录（例如 skills/）
+          const hasNestedSkill = await hasNestedSkillDir(fullPath);
+          if (!hasNestedSkill) {
             throw new ValidationError(
               `Skill file not found: ${skillFile}`,
               { skillPath: item.path },
@@ -438,33 +503,29 @@ export class PluginInstaller {
           // Commands and Agents can be files or directories
           // If it's a file path (ends in .md), check file existence
           // If it's a directory, check for SKILL.md (legacy support)
-
-          let exists = await fs.pathExists(fullPath);
-          if (!exists && fullPath.endsWith('.md')) {
-             // It's a missing file
-             throw new ValidationError(
-              `File not found: ${fullPath}`,
+          const exists = await fs.pathExists(fullPath);
+          if (!exists) {
+            throw new ValidationError(
+              `Path not found: ${fullPath}`,
               { path: item.path },
             );
-          } else if (exists) {
-             const stat = await fs.stat(fullPath);
-             if (stat.isDirectory()) {
-                const skillFile = path.join(fullPath, 'SKILL.md');
-                if (!(await fs.pathExists(skillFile))) {
-                   throw new ValidationError(
-                    `Skill file not found in directory: ${skillFile}`,
-                    { path: item.path },
-                  );
-                }
-             }
-             // If it's a file and exists, we are good.
-          } else {
-             // Path doesn't exist and doesn't end in .md - assume directory missing SKILL.md
-             const skillFile = path.join(fullPath, 'SKILL.md');
-             throw new ValidationError(
-                `Skill file not found: ${skillFile}`,
+          }
+
+          const stat = await fs.stat(fullPath);
+          if (stat.isDirectory()) {
+            const skillFile = path.join(fullPath, 'SKILL.md');
+            if (await fs.pathExists(skillFile)) {
+              continue;
+            }
+
+            // 新增：目录需包含可用文件（md/py/sh）
+            const hasFiles = await hasCommandOrAgentFiles(fullPath);
+            if (!hasFiles) {
+              throw new ValidationError(
+                `Command/Agent directory contains no supported files: ${fullPath}`,
                 { path: item.path },
               );
+            }
           }
         }
       }

@@ -117,7 +117,7 @@ export interface MessageActionReturn {
  */
 export interface OpenDialogActionReturn {
   type: 'dialog';
-  dialog: 'help' | 'auth' | 'login' | 'theme' | 'editor' | 'privacy' | 'model' | 'customModelWizard' | 'settings-menu' | 'init-choice';
+  dialog: 'help' | 'auth' | 'login' | 'theme' | 'editor' | 'privacy' | 'model' | 'customModelWizard' | 'settings-menu' | 'init-choice' | 'plugin-install';
   metadata?: Record<string, unknown>;
 }
 

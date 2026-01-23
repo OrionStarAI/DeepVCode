@@ -70,6 +70,7 @@ export const useSlashCommandProcessor = (
     fileSize: number;
     lineCount: number;
   }) => void, // 🆕 接收 openInitChoiceDialog
+  openPluginInstallDialog?: () => void, // 🆕 接收 openPluginInstallDialog
 ) => {
   const session = useSessionStats();
   const [commands, setCommands] = useState<readonly SlashCommand[]>([]);
@@ -399,6 +400,12 @@ export const useSlashCommandProcessor = (
                       setShowHelp(false);
                       if (result.metadata && openInitChoiceDialog) {
                         openInitChoiceDialog(result.metadata as any);
+                      }
+                      return { type: 'handled' };
+                    case 'plugin-install':
+                      setShowHelp(false);
+                      if (openPluginInstallDialog) {
+                        openPluginInstallDialog();
                       }
                       return { type: 'handled' };
                     default: {
