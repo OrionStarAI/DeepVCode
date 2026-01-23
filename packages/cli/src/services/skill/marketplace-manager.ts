@@ -718,9 +718,17 @@ export class MarketplaceManager {
       };
 
       // 按照 Claude Code 的约定发现 agents, commands, skills
+      // 标准目录
       await autoDiscoverDirs('agents', SkillType.AGENT);
       await autoDiscoverDirs('commands', SkillType.COMMAND);
       await autoDiscoverDirs('skills', SkillType.SKILL);
+
+      // Claude Code 风格目录 (.claude/skills, .claude/commands)
+      await autoDiscoverDirs('.claude/skills', SkillType.SKILL);
+      await autoDiscoverDirs('.claude/commands', SkillType.COMMAND);
+
+      // Cursor 风格目录 (.cursor/commands, .cursor/rules)
+      await autoDiscoverDirs('.cursor/commands', SkillType.COMMAND);
     } else {
       // 如果明确定义了，使用明确的定义
       await processItems(finalPluginDef.skills, SkillType.SKILL);

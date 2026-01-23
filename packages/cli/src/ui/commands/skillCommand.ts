@@ -659,30 +659,70 @@ export const skillCommand: SlashCommand = {
             }
           },
 
-          action: async (context: CommandContext, args?: string) => {
+          action: (context: CommandContext, args?: string) => {
             const input = args?.trim();
 
+            // If no input, show interactive selection dialog
             if (!input) {
-              context.ui.addItem(
-                {
-                  type: MessageType.ERROR,
-                  text: t('skill.plugin.install.usage'),
-                },
-                Date.now(),
-              );
-              return;
+              return {
+                type: 'dialog' as const,
+                dialog: 'plugin-install' as const,
+              };
             }
 
-            try {
+            // Process with arguments asynchronously
+            (async () => {
+              try {
+                const { marketplace, installer } = await initSkillsSystem();
+
+              // Parse input: could be "plugin-name" or "marketplace:plugin-name"
               const colonIndex = input.indexOf(':');
-              if (colonIndex === -1) {
-                throw new Error('Both marketplace and plugin name required');
+              let marketplaceId: string;
+              let pluginName: string;
+
+              if (colonIndex !== -1) {
+                // Explicit format: marketplace:plugin
+                marketplaceId = input.substring(0, colonIndex);
+                pluginName = input.substring(colonIndex + 1);
+              } else {
+                // Implicit format: just plugin-name
+                // Need to find which marketplace contains this plugin
+                pluginName = input;
+                const allMarketplaces = await marketplace.listMarketplaces();
+
+                // Search for plugin in all marketplaces
+                const matches: Array<{ mpId: string; mpName: string }> = [];
+                for (const mp of allMarketplaces) {
+                  try {
+                    const plugins = await marketplace.getPlugins(mp.id);
+                    const found = plugins.find(p => p.name === pluginName);
+                    if (found) {
+                      matches.push({ mpId: mp.id, mpName: mp.name });
+                    }
+                  } catch {
+                    // Ignore errors for individual marketplaces
+                  }
+                }
+
+                if (matches.length === 0) {
+                  throw new Error(
+                    `Plugin "${pluginName}" not found in any marketplace.\n` +
+                    `Try specifying marketplace explicitly: /skill plugin install <marketplace:${pluginName}>`
+                  );
+                } else if (matches.length > 1) {
+                  const marketplaceList = matches
+                    .map(m => `  • ${m.mpName} (${m.mpId})`)
+                    .join('\n');
+                  throw new Error(
+                    `Plugin "${pluginName}" found in ${matches.length} marketplaces:\n${marketplaceList}\n\n` +
+                    `Please specify which one to use:\n` +
+                    `  /skill plugin install ${matches[0].mpId}:${pluginName}`
+                  );
+                } else {
+                  // Unique match
+                  marketplaceId = matches[0].mpId;
+                }
               }
-
-              const marketplaceId = input.substring(0, colonIndex);
-              const pluginName = input.substring(colonIndex + 1);
-
-              const { installer } = await initSkillsSystem();
 
               context.ui.addItem(
                 {
@@ -713,6 +753,7 @@ export const skillCommand: SlashCommand = {
                 Date.now(),
               );
             }
+            })();
           },
         },
 
@@ -1049,13 +1090,13 @@ export const skillCommand: SlashCommand = {
             let userPath = SkillsPaths.SKILLS_ROOT.replace(os.homedir(), '~');
             // 项目路径：使用 PROJECT_DIR_PREFIX 常量
             let projectPathDisplay = `{project}/${PROJECT_DIR_PREFIX}/skills`;
-            
+
             // 尝试从第一个 skill 的 location 获取实际路径
             const userSkill = skillsToDisplay.find(s => s.isCustom && s.location?.type === 'user_global');
             if (userSkill?.location?.rootPath) {
               userPath = userSkill.location.rootPath.replace(os.homedir(), '~');
             }
-            
+
             const projectSkill = skillsToDisplay.find(s => s.isCustom && s.location?.type === 'user_project');
             if (projectSkill?.location?.rootPath) {
               // 从实际路径中提取相对路径部分
@@ -1063,7 +1104,7 @@ export const skillCommand: SlashCommand = {
               const relativePath = path.relative(process.cwd(), rootPath);
               projectPathDisplay = `{project}/${relativePath}`;
             }
-            
+
             const categories = {
               user: { skills: [] as any[], path: userPath, title: 'User skills' },
               project: { skills: [] as any[], path: projectPathDisplay, title: 'Project skills' },

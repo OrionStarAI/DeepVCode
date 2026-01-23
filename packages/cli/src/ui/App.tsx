@@ -32,6 +32,7 @@ import { useLoginCommand } from './hooks/useLoginCommand.js';
 import { useEditorSettings } from './hooks/useEditorSettings.js';
 import { useInitChoice } from './hooks/useInitChoice.js';
 import { useSettingsMenu } from './hooks/useSettingsMenu.js';
+import { usePluginInstallCommand } from './hooks/usePluginInstallCommand.js';
 import { useSlashCommandProcessor } from './hooks/slashCommandProcessor.js';
 import { useAutoAcceptIndicator } from './hooks/useAutoAcceptIndicator.js';
 import { useConsoleMessages } from './hooks/useConsoleMessages.js';
@@ -50,6 +51,7 @@ import { Footer } from './components/Footer.js';
 import { truncateText, getDefaultMaxRows } from './utils/textTruncator.js';
 import { ThemeDialog } from './components/ThemeDialog.js';
 import { ModelDialog } from './components/ModelDialog.js';
+import { PluginInstallDialog } from './components/PluginInstallDialog.js';
 import { CustomModelWizard } from './components/CustomModelWizard.js';
 import { AuthDialog } from './components/AuthDialog.js';
 import { LoginDialog } from './components/LoginDialog.js';
@@ -893,6 +895,12 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     exitInitChoiceDialog,
   } = useInitChoice(addItem);
 
+  const {
+    isPluginInstallDialogOpen,
+    openPluginInstallDialog,
+    handlePluginInstallClose,
+  } = usePluginInstallCommand(addItem);
+
   const [sessionSelectData, setSessionSelectData] = useState<SessionOption[] | null>(null);
 
   const toggleCorgiMode = useCallback(() => {
@@ -1140,6 +1148,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     lastTokenUsage,
     openSettingsMenuDialog, // 🆕 传递 openSettingsMenuDialog
     openInitChoiceDialog, // 🆕 传递 openInitChoiceDialog
+    openPluginInstallDialog, // 🆕 传递 openPluginInstallDialog
   );
 
   const {
@@ -2275,6 +2284,14 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                 onCancel={handleWizardCancel}
               />
             </Box>
+          ) : isPluginInstallDialogOpen ? (
+            <Box flexDirection="column">
+              <PluginInstallDialog
+                onClose={handlePluginInstallClose}
+                terminalWidth={mainAreaWidth}
+                availableTerminalHeight={terminalHeight - staticExtraHeight}
+              />
+            </Box>
           ) : isAuthenticating ? (
             <>
               <AuthInProgress
@@ -2623,7 +2640,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                   focus={isFocused}
                   vimHandleInput={vimHandleInput}
                   placeholder={placeholder}
-                  isModalOpen={isModelDialogOpen || isCustomModelWizardOpen || isAuthDialogOpen || isThemeDialogOpen || isEditorDialogOpen || isInitChoiceDialogOpen || isToolConfirmationMenuOpen || showBackgroundTaskPanel}
+                  isModalOpen={isModelDialogOpen || isCustomModelWizardOpen || isAuthDialogOpen || isThemeDialogOpen || isEditorDialogOpen || isInitChoiceDialogOpen || isPluginInstallDialogOpen || isToolConfirmationMenuOpen || showBackgroundTaskPanel}
                   isExecutingTools={isExecutingTools}
                   isBusy={streamingState !== StreamingState.Idle || queuedPrompts.length > 0}
                   isInSpecialMode={!!refineResult || queueEditMode}
