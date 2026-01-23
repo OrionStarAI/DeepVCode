@@ -18,12 +18,18 @@
  *   - 其他格式 → 原样返回
  */
 export function normalizeGitHubUrl(input: string): string {
-  // 如果已经是 URL，直接返回
-  if (input.startsWith('http://') || input.startsWith('https://')) {
+  // 如果已经以协议开头，直接返回
+  if (input.startsWith('http://') || input.startsWith('https://') || input.startsWith('git@')) {
     return input;
   }
 
-  // 如果是本地路径（包含路径分隔符或不包含 /），不转换
+  // 处理 github.com/owner/repo 格式
+  if (input.startsWith('github.com/') || input.startsWith('www.github.com/')) {
+    return `https://${input}${input.endsWith('.git') ? '' : '.git'}`;
+  }
+
+  // 如果是本地路径（包含路径分隔符或以 . / 开始），不转换
+  // 注意：Windows 下包含 \，POSIX 下以 / 开始，或以 . 开始
   if (input.includes('\\') || input.startsWith('.') || input.startsWith('/')) {
     return input;
   }
@@ -33,7 +39,8 @@ export function normalizeGitHubUrl(input: string): string {
   // repo: 字母、数字、下划线、点号、连字符组成
   const githubShortPattern = /^[a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\/[a-zA-Z0-9._-]+$/;
   if (githubShortPattern.test(input)) {
-    return `https://github.com/${input}.git`;
+    const suffix = input.endsWith('.git') ? '' : '.git';
+    return `https://github.com/${input}${suffix}`;
   }
 
   // 其他情况作为本地路径返回

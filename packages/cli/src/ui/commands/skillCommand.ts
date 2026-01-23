@@ -32,7 +32,7 @@ import { PROJECT_DIR_PREFIX } from 'deepv-code-core';
 /**
  * 初始化 Skills 系统组件
  */
-async function initSkillsSystem() {
+export async function initSkillsSystem() {
   const settings = new SettingsManager();
   await settings.initialize();
 
@@ -44,9 +44,174 @@ async function initSkillsSystem() {
 }
 
 /**
+ * Plugin install action logic
+ */
+export const handlePluginInstallAction = (context: CommandContext, args?: string) => {
+  const input = args?.trim();
+
+  // If no input, show interactive selection dialog
+  if (!input) {
+    return {
+      type: 'dialog' as const,
+      dialog: 'plugin-install' as const,
+    };
+  }
+
+  // Process with arguments asynchronously
+  (async () => {
+    try {
+      const { marketplace, installer } = await initSkillsSystem();
+
+      // Parse input: could be "plugin-name", "marketplace:plugin-name", or "plugin-name@marketplace"
+      const colonIndex = input.indexOf(':');
+      const atIndex = input.lastIndexOf('@');
+      let marketplaceId: string | undefined;
+      let pluginName: string;
+
+      if (colonIndex !== -1) {
+        // Explicit format: marketplace:plugin
+        marketplaceId = input.substring(0, colonIndex);
+        pluginName = input.substring(colonIndex + 1);
+      } else if (atIndex !== -1) {
+        // New format: plugin@marketplace
+        pluginName = input.substring(0, atIndex);
+        marketplaceId = input.substring(atIndex + 1);
+      } else {
+        // Implicit format: just plugin-name
+        pluginName = input;
+        const allMarketplaces = await marketplace.listMarketplaces();
+
+        // Search for plugin in all marketplaces
+        const matches: Array<{ mpId: string; mpName: string }> = [];
+        for (const mp of allMarketplaces) {
+          try {
+            const plugins = await marketplace.getPlugins(mp.id);
+            const found = plugins.find(p => p.name === pluginName);
+            if (found) {
+              matches.push({ mpId: mp.id, mpName: mp.name });
+            }
+          } catch {
+            // Ignore errors for individual marketplaces
+          }
+        }
+
+        if (matches.length === 0) {
+          throw new Error(
+            `Plugin "${pluginName}" not found in any marketplace.\n` +
+            `Try specifying marketplace explicitly: /skill install ${pluginName}@<marketplace>`
+          );
+        } else if (matches.length > 1) {
+          const marketplaceList = matches
+            .map(m => `  • ${m.mpName} (${m.mpId})`)
+            .join('\n');
+          throw new Error(
+            `Plugin "${pluginName}" found in ${matches.length} marketplaces:\n${marketplaceList}\n\n` +
+            `Please specify which one to use:\n` +
+            `  /skill install ${pluginName}@${matches[0].mpId}`
+          );
+        } else {
+          // Unique match
+          marketplaceId = matches[0].mpId;
+        }
+      }
+
+      context.ui.addItem(
+        {
+          type: MessageType.INFO,
+          text: tp('skill.plugin.install.progress', { plugin: pluginName, marketplace: marketplaceId }),
+        },
+        Date.now(),
+      );
+
+      const plugin = await installer.installPlugin(marketplaceId, pluginName);
+
+      // Clear Skills context cache
+      clearSkillsContextCache();
+
+      context.ui.addItem(
+        {
+          type: MessageType.INFO,
+          text: tp('skill.plugin.install.success', { name: plugin.name, id: plugin.id, count: plugin.skillPaths.length }),
+        },
+        Date.now(),
+      );
+    } catch (error) {
+      context.ui.addItem(
+        {
+          type: MessageType.ERROR,
+          text: tp('skill.plugin.install.failed', { error: error instanceof Error ? error.message : String(error) }),
+        },
+        Date.now(),
+      );
+    }
+  })();
+};
+
+/**
+ * Plugin install completion logic
+ */
+export const handlePluginInstallCompletion = async (context: CommandContext, partialArg: string): Promise<Suggestion[]> => {
+  // Prevent duplicate arguments: install only takes one argument
+  if (context.invocation) {
+     const parts = context.invocation.raw.trim().split(/\s+/);
+     const hasTrailingSpace = context.invocation.raw.endsWith(' ');
+
+     if (parts.length >= 4 && hasTrailingSpace) {
+       return [];
+     }
+     if (parts.length > 4) {
+       return [];
+     }
+  }
+
+  try {
+    const { marketplace } = await initSkillsSystem();
+
+    // Check for colon separator first (new format)
+    const colonIndex = partialArg.indexOf(':');
+    // Also check for space (legacy/fallback)
+    const spaceIndex = partialArg.indexOf(' ');
+
+    const separatorIndex = colonIndex !== -1 ? colonIndex : spaceIndex;
+
+    if (separatorIndex === -1) {
+      // Case 1: Typing Marketplace ID
+      const input = partialArg.toLowerCase();
+      const mps = await marketplace.listMarketplaces();
+      return mps
+        .filter(mp => mp.id.toLowerCase().startsWith(input))
+        .map(mp => ({
+          label: mp.name,
+          value: mp.id + ':', // Use colon to prepare for plugin name
+          description: mp.description || mp.url
+        }));
+    } else {
+      // Case 2: Typing Plugin Name
+      const marketplaceId = partialArg.substring(0, separatorIndex);
+      const pluginInput = partialArg.substring(separatorIndex + 1).trim().toLowerCase();
+
+      try {
+        const plugins = await marketplace.getPlugins(marketplaceId);
+        return plugins
+          .filter(p => p.name.toLowerCase().includes(pluginInput))
+          .map(p => ({
+            label: p.name,
+            value: `${marketplaceId}:${p.name}`,
+            description: p.description
+          }));
+      } catch (e) {
+        return [];
+      }
+    }
+  } catch (error) {
+    return [];
+  }
+};
+
+/**
  * 格式化 Marketplace 信息
  */
-function formatMarketplace(mp: Marketplace): string {
+export function formatMarketplace(mp: Marketplace): string {
   const lines: string[] = [];
   lines.push(`📦 ${mp.name} (${mp.id})`);
   lines.push(`   ${t('skill.label.source')}${mp.source === 'git' ? mp.url : mp.path}`);
@@ -63,7 +228,7 @@ function formatMarketplace(mp: Marketplace): string {
 /**
  * 格式化 Plugin 信息
  */
-function formatPlugin(plugin: Plugin, installed = false): string {
+export function formatPlugin(plugin: Plugin, installed = false): string {
   const lines: string[] = [];
   const status = installed ? '✅' : '❌';
   lines.push(`🔌 ${plugin.name} ${status}`);
@@ -76,7 +241,7 @@ function formatPlugin(plugin: Plugin, installed = false): string {
 /**
  * 格式化 Skill 信息
  */
-function formatSkill(skill: Skill): string {
+export function formatSkill(skill: Skill): string {
   const lines: string[] = [];
 
   // 根据类型选择图标
@@ -600,161 +765,8 @@ export const skillCommand: SlashCommand = {
           name: 'install',
           description: t('skill.plugin.install.description'),
           kind: CommandKind.BUILT_IN,
-
-          completion: async (context: CommandContext, partialArg: string): Promise<Suggestion[]> => {
-            // Prevent duplicate arguments: install only takes one argument
-            if (context.invocation) {
-               const parts = context.invocation.raw.trim().split(/\s+/);
-               const hasTrailingSpace = context.invocation.raw.endsWith(' ');
-
-               if (parts.length >= 4 && hasTrailingSpace) {
-                 return [];
-               }
-               if (parts.length > 4) {
-                 return [];
-               }
-            }
-
-            try {
-              const { marketplace } = await initSkillsSystem();
-
-              // Check for colon separator first (new format)
-              const colonIndex = partialArg.indexOf(':');
-              // Also check for space (legacy/fallback)
-              const spaceIndex = partialArg.indexOf(' ');
-
-              const separatorIndex = colonIndex !== -1 ? colonIndex : spaceIndex;
-
-              if (separatorIndex === -1) {
-                // Case 1: Typing Marketplace ID
-                const input = partialArg.toLowerCase();
-                const mps = await marketplace.listMarketplaces();
-                return mps
-                  .filter(mp => mp.id.toLowerCase().startsWith(input))
-                  .map(mp => ({
-                    label: mp.name,
-                    value: mp.id + ':', // Use colon to prepare for plugin name
-                    description: mp.description || mp.url
-                  }));
-              } else {
-                // Case 2: Typing Plugin Name
-                const marketplaceId = partialArg.substring(0, separatorIndex);
-                const pluginInput = partialArg.substring(separatorIndex + 1).trim().toLowerCase();
-
-                try {
-                  const plugins = await marketplace.getPlugins(marketplaceId);
-                  return plugins
-                    .filter(p => p.name.toLowerCase().includes(pluginInput))
-                    .map(p => ({
-                      label: p.name,
-                      value: `${marketplaceId}:${p.name}`,
-                      description: p.description
-                    }));
-                } catch (e) {
-                  return [];
-                }
-              }
-            } catch (error) {
-              return [];
-            }
-          },
-
-          action: (context: CommandContext, args?: string) => {
-            const input = args?.trim();
-
-            // If no input, show interactive selection dialog
-            if (!input) {
-              return {
-                type: 'dialog' as const,
-                dialog: 'plugin-install' as const,
-              };
-            }
-
-            // Process with arguments asynchronously
-            (async () => {
-              try {
-                const { marketplace, installer } = await initSkillsSystem();
-
-              // Parse input: could be "plugin-name" or "marketplace:plugin-name"
-              const colonIndex = input.indexOf(':');
-              let marketplaceId: string;
-              let pluginName: string;
-
-              if (colonIndex !== -1) {
-                // Explicit format: marketplace:plugin
-                marketplaceId = input.substring(0, colonIndex);
-                pluginName = input.substring(colonIndex + 1);
-              } else {
-                // Implicit format: just plugin-name
-                // Need to find which marketplace contains this plugin
-                pluginName = input;
-                const allMarketplaces = await marketplace.listMarketplaces();
-
-                // Search for plugin in all marketplaces
-                const matches: Array<{ mpId: string; mpName: string }> = [];
-                for (const mp of allMarketplaces) {
-                  try {
-                    const plugins = await marketplace.getPlugins(mp.id);
-                    const found = plugins.find(p => p.name === pluginName);
-                    if (found) {
-                      matches.push({ mpId: mp.id, mpName: mp.name });
-                    }
-                  } catch {
-                    // Ignore errors for individual marketplaces
-                  }
-                }
-
-                if (matches.length === 0) {
-                  throw new Error(
-                    `Plugin "${pluginName}" not found in any marketplace.\n` +
-                    `Try specifying marketplace explicitly: /skill plugin install <marketplace:${pluginName}>`
-                  );
-                } else if (matches.length > 1) {
-                  const marketplaceList = matches
-                    .map(m => `  • ${m.mpName} (${m.mpId})`)
-                    .join('\n');
-                  throw new Error(
-                    `Plugin "${pluginName}" found in ${matches.length} marketplaces:\n${marketplaceList}\n\n` +
-                    `Please specify which one to use:\n` +
-                    `  /skill plugin install ${matches[0].mpId}:${pluginName}`
-                  );
-                } else {
-                  // Unique match
-                  marketplaceId = matches[0].mpId;
-                }
-              }
-
-              context.ui.addItem(
-                {
-                  type: MessageType.INFO,
-                  text: tp('skill.plugin.install.progress', { plugin: pluginName, marketplace: marketplaceId }),
-                },
-                Date.now(),
-              );
-
-              const plugin = await installer.installPlugin(marketplaceId, pluginName);
-
-              // Clear Skills context cache
-              clearSkillsContextCache();
-
-              context.ui.addItem(
-                {
-                  type: MessageType.INFO,
-                  text: tp('skill.plugin.install.success', { name: plugin.name, id: plugin.id, count: plugin.skillPaths.length }),
-                },
-                Date.now(),
-              );
-            } catch (error) {
-              context.ui.addItem(
-                {
-                  type: MessageType.ERROR,
-                  text: tp('skill.plugin.install.failed', { error: error instanceof Error ? error.message : String(error) }),
-                },
-                Date.now(),
-              );
-            }
-            })();
-          },
+          completion: handlePluginInstallCompletion,
+          action: handlePluginInstallAction,
         },
 
         {
@@ -1056,6 +1068,17 @@ export const skillCommand: SlashCommand = {
           },
         },
       ],
+    },
+
+    // ========================================================================
+    // /skill install (alias for /skill plugin install)
+    // ========================================================================
+    {
+      name: 'install',
+      description: t('skill.install.description'),
+      kind: CommandKind.BUILT_IN,
+      completion: handlePluginInstallCompletion,
+      action: handlePluginInstallAction,
     },
 
     // ========================================================================

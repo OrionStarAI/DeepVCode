@@ -50,6 +50,7 @@ import { refineCommand } from '../ui/commands/refineCommand.js';
 import { queueCommand } from '../ui/commands/queueCommand.js';
 import { nanoBananaCommand } from '../ui/commands/nanoBananaCommand.js';
 import { skillCommand } from '../ui/commands/skillCommand.js';
+import { pluginCommand } from '../ui/commands/pluginCommand.js';
 import { pptCommand } from '../ui/commands/pptCommand.js';
 import { hooksCommand } from '../ui/commands/hooksCommand.js';
 import { issueCommand } from '../ui/commands/issueCommand.js';
@@ -103,6 +104,7 @@ export class BuiltinCommandLoader implements ICommandLoader {
       restoreCommand(this.config),
       sessionCommand,
       skillCommand,
+      pluginCommand,
       statsCommand,
       contextCommand,
       themeCommand,
