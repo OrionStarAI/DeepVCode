@@ -23,12 +23,12 @@ import {
   ValidationError,
   SkillType,
   SkillSource,
-} from './types.js';
+} from './skill-types.js';
 import { SettingsManager, SkillsPaths } from './settings-manager.js';
 import { MarketplaceManager } from './marketplace-manager.js';
 import { MarketplaceLoader } from './loaders/marketplace-loader.js';
 import { UnifiedComponent, ComponentType } from './models/unified.js';
-import { getProjectSkillsDir } from 'deepv-code-core';
+import { getProjectSkillsDir } from '../utils/paths.js';
 
 /**
  * Skill 缓存项

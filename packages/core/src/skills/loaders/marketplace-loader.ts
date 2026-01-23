@@ -18,7 +18,7 @@ import {
 import { IPluginLoader } from './types.js';
 import { SettingsManager, SkillsPaths } from '../settings-manager.js';
 import { PluginStructureAnalyzer, ComponentParser } from '../parsers/index.js';
-import { PluginSource } from '../types.js';
+import { PluginSource } from '../skill-types.js';
 
 /**
  * Marketplace 加载器

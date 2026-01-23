@@ -8,7 +8,7 @@ import path from 'path';
 import os from 'os';
 import { MarketplaceManager } from './marketplace-manager.js';
 import { SettingsManager, SkillsPaths } from './settings-manager.js';
-import { MarketplaceSource } from './types.js';
+import { MarketplaceSource } from './skill-types.js';
 
 describe('MarketplaceManager', () => {
   let manager: MarketplaceManager;

@@ -605,3 +605,67 @@ export const DEFAULT_INSTALLED_PLUGINS: InstalledPluginsRecord = {
   plugins: {},
   lastUpdated: new Date().toISOString(),
 };
+
+// ============================================================================
+// Legacy Types (for backward compatibility with SkillsContextBuilder)
+// ============================================================================
+
+/**
+ * Simplified SkillInfo for context builder
+ */
+export interface SkillInfo {
+  id: string;
+  name: string;
+  pluginId: string;
+  marketplaceId: string;
+  description: string;
+  path: string;
+  skillMdPath: string;
+  enabled: boolean;
+}
+
+/**
+ * Skills context for AI
+ */
+export interface SkillsContext {
+  available: boolean;
+  skills: SkillInfo[];
+  summary: string;
+}
+
+/**
+ * Installed plugins record (legacy alias)
+ */
+export type InstalledPlugins = InstalledPluginsRecord;
+
+/**
+ * Plugin info (legacy alias)
+ */
+export type PluginInfo = InstalledPluginInfo;
+
+/**
+ * Marketplace manifest definition
+ */
+export interface MarketplaceManifest {
+  name: string;
+  owner: {
+    name: string;
+    email: string;
+  };
+  metadata: {
+    description: string;
+    version: string;
+  };
+  plugins: PluginDefinition[];
+}
+
+/**
+ * Plugin definition in marketplace manifest
+ */
+export interface PluginDefinition {
+  name: string;
+  description: string;
+  source: string;
+  strict: boolean;
+  skills: string[];
+}

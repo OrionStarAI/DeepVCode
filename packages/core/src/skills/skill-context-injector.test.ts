@@ -11,7 +11,7 @@ import { SkillLoader } from './skill-loader.js';
 import { SettingsManager, SkillsPaths } from './settings-manager.js';
 import { MarketplaceManager } from './marketplace-manager.js';
 import { PluginInstaller } from './plugin-installer.js';
-import { SkillLoadLevel } from './types.js';
+import { SkillLoadLevel } from './skill-types.js';
 
 describe('SkillContextInjector', () => {
   let injector: SkillContextInjector;

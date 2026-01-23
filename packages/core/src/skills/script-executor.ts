@@ -18,7 +18,7 @@ import {
   ScriptType,
   SkillError,
   SkillErrorCode,
-} from './types.js';
+} from './skill-types.js';
 
 const execAsync = promisify(exec);
 
