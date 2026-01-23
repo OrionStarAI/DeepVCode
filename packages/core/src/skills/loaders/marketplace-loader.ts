@@ -51,6 +51,9 @@ export class MarketplaceLoader implements IPluginLoader {
       const manifestPath = path.join(mpPath, '.claude-plugin', 'marketplace.json');
       const loadedPluginIds = new Set<string>();
 
+      // 🔧 新增：检查是否为 Claude Code marketplace
+      const isClaudeCodeMarketplace = mp.id === 'claude-code' || mp.id?.includes('claude-code');
+
       if (await fs.pathExists(manifestPath)) {
         try {
           const manifest = await fs.readJson(manifestPath);
@@ -59,8 +62,9 @@ export class MarketplaceLoader implements IPluginLoader {
               try {
                 const pluginId = `${mp.id}:${pluginDef.name}`;
 
-                // 🚀 性能优化：跳过未安装的插件
-                if (!installedPluginIds.has(pluginId)) {
+                // 🔧 优化：Claude Code marketplace 自动加载所有插件（不检查 installed_plugins.json）
+                // 其他 marketplace 仍然遵循原有逻辑
+                if (!isClaudeCodeMarketplace && !installedPluginIds.has(pluginId)) {
                   continue;
                 }
 
@@ -89,8 +93,9 @@ export class MarketplaceLoader implements IPluginLoader {
         // 跳过已从 manifest 加载的插件
         if (loadedPluginIds.has(pluginId)) continue;
 
-        // 🚀 性能优化：跳过未安装的插件
-        if (!installedPluginIds.has(pluginId)) {
+        // 🔧 优化：Claude Code marketplace 自动加载所有插件（不检查 installed_plugins.json）
+        // 其他 marketplace 仍然遵循原有逻辑
+        if (!isClaudeCodeMarketplace && !installedPluginIds.has(pluginId)) {
           continue;
         }
 
@@ -180,16 +185,26 @@ export class MarketplaceLoader implements IPluginLoader {
     // 按照官方文档，可以在 manifest 中定义 commands, agents, hooks 等
     // 支持字符串数组或对象数组（对象包含 path 属性）
 
+    // 🔧 新增：支持 marketplace.json 中的 metadata.pluginRoot
+    const pluginRootPrefix = pluginDef.metadata?.pluginRoot || '';
+
+    // Helper to get full path respecting pluginRoot
+    const getFullPath = (p: string) => {
+      const targetPath = pluginRootPrefix ? path.join(pluginRootPrefix, p) : p;
+      return path.isAbsolute(targetPath) ? targetPath : path.join(pluginDir, targetPath);
+    };
+
     // Commands
-    if (pluginDef.commands && Array.isArray(pluginDef.commands)) {
-      for (const cmdItem of pluginDef.commands) {
+    if (pluginDef.commands && (Array.isArray(pluginDef.commands) || typeof pluginDef.commands === 'string')) {
+      const cmdItems = Array.isArray(pluginDef.commands) ? pluginDef.commands : [pluginDef.commands];
+      for (const cmdItem of cmdItems) {
         // 支持字符串或对象格式：{ path: "commands/foo.md" }
         const cmdPath = typeof cmdItem === 'string' ? cmdItem : cmdItem?.path;
         if (!cmdPath || typeof cmdPath !== 'string') {
           console.warn(`Invalid command path in plugin ${id}:`, cmdItem);
           continue;
         }
-        const fullPath = path.join(pluginDir, cmdPath);
+        const fullPath = getFullPath(cmdPath);
         const component = await this.componentParser.parse(
           fullPath,
           ComponentType.COMMAND,
@@ -204,15 +219,16 @@ export class MarketplaceLoader implements IPluginLoader {
     }
 
     // Agents
-    if (pluginDef.agents && Array.isArray(pluginDef.agents)) {
-      for (const agentItem of pluginDef.agents) {
+    if (pluginDef.agents && (Array.isArray(pluginDef.agents) || typeof pluginDef.agents === 'string')) {
+      const agentItems = Array.isArray(pluginDef.agents) ? pluginDef.agents : [pluginDef.agents];
+      for (const agentItem of agentItems) {
         // 支持字符串或对象格式：{ path: "agents/foo.md" }
         const agentPath = typeof agentItem === 'string' ? agentItem : agentItem?.path;
         if (!agentPath || typeof agentPath !== 'string') {
           console.warn(`Invalid agent path in plugin ${id}:`, agentItem);
           continue;
         }
-        const fullPath = path.join(pluginDir, agentPath);
+        const fullPath = getFullPath(agentPath);
         const component = await this.componentParser.parse(
           fullPath,
           ComponentType.AGENT,
@@ -227,15 +243,16 @@ export class MarketplaceLoader implements IPluginLoader {
     }
 
     // Skills (如果显式定义了)
-    if (pluginDef.skills && Array.isArray(pluginDef.skills)) {
-      for (const skillItem of pluginDef.skills) {
+    if (pluginDef.skills && (Array.isArray(pluginDef.skills) || typeof pluginDef.skills === 'string')) {
+      const skillItems = Array.isArray(pluginDef.skills) ? pluginDef.skills : [pluginDef.skills];
+      for (const skillItem of skillItems) {
         // 支持字符串或对象格式：{ path: "skills/foo.md" }
         const skillPath = typeof skillItem === 'string' ? skillItem : skillItem?.path;
         if (!skillPath || typeof skillPath !== 'string') {
           console.warn(`Invalid skill path in plugin ${id}:`, skillItem);
           continue;
         }
-        const fullPath = path.join(pluginDir, skillPath);
+        const fullPath = getFullPath(skillPath);
         const component = await this.componentParser.parse(
           fullPath,
           ComponentType.SKILL,

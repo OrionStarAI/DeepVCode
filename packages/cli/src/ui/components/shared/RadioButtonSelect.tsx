@@ -20,6 +20,8 @@ export interface RadioSelectItem<T> {
   themeTypeDisplay?: string;
   rightText?: string;
   isCustomModel?: boolean; // 标识是否为自定义模型
+  customLabel?: React.ReactNode;
+  customDescription?: React.ReactNode;
 }
 
 /**
@@ -322,6 +324,10 @@ export function RadioButtonSelect<T>({
                   {item.themeNameDisplay}{' '}
                   <Text color={Colors.Gray}>{item.themeTypeDisplay}</Text>
                 </Text>
+              ) : item.customLabel ? (
+                <Box flexShrink={1}>
+                  {item.customLabel}
+                </Box>
               ) : (
                 <Text color={item.isCustomModel ? Colors.AccentCyan : textColor} wrap="truncate">
                   {item.label}
