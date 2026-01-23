@@ -89,6 +89,22 @@ function checkGithubRemoteExists() {
   log(`🔗 GitHub 远程仓库: ${githubUrl}`, colors.blue);
 }
 
+// 交互式确认
+async function confirm(question) {
+  const readline = await import('readline');
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+
+  return new Promise(resolve => {
+    rl.question(`\n${question} (y/n): `, answer => {
+      rl.close();
+      resolve(answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes');
+    });
+  });
+}
+
 // 获取当前分支名
 function getCurrentBranch() {
   return execQuiet('git rev-parse --abbrev-ref HEAD');
@@ -119,8 +135,35 @@ function getCommitsSince(commitHash, currentBranch) {
 }
 
 // Cherry-pick 一个 commit，遇到冲突自动使用 theirs 策略
-function cherryPickCommit(commitHash) {
+function cherryPickCommit(commitHash, dryRun = false) {
   try {
+    if (dryRun) {
+      // Dry run 模式：尝试 cherry-pick 但不提交，如果成功则 --abort
+      try {
+        exec(`git cherry-pick -n ${commitHash}`, { silent: true });
+        exec('git cherry-pick --abort', { silent: true, allowFail: true });
+        return { success: true };
+      } catch (e) {
+        // 即使是 dry run，也可能因为冲突而失败
+        const errorMsg = (e.stdout || '') + (e.stderr || '') + (e.message || '');
+        if (errorMsg.includes('nothing to commit') || errorMsg.includes('The previous cherry-pick is now empty')) {
+          exec('git cherry-pick --abort', { silent: true, allowFail: true });
+          return { success: true, skipped: true };
+        }
+
+        // 检查是否有冲突
+        const status = execQuiet('git status --porcelain');
+        if (status && (status.includes('UU') || status.includes('AA') || status.includes('DD'))) {
+          exec('git cherry-pick --abort', { silent: true, allowFail: true });
+          return { success: true, hadConflict: true }; // Dry run 下冲突也被视为“可处理”
+        }
+
+        exec('git cherry-pick --abort', { silent: true, allowFail: true });
+        return { success: false, error: errorMsg };
+      }
+    }
+
+    // 实际执行模式
     // 确保没有残留的 cherry-pick 状态
     exec('git cherry-pick --abort', { silent: true, allowFail: true });
 
@@ -226,6 +269,39 @@ async function main() {
     log(`  ${index + 1}. ${commit.hash} ${commit.message}`, colors.cyan);
   });
 
+  // Dry-run 模式
+  log(`\n🔍 开始 Dry-run 模拟检测...`, colors.blue);
+  exec('git checkout github_main');
+
+  let dryRunFailed = false;
+  for (const commit of commits) {
+    process.stdout.write(`  检测 ${commit.hash.substring(0, 8)}... `);
+    const result = cherryPickCommit(commit.hash, true);
+    if (result.success) {
+      if (result.hadConflict) {
+        log('✅ (模拟冲突，将自动解决)', colors.yellow);
+      } else if (result.skipped) {
+        log('✅ (已存在，将跳过)', colors.yellow);
+      } else {
+        log('✅ (可顺利应用)', colors.green);
+      }
+    } else {
+      log(`❌ (失败: ${result.error.substring(0, 50)}...)`, colors.red);
+      dryRunFailed = true;
+    }
+  }
+  exec(`git checkout ${currentBranch}`);
+
+  if (dryRunFailed) {
+    log('\n⚠️  Dry-run 检测到严重错误，建议手动检查后再继续。', colors.red);
+  }
+
+  const shouldProceed = await confirm('🔔 是否开始执行实际 cherry-pick 操作？');
+  if (!shouldProceed) {
+    log('\n👋 用户取消操作。', colors.yellow);
+    process.exit(0);
+  }
+
   // 切换到 github_main 分支
   log(`\n🔄 切换到 github_main 分支...`, colors.blue);
   exec('git checkout github_main');
@@ -278,28 +354,30 @@ async function main() {
   if (successCount > 0) {
     log('\n🎉 同步成功！', colors.green);
 
-    // 询问是否立即推送到 GitHub
-    const readline = await import('readline');
-    const rl = readline.createInterface({
-      input: process.stdin,
-      output: process.stdout
-    });
+    // 1. 推送到 origin
+    const pushOrigin = await confirm('📤 是否将 github_main 分支推送到 GitLab (origin)？');
+    if (pushOrigin) {
+      log('\n🚀 开始推送到 origin...', colors.blue);
+      try {
+        exec('git push origin github_main');
+        log('✅ GitLab (origin) 推送成功！', colors.green);
+      } catch (error) {
+        log(`❌ GitLab 推送失败: ${error.message}`, colors.red);
+      }
+    }
 
-    const answer = await new Promise(resolve => {
-      rl.question('\n📤 是否现在就将 github_main 分支推送到 GitHub 仓库的 main 分支？(y/n): ', resolve);
-    });
-    rl.close();
-
-    if (answer.toLowerCase() === 'y' || answer.toLowerCase() === 'yes') {
+    // 2. 推送到 GitHub
+    const pushGitHub = await confirm('📤 是否将 github_main 分支推送到 GitHub (github:main)？');
+    if (pushGitHub) {
       log('\n🚀 开始推送到 GitHub...', colors.blue);
       try {
         exec('git checkout github_main');
         exec('git push -f github github_main:main');
         exec(`git checkout ${currentBranch}`);
-        log('\n✅ 推送成功！', colors.green);
+        log('\n✅ GitHub 推送成功！', colors.green);
         log(`🔗 访问 GitHub 查看: https://github.com/OrionStarAI/DeepVCode`, colors.cyan);
       } catch (error) {
-        log(`\n❌ 推送失败: ${error.message}`, colors.red);
+        log(`\n❌ GitHub 推送失败: ${error.message}`, colors.red);
         log('💡 你可以手动推送:', colors.cyan);
         log('   git push -f github github_main:main', colors.cyan);
       }
