@@ -5,8 +5,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useCallback, useState, useEffect } from 'react';
-import { Box, Text } from 'ink';
+import React, { useCallback, useState, useEffect, useMemo } from 'react';
+import { Box, Text, useInput } from 'ink';
 import { Colors } from '../colors.js';
 import { RadioButtonSelect } from './shared/RadioButtonSelect.js';
 import { t } from '../utils/i18n.js';
@@ -39,10 +39,29 @@ export function PluginInstallDialog({
   availableTerminalHeight,
 }: PluginInstallDialogProps): React.JSX.Element {
   const [plugins, setPlugins] = useState<PluginOption[]>([]);
+  const [filterText, setFilterText] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [installing, setInstalling] = useState(false);
   const [highlightedPlugin, setHighlightedPlugin] = useState<string | undefined>();
+
+  // Handle escape key to close dialog
+  useInput((input, key) => {
+    if (key.escape) {
+      onClose(false);
+      return;
+    }
+
+    if (key.backspace || key.delete) {
+      setFilterText(prev => prev.slice(0, -1));
+      return;
+    }
+
+    // Filter text input (only printable characters)
+    if (input && input.length === 1 && input.charCodeAt(0) >= 32) {
+      setFilterText(prev => prev + input);
+    }
+  });
 
   // Load available plugins on mount
   useEffect(() => {
@@ -147,7 +166,29 @@ export function PluginInstallDialog({
   }, []);
 
   // Calculate available height for the list
-  const maxVisibleItems = Math.max(5, (availableTerminalHeight || 20) - 6);
+  const maxVisibleItems = 10;
+
+  const renderHighlightedText = (text: string, highlight: string) => {
+    if (!highlight.trim()) {
+      return <Text>{text}</Text>;
+    }
+
+    const escapedHighlight = highlight.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const parts = text.split(new RegExp(`(${escapedHighlight})`, 'gi'));
+    return (
+      <Text>
+        {parts.map((part, i) =>
+          part.toLowerCase() === highlight.toLowerCase() ? (
+            <Text key={i} color={Colors.AccentYellow} bold>
+              {part}
+            </Text>
+          ) : (
+            <Text key={i}>{part}</Text>
+          ),
+        )}
+      </Text>
+    );
+  };
 
   if (loading) {
     return (
@@ -210,10 +251,29 @@ export function PluginInstallDialog({
   }
 
   // Build items for RadioButtonSelect
-  const items = plugins.map(p => ({
+  const filteredPlugins = plugins.filter(p => {
+    if (!filterText) return true;
+    const search = filterText.toLowerCase();
+    return (
+      p.name.toLowerCase().includes(search) ||
+      p.description.toLowerCase().includes(search) ||
+      p.marketplaceName.toLowerCase().includes(search)
+    );
+  });
+
+  const items = filteredPlugins.map(p => ({
     label: `${p.name} (${p.marketplaceName})`,
     value: `${p.marketplaceId}:${p.name}`,
     description: p.description,
+    customLabel: (
+      <Box flexDirection="row">
+        {renderHighlightedText(p.name, filterText)}
+        <Text color={Colors.Gray}> (</Text>
+        {renderHighlightedText(p.marketplaceName, filterText)}
+        <Text color={Colors.Gray}>)</Text>
+      </Box>
+    ),
+    customDescription: renderHighlightedText(p.description, filterText),
   }));
 
   return (
@@ -230,15 +290,45 @@ export function PluginInstallDialog({
         </Text>
       </Box>
 
-      <RadioButtonSelect
-        items={items}
-        onSelect={handleSelect}
-        onHighlight={handleHighlight}
-      />
+      {/* Search Input Box */}
+      <Box borderStyle="single" borderColor={Colors.Gray} paddingX={1} marginBottom={1}>
+        <Text color={Colors.Gray}>🔍 </Text>
+        {filterText ? (
+          <Text color={Colors.Foreground}>{filterText}</Text>
+        ) : (
+          <Text color={Colors.Gray} dimColor>Search plugins...</Text>
+        )}
+      </Box>
+
+      {items.length > 0 ? (
+        <Box flexDirection="column">
+          <RadioButtonSelect
+            items={items}
+            onSelect={handleSelect}
+            onHighlight={handleHighlight}
+            maxItemsToShow={maxVisibleItems}
+          />
+          {highlightedPlugin && (
+            <Box
+              marginTop={1}
+              paddingX={1}
+              borderStyle="single"
+              borderColor={Colors.Gray}
+              minHeight={3}
+            >
+              {items.find(item => item.value === highlightedPlugin)?.customDescription}
+            </Box>
+          )}
+        </Box>
+      ) : (
+        <Box height={maxVisibleItems} justifyContent="center" alignItems="center">
+          <Text color={Colors.Gray}>No plugins match your search.</Text>
+        </Box>
+      )}
 
       <Box marginTop={1}>
         <Text color={Colors.Gray} dimColor>
-          ↑↓ Navigate • Enter Select • Escape Cancel
+          ↑↓ Navigate • Enter Select • Esc Cancel • Type to Search
         </Text>
       </Box>
     </Box>

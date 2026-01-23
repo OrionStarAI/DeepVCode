@@ -1406,7 +1406,9 @@ export const translations = {
 
     // Skills System
     'skill.command.description': 'Manage AI Skills (Marketplace → Plugin → Skill)',
-    'skill.help.text': 'DeepV Code Skills System\n\nManage AI Skills with a three-tier architecture:\n  Marketplace → Plugin → Skill\n\nCommands:\n  /skill marketplace list              - List all marketplaces\n  /skill marketplace add <url> [alias] - Add a marketplace\n  /skill marketplace update <name>     - Update marketplace\n  /skill marketplace remove <name>     - Remove marketplace\n  /skill marketplace browse <name>     - Browse plugins\n\n  /skill plugin list [marketplace]     - List plugins\n  /skill plugin install <name>         - Install a plugin (auto-finds marketplace)\n  /skill plugin install <mp:name>      - Install from specific marketplace\n  /skill plugin uninstall <id>         - Uninstall a plugin\n  /skill plugin enable <id>            - Enable a plugin\n  /skill plugin disable <id>           - Disable a plugin\n  /skill plugin info <id>              - Show plugin info\n\n  /skill list                          - List all skills\n  /skill info <id>                     - Show skill details\n  /skill stats                         - Show statistics\n\nQuick Start:\n  1. Add official marketplace:\n     /skill marketplace add https://github.com/anthropics/skills.git\n\n  2. Browse plugins:\n     /skill marketplace browse skills\n\n  3. Install a plugin (no marketplace needed if unique):\n     /skill plugin install example-skills\n\n  4. View skills:\n     /skill list',
+    'skill.help.text': 'DeepV Code Skills System\n\nManage AI Skills with a three-tier architecture:\n  Marketplace → Plugin → Skill\n\nCommands:\n  /skill marketplace list              - List all marketplaces\n  /skill marketplace add <url> [alias] - Add a marketplace\n  /skill marketplace update <name>     - Update marketplace\n  /skill marketplace remove <name>     - Remove marketplace\n  /skill marketplace browse <name>     - Browse plugins\n\n  /skill plugin list [marketplace]     - List plugins\n  /skill install <name>                - Install a plugin (auto-finds marketplace)\n  /skill install <name@mp>             - Install from specific marketplace\n  /skill plugin install <name>         - Alias for /skill install\n  /skill plugin uninstall <id>         - Uninstall a plugin\n  /skill plugin enable <id>            - Enable a plugin\n  /skill plugin disable <id>           - Disable a plugin\n  /skill plugin info <id>              - Show plugin info\n\n  /skill list                          - List all skills\n  /skill info <id>                     - Show skill details\n  /skill stats                         - Show statistics\n\nQuick Start:\n  1. Add official marketplace:\n     /skill marketplace add https://github.com/anthropics/skills.git\n\n  2. Browse plugins:\n     /skill marketplace browse skills\n\n  3. Install a plugin (no marketplace needed if unique):\n     /skill install example-skills\n\n  4. View skills:\n     /skill list',
+    'plugin.command.description': 'Manage Plugins (Marketplace → Plugin)',
+    'plugin.help.text': 'DeepV Code Plugin System\n\nManage Plugins and Marketplaces:\n  /plugin marketplace add <url> [alias] - Add a marketplace\n  /plugin install <name>                - Install a plugin\n  /plugin list                          - List installed plugins\n\nThis is an alias for the /skill command system.',
     'skill.marketplace.description': 'Manage Skills marketplaces',
     'skill.marketplace.usage': 'Usage: /skill marketplace <list|add|update|remove|browse>',
     'skill.marketplace.list.description': 'List all marketplaces',
@@ -1444,7 +1446,9 @@ export const translations = {
     'skill.plugin.list.installed.found': 'Installed plugins ({count}):\n',
     'skill.plugin.list.failed': 'Failed to list plugins: {error}',
     'skill.plugin.install.description': 'Install a plugin from marketplace',
-    'skill.plugin.install.usage': 'Usage: /skill plugin install <plugin-name> or /skill plugin install <marketplace:plugin-name>',
+    'skill.plugin.install.usage': 'Usage: /skill plugin install <plugin-name> or /skill plugin install <plugin-name@marketplace-id>',
+    'skill.install.description': 'Install a plugin (alias for /skill plugin install)',
+    'skill.install.usage': 'Usage: /skill install <plugin-name> or /skill install <plugin-name@marketplace-id>',
     'skill.plugin.install.select.plugin': 'Available plugins to install:\n\n',
     'skill.plugin.install.no.available': 'All available plugins are already installed. Use /skill plugin list to see installed plugins.',
     'skill.plugin.install.progress': 'Installing plugin {plugin} from {marketplace}...',
@@ -2750,7 +2754,9 @@ export const translations = {
 
     // Skills System
     'skill.command.description': '管理 AI Skills (Marketplace → Plugin → Skill)',
-    'skill.help.text': 'DeepV Code Skills 系统\n\n使用三层架构管理 AI Skills：\n  Marketplace → Plugin → Skill\n\n命令：\n  /skill marketplace list              - 列出所有 Marketplace\n  /skill marketplace add <url> [alias] - 添加 Marketplace\n  /skill marketplace update <name>     - 更新 Marketplace\n  /skill marketplace remove <name>     - 删除 Marketplace\n  /skill marketplace browse <name>     - 浏览 Plugins\n\n  /skill plugin list [marketplace]     - 列出 Plugins\n  /skill plugin install <name>         - 安装 Plugin (自动查找市场)\n  /skill plugin install <mp:name>      - 从指定市场安装\n  /skill plugin uninstall <id>         - 卸载 Plugin\n  /skill plugin enable <id>            - 启用 Plugin\n  /skill plugin disable <id>           - 禁用 Plugin\n  /skill plugin info <id>              - 显示 Plugin 信息\n\n  /skill list                          - 列出所有 Skills\n  /skill info <id>                     - 显示 Skill 详情\n  /skill stats                         - 显示统计信息\n\n快速开始：\n  1. 添加官方 Marketplace：\n     /skill marketplace add https://github.com/anthropics/skills.git\n\n  2. 浏览 Plugins：\n     /skill marketplace browse skills\n\n  3. 安装 Plugin (如果唯一则无需指定市场)：\n     /skill plugin install example-skills\n\n  4. 查看 Skills：\n     /skill list',
+    'skill.help.text': 'DeepV Code Skills 系统\n\n使用三层架构管理 AI Skills：\n  Marketplace → Plugin → Skill\n\n命令：\n  /skill marketplace list              - 列出所有 Marketplace\n  /skill marketplace add <url> [alias] - 添加 Marketplace\n  /skill marketplace update <name>     - 更新 Marketplace\n  /skill marketplace remove <name>     - 删除 Marketplace\n  /skill marketplace browse <name>     - 浏览 Plugins\n\n  /skill plugin list [marketplace]     - 列出 Plugins\n  /skill install <name>                - 安装 Plugin (自动查找市场)\n  /skill install <name@mp>             - 从指定市场安装\n  /skill plugin install <name>         - /skill install 的别名\n  /skill plugin uninstall <id>         - 卸载 Plugin\n  /skill plugin enable <id>            - 启用 Plugin\n  /skill plugin disable <id>           - 禁用 Plugin\n  /skill plugin info <id>              - 显示 Plugin 信息\n\n  /skill list                          - 列出所有 Skills\n  /skill info <id>                     - 显示 Skill 详情\n  /skill stats                         - 显示统计信息\n\n快速开始：\n  1. 添加官方 Marketplace：\n     /skill marketplace add https://github.com/anthropics/skills.git\n\n  2. 浏览 Plugins：\n     /skill marketplace browse skills\n\n  3. 安装 Plugin (如果唯一则无需指定市场)：\n     /skill install example-skills\n\n  4. 查看 Skills：\n     /skill list',
+    'plugin.command.description': '管理插件 (Marketplace → Plugin)',
+    'plugin.help.text': 'DeepV Code 插件系统\n\n管理插件和市场：\n  /plugin marketplace add <url> [alias] - 添加 Marketplace\n  /plugin install <name>                - 安装 Plugin\n  /plugin list                          - 列出已安装的 Plugins\n\n这是 /skill 命令系统的别名。',
     'skill.marketplace.description': '管理 Skills Marketplaces',
     'skill.marketplace.usage': '用法：/skill marketplace <list|add|update|remove|browse>',
     'skill.marketplace.list.description': '列出所有 Marketplaces',
@@ -2788,7 +2794,9 @@ export const translations = {
     'skill.plugin.list.installed.found': '已安装的 Plugins ({count})：\n',
     'skill.plugin.list.failed': '列出 Plugins 失败：{error}',
     'skill.plugin.install.description': '从 Marketplace 安装 Plugin',
-    'skill.plugin.install.usage': '用法：/skill plugin install <plugin-name> 或 /skill plugin install <marketplace:plugin-name>',
+    'skill.plugin.install.usage': '用法：/skill plugin install <plugin-name> 或 /skill plugin install <plugin-name@marketplace-id>',
+    'skill.install.description': '安装插件 (/skill plugin install 的别名)',
+    'skill.install.usage': '用法：/skill install <plugin-name> 或 /skill install <plugin-name@marketplace-id>',
     'skill.plugin.install.select.plugin': '可安装的 Plugins：\n\n',
     'skill.plugin.install.no.available': '所有可用的 Plugins 都已安装。使用 /skill plugin list 查看已安装的插件。',
     'skill.plugin.install.progress': '正在从 {marketplace} 安装 Plugin {plugin}...',
