@@ -18,6 +18,8 @@ import {
 } from './tools.js';
 import { Type } from '@google/genai';
 
+import path from 'path';
+
 // Direct imports from skills module - no dynamic path resolution needed
 import {
   SkillContextInjector,
@@ -25,6 +27,7 @@ import {
   SettingsManager,
   MarketplaceManager,
   SkillLoadLevel,
+  SkillsPaths,
   type Skill,
 } from '../skills/index.js';
 
@@ -216,20 +219,40 @@ If the problem persists, this may be a system bug.`,
       const skillRootDir = skill.path;
       const scriptsDir = skill.scriptsPath || `${skillRootDir}/scripts`;
 
+      // Determine plugin root directory based on skill source
+      let pluginRootDir = '';
+      if (skill.marketplaceId) {
+        // Marketplace skills: plugin root is ~/.deepv/marketplace/{marketplaceId}
+        pluginRootDir = path.join(SkillsPaths.MARKETPLACE_ROOT, skill.marketplaceId);
+      } else if (skill.location?.rootPath) {
+        // Use location.rootPath if available
+        pluginRootDir = skill.location.rootPath;
+      }
+
       // 格式化输出：简洁清晰
       let output = '';
+
+      // Build path info section
+      const pathInfoLines = [
+        `**Skill directory**: ${skillRootDir}`,
+      ];
+
+      if (pluginRootDir && pluginRootDir !== skillRootDir) {
+        pathInfoLines.unshift(`**Plugin root directory**: ${pluginRootDir}`);
+      }
 
       if (hasScripts) {
         // For skills with scripts, generate simple script list
         const scriptList = skill.scripts!
-          .map((s) => `- ${s.name}`)
+          .map((s) => `- ${s.name} (${s.path})`)
           .join('\n');
+
+        pathInfoLines.push(`**Scripts directory**: ${scriptsDir}`);
 
         output = [
           `## Skill: ${skill.name}`,
           ``,
-          `**Base directory**: ${skillRootDir}`,
-          `**Scripts directory**: ${scriptsDir}`,
+          ...pathInfoLines,
           ``,
           `**Available scripts**:`,
           scriptList,
@@ -241,7 +264,7 @@ If the problem persists, this may be a system bug.`,
         output = [
           `## Skill: ${skill.name}`,
           ``,
-          `**Base directory**: ${skillRootDir}`,
+          ...pathInfoLines,
           ``,
           fullContent
         ].join('\n');
