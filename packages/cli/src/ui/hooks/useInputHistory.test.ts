@@ -5,6 +5,7 @@
  */
 
 import { act, renderHook } from '@testing-library/react';
+import { describe, it, beforeEach, expect, vi } from 'vitest';
 import { useInputHistory } from './useInputHistory.js';
 
 describe('useInputHistory', () => {
@@ -234,28 +235,111 @@ describe('useInputHistory', () => {
       expect(mockOnChange).not.toHaveBeenCalled();
     });
 
-    it('should restore originalQueryBeforeNav when navigating down to initial state', () => {
+    it('should restore draft input when navigating down to initial state', () => {
       const originalQuery = 'my original input';
-      const { result } = renderHook(() =>
-        useInputHistory({
-          userMessages,
-          onSubmit: mockOnSubmit,
-          isActive: true,
-          currentQuery: originalQuery,
-          onChange: mockOnChange,
-        }),
+      const { result, rerender } = renderHook(
+        (props) => useInputHistory(props),
+        {
+          initialProps: {
+            userMessages,
+            onSubmit: mockOnSubmit,
+            isActive: true,
+            currentQuery: originalQuery,
+            onChange: mockOnChange,
+          },
+        },
       );
 
+      // Let the effect hook cache the original query
+      mockOnChange.mockClear();
+
       act(() => {
-        result.current.navigateUp(); // Navigates to 'message 3', stores 'originalQuery'
+        result.current.navigateUp(); // Navigates to 'message 3'
       });
       expect(mockOnChange).toHaveBeenCalledWith(userMessages[2]);
       mockOnChange.mockClear();
 
       act(() => {
-        result.current.navigateDown(); // Navigates back to original query
+        result.current.navigateDown(); // Navigates back to draft input
       });
       expect(mockOnChange).toHaveBeenCalledWith(originalQuery);
+    });
+
+    it('should restore updated draft when user modifies input while not in history navigation', () => {
+      const { result, rerender } = renderHook(
+        (props) => useInputHistory(props),
+        {
+          initialProps: {
+            userMessages,
+            onSubmit: mockOnSubmit,
+            isActive: true,
+            currentQuery: 'initial input',
+            onChange: mockOnChange,
+          },
+        },
+      );
+
+      mockOnChange.mockClear();
+
+      // Navigate up to history
+      act(() => {
+        result.current.navigateUp();
+      });
+      mockOnChange.mockClear();
+
+      // User modifies the input while at 'message 2' - should NOT update the draft
+      // because historyIndex is not -1
+      rerender({
+        userMessages,
+        onSubmit: mockOnSubmit,
+        isActive: true,
+        currentQuery: 'message 2 modified',
+        onChange: mockOnChange,
+      });
+
+      // Navigate down - should restore the original draft, not the modified one
+      act(() => {
+        result.current.navigateDown();
+      });
+      expect(mockOnChange).toHaveBeenCalledWith('initial input');
+    });
+
+    it('should continuously update draft when input changes while not navigating', () => {
+      const { result, rerender } = renderHook(
+        (props) => useInputHistory(props),
+        {
+          initialProps: {
+            userMessages,
+            onSubmit: mockOnSubmit,
+            isActive: true,
+            currentQuery: 'step 1',
+            onChange: mockOnChange,
+          },
+        },
+      );
+
+      mockOnChange.mockClear();
+
+      // User types more content
+      rerender({
+        userMessages,
+        onSubmit: mockOnSubmit,
+        isActive: true,
+        currentQuery: 'step 1 + more',
+        onChange: mockOnChange,
+      });
+
+      // Navigate up
+      act(() => {
+        result.current.navigateUp();
+      });
+      mockOnChange.mockClear();
+
+      // Navigate down - should restore the latest draft with all the typing
+      act(() => {
+        result.current.navigateDown();
+      });
+      expect(mockOnChange).toHaveBeenCalledWith('step 1 + more');
     });
   });
 });
