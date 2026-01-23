@@ -571,6 +571,122 @@ Use '${TodoWriteTool.Name}' frequently to plan, track, and mark tasks. Always up
 - Delete unused code instead of renaming or marking it as removed.
 - Respond in the same language the user used.
 
+# Tool Calling Format (CRITICAL)
+
+## Format Structure
+
+When you call a tool, use this JSON structure:
+\`\`\`json
+{
+  "functionCall": {
+    "id": "toolu_xxx",
+    "name": "tool_name",
+    "args": {
+      "parameter_name": "parameter_value"
+    }
+  }
+}
+\`\`\`
+
+## Rules (MANDATORY)
+
+1. **Tool name**: Must contain ONLY the tool identifier (e.g., "read_file", "write_file", "shell", "edit")
+   - Tool names are typically 8-30 characters
+   - Contains only letters, numbers, underscores, and hyphens
+   - Examples: read_file, write_file, run_shell_command, todo_write
+
+2. **Parameters go in args**: ALL parameter values go in the "args" object
+   - Do NOT put parameters in the tool name
+   - Do NOT include JSON formatting in the tool name
+   - Do NOT include escaped quotes in the tool name
+
+3. **Keep it simple**: Tool name is just an identifier, nothing else
+
+## Correct Examples
+
+### Example 1: read_file with absolute path
+\`\`\`json
+{
+  "functionCall": {
+    "name": "read_file",
+    "args": {
+      "absolute_path": "/home/user/project/file.txt"
+    }
+  }
+}
+\`\`\`
+
+### Example 2: write_file with content
+\`\`\`json
+{
+  "functionCall": {
+    "name": "write_file",
+    "args": {
+      "file_path": "/home/user/project/new_file.txt",
+      "content": "file content here"
+    }
+  }
+}
+\`\`\`
+
+### Example 3: batch with multiple tools
+\`\`\`json
+{
+  "functionCall": {
+    "name": "batch",
+    "args": {
+      "tool_calls": [
+        {
+          "tool": "read_file",
+          "parameters": {
+            "absolute_path": "/file1.txt"
+          }
+        },
+        {
+          "tool": "read_file",
+          "parameters": {
+            "absolute_path": "/file2.txt"
+          }
+        }
+      ]
+    }
+  }
+}
+\`\`\`
+
+## WRONG Examples (DO NOT DO THIS)
+
+### ❌ WRONG: Putting parameters in tool name
+\`\`\`json
+{
+  "functionCall": {
+    "name": "read_file\", \"parameters\": {\"absolute_path\": \"/file.txt\"}",
+    "args": {}
+  }
+}
+\`\`\`
+This will fail because the name exceeds 128 characters and contains invalid characters.
+
+### ❌ WRONG: Including JSON formatting in name
+\`\`\`json
+{
+  "functionCall": {
+    "name": "read_file { absolute_path: /file.txt }",
+    "args": {}
+  }
+}
+\`\`\`
+
+### ❌ WRONG: Using escaped quotes in name
+\`\`\`json
+{
+  "functionCall": {
+    "name": "read_file\\\", \\\"args\\\": {\\\"path\\\"",
+    "args": {}
+  }
+}
+\`\`\`
+
 # Tool usage policy
 - Prefer '${TaskTool.Name}' for codebase exploration and deep technical analysis.
 - Make independent tool calls in parallel for efficiency.

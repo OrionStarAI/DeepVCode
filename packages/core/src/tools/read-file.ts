@@ -55,13 +55,19 @@ export class ReadFileTool extends BaseTool<ReadFileToolParams, ToolResult> {
     super(
       ReadFileTool.Name,
       'ReadFile',
-      'Reads and returns the content of a specified file from the workspace directory. For files outside the workspace (external files), use read_many_files instead. Handles text, images (PNG, JPG, GIF, WEBP, SVG, BMP), PDF files, Excel files (.xlsx, .xls), and Word documents (.docx). For text and office files, it can read specific line ranges.',
+      'Reads file content from disk.\n\n' +
+      'Supports: text files, images (PNG/JPG/GIF/WEBP/SVG/BMP), PDF, Excel (.xlsx/.xls), Word (.docx).\n\n' +
+      'Parameters: absolute_path (required absolute file path), offset (optional start line), limit (optional line count).\n\n' +
+      '⚠️ IMPORTANT: Pass the file path ONLY in args.absolute_path, NOT in the tool name. ' +
+      'Tool name must be "read_file" (8 characters), arguments go in the args object.',
       Icon.FileSearch,
       {
         properties: {
           absolute_path: {
             description:
-              "The absolute path to the file to read (e.g., '/home/user/project/file.txt'). Relative paths are not supported. You must provide an absolute path.",
+              "Absolute path to the file to read. Examples: /home/user/project/file.txt or C:\\\\Users\\\\project\\\\file.txt. " +
+              "Must be an absolute path (relative paths not supported). " +
+              "Provide ONLY in this args parameter, not in the tool name.",
             type: Type.STRING,
           },
           offset: {
