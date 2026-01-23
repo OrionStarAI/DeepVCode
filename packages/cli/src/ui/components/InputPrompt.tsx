@@ -1078,12 +1078,16 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
 
   return (
     <>
+      {/* Top border line */}
+      <Box paddingX={1} marginTop={1}>
+        <Text color={Colors.Gray} dimColor>{'─'.repeat(Math.max(inputWidth - 2, 20))}</Text>
+      </Box>
       {/* Input content */}
-      <Box paddingX={1} marginTop={1} minHeight={dynamicInputHeight}>
+      <Box paddingX={1} minHeight={dynamicInputHeight}>
         <Text
           color={shellModeActive ? Colors.AccentYellow : helpModeActive ? Colors.AccentCyan : Colors.Foreground}
         >
-          {shellModeActive ? '! ' : helpModeActive ? '💡 ' : '› '}
+          {shellModeActive ? '! ' : helpModeActive ? '💡 ' : '❯ '}
         </Text>
         <Box flexGrow={1} flexDirection="column">
           {buffer.text.length === 0 ? (
@@ -1097,6 +1101,10 @@ export const InputPrompt: React.FC<InputPromptProps> = ({
             renderedInputLines
           )}
         </Box>
+      </Box>
+      {/* Bottom border line */}
+      <Box paddingX={1}>
+        <Text color={Colors.Gray} dimColor>{'─'.repeat(Math.max(inputWidth - 2, 20))}</Text>
       </Box>
 
       {/* 长文本粘贴提示 */}
