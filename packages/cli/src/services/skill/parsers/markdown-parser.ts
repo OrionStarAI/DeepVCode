@@ -38,12 +38,30 @@ export class MarkdownParser {
       body = fallback.content;
     }
 
-    // 确定名称：优先使用 frontmatter 中的 name，否则使用文件名
+    // 确定名称：优先使用 frontmatter 中的 name，其次尝试从一级标题提取，最后使用文件名
     let name = data.name;
     if (!name) {
-      name = path.basename(filePath, '.md');
+      // 尝试从内容中提取一级标题 (# Title)
+      const h1Match = body.match(/^#\s+(.+)$/m);
+      if (h1Match) {
+        name = h1Match[1].trim().toLowerCase().replace(/\s+/g, '-');
+      } else {
+        name = path.basename(filePath, '.md');
+      }
     }
 
+    // 确定描述：优先使用 frontmatter 中的 description，其次尝试提取第一段文本
+    let description = data.description || '';
+    if (!description) {
+      // 移除标题，提取第一段非空文本
+      const cleanBody = body.replace(/^#+.*$/mg, '').trim();
+      const firstParagraph = cleanBody.split(/\r?\n\r?\n/)[0];
+      if (firstParagraph) {
+        // 截取前 100 个字符作为描述
+        description = firstParagraph.replace(/\r?\n/g, ' ').substring(0, 100).trim();
+        if (firstParagraph.length > 100) description += '...';
+      }
+    }
     // 确定 ID
     const id = `${pluginId}:${name}`;
 
@@ -51,7 +69,7 @@ export class MarkdownParser {
       id,
       type,
       name,
-      description: data.description || '',
+      description,
       version: data.version,
       author: data.author,
 

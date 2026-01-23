@@ -229,13 +229,13 @@ export class SkillsContextBuilder {
           const fullPath = path.join(dirPath, file);
 
           // Skills (directories)
-          if (dirName === 'skills' && fs.statSync(fullPath).isDirectory()) {
+          if (dirName.endsWith('skills') && fs.statSync(fullPath).isDirectory()) {
              if (fs.existsSync(path.join(fullPath, 'SKILL.md')) || fs.existsSync(path.join(fullPath, 'skill.md'))) {
                components.push(path.join(dirName, file));
              }
           }
           // Agents/Commands (markdown files)
-          else if ((dirName === 'agents' || dirName === 'commands') && file.endsWith('.md')) {
+          else if ((dirName.endsWith('agents') || dirName.endsWith('commands')) && file.endsWith('.md')) {
              components.push(path.join(dirName, file));
           }
         }
@@ -243,9 +243,16 @@ export class SkillsContextBuilder {
     };
 
     // 优先扫描标准目录（新结构）
-    scanDir('skills');
-    scanDir('agents');
-    scanDir('commands');
+    // 增加对 .claude, .cursor, .roo 下约定目录的支持
+    const standardDirs = [
+      'skills', 'agents', 'commands',
+      '.claude/skills', '.claude/agents', '.claude/commands',
+      '.cursor/commands', '.roo/commands'
+    ];
+
+    for (const dir of standardDirs) {
+      scanDir(dir);
+    }
 
     // 兼容旧结构：如果没有找到任何组件，扫描 pluginRoot 的直接子目录
     // 这种情况对应旧版 marketplace.json: "skills": ["./codex-mcp", "./git-commit"]

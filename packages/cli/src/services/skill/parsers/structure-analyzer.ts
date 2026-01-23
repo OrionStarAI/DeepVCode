@@ -30,11 +30,11 @@ export class PluginStructureAnalyzer {
     const hasClaudePluginDir = await isDir('.claude-plugin');
 
     // 检查组件目录
-    const hasAgents = await isDir('agents');
-    const hasCommands = await isDir('commands');
-    const hasSkills = await isDir('skills');
-    const hasHooks = await isDir('hooks');
-    const hasScripts = await isDir('scripts');
+    const hasAgents = await isDir('agents') || await isDir('.claude/agents');
+    const hasCommands = await isDir('commands') || await isDir('.claude/commands') || await isDir('.cursor/commands') || await isDir('.roo/commands');
+    const hasSkills = await isDir('skills') || await isDir('.claude/skills');
+    const hasHooks = await isDir('hooks') || await isDir('.claude/hooks');
+    const hasScripts = await isDir('scripts') || await isDir('.claude/scripts');
 
     // 确定格式类型
     let detectedFormat: 'claude-code' | 'deepv-code' | 'hybrid' | 'unknown' = 'unknown';
