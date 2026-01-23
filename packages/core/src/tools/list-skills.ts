@@ -93,8 +93,14 @@ export class ListSkillsTool extends BaseTool<ListSkillsParams, ToolResult> {
       }
 
       if (skills.length === 0) {
+        let message = 'No skills are currently installed';
+        if (params.marketplaceId || params.pluginId) {
+          message += ' or match the filter criteria. Try calling this tool without any arguments to see all available skills.';
+        } else {
+          message += '.';
+        }
         return {
-          llmContent: 'No skills are currently installed or match the filter criteria.',
+          llmContent: message,
           returnDisplay: 'No skills found',
         };
       }
