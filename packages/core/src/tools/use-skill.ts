@@ -138,14 +138,17 @@ To use skills, please run DeepV Code from the command line.`,
         };
       }
 
-      // CLI environment - resolve path relative to process.cwd() or known CLI structure
+      // CLI environment - resolve path using global __cliRoot or fallback to process.cwd()
+      const cliRoot = (globalThis as any).__cliRoot;
+
       // Try multiple possible locations
       const possiblePaths = [
-        // When running from CLI dist
+        // Primary: use __cliRoot set by CLI at startup
+        ...(cliRoot ? [path.resolve(cliRoot, 'dist', 'src', 'services', 'skill', 'index.js')] : []),
+        // Fallback: When running from CLI dist directory
         path.resolve(process.cwd(), 'dist', 'src', 'services', 'skill', 'index.js'),
-        // When running from monorepo root
+        // Fallback: When running from monorepo root
         path.resolve(process.cwd(), 'packages', 'cli', 'dist', 'src', 'services', 'skill', 'index.js'),
-        // Fallback: try to find via node_modules resolution
       ];
 
       const fs = await import('fs');
@@ -158,11 +161,15 @@ To use skills, please run DeepV Code from the command line.`,
       }
 
       if (!skillModulePath) {
+        const searchedPaths = possiblePaths.map(p => `  - ${p}`).join('\n');
         return {
           llmContent: `❌ Skill system module not found.
 
 The skill system requires the CLI to be properly built.
-Please ensure you have run 'npm run build' in the project root.`,
+Please ensure you have run 'npm run build' in the project root.
+
+Searched paths:
+${searchedPaths}`,
           returnDisplay: 'Skill module not found',
         };
       }
