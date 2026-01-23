@@ -254,20 +254,23 @@ export class MarketplaceLoader implements IPluginLoader {
 
     if (components.length === 0 || !isStrictMode) {
       // 自动发现标准目录
-      // Agents
-      components.push(...await this.scanComponents(
-        pluginDir, 'agents', ComponentType.AGENT, id, marketplaceId
-      ));
+      // 按照标准目录和常见第三方工具目录进行自动发现
+      const discoveryTasks = [
+        { name: 'agents', type: ComponentType.AGENT },
+        { name: 'commands', type: ComponentType.COMMAND },
+        { name: 'skills', type: ComponentType.SKILL },
+        { name: '.claude/agents', type: ComponentType.AGENT },
+        { name: '.claude/commands', type: ComponentType.COMMAND },
+        { name: '.claude/skills', type: ComponentType.SKILL },
+        { name: '.cursor/commands', type: ComponentType.COMMAND },
+        { name: '.roo/commands', type: ComponentType.COMMAND },
+      ];
 
-      // Commands
-      components.push(...await this.scanComponents(
-        pluginDir, 'commands', ComponentType.COMMAND, id, marketplaceId
-      ));
-
-      // Skills
-      components.push(...await this.scanComponents(
-        pluginDir, 'skills', ComponentType.SKILL, id, marketplaceId
-      ));
+      for (const task of discoveryTasks) {
+        components.push(...await this.scanComponents(
+          pluginDir, task.name, task.type, id, marketplaceId
+        ));
+      }
     }
 
     // 4. 构建 UnifiedPlugin
@@ -355,23 +358,32 @@ export class MarketplaceLoader implements IPluginLoader {
 
     // Agents
     if (structure.directories.agents) {
-      components.push(...await this.scanComponents(
-        pluginDir, 'agents', ComponentType.AGENT, id, marketplaceId
-      ));
+      if (await fs.pathExists(path.join(pluginDir, 'agents'))) {
+        components.push(...await this.scanComponents(pluginDir, 'agents', ComponentType.AGENT, id, marketplaceId));
+      }
+      if (await fs.pathExists(path.join(pluginDir, '.claude/agents'))) {
+        components.push(...await this.scanComponents(pluginDir, '.claude/agents', ComponentType.AGENT, id, marketplaceId));
+      }
     }
 
     // Commands
     if (structure.directories.commands) {
-      components.push(...await this.scanComponents(
-        pluginDir, 'commands', ComponentType.COMMAND, id, marketplaceId
-      ));
+      const commandDirs = ['commands', '.claude/commands', '.cursor/commands', '.roo/commands'];
+      for (const dir of commandDirs) {
+        if (await fs.pathExists(path.join(pluginDir, dir))) {
+          components.push(...await this.scanComponents(pluginDir, dir, ComponentType.COMMAND, id, marketplaceId));
+        }
+      }
     }
 
     // Skills
     if (structure.directories.skills) {
-      components.push(...await this.scanComponents(
-        pluginDir, 'skills', ComponentType.SKILL, id, marketplaceId
-      ));
+      if (await fs.pathExists(path.join(pluginDir, 'skills'))) {
+        components.push(...await this.scanComponents(pluginDir, 'skills', ComponentType.SKILL, id, marketplaceId));
+      }
+      if (await fs.pathExists(path.join(pluginDir, '.claude/skills'))) {
+        components.push(...await this.scanComponents(pluginDir, '.claude/skills', ComponentType.SKILL, id, marketplaceId));
+      }
     } else {
       // 尝试扫描根目录下的 Skills (DeepV Code 扁平结构)
       // 这种结构常见于旧的 DeepV Code 插件，如 document-skills
