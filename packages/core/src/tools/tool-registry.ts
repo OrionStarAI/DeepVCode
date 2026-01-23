@@ -575,9 +575,17 @@ export class ToolRegistry {
 
   /**
    * Get the definition of a specific tool.
+   * Supports tool aliases for backward compatibility and model training variations.
+   * For example, 'bash' is aliased to 'run_shell_command'.
    */
   getTool(name: string): Tool | undefined {
-    return this.tools.get(name);
+    // Handle tool aliases
+    const toolAlias: Record<string, string> = {
+      'bash': 'run_shell_command',
+    };
+
+    const actualName = toolAlias[name] || name;
+    return this.tools.get(actualName);
   }
 }
 
