@@ -26,23 +26,23 @@ export class BatchTool extends BaseTool<BatchToolParams, ToolResult> {
         super(
             BatchTool.Name,
             'Batch',
-            `Execute multiple tools in parallel (or sequentially if dependencies exist, but this implementation runs them sequentially for safety).
+            `Execute multiple independent tools sequentially.
 
-WHEN TO USE:
-- Calling 2+ different tool types together (e.g., read_file + search_file_content + glob)
-- Performing 3+ independent operations of the same type
-- Gathering information from multiple sources at once
+Use this tool ONLY when you need to perform 5+ truly independent operations that have no sequential dependencies. For most cases, prefer individual tool calls in sequence.
 
-WHY USE BATCH:
-- JSON format is simpler and less error-prone than nested XML tool calls
-- Clearly expresses "these operations are a group"
-- Reduces cognitive load when generating multiple tool calls
+AVOID using batch for:
+- Operations with dependencies (one result feeds into another)
+- File edits followed by testing/validation
+- Less than 5 independent operations
+- Different tool types that may need result inspection between calls
 
-Example: To read a file, search for a pattern, and list files:
+Example (when appropriate - 5+ independent file reads):
 [
-  {"tool": "read_file", "parameters": {"absolute_path": "/path/to/file.ts"}},
-  {"tool": "search_file_content", "parameters": {"pattern": "TODO", "path": "/src"}},
-  {"tool": "glob", "parameters": {"pattern": "**/*.ts"}}
+  {"tool": "read_file", "parameters": {"absolute_path": "/path/to/file1.ts"}},
+  {"tool": "read_file", "parameters": {"absolute_path": "/path/to/file2.ts"}},
+  {"tool": "read_file", "parameters": {"absolute_path": "/path/to/file3.ts"}},
+  {"tool": "read_file", "parameters": {"absolute_path": "/path/to/file4.ts"}},
+  {"tool": "read_file", "parameters": {"absolute_path": "/path/to/file5.ts"}}
 ]`,
             Icon.Tasks,
             {
