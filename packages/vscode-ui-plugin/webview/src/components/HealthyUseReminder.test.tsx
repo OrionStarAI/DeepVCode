@@ -32,7 +32,7 @@ describe('HealthyUseReminder', () => {
     render(<HealthyUseReminder onDismiss={onDismiss} />);
 
     expect(screen.getByText(/healthy.reminderTitle/i)).toBeDefined();
-    expect(screen.getByText(/300/i)).toBeDefined();
+    expect(screen.getByText(/60/i)).toBeDefined();
   });
 
   it('should countdown every second', () => {
@@ -42,12 +42,12 @@ describe('HealthyUseReminder', () => {
     act(() => {
       vi.advanceTimersByTime(1000);
     });
-    expect(screen.getByText(/299/i)).toBeDefined();
+    expect(screen.getByText(/59/i)).toBeDefined();
 
     act(() => {
       vi.advanceTimersByTime(10000);
     });
-    expect(screen.getByText(/289/i)).toBeDefined();
+    expect(screen.getByText(/49/i)).toBeDefined();
   });
 
   it('should show dismiss button as enabled when countdown reaches zero', () => {
@@ -55,7 +55,7 @@ describe('HealthyUseReminder', () => {
     render(<HealthyUseReminder onDismiss={onDismiss} />);
 
     act(() => {
-      vi.advanceTimersByTime(300000);
+      vi.advanceTimersByTime(60000);
     });
 
     const button = screen.getByRole('button');
@@ -67,7 +67,7 @@ describe('HealthyUseReminder', () => {
     render(<HealthyUseReminder onDismiss={onDismiss} />);
 
     act(() => {
-      vi.advanceTimersByTime(300000);
+      vi.advanceTimersByTime(60000);
     });
 
     const dismissButton = screen.getByRole('button');

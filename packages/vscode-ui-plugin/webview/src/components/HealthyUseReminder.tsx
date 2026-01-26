@@ -15,7 +15,7 @@ interface HealthyUseReminderProps {
 
 export const HealthyUseReminder: React.FC<HealthyUseReminderProps> = ({ onDismiss }) => {
   const { t } = useTranslation();
-  const [countdown, setCountdown] = useState(300); // 300 seconds cooldown
+  const [countdown, setCountdown] = useState(60); // 60 seconds cooldown
   const [canDismiss, setCanDismiss] = useState(false);
 
   useEffect(() => {
