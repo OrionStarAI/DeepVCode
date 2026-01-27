@@ -155,6 +155,14 @@ To use skills, please run DeepV Code from the command line.`,
       // Find the skill by name
       const skills = await loader.loadEnabledSkills(SkillLoadLevel.RESOURCES);
 
+      // Debug logging for skill discovery issues
+      if (process.env.DEBUG_SKILLS) {
+        console.log(`[use_skill] Loaded ${skills.length} skills from SkillLoader:`);
+        skills.forEach((s: Skill) => {
+          console.log(`  - ${s.name} (id: ${s.id}, isCustom: ${s.isCustom}, location: ${s.location?.type || 'N/A'})`);
+        });
+      }
+
       // 更健壮的匹配逻辑：支持多种格式
       const normalizedSearchName = params.skillName.toLowerCase().trim();
       const matchingSkills = skills.filter((s: Skill) => {
@@ -178,16 +186,36 @@ To use skills, please run DeepV Code from the command line.`,
 
       if (matchingSkills.length === 0) {
         const availableSkills = skills.map((s: Skill) => `${s.name} (id: ${s.id})`).join(', ');
+        const availableNames = skills.map((s: Skill) => s.name).sort().join(', ');
+        const availableIds = skills.map((s: Skill) => s.id).sort().join(', ');
+
         return {
           llmContent: `❌ Skill "${params.skillName}" not found.
 
-Available skills (${skills.length} total): ${availableSkills || 'none'}
+📊 Debug Information:
+  - Your search: "${params.skillName}"
+  - Normalized search: "${normalizedSearchName}"
+  - Total skills loaded: ${skills.length}
+  - Loader source: SkillLoader.loadEnabledSkills()
 
-Possible issues:
-- Skill name is incorrect (check spelling and case)
-- Skill is not installed (use /skill list to see all skills)
-- Plugin is disabled
-- Skill is in a different location (user-global vs project-level)
+📋 Available skills (${skills.length} total):
+  By name: ${availableNames || 'none'}
+
+  By ID: ${availableIds || 'none'}
+
+🔍 Possible issues:
+  - Skill name is incorrect (check spelling and case-sensitivity)
+  - Skill is not installed (use /skill list to see all skills)
+  - Plugin is disabled (use /skill plugin list to check status)
+  - Skill is in a different location (user-global vs project-level)
+  - ⚠️ Inconsistency between list and use_skill (this may be a bug)
+
+💡 Troubleshooting steps:
+  1. Run: /skill list (to see all discoverable skills)
+  2. If you can see the skill with /skill list but not here, this indicates a
+     skill discovery inconsistency - please report this as a bug
+  3. Check plugin status: /skill plugin list
+  4. Try using the full skill ID instead of just the name
 
 To see detailed skill information, check the "Available Skills" section in the system context.`,
           returnDisplay: `Skill "${params.skillName}" not found`,
