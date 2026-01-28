@@ -1055,7 +1055,8 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         onRemove={(id) => onRemoveMessageFromQueue?.(id)}
         onReorder={(newQueue) => onUpdateMessageQueue?.(newQueue)}
         onEdit={(item) => {
-          onRemoveMessageFromQueue?.(item.id);
+          // 🎯 修复：编辑队列消息时，只将内容加载到输入框，不删除队列中的项
+          // 用户可以在输入框中修改内容后再发送，或者点击"X"删除不需要的消息
           if (messageInputRef?.current) {
             messageInputRef.current.setContent(item.content);
           }
