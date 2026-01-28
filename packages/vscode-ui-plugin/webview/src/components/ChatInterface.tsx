@@ -126,6 +126,10 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingOriginalMessage, setEditingOriginalMessage] = useState<ChatMessage | null>(null);
 
+  // 🎯 新增：队列编辑状态管理
+  const [editingQueueMessageId, setEditingQueueMessageId] = useState<string | null>(null);
+  const [editingQueueContent, setEditingQueueContent] = useState<MessageContent | undefined>(undefined);
+
   // 🎯 新增：编辑确认对话框状态
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [pendingEditData, setPendingEditData] = useState<{messageId: string, newContent: MessageContent} | null>(null);
@@ -628,6 +632,27 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
     setShowConfirmDialog(false);
   };
 
+  // 🎯 队列消息编辑处理函数
+  const handleSaveQueueEdit = (messageId: string, newContent: MessageContent) => {
+    console.log('🎯 保存队列编辑消息:', { messageId, newContent });
+    if (onUpdateMessageQueue) {
+      const newQueue = messageQueue.map(item =>
+        item.id === messageId
+          ? { ...item, content: newContent }
+          : item
+      );
+      onUpdateMessageQueue(newQueue);
+    }
+    setEditingQueueMessageId(null);
+    setEditingQueueContent(undefined);
+  };
+
+  const handleCancelQueueEdit = () => {
+    console.log('🎯 取消队列编辑');
+    setEditingQueueMessageId(null);
+    setEditingQueueContent(undefined);
+  };
+
   /**
    * 🎯 处理回退到指定消息
    *
@@ -1055,10 +1080,9 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         onRemove={(id) => onRemoveMessageFromQueue?.(id)}
         onReorder={(newQueue) => onUpdateMessageQueue?.(newQueue)}
         onEdit={(item) => {
-          onRemoveMessageFromQueue?.(item.id);
-          if (messageInputRef?.current) {
-            messageInputRef.current.setContent(item.content);
-          }
+          // 🎯 修复：编辑队列消息时，进入编辑模式
+          setEditingQueueMessageId(item.id);
+          setEditingQueueContent(item.content);
         }}
       />
 
@@ -1078,6 +1102,12 @@ export const ChatInterface: React.FC<ChatInterfaceProps> = ({
         isPlanMode={isPlanMode}
         onTogglePlanMode={onTogglePlanMode}
         messages={messages}
+        // 🎯 队列消息编辑 props
+        mode={editingQueueMessageId ? 'edit' : 'compose'}
+        editingMessageId={editingQueueMessageId || undefined}
+        initialContent={editingQueueContent}
+        onSaveEdit={handleSaveQueueEdit}
+        onCancelEdit={handleCancelQueueEdit}
       />
     </div>
   );
