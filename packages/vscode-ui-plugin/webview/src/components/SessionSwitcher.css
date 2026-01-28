@@ -264,6 +264,34 @@
   cursor: not-allowed;
 }
 
+/* =============================================================================
+ * 🎯 拖拽排序样式
+ * ============================================================================= */
+
+/* 正在被拖动的tab */
+.session-switcher__tab--dragging {
+  opacity: 0.5;
+  background: var(--vscode-tab-activeBackground, #181818) !important;
+  cursor: grabbing;
+}
+
+/* 拖拽悬停的target tab */
+.session-switcher__tab--drag-over {
+  border-left: 3px solid var(--vscode-focusBorder, #0078d4);
+  border-right: 3px solid var(--vscode-focusBorder, #0078d4);
+  background: var(--vscode-tab-hoverBackground, #404040);
+}
+
+/* 拖拽时标签的游标样式 */
+.session-switcher__tab[draggable="true"] {
+  cursor: grab;
+  user-select: none;
+}
+
+.session-switcher__tab[draggable="true"]:active {
+  cursor: grabbing;
+}
+
 
 /* =============================================================================
  * 创建按钮样式

@@ -55,6 +55,9 @@ export class SessionManager extends EventEmitter {
   private currentSessionId: string | null = null;
   private isInitialized = false;
 
+  // 🎯 Session 顺序管理（用于拖拽排序）
+  private sessionsOrder: string[] = [];
+
   // 🎯 用户内存/上下文内容缓存（全局共享）
   private userMemoryContent: string = '';
   private userMemoryFileCount: number = 0;
@@ -140,6 +143,8 @@ export class SessionManager extends EventEmitter {
         const persistedSessions = await this.persistenceService.loadSessions();
         if (persistedSessions.length > 0) {
           await this.restoreSessions(persistedSessions);
+          // 🎯 初始化 sessionsOrder（按持久化层的顺序，支持拖拽排序）
+          this.sessionsOrder = persistedSessions.map(s => s.info.id);
           this.logger.info(`📦 Restored ${persistedSessions.length} persisted sessions`);
         } else {
           // 没有持久化会话，创建默认会话
@@ -460,6 +465,9 @@ export class SessionManager extends EventEmitter {
       this.sessions.set(sessionState.info.id, sessionState);
       this.aiServices.set(sessionState.info.id, aiService);
 
+      // 🎯 将新 session 添加到顺序列表开头（最新创建的在前）
+      this.sessionsOrder = [sessionId, ...this.sessionsOrder];
+
       // 🎯 如果需要激活，设置为当前session并将之前的session设为IDLE
       if (shouldActivate) {
         // 将之前的current session设为IDLE
@@ -531,6 +539,9 @@ export class SessionManager extends EventEmitter {
       } else {
         this.logger.info(`🗑️ Session ${sessionId} not in memory, deleting directly from disk...`);
       }
+
+      // 🎯 从顺序列表中移除
+      this.sessionsOrder = this.sessionsOrder.filter(id => id !== sessionId);
 
       // 🎯 无论是否在内存中，都从持久化存储中删除
       await this.persistenceService.deleteSession(sessionId);
@@ -738,11 +749,46 @@ export class SessionManager extends EventEmitter {
 
   /**
    * 获取所有会话信息列表
+   * 🎯 按用户自定义的拖拽顺序返回（如果有），否则按 lastActivity 排序
    */
   getAllSessionsInfo(): SessionInfo[] {
-    return Array.from(this.sessions.values())
-      .map(session => session.info)
-      .sort((a, b) => b.lastActivity - a.lastActivity);
+    const allSessions = Array.from(this.sessions.values()).map(session => session.info);
+
+    // 🎯 如果有自定义顺序，按顺序返回
+    if (this.sessionsOrder.length > 0) {
+      const orderedSessions: SessionInfo[] = [];
+      const sessionMap = new Map(allSessions.map(s => [s.id, s]));
+
+      // 按 sessionsOrder 顺序添加
+      for (const id of this.sessionsOrder) {
+        const session = sessionMap.get(id);
+        if (session) {
+          orderedSessions.push(session);
+          sessionMap.delete(id);
+        }
+      }
+
+      // 添加不在 sessionsOrder 中的新 session（按 lastActivity 排序）
+      const remainingSessions = Array.from(sessionMap.values())
+        .sort((a, b) => b.lastActivity - a.lastActivity);
+      orderedSessions.push(...remainingSessions);
+
+      return orderedSessions;
+    }
+
+    // 没有自定义顺序时，按 lastActivity 排序
+    return allSessions.sort((a, b) => b.lastActivity - a.lastActivity);
+  }
+
+  /**
+   * 🎯 保存Session顺序（用于拖拽排序）
+   * @param sessionIds 按用户拖拽后的新顺序排列的sessionId数组
+   */
+  async saveSessionsOrder(sessionIds: string[]): Promise<void> {
+    // 🎯 同时更新内存中的顺序
+    this.sessionsOrder = [...sessionIds];
+    await this.persistenceService.saveSessionsOrder(sessionIds);
+    this.logger.info(`✅ Session order saved: ${sessionIds.length} sessions`);
   }
 
   /**

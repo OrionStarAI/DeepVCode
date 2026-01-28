@@ -29,6 +29,9 @@ interface SessionSwitcherProps {
   /** Session操作回调 */
   onSessionAction: (action: 'rename' | 'delete' | 'duplicate' | 'export', sessionId: string) => void;
 
+  /** 🎯 Session顺序变更回调（用于拖拽排序） */
+  onSessionsReorder?: (sessionIds: string[]) => void;
+
   /** 获取Session标题的函数 */
   getSessionTitle?: (sessionId: string) => string;
 
@@ -58,6 +61,7 @@ export const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
   onSessionSwitch,
   onCreateSession,
   onSessionAction,
+  onSessionsReorder,
   getSessionTitle,
   isSessionUnused,
   disabled = false,
@@ -69,6 +73,10 @@ export const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
     x: number;
     y: number;
   } | null>(null);
+
+  // 🎯 拖拽状态管理
+  const [draggedSessionId, setDraggedSessionId] = useState<string | null>(null);
+  const [dragOverSessionId, setDragOverSessionId] = useState<string | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const contextMenuRef = useRef<HTMLDivElement>(null);
@@ -266,6 +274,123 @@ export const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
     onSessionAction('delete', sessionId);
   };
 
+  // 🎯 使用 ref 保存当前拖拽的 session ID，避免 dataTransfer 在某些浏览器中失效
+  const draggedIdRef = useRef<string | null>(null);
+
+  /**
+   * 🎯 拖拽开始事件处理
+   */
+  const handleDragStart = (e: React.DragEvent<HTMLButtonElement>, sessionId: string) => {
+    // 🎯 同时使用 dataTransfer 和 ref 保存拖拽 ID
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', sessionId);
+    draggedIdRef.current = sessionId;
+    setDraggedSessionId(sessionId);
+
+    // 🎯 设置拖拽图像（可选，提升视觉体验）
+    if (e.currentTarget) {
+      e.dataTransfer.setDragImage(e.currentTarget, 50, 16);
+    }
+
+    console.log('🎯 [DRAG-START] Session drag started:', sessionId);
+  };
+
+  /**
+   * 🎯 拖拽悬停事件处理
+   */
+  const handleDragOver = (e: React.DragEvent<HTMLButtonElement>, sessionId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    e.dataTransfer.dropEffect = 'move';
+
+    // 🎯 只有当悬停的不是被拖拽的 session 时才更新状态
+    if (draggedIdRef.current !== sessionId) {
+      setDragOverSessionId(sessionId);
+    }
+  };
+
+  /**
+   * 🎯 拖拽离开事件处理
+   */
+  const handleDragLeave = (e: React.DragEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    // 🎯 检查是否真的离开了元素（防止子元素触发）
+    const relatedTarget = e.relatedTarget as HTMLElement;
+    if (!e.currentTarget.contains(relatedTarget)) {
+      setDragOverSessionId(null);
+    }
+  };
+
+  /**
+   * 🎯 拖拽放置事件处理
+   */
+  const handleDrop = (e: React.DragEvent<HTMLButtonElement>, dropSessionId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // 🎯 优先从 ref 获取拖拽 ID（更可靠），fallback 到 dataTransfer
+    const draggedId = draggedIdRef.current || e.dataTransfer.getData('text/plain');
+
+    console.log('🎯 [DROP] Drop event:', {
+      draggedId: draggedId?.substring(0, 8) || 'null',
+      dropSessionId: dropSessionId.substring(0, 8),
+      hasCallback: !!onSessionsReorder,
+      sessionsCount: sessions.length
+    });
+
+    if (!draggedId || draggedId === dropSessionId) {
+      console.log('🎯 [DROP] Skipping - same session or no draggedId');
+      setDraggedSessionId(null);
+      setDragOverSessionId(null);
+      draggedIdRef.current = null;
+      return;
+    }
+
+    if (!onSessionsReorder) {
+      console.warn('🎯 [DROP] No onSessionsReorder callback provided!');
+      setDraggedSessionId(null);
+      setDragOverSessionId(null);
+      draggedIdRef.current = null;
+      return;
+    }
+
+    // 计算新顺序
+    const newSessions = [...sessions];
+    const draggedIndex = newSessions.findIndex(s => s.id === draggedId);
+    const dropIndex = newSessions.findIndex(s => s.id === dropSessionId);
+
+    console.log('🎯 [DROP] Indices:', { draggedIndex, dropIndex });
+
+    if (draggedIndex > -1 && dropIndex > -1) {
+      const [draggedSession] = newSessions.splice(draggedIndex, 1);
+      newSessions.splice(dropIndex, 0, draggedSession);
+
+      console.log('🎯 [DROP] Session reordered:', {
+        draggedId: draggedId.substring(0, 8),
+        dropId: dropSessionId.substring(0, 8),
+        newOrder: newSessions.map((s, i) => `${i}:${s.id.substring(0, 8)}`).join(' ')
+      });
+
+      // 调用父组件的重新排序回调
+      onSessionsReorder(newSessions.map(s => s.id));
+    } else {
+      console.warn('🎯 [DROP] Invalid indices, skipping reorder');
+    }
+
+    setDraggedSessionId(null);
+    setDragOverSessionId(null);
+    draggedIdRef.current = null;
+  };
+
+  /**
+   * 🎯 拖拽结束事件处理
+   */
+  const handleDragEnd = () => {
+    console.log('🎯 [DRAG-END] Drag ended');
+    setDraggedSessionId(null);
+    setDragOverSessionId(null);
+    draggedIdRef.current = null;
+  };
 
   /**
    * 获取Session显示标题（使用第一条用户消息或默认名称）
@@ -314,11 +439,21 @@ export const SessionSwitcher: React.FC<SessionSwitcherProps> = ({
             <button
               key={session.id}
               data-session-id={session.id}
+              draggable={!disabled}
               className={`session-switcher__tab ${
                 session.id === currentSession?.id ? 'session-switcher__tab--active' : ''
-              } ${isSessionUnused && isSessionUnused(session.id) ? 'session-switcher__tab--unused' : ''}`}
+              } ${isSessionUnused && isSessionUnused(session.id) ? 'session-switcher__tab--unused' : ''} ${
+                draggedSessionId === session.id ? 'session-switcher__tab--dragging' : ''
+              } ${
+                dragOverSessionId === session.id ? 'session-switcher__tab--drag-over' : ''
+              }`}
               onClick={() => handleSessionSelect(session.id)}
               onContextMenu={(e) => handleContextMenu(e, session.id)}
+              onDragStart={(e) => handleDragStart(e, session.id)}
+              onDragOver={(e) => handleDragOver(e, session.id)}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => handleDrop(e, session.id)}
+              onDragEnd={handleDragEnd}
               disabled={disabled}
               title={session.description || getSessionDisplayTitle(session)}
             >
