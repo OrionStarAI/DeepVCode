@@ -180,7 +180,7 @@ export class LoginService {
         resolve({ success: false, error: '登录超时（5分钟）' });
       }, 300000); // 5分钟超时
 
-      // 轮询检查认证状态
+      // 轮询检查认证状态 - 使用更短的间隔以实现即时检测
       const checkInterval = setInterval(async () => {
         try {
           const status = await this.checkLoginStatus();
@@ -193,7 +193,7 @@ export class LoginService {
         } catch (error) {
           // 继续轮询，忽略检查错误
         }
-      }, 2000); // 每2秒检查一次
+      }, 500); // 每0.5秒检查一次，实现近乎实时的登录检测
     });
   }
 
