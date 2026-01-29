@@ -37,8 +37,8 @@ export class DeepvlabAuthHandler {
    * 构建DeepVlab认证URL
    */
   public buildAuthUrl(): string {
-    // 直接构建完整的认证URL，避免重定向问题
-    const authUrl = `${this.config.authUrl}?redirect_to=${encodeURIComponent(this.config.redirectUri)}&redirect_mode=same_window`;
+    // 直接构建完整的认证URL，使用callback模式避免404问题
+    const authUrl = `${this.config.authUrl}?redirect_to=${encodeURIComponent(this.config.redirectUri)}&redirect_mode=callback`;
     console.log('🔗 DeepVlab认证URL:', authUrl);
 
     return authUrl;

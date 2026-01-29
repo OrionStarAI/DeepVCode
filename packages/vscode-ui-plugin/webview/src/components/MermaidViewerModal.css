@@ -1,0 +1,129 @@
+.mermaid-viewer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 10000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mermaid-viewer-modal {
+  width: min(1100px, 95vw);
+  height: min(800px, 90vh);
+  background: var(--vscode-editorWidget-background);
+  border: 1px solid var(--vscode-editorWidget-border);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.mermaid-viewer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: var(--vscode-editorGroupHeader-tabsBackground);
+  border-bottom: 1px solid var(--vscode-editorWidget-border);
+}
+
+.mermaid-viewer-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 60%;
+}
+
+.mermaid-viewer-header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.mermaid-viewer-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--vscode-button-border, transparent);
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.mermaid-viewer-btn:hover {
+  background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.mermaid-viewer-close-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  border: 1px solid var(--vscode-button-border, transparent);
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  cursor: pointer;
+}
+
+.mermaid-viewer-close-btn:hover {
+  background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.mermaid-viewer-content {
+  flex: 1;
+  overflow: auto;
+  background: var(--vscode-editor-background);
+  padding: 18px;
+}
+
+.mermaid-viewer-canvas {
+  transform-origin: top left;
+}
+
+.mermaid-viewer-svg svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.mermaid-viewer-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px;
+  border-top: 1px solid var(--vscode-editorWidget-border);
+  background: var(--vscode-editorGroupHeader-tabsBackground);
+}
+
+.mermaid-viewer-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid var(--vscode-button-border, transparent);
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  cursor: pointer;
+}
+
+.mermaid-viewer-icon-btn:hover {
+  background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.mermaid-viewer-scale {
+  font-size: 12px;
+  min-width: 58px;
+  text-align: center;
+  color: var(--vscode-foreground);
+}

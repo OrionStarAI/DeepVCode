@@ -1,0 +1,106 @@
+.mermaid-block-wrapper {
+  border: 1px solid var(--vscode-editorWidget-border);
+  border-radius: 8px;
+  overflow: hidden;
+  margin: 8px 0;
+  background: var(--vscode-editorWidget-background);
+}
+
+.mermaid-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  background: var(--vscode-editorGroupHeader-tabsBackground);
+  border-bottom: 1px solid var(--vscode-editorWidget-border);
+}
+
+.mermaid-language {
+  font-size: 12px;
+  opacity: 0.9;
+  font-family: var(--vscode-font-family);
+}
+
+.mermaid-header-actions {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.mermaid-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 1px solid var(--vscode-button-border, transparent);
+  border-radius: 6px;
+  background: var(--vscode-button-secondaryBackground);
+  color: var(--vscode-button-secondaryForeground);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.mermaid-action-btn:hover {
+  background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.mermaid-action-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.mermaid-action-text {
+  font-size: 11px;
+}
+
+.mermaid-content {
+  padding: 10px;
+  background: var(--vscode-editor-background);
+}
+
+.mermaid-status {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.mermaid-svg-container {
+  overflow: auto;
+  max-height: 420px;
+}
+
+.mermaid-svg-container svg {
+  max-width: 100%;
+  height: auto;
+}
+
+.mermaid-error {
+  border: 1px solid var(--vscode-inputValidation-errorBorder);
+  background: var(--vscode-inputValidation-errorBackground);
+  color: var(--vscode-inputValidation-errorForeground);
+  padding: 10px;
+  border-radius: 6px;
+}
+
+.mermaid-error-title {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.mermaid-error-message {
+  font-size: 12px;
+  opacity: 0.9;
+  margin-bottom: 10px;
+}
+
+.mermaid-fallback {
+  margin: 0;
+  padding: 10px;
+  border-radius: 6px;
+  background: var(--vscode-textCodeBlock-background);
+  color: var(--vscode-editor-foreground);
+  overflow: auto;
+  max-height: 320px;
+}

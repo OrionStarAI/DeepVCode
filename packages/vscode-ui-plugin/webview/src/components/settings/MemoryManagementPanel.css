@@ -1,0 +1,420 @@
+/**
+ * Memory Management Panel Styles
+ * 全局 Memory 文件管理面板样式
+ *
+ * @license Apache-2.0
+ * Copyright 2025 DeepV Code
+ */
+
+/* =============================================================================
+   面板容器
+   ============================================================================= */
+
+.memory-management-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+/* =============================================================================
+   面板头部
+   ============================================================================= */
+
+.memory-panel__header {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
+}
+
+.memory-panel__title {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.memory-panel__description {
+  margin: 0;
+  font-size: 12px;
+  color: var(--vscode-descriptionForeground);
+  line-height: 1.5;
+}
+
+/* =============================================================================
+   操作栏
+   ============================================================================= */
+
+.memory-panel__actions {
+  display: flex;
+  gap: 8px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
+}
+
+.memory-panel__action-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  background: var(--vscode-button-secondaryBackground, rgba(128, 128, 128, 0.1));
+  color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.memory-panel__action-button:hover:not(:disabled) {
+  background: var(--vscode-button-secondaryHoverBackground, rgba(128, 128, 128, 0.2));
+}
+
+.memory-panel__action-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.memory-panel__refresh-icon {
+  flex-shrink: 0;
+}
+
+.memory-panel__refresh-icon--spinning {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* =============================================================================
+   加载状态
+   ============================================================================= */
+
+.memory-panel__loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 12px;
+}
+
+/* =============================================================================
+   列表容器
+   ============================================================================= */
+
+.memory-panel__list-container {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+/* =============================================================================
+   文件分组
+   ============================================================================= */
+
+.memory-section {
+  margin-bottom: 16px;
+}
+
+.memory-section__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--vscode-sideBar-background, rgba(128, 128, 128, 0.05));
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.2s;
+}
+
+.memory-section__header:hover {
+  background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.1));
+}
+
+.memory-section__expand-icon {
+  flex-shrink: 0;
+  transition: transform 0.2s;
+  transform: rotate(-90deg);
+}
+
+.memory-section__expand-icon--expanded {
+  transform: rotate(0deg);
+}
+
+.memory-section__title {
+  flex: 1;
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.memory-section__count {
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+}
+
+.memory-section__content {
+  padding: 8px 0 0 0;
+}
+
+/* =============================================================================
+   空状态
+   ============================================================================= */
+
+.memory-section__empty {
+  padding: 20px;
+  text-align: center;
+  color: var(--vscode-descriptionForeground);
+  font-size: 12px;
+}
+
+.memory-section__empty p {
+  margin: 0 0 12px 0;
+}
+
+.memory-section__create-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+}
+
+.memory-section__create-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.memory-section__create-btn:hover {
+  background: var(--vscode-button-hoverBackground);
+}
+
+/* =============================================================================
+   文件列表
+   ============================================================================= */
+
+.memory-file-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+/* =============================================================================
+   文件列表项
+   ============================================================================= */
+
+.memory-file-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  background: var(--vscode-editor-background, transparent);
+  border: 1px solid var(--vscode-widget-border, rgba(128, 128, 128, 0.2));
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.memory-file-item:hover {
+  background: var(--vscode-list-hoverBackground, rgba(128, 128, 128, 0.1));
+  border-color: var(--vscode-focusBorder, rgba(14, 99, 156, 0.8));
+}
+
+.memory-file-item__info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.memory-file-item__icon {
+  flex-shrink: 0;
+  color: var(--vscode-symbolIcon-fileForeground, var(--vscode-foreground));
+}
+
+.memory-file-item__name-container {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 120px;
+}
+
+.memory-file-item__name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--vscode-foreground);
+  white-space: nowrap;
+}
+
+.memory-file-item__loaded-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
+  font-weight: 600;
+  background: var(--vscode-charts-green, #89d185);
+  color: var(--vscode-editor-background, #1e1e1e);
+  border-radius: 50%;
+}
+
+.memory-file-item__path {
+  flex: 1;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.memory-file-item__meta {
+  display: flex;
+  gap: 12px;
+  font-size: 11px;
+  color: var(--vscode-descriptionForeground);
+  white-space: nowrap;
+}
+
+/* =============================================================================
+   文件操作按钮
+   ============================================================================= */
+
+.memory-file-item__actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.memory-file-item__action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  color: var(--vscode-foreground);
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.memory-file-item__action-btn:hover {
+  background: var(--vscode-toolbar-hoverBackground, rgba(128, 128, 128, 0.2));
+}
+
+.memory-file-item__action-btn--danger:hover {
+  background: var(--vscode-inputValidation-errorBackground, rgba(244, 71, 71, 0.2));
+  color: var(--vscode-errorForeground, #f48771);
+}
+
+/* =============================================================================
+   删除确认对话框
+   ============================================================================= */
+
+.memory-delete-confirm-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+}
+
+.memory-delete-confirm {
+  background: var(--vscode-editorWidget-background);
+  border: 1px solid var(--vscode-widget-border);
+  border-radius: 6px;
+  padding: 20px;
+  max-width: 400px;
+  width: 90%;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.memory-delete-confirm h3 {
+  margin: 0 0 12px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--vscode-foreground);
+}
+
+.memory-delete-confirm p {
+  margin: 0 0 8px 0;
+  font-size: 12px;
+  color: var(--vscode-foreground);
+  line-height: 1.5;
+}
+
+.memory-delete-confirm__path {
+  padding: 8px;
+  background: var(--vscode-textCodeBlock-background, rgba(128, 128, 128, 0.1));
+  border-radius: 4px;
+  font-size: 11px;
+  font-family: var(--vscode-editor-font-family, monospace);
+  color: var(--vscode-descriptionForeground);
+  word-break: break-all;
+}
+
+.memory-delete-confirm__actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.memory-delete-confirm__cancel,
+.memory-delete-confirm__confirm {
+  padding: 6px 16px;
+  font-size: 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.memory-delete-confirm__cancel {
+  background: var(--vscode-button-secondaryBackground, rgba(128, 128, 128, 0.1));
+  color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+}
+
+.memory-delete-confirm__cancel:hover {
+  background: var(--vscode-button-secondaryHoverBackground, rgba(128, 128, 128, 0.2));
+}
+
+.memory-delete-confirm__confirm {
+  background: var(--vscode-inputValidation-errorBackground, rgba(244, 71, 71, 0.3));
+  color: var(--vscode-errorForeground, #f48771);
+}
+
+.memory-delete-confirm__confirm:hover {
+  background: var(--vscode-inputValidation-errorBackground, rgba(244, 71, 71, 0.4));
+}
