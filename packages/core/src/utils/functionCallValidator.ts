@@ -35,8 +35,17 @@ export function validateAndFixFunctionCall(
   let isComplete = true;
   let fixedCall: FunctionCall | undefined;
 
+  // 🛡️ FIX: trim 工具名称，防止模型返回带空格的工具名
+  if (functionCall.name) {
+    const trimmedName = functionCall.name.trim();
+    if (trimmedName !== functionCall.name) {
+      if (!fixedCall) fixedCall = { ...functionCall };
+      fixedCall.name = trimmedName;
+    }
+  }
+
   // Check basic completeness
-  if (!functionCall.name) {
+  if (!functionCall.name?.trim()) {
     errors.push('Missing function name');
     isValid = false;
     isComplete = false;
