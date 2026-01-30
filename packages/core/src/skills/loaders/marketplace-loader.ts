@@ -271,7 +271,7 @@ export class MarketplaceLoader implements IPluginLoader {
     //   - undefined (默认): 总是自动发现并合并，确保发现所有组件
     //   - false: 总是自动发现并合并（显式声明）
     //   - true: 只使用显式定义的组件，不自动发现
-    const shouldAutoDiscover = pluginDef.strict !== true;
+    const shouldAutoDiscover = pluginDef.strict !== false;
 
     if (shouldAutoDiscover) {
       // 自动发现标准目录

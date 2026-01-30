@@ -1144,7 +1144,8 @@ export class DeepVServerAdapter implements ContentGenerator {
 
         if (newFc) {
           // 合并基础字段
-          if (newFc.name) accFc.name = newFc.name;
+          // 🛡️ FIX: trim 工具名称，防止模型返回带空格的工具名
+          if (newFc.name) accFc.name = newFc.name.trim();
           // 如果新分片有 ID，覆盖旧的（通常 ID 在第一个分片）
           if (newFc.id) accFc.id = newFc.id;
 

@@ -664,6 +664,33 @@ describe('GeminiChat.fixRequestContents', () => {
       expect(allResponses[0].functionResponse!.id).toBeUndefined(); // ID 应该被对齐为 undefined
       expect((allResponses[0].functionResponse!.response as any).output).toBe('files...');
     });
+
+    it('🆕 关键修复：cancel 和真实结果在不同 user 消息中时，应该只保留真实结果，不再补全 cancel', () => {
+      // 这是实际发生的场景：cancel 插入到消息1，真实结果在消息2
+      // 修复前：去重阶段保留真实结果，但补全阶段发现下一条消息没有响应，又插入 cancel
+      // 修复后：补全阶段检查 bestResponses 发现真实结果在后续消息中，跳过补全
+      const input: Content[] = [
+        {
+          role: MESSAGE_ROLES.MODEL,
+          parts: [{ functionCall: { name: 'todo_write', id: 'functions.todo_write:3' } }]
+        },
+        {
+          role: MESSAGE_ROLES.USER,
+          parts: [{ functionResponse: { name: 'todo_write', id: 'functions.todo_write:3', response: { result: 'user cancel' } } }]
+        },
+        {
+          role: MESSAGE_ROLES.USER,
+          parts: [{ functionResponse: { name: 'todo_write', id: 'functions.todo_write:3', response: { output: 'Todo List Updated Successfully\n\n' } } }]
+        }
+      ];
+
+      const result = callFixRequestContents(input);
+
+      // 应该只保留真实结果，没有 cancel
+      const allResponses = result.flatMap(c => c.parts || []).filter(p => p.functionResponse);
+      expect(allResponses).toHaveLength(1);
+      expect((allResponses[0].functionResponse!.response as any).output).toBe('Todo List Updated Successfully\n\n');
+    });
   });
 
   describe('日志测试', () => {
