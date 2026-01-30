@@ -119,6 +119,7 @@ export interface MultiSessionMessageToExtension {
        'session_export' |
        'session_import' |
        'session_list_request' |
+       'session_reorder' |  // 🎯 新增：会话拖拽排序
        // 🎯 UI消息保存相关
        'save_ui_message' |
        'save_session_ui_history' |
@@ -392,6 +393,16 @@ export class MultiSessionMessageService {
     this.sendMessage({
       type: 'session_clear',
       payload: { sessionId }
+    });
+  }
+
+  /**
+   * 🎯 保存Session顺序（用于拖拽排序）
+   */
+  saveSessionsOrder(sessionIds: string[]) {
+    this.sendMessage({
+      type: 'session_reorder',
+      payload: { sessionIds }
     });
   }
 

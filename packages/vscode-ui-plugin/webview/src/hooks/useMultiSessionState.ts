@@ -1280,6 +1280,31 @@ export const useMultiSessionState = () => {
       });
     }, [updateState]),
 
+    // 🎯 拖拽排序管理 - 直接使用 setState 避免 updateState 的自动 sessionList 覆盖
+    reorderSessions: useCallback((sessionIds: string[]) => {
+      setState(prev => {
+        // 1️⃣ 验证所有ID有效性
+        const invalidIds = sessionIds.filter(id => !prev.sessions.has(id));
+        if (invalidIds.length > 0) {
+          console.warn('🚨 Invalid session IDs in reorder:', invalidIds);
+          return prev;
+        }
+
+        // 2️⃣ 按新顺序重建 sessionList
+        const reorderedList = sessionIds
+          .map(id => prev.sessions.get(id)?.info)
+          .filter(Boolean) as SessionInfo[];
+
+        console.log(`🎯 [REORDER] Sessions reordered: ${sessionIds.length} sessions, new order: ${sessionIds.map(id => id.substring(0, 8)).join(' -> ')}`);
+
+        // 3️⃣ 直接返回更新后的状态，不经过 updateState（避免 sessionList 被覆盖）
+        return {
+          ...prev,
+          sessionList: reorderedList
+        };
+      });
+    }, []),
+
     // 上下文管理
     updateGlobalContext,
     updateSessionContext,

@@ -266,10 +266,14 @@ export class MarketplaceLoader implements IPluginLoader {
       }
     }
 
-    // 3. 如果没有显式定义组件，且 strict !== false，则自动发现
-    const isStrictMode = pluginDef.strict !== false;
+    // 3. 自动发现组件
+    // strict 字段语义：
+    //   - undefined (默认): 总是自动发现并合并，确保发现所有组件
+    //   - false: 总是自动发现并合并（显式声明）
+    //   - true: 只使用显式定义的组件，不自动发现
+    const shouldAutoDiscover = pluginDef.strict !== true;
 
-    if (components.length === 0 || !isStrictMode) {
+    if (shouldAutoDiscover) {
       // 自动发现标准目录
       // 按照标准目录和常见第三方工具目录进行自动发现
       const discoveryTasks = [
@@ -283,10 +287,31 @@ export class MarketplaceLoader implements IPluginLoader {
         { name: '.roo/commands', type: ComponentType.COMMAND },
       ];
 
+      const discoveredComponents: UnifiedComponent[] = [];
       for (const task of discoveryTasks) {
-        components.push(...await this.scanComponents(
+        discoveredComponents.push(...await this.scanComponents(
           pluginDir, task.name, task.type, id, marketplaceId
         ));
+      }
+
+      // 合并显式定义的组件和自动发现的组件（去重）
+      // 显式定义的组件优先（保持在前面），然后添加新发现的组件
+      const existingIds = new Set(components.map(c => c.id));
+      let addedCount = 0;
+      for (const discovered of discoveredComponents) {
+        if (!existingIds.has(discovered.id)) {
+          components.push(discovered);
+          existingIds.add(discovered.id);
+          addedCount++;
+        }
+      }
+
+      // Debug logging for skill discovery
+      if (process.env.DEBUG_SKILLS) {
+        console.log(`[MarketplaceLoader] Plugin ${id}:`);
+        console.log(`  - Explicit components: ${components.length - addedCount}`);
+        console.log(`  - Auto-discovered: ${addedCount}`);
+        console.log(`  - Total: ${components.length}`);
       }
     }
 

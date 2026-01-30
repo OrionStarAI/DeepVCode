@@ -205,6 +205,7 @@ export const MultiSessionApp: React.FC = () => {
     updateToolLiveOutput,
     abortCurrentProcess,
     togglePlanMode, // 🎯 新增：Plan模式切换
+    reorderSessions, // 🎯 新增：拖拽排序
     updateGlobalContext,
     updateSessionContext,
     setSessionLoading,
@@ -1577,6 +1578,31 @@ User question: ${contentStr}`;
   };
 
   /**
+   * 🎯 处理Session拖拽排序
+   */
+  const handleSessionsReorder = useCallback((sessionIds: string[]) => {
+    console.log('🎯 [REORDER-START] Sessions reordered by drag:', sessionIds.map(id => id.substring(0, 8)).join(' -> '));
+
+    // 🎯 保存旧顺序用于错误恢复
+    const previousOrder = state.sessionList.map(s => s.id);
+
+    // 1️⃣ 立即更新前端状态（乐观更新）
+    reorderSessions(sessionIds);
+
+    // 2️⃣ 异步保存到后端（fire-and-forget，消息发送本身不会抛异常）
+    // 🎯 注意：saveSessionsOrder 只是发送消息，不返回 Promise
+    // 后端保存失败时，下次加载会恢复到磁盘上的顺序
+    try {
+      getGlobalMessageService().saveSessionsOrder(sessionIds);
+      console.log('✅ [REORDER-SUCCESS] Sessions order save request sent to backend');
+    } catch (error) {
+      // 🎯 如果消息发送失败，回滚前端状态
+      console.error('❌ [REORDER-ERROR] Failed to send sessions order to backend:', error);
+      reorderSessions(previousOrder);
+    }
+  }, [reorderSessions, state.sessionList]);
+
+  /**
    * 导出Session聊天记录为Markdown
    */
   const handleExportSession = (sessionId: string) => {
@@ -1817,25 +1843,23 @@ User question: ${contentStr}`;
    * UI层面按创建时间排序，最新创建的在前
    */
   const getRecentSessions = React.useCallback((): SessionInfo[] => {
-    const allSessions = state.sessionList;
-    let sorted = allSessions
-      .slice()
-      .sort((a, b) => b.createdAt - a.createdAt)
-      .slice(0, 10);
+    // 🎯 直接使用 sessionList 的顺序，不再排序
+    // 这样用户拖拽设置的顺序会被保留
+    let sessions = state.sessionList.slice(0, 10);
 
-    // 确保当前 session 总是在顶部标签页显示
+    // 确保当前 session 总是在标签页中显示（如果不在前 10 个中）
     if (state.currentSessionId) {
-      const currentInList = sorted.find(s => s.id === state.currentSessionId);
+      const currentInList = sessions.find(s => s.id === state.currentSessionId);
       if (!currentInList) {
         const currentSession = state.sessions.get(state.currentSessionId);
         if (currentSession) {
-          sorted = [currentSession.info, ...sorted.slice(0, 9)];
+          sessions = [currentSession.info, ...sessions.slice(0, 9)];
         }
       }
     }
 
     // 使用 state.sessions 中的最新数据（包括用户刚修改的标题）
-    return sorted.map(sessionInfo => {
+    return sessions.map(sessionInfo => {
       const sessionState = state.sessions.get(sessionInfo.id);
       if (sessionState) {
         return sessionState.info;
@@ -2071,6 +2095,7 @@ User question: ${contentStr}`;
             }}
             onCreateSession={handleCreateSession}
             onSessionAction={handleSessionAction}
+            onSessionsReorder={handleSessionsReorder}
             getSessionTitle={getSessionTitle}
             isSessionUnused={isSessionUnused}
             disabled={state.isLoading}
