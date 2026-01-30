@@ -64,6 +64,8 @@ interface SessionMetadata {
     topP?: number;
     stopSequences?: string[];
   };
+  /** 🎯 用户自定义的显示顺序（用于拖拽排序） */
+  displayOrder?: number;
 }
 
 export class SessionPersistenceService {
@@ -273,21 +275,28 @@ export class SessionPersistenceService {
 
   /**
    * 加载最近的Session状态（从索引文件加载，限制数量以提高性能）
+   * 🎯 按用户自定义的displayOrder排序（支持拖拽排序）
    */
   async loadSessions(maxSessions: number = DEFAULT_MAX_LOAD_SESSIONS): Promise<SessionState[]> {
     try {
       const index = await this.loadSessionIndex();
       const sessions: SessionState[] = [];
 
-      // 🎯 限制加载数量：只加载最近的N个session（默认10个）
-      const recentSessions = index.sessions
-        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-        .slice(0, maxSessions);
+      // 🎯 按 displayOrder 排序（保留用户手动设置的顺序）
+      // 如果 displayOrder 相同则按 createdAt 排序
+      const sortedSessions = [...index.sessions].sort((a, b) => {
+        const orderA = a.displayOrder ?? 0;
+        const orderB = b.displayOrder ?? 0;
+        if (orderA !== orderB) {
+          return orderA - orderB;
+        }
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      }).slice(0, maxSessions);
 
-      this.logger.info(`📂 Loading recent ${recentSessions.length} sessions (limited from ${index.sessions.length} total sessions)`);
+      this.logger.info(`📂 Loading recent ${sortedSessions.length} sessions (limited from ${index.sessions.length} total sessions)`);
 
       // 逐个加载session
-      for (const metadata of recentSessions) {
+      for (const metadata of sortedSessions) {
         try {
           const session = await this.loadSingleSession(metadata.sessionId);
           if (session) {
@@ -309,8 +318,43 @@ export class SessionPersistenceService {
   }
 
   /**
-   * 删除指定Session（删除目录和索引项）
+   * 🎯 保存Session顺序（用于拖拽排序）
+   * @param sessionIds 按用户拖拽后的新顺序排列的sessionId数组
    */
+  async saveSessionsOrder(sessionIds: string[]): Promise<void> {
+    try {
+      const index = await this.loadSessionIndex();
+
+      // 更新每个session的displayOrder
+      for (let i = 0; i < sessionIds.length; i++) {
+        const metadata = index.sessions.find(s => s.sessionId === sessionIds[i]);
+        if (metadata) {
+          // 🎯 displayOrder从0开始，按拖拽顺序递增
+          metadata.displayOrder = i * 10000; // 使用间距便于后续插入新session
+        }
+      }
+
+      // 排序后保存
+      index.sessions.sort((a, b) => {
+        const orderA = a.displayOrder ?? 0;
+        const orderB = b.displayOrder ?? 0;
+        if (orderA !== orderB) {
+          return orderA - orderB;
+        }
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+
+      index.lastUpdated = new Date().toISOString();
+      await fs.writeFile(this.indexFile, JSON.stringify(index, null, 2), 'utf-8');
+
+      this.logger.info(`✅ Sessions order saved: ${sessionIds.length} sessions reordered`);
+
+    } catch (error) {
+      this.logger.error('❌ Failed to save sessions order', error instanceof Error ? error : undefined);
+      throw error;
+    }
+  }
+
   async deleteSession(sessionId: string): Promise<void> {
     try {
       this.logger.info(`🗑️ Deleting session: ${sessionId}`);
@@ -851,25 +895,39 @@ export class SessionPersistenceService {
 
   /**
    * 更新session索引
+   * 🎯 支持 displayOrder 用于拖拽排序
    */
-  private async updateSessionIndex(metadata: SessionMetadata): Promise<void> {
+  private async updateSessionIndex(metadata: SessionMetadata, displayOrder?: number): Promise<void> {
     const index = await this.loadSessionIndex();
 
     // 查找是否已存在
     const existingIndex = index.sessions.findIndex(s => s.sessionId === metadata.sessionId);
 
     if (existingIndex >= 0) {
-      // 更新现有记录
-      index.sessions[existingIndex] = metadata;
+      // 🎯 更新现有记录时保留或更新 displayOrder
+      const existingMetadata = index.sessions[existingIndex];
+      index.sessions[existingIndex] = {
+        ...metadata,
+        displayOrder: displayOrder ?? existingMetadata.displayOrder ?? Date.now()
+      };
     } else {
-      // 添加新记录
-      index.sessions.push(metadata);
+      // 🎯 添加新记录时设置 displayOrder
+      index.sessions.push({
+        ...metadata,
+        displayOrder: displayOrder ?? Date.now()
+      });
     }
 
-    // 按最后活跃时间排序
-    index.sessions.sort((a, b) =>
-      new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
+    // 🎯 按 displayOrder 排序（保留用户手动设置的顺序），如果 displayOrder 相同则按 createdAt 排序
+    index.sessions.sort((a, b) => {
+      const orderA = a.displayOrder ?? 0;
+      const orderB = b.displayOrder ?? 0;
+      if (orderA !== orderB) {
+        return orderA - orderB;
+      }
+      // 如果 displayOrder 相同，按 createdAt 排序
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
 
     index.lastUpdated = new Date().toISOString();
 

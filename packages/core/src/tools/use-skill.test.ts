@@ -251,4 +251,146 @@ describe('UseSkillTool', () => {
       expect(result).toBe(false);
     });
   });
+
+  describe('skill name matching', () => {
+    it('should match skill by exact name (case-insensitive)', async () => {
+      const mockSkill = {
+        id: 'marketplace:plugin:pptx',
+        name: 'pptx',
+        description: 'Test skill',
+        pluginId: 'marketplace:plugin',
+        marketplaceId: 'marketplace',
+        path: '/mock/path',
+        skillFilePath: '/mock/path/SKILL.md',
+        metadata: { name: 'pptx' },
+        enabled: true,
+        loadLevel: SkillLoadLevel.RESOURCES,
+        scripts: [],
+      };
+
+      mockLoaderInstance = {
+        loadEnabledSkills: () => [mockSkill],
+      };
+      mockInjectorInstance = {
+        loadSkillLevel2: () => '# Test\n\nTest content',
+      };
+
+      // Test case-insensitive matching
+      const result1 = await useSkillTool.execute({ skillName: 'pptx' }, mockAbortSignal);
+      expect(result1.returnDisplay).toContain('✅ Loaded skill');
+
+      const result2 = await useSkillTool.execute({ skillName: 'PPTX' }, mockAbortSignal);
+      expect(result2.returnDisplay).toContain('✅ Loaded skill');
+
+      const result3 = await useSkillTool.execute({ skillName: 'PpTx' }, mockAbortSignal);
+      expect(result3.returnDisplay).toContain('✅ Loaded skill');
+    });
+
+    it('should match skill by ID suffix', async () => {
+      const mockSkill = {
+        id: 'marketplace:plugin:my-skill',
+        name: 'my-skill',
+        description: 'Test skill',
+        pluginId: 'marketplace:plugin',
+        marketplaceId: 'marketplace',
+        path: '/mock/path',
+        skillFilePath: '/mock/path/SKILL.md',
+        metadata: { name: 'my-skill' },
+        enabled: true,
+        loadLevel: SkillLoadLevel.RESOURCES,
+        scripts: [],
+      };
+
+      mockLoaderInstance = {
+        loadEnabledSkills: () => [mockSkill],
+      };
+      mockInjectorInstance = {
+        loadSkillLevel2: () => '# Test\n\nTest content',
+      };
+
+      // Should match by just the skill name
+      const result = await useSkillTool.execute({ skillName: 'my-skill' }, mockAbortSignal);
+      expect(result.returnDisplay).toContain('✅ Loaded skill');
+    });
+
+    it('should match skill by full ID', async () => {
+      const mockSkill = {
+        id: 'marketplace:plugin:my-skill',
+        name: 'my-skill',
+        description: 'Test skill',
+        pluginId: 'marketplace:plugin',
+        marketplaceId: 'marketplace',
+        path: '/mock/path',
+        skillFilePath: '/mock/path/SKILL.md',
+        metadata: { name: 'my-skill' },
+        enabled: true,
+        loadLevel: SkillLoadLevel.RESOURCES,
+        scripts: [],
+      };
+
+      mockLoaderInstance = {
+        loadEnabledSkills: () => [mockSkill],
+      };
+      mockInjectorInstance = {
+        loadSkillLevel2: () => '# Test\n\nTest content',
+      };
+
+      // Should match by full ID
+      const result = await useSkillTool.execute(
+        { skillName: 'marketplace:plugin:my-skill' },
+        mockAbortSignal
+      );
+      expect(result.returnDisplay).toContain('✅ Loaded skill');
+    });
+
+    it('should provide detailed debug info when skill not found', async () => {
+      const mockSkills = [
+        {
+          id: 'marketplace:plugin1:skill1',
+          name: 'skill1',
+          description: 'Skill 1',
+          pluginId: 'marketplace:plugin1',
+          marketplaceId: 'marketplace',
+          path: '/mock/path1',
+          skillFilePath: '/mock/path1/SKILL.md',
+          metadata: { name: 'skill1' },
+          enabled: true,
+          loadLevel: SkillLoadLevel.RESOURCES,
+          scripts: [],
+        },
+        {
+          id: 'marketplace:plugin2:skill2',
+          name: 'skill2',
+          description: 'Skill 2',
+          pluginId: 'marketplace:plugin2',
+          marketplaceId: 'marketplace',
+          path: '/mock/path2',
+          skillFilePath: '/mock/path2/SKILL.md',
+          metadata: { name: 'skill2' },
+          enabled: true,
+          loadLevel: SkillLoadLevel.RESOURCES,
+          scripts: [],
+        },
+      ];
+
+      mockLoaderInstance = {
+        loadEnabledSkills: () => mockSkills,
+      };
+
+      const result = await useSkillTool.execute({ skillName: 'nonexistent' }, mockAbortSignal);
+
+      // Should provide debug information
+      expect(result.llmContent).toContain('❌ Skill "nonexistent" not found');
+      expect(result.llmContent).toContain('📊 Debug Information');
+      expect(result.llmContent).toContain('Total skills loaded: 2');
+      expect(result.llmContent).toContain('Normalized search: "nonexistent"');
+      expect(result.llmContent).toContain('By name:');
+      expect(result.llmContent).toContain('skill1');
+      expect(result.llmContent).toContain('skill2');
+      expect(result.llmContent).toContain('By ID:');
+      expect(result.llmContent).toContain('marketplace:plugin1:skill1');
+      expect(result.llmContent).toContain('marketplace:plugin2:skill2');
+      expect(result.llmContent).toContain('Inconsistency between list and use_skill');
+    });
+  });
 });

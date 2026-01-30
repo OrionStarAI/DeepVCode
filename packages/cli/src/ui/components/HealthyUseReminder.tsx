@@ -15,7 +15,7 @@ interface HealthyUseReminderProps {
 }
 
 export function HealthyUseReminder({ onDismiss }: HealthyUseReminderProps): React.JSX.Element {
-  const [countdown, setCountdown] = useState(300); // 300秒倒计时
+  const [countdown, setCountdown] = useState(60); // 60秒倒计时
   const [canDismiss, setCanDismiss] = useState(false);
 
   useEffect(() => {

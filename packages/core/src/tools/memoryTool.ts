@@ -59,8 +59,6 @@ export const MEMORY_SECTION_HEADER = '## DeepV Code Added Memories';
 export const DEFAULT_CONTEXT_FILENAMES = [
   'AGENTS.md',
   'DEEPV.md',
-  'GEMINI.md', 
-  'CLAUDE.md',
   '.augement/*.md',
   '.cursor/rules/*.mdc'
 ];
@@ -100,11 +98,11 @@ export function getAllGeminiMdFilenames(): string[] {
  */
 export async function discoverContextFilenames(baseDir: string = path.join(homedir(), GEMINI_CONFIG_DIR)): Promise<string[]> {
   const foundFiles = await findContextFilesInDirectory(baseDir, DEFAULT_CONTEXT_FILENAMES);
-  
+
   if (foundFiles.length > 0) {
     return [path.basename(foundFiles[0])];
   }
-  
+
   return [DEFAULT_CONTEXT_FILENAME];
 }
 
@@ -165,7 +163,7 @@ export const COMMON_IGNORE_PATTERNS = [
  */
 async function findContextFilesInDirectory(baseDir: string, filePatterns: string[]): Promise<string[]> {
   const foundFiles: string[] = [];
-  
+
   try {
     // Ensure directory exists
     await fs.mkdir(baseDir, { recursive: true });
@@ -173,13 +171,13 @@ async function findContextFilesInDirectory(baseDir: string, filePatterns: string
     console.warn(`Warning: failed to create directory ${baseDir}: ${error}`);
     return [];
   }
-  
+
   for (const pattern of filePatterns) {
     if (pattern.includes('*')) {
       // Handle glob patterns
       try {
         const fullPattern = path.join(baseDir, pattern);
-        const matches = await glob(fullPattern, { 
+        const matches = await glob(fullPattern, {
           cwd: baseDir,
           absolute: true,
           nodir: true,
@@ -195,21 +193,21 @@ async function findContextFilesInDirectory(baseDir: string, filePatterns: string
     } else {
       // Handle direct file paths
       const filePath = path.join(baseDir, pattern);
-      
+
       // Check if the file path matches any ignore patterns
       const relativePath = path.relative(baseDir, filePath);
       const shouldIgnore = COMMON_IGNORE_PATTERNS.some(ignorePattern => {
         // Remove /** suffix for directory matching
         const cleanPattern = ignorePattern.replace('/**', '');
-        return relativePath.startsWith(cleanPattern) || 
+        return relativePath.startsWith(cleanPattern) ||
                relativePath.includes(`/${cleanPattern}/`) ||
                relativePath.includes(`\\${cleanPattern}\\`);
       });
-      
+
       if (shouldIgnore) {
         continue; // Skip this file
       }
-      
+
       try {
         await fs.access(filePath);
         foundFiles.push(filePath);
@@ -219,7 +217,7 @@ async function findContextFilesInDirectory(baseDir: string, filePatterns: string
       }
     }
   }
-  
+
   return foundFiles;
 }
 
@@ -234,22 +232,22 @@ async function discoverProjectContextFilenames(projectDir: string = process.cwd(
   // Check if the project directory itself should be ignored
   const shouldIgnoreProjectDir = COMMON_IGNORE_PATTERNS.some(ignorePattern => {
     const cleanPattern = ignorePattern.replace('/**', '');
-    return projectDir.includes(`/${cleanPattern}/`) || 
+    return projectDir.includes(`/${cleanPattern}/`) ||
            projectDir.includes(`\\${cleanPattern}\\`) ||
            projectDir.endsWith(`/${cleanPattern}`) ||
            projectDir.endsWith(`\\${cleanPattern}`);
   });
-  
+
   if (shouldIgnoreProjectDir) {
     return []; // Don't search in ignored directories
   }
-  
+
   const foundFiles = await findContextFilesInDirectory(projectDir, DEFAULT_CONTEXT_FILENAMES);
-  
+
   if (foundFiles.length > 0) {
     return [path.basename(foundFiles[0])];
   }
-  
+
   return [];
 }
 

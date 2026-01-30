@@ -41,7 +41,20 @@ vi.mock('./MessageBubble', () => ({
 }));
 
 vi.mock('./MessageQueueList', () => ({
-  MessageQueueList: () => <div data-testid="message-queue-list" />,
+  MessageQueueList: ({ onEdit }: any) => (
+    <div data-testid="message-queue-list">
+      <button
+        data-testid="queue-edit-btn"
+        onClick={() => onEdit?.({
+          id: 'queue-1',
+          content: [{ type: 'text', value: 'Queued message' }],
+          timestamp: Date.now(),
+        })}
+      >
+        Edit
+      </button>
+    </div>
+  ),
 }));
 
 vi.mock('./ToolCallList', () => ({
@@ -304,6 +317,42 @@ describe('ChatInterface', () => {
       );
 
       expect(mockOnRemoveFromQueue).toBeDefined();
+    });
+
+    it('should edit message queue item by loading content into input, NOT deleting from queue', () => {
+      const queuedMessage = {
+        id: 'queue-1',
+        content: [{ type: 'text', value: 'Queued message' }],
+        timestamp: Date.now(),
+      };
+
+      const mockOnRemoveFromQueue = vi.fn();
+      const mockSetContent = vi.fn();
+      const messageInputRef = React.createRef<any>();
+      messageInputRef.current = { setContent: mockSetContent };
+
+      render(
+        <ChatInterface
+          {...defaultProps}
+          messageQueue={[queuedMessage]}
+          onRemoveMessageFromQueue={mockOnRemoveFromQueue}
+          messageInputRef={messageInputRef}
+        />
+      );
+
+      // Click the edit button
+      const editBtn = screen.getByTestId('queue-edit-btn');
+      fireEvent.click(editBtn);
+
+      // 🎯 Verify that content was loaded into the input
+      // but the item was NOT deleted from the queue
+      expect(mockSetContent).toHaveBeenCalledWith([
+        { type: 'text', value: 'Queued message' }
+      ]);
+
+      // 🎯 Important: onRemoveFromQueue should NOT be called during edit
+      // Users should manually delete the item if they don't need it
+      expect(mockOnRemoveFromQueue).not.toHaveBeenCalled();
     });
   });
 

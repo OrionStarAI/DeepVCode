@@ -227,6 +227,7 @@ export type WebViewToExtensionMessage =
   | { type: 'session_import'; payload: SessionImportPayload }
   | { type: 'export_chat'; payload: { sessionId: string; title: string; content: string; format: string } }
   | { type: 'session_list_request'; payload: { includeAll?: boolean; offset?: number; limit?: number; searchQuery?: string } }
+  | { type: 'session_reorder'; payload: { sessionIds: string[] } }  // 🎯 拖拽排序
   // 🎯 UI消息保存相关
   | { type: 'save_ui_message'; payload: { sessionId: string; message: ChatMessage } }
   | { type: 'save_session_ui_history'; payload: { sessionId: string; messages: ChatMessage[] } }
