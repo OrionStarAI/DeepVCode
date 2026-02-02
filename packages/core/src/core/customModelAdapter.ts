@@ -666,7 +666,7 @@ export async function callOpenAICompatibleModel(
           if (tc.type === 'function') {
             parts.push({
               functionCall: {
-                name: tc.function.name,
+                name: tc.function.name?.trim() || tc.function.name,
                 args: parseJSONSafe(tc.function.arguments),
                 id: tc.id,
               },
@@ -787,7 +787,7 @@ export async function callAnthropicModel(
       const data = await response.json();
       const parts = data.content.map((c: any) => {
         if (c.type === 'text') return { text: c.text };
-        if (c.type === 'tool_use') return { functionCall: { name: c.name, args: c.input, id: c.id } };
+        if (c.type === 'tool_use') return { functionCall: { name: c.name?.trim() || c.name, args: c.input, id: c.id } };
         // 🆕 支持 thinking 内容块 - 映射为 reasoning 格式以便 UI 显示
         // Anthropic 的 thinking 块包含模型的内部推理过程，类似于 Gemini 的 reasoning 字段
         if (c.type === 'thinking') return { reasoning: c.thinking };
@@ -964,7 +964,7 @@ export async function* callOpenAICompatibleModelStream(
                   aggregatedTools.set(idx, tool);
                 }
                 if (tc.id) tool.id = tc.id;
-                if (tc.function?.name) tool.name = tc.function.name;
+                if (tc.function?.name) tool.name = tc.function.name.trim();
                 if (tc.function?.arguments) tool.args += tc.function.arguments;
               }
             }
@@ -1118,7 +1118,7 @@ export async function* callAnthropicModelStream(
             if (chunk.content_block?.type === 'tool_use') {
               aggregatedTools.set(idx, {
                 id: chunk.content_block.id,
-                name: chunk.content_block.name,
+                name: chunk.content_block.name?.trim() || chunk.content_block.name,
                 args: ''
               });
             } else if (chunk.content_block?.type === 'thinking') {

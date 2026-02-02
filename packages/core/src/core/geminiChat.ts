@@ -598,9 +598,25 @@ export class GeminiChat {
             });
           });
 
+          // 🎯 关键修复：只补全那些没有在任何地方有真实结果的 call
+          // 如果 bestResponses 中有非 cancel 的响应，说明真实结果存在（可能在后续消息中），不需要补全
+          const callsNeedingCancel = unmatchedCalls.filter(callPart => {
+            const functionCall = callPart.functionCall!;
+            const key = functionCall.id || `name:${functionCall.name}`;
+            const best = bestResponses.get(key);
+
+            // 如果 bestResponses 中存储的是真实结果（优先级 100），且不是我们当前看到的这条消息中的
+            // 说明真实结果在后续消息中，不需要补全 cancel
+            if (best && best.priority === 100 && best.originalIndex > i + 1) {
+              console.log(`[fixRequestContents] ⏭️ 跳过补全 cancel：${functionCall.name} (id: ${functionCall.id || 'unnamed'})，真实结果将在后续消息中到达`);
+              return false;
+            }
+            return true;
+          });
+
           // 为未匹配的 function call 创建 "user cancel" response
-          if (unmatchedCalls.length > 0) {
-            const cancelResponses = unmatchedCalls.map(part => {
+          if (callsNeedingCancel.length > 0) {
+            const cancelResponses = callsNeedingCancel.map(part => {
               const functionCall = part.functionCall!;
               return {
                 functionResponse: {
@@ -617,7 +633,7 @@ export class GeminiChat {
               parts: cancelResponses
             });
 
-            console.log(`[fixRequestContents] 为第${i + 1}条消息补全了 ${unmatchedCalls.length} 个未匹配的 function call`);
+            console.log(`[fixRequestContents] 为第${i + 1}条消息补全了 ${callsNeedingCancel.length} 个未匹配的 function call`);
           }
 
           // 如果下一条消息有混合内容，调整 parts 顺序：function-response 在前，text 在后
@@ -917,6 +933,14 @@ export class GeminiChat {
           if (content !== undefined) {
             // 跳过 thought 和 reasoning 内容，不加入历史记录
             if (isThought || isReasoning) {
+              yield chunk;
+              continue;
+            }
+            // 🆕 FIX: 跳过只包含空白字符的内容，避免插入无意义的消息
+            const hasOnlyWhitespace = content.parts?.every(part =>
+              part.text !== undefined && part.text.trim() === ''
+            );
+            if (hasOnlyWhitespace) {
               yield chunk;
               continue;
             }
