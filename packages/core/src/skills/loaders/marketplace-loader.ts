@@ -194,82 +194,70 @@ export class MarketplaceLoader implements IPluginLoader {
       return path.isAbsolute(targetPath) ? targetPath : path.join(pluginDir, targetPath);
     };
 
-    // Commands
-    if (pluginDef.commands && (Array.isArray(pluginDef.commands) || typeof pluginDef.commands === 'string')) {
-      const cmdItems = Array.isArray(pluginDef.commands) ? pluginDef.commands : [pluginDef.commands];
-      for (const cmdItem of cmdItems) {
-        // 支持字符串或对象格式：{ path: "commands/foo.md" }
-        const cmdPath = typeof cmdItem === 'string' ? cmdItem : cmdItem?.path;
-        if (!cmdPath || typeof cmdPath !== 'string') {
-          console.warn(`Invalid command path in plugin ${id}:`, cmdItem);
-          continue;
-        }
-        const fullPath = getFullPath(cmdPath);
-        const component = await this.componentParser.parse(
-          fullPath,
-          ComponentType.COMMAND,
-          id,
-          marketplaceId,
-          pluginDir
-        );
-        if (component) {
-          components.push(component);
-        }
-      }
-    }
-
-    // Agents
-    if (pluginDef.agents && (Array.isArray(pluginDef.agents) || typeof pluginDef.agents === 'string')) {
-      const agentItems = Array.isArray(pluginDef.agents) ? pluginDef.agents : [pluginDef.agents];
-      for (const agentItem of agentItems) {
-        // 支持字符串或对象格式：{ path: "agents/foo.md" }
-        const agentPath = typeof agentItem === 'string' ? agentItem : agentItem?.path;
-        if (!agentPath || typeof agentPath !== 'string') {
-          console.warn(`Invalid agent path in plugin ${id}:`, agentItem);
-          continue;
-        }
-        const fullPath = getFullPath(agentPath);
-        const component = await this.componentParser.parse(
-          fullPath,
-          ComponentType.AGENT,
-          id,
-          marketplaceId,
-          pluginDir
-        );
-        if (component) {
-          components.push(component);
-        }
-      }
-    }
-
-    // Skills (如果显式定义了)
+    // 🔧 新增：处理 marketplace.json 中的显式定义（ui-ux-pro-max 情景）
     if (pluginDef.skills && (Array.isArray(pluginDef.skills) || typeof pluginDef.skills === 'string')) {
       const skillItems = Array.isArray(pluginDef.skills) ? pluginDef.skills : [pluginDef.skills];
       for (const skillItem of skillItems) {
-        // 支持字符串或对象格式：{ path: "skills/foo.md" }
         const skillPath = typeof skillItem === 'string' ? skillItem : skillItem?.path;
-        if (!skillPath || typeof skillPath !== 'string') {
-          console.warn(`Invalid skill path in plugin ${id}:`, skillItem);
-          continue;
-        }
-        const fullPath = getFullPath(skillPath);
-        const component = await this.componentParser.parse(
-          fullPath,
-          ComponentType.SKILL,
-          id,
-          marketplaceId,
-          pluginDir
-        );
-        if (component) {
-          components.push(component);
+        if (skillPath) {
+          const fullPath = getFullPath(skillPath);
+          const component = await this.componentParser.parse(fullPath, ComponentType.SKILL, id, marketplaceId, pluginDir);
+          if (component) components.push(component);
         }
       }
     }
 
-    // 3. 如果没有显式定义组件，且 strict !== false，则自动发现
-    const isStrictMode = pluginDef.strict !== false;
+    if (pluginDef.commands && (Array.isArray(pluginDef.commands) || typeof pluginDef.commands === 'string')) {
+      const cmdItems = Array.isArray(pluginDef.commands) ? pluginDef.commands : [pluginDef.commands];
+      for (const cmdItem of cmdItems) {
+        const cmdPath = typeof cmdItem === 'string' ? cmdItem : cmdItem?.path;
+        if (cmdPath) {
+          const fullPath = getFullPath(cmdPath);
+          const component = await this.componentParser.parse(fullPath, ComponentType.COMMAND, id, marketplaceId, pluginDir);
+          if (component) components.push(component);
+        }
+      }
+    }
 
-    if (components.length === 0 || !isStrictMode) {
+    if (pluginDef.agents && (Array.isArray(pluginDef.agents) || typeof pluginDef.agents === 'string')) {
+      const agentItems = Array.isArray(pluginDef.agents) ? pluginDef.agents : [pluginDef.agents];
+      for (const agentItem of agentItems) {
+        const agentPath = typeof agentItem === 'string' ? agentItem : agentItem?.path;
+        if (agentPath) {
+          const fullPath = getFullPath(agentPath);
+          const component = await this.componentParser.parse(fullPath, ComponentType.AGENT, id, marketplaceId, pluginDir);
+          if (component) components.push(component);
+        }
+      }
+    }
+
+    // 🔧 尝试加载 plugin.json 进行补充 (如果有的话)
+    const pluginJsonPath = path.join(pluginDir, 'plugin.json');
+    const claudePluginJsonPath = path.join(pluginDir, '.claude-plugin', 'plugin.json');
+    let metadata: any = {};
+    if (await fs.pathExists(pluginJsonPath)) {
+      metadata = await fs.readJson(pluginJsonPath);
+    } else if (await fs.pathExists(claudePluginJsonPath)) {
+      metadata = await fs.readJson(claudePluginJsonPath);
+    }
+
+    if (metadata.skills && !pluginDef.skills) {
+      const skillPaths = Array.isArray(metadata.skills) ? metadata.skills : [metadata.skills];
+      for (const sp of skillPaths) {
+        const fullPath = getFullPath(sp);
+        const component = await this.componentParser.parse(fullPath, ComponentType.SKILL, id, marketplaceId, pluginDir);
+        if (component) components.push(component);
+      }
+    }
+
+    // 3. 自动发现组件
+    // strict 字段语义：
+    //   - undefined (默认): 总是自动发现并合并，确保发现所有组件
+    //   - false: 总是自动发现并合并（显式声明）
+    //   - true: 只使用显式定义的组件，不自动发现
+    const shouldAutoDiscover = pluginDef.strict !== false;
+
+    if (shouldAutoDiscover) {
       // 自动发现标准目录
       // 按照标准目录和常见第三方工具目录进行自动发现
       const discoveryTasks = [
@@ -283,10 +271,31 @@ export class MarketplaceLoader implements IPluginLoader {
         { name: '.roo/commands', type: ComponentType.COMMAND },
       ];
 
+      const discoveredComponents: UnifiedComponent[] = [];
       for (const task of discoveryTasks) {
-        components.push(...await this.scanComponents(
+        discoveredComponents.push(...await this.scanComponents(
           pluginDir, task.name, task.type, id, marketplaceId
         ));
+      }
+
+      // 合并显式定义的组件和自动发现的组件（去重）
+      // 显式定义的组件优先（保持在前面），然后添加新发现的组件
+      const existingIds = new Set(components.map(c => c.id));
+      let addedCount = 0;
+      for (const discovered of discoveredComponents) {
+        if (!existingIds.has(discovered.id)) {
+          components.push(discovered);
+          existingIds.add(discovered.id);
+          addedCount++;
+        }
+      }
+
+      // Debug logging for skill discovery
+      if (process.env.DEBUG_SKILLS) {
+        console.log(`[MarketplaceLoader] Plugin ${id}:`);
+        console.log(`  - Explicit components: ${components.length - addedCount}`);
+        console.log(`  - Auto-discovered: ${addedCount}`);
+        console.log(`  - Total: ${components.length}`);
       }
     }
 
@@ -364,22 +373,66 @@ export class MarketplaceLoader implements IPluginLoader {
 
     // 2. 读取元数据 (plugin.json)
     let metadata: any = { name: pluginName, description: '', version: 'unknown' };
+    const pluginJsonPath = path.join(pluginDir, 'plugin.json');
+    const claudePluginJsonPath = path.join(pluginDir, '.claude-plugin', 'plugin.json');
+
     if (structure.hasPluginJson) {
-      metadata = await fs.readJson(path.join(pluginDir, 'plugin.json'));
-    } else if (structure.hasClaudePluginDir) {
-      metadata = await fs.readJson(path.join(pluginDir, '.claude-plugin', 'plugin.json'));
+      metadata = await fs.readJson(pluginJsonPath);
+    } else if (structure.hasClaudePluginDir && await fs.pathExists(claudePluginJsonPath)) {
+      metadata = await fs.readJson(claudePluginJsonPath);
     }
 
     // 3. 发现组件 (使用 ComponentParser)
     const components: UnifiedComponent[] = [];
 
+    // 优先处理显式定义的组件 (如果有 plugin.json)
+    const getMetadataPath = (p: string) => path.isAbsolute(p) ? p : path.join(pluginDir, p);
+
+    if (metadata.skills && (Array.isArray(metadata.skills) || typeof metadata.skills === 'string')) {
+      const skillPaths = Array.isArray(metadata.skills) ? metadata.skills : [metadata.skills];
+      for (const sp of skillPaths) {
+        const fullPath = getMetadataPath(sp);
+        const component = await this.componentParser.parse(fullPath, ComponentType.SKILL, id, marketplaceId, pluginDir);
+        if (component) components.push(component);
+      }
+    }
+
+    if (metadata.commands && (Array.isArray(metadata.commands) || typeof metadata.commands === 'string')) {
+      const cmdPaths = Array.isArray(metadata.commands) ? metadata.commands : [metadata.commands];
+      for (const cp of cmdPaths) {
+        const fullPath = getMetadataPath(cp);
+        const component = await this.componentParser.parse(fullPath, ComponentType.COMMAND, id, marketplaceId, pluginDir);
+        if (component) components.push(component);
+      }
+    }
+
+    if (metadata.agents && (Array.isArray(metadata.agents) || typeof metadata.agents === 'string')) {
+      const agentPaths = Array.isArray(metadata.agents) ? metadata.agents : [metadata.agents];
+      for (const ap of agentPaths) {
+        const fullPath = getMetadataPath(ap);
+        const component = await this.componentParser.parse(fullPath, ComponentType.AGENT, id, marketplaceId, pluginDir);
+        if (component) components.push(component);
+      }
+    }
+
+    // 自动发现组件（去重）
+    const existingIds = new Set(components.map(c => c.id));
+    const addComponent = (c: any) => {
+      if (c && !existingIds.has(c.id)) {
+        components.push(c);
+        existingIds.add(c.id);
+      }
+    };
+
     // Agents
     if (structure.directories.agents) {
       if (await fs.pathExists(path.join(pluginDir, 'agents'))) {
-        components.push(...await this.scanComponents(pluginDir, 'agents', ComponentType.AGENT, id, marketplaceId));
+        const found = await this.scanComponents(pluginDir, 'agents', ComponentType.AGENT, id, marketplaceId);
+        found.forEach(addComponent);
       }
       if (await fs.pathExists(path.join(pluginDir, '.claude/agents'))) {
-        components.push(...await this.scanComponents(pluginDir, '.claude/agents', ComponentType.AGENT, id, marketplaceId));
+        const found = await this.scanComponents(pluginDir, '.claude/agents', ComponentType.AGENT, id, marketplaceId);
+        found.forEach(addComponent);
       }
     }
 
@@ -388,7 +441,8 @@ export class MarketplaceLoader implements IPluginLoader {
       const commandDirs = ['commands', '.claude/commands', '.cursor/commands', '.roo/commands'];
       for (const dir of commandDirs) {
         if (await fs.pathExists(path.join(pluginDir, dir))) {
-          components.push(...await this.scanComponents(pluginDir, dir, ComponentType.COMMAND, id, marketplaceId));
+          const found = await this.scanComponents(pluginDir, dir, ComponentType.COMMAND, id, marketplaceId);
+          found.forEach(addComponent);
         }
       }
     }
@@ -396,20 +450,20 @@ export class MarketplaceLoader implements IPluginLoader {
     // Skills
     if (structure.directories.skills) {
       if (await fs.pathExists(path.join(pluginDir, 'skills'))) {
-        components.push(...await this.scanComponents(pluginDir, 'skills', ComponentType.SKILL, id, marketplaceId));
+        const found = await this.scanComponents(pluginDir, 'skills', ComponentType.SKILL, id, marketplaceId);
+        found.forEach(addComponent);
       }
       if (await fs.pathExists(path.join(pluginDir, '.claude/skills'))) {
-        components.push(...await this.scanComponents(pluginDir, '.claude/skills', ComponentType.SKILL, id, marketplaceId));
+        const found = await this.scanComponents(pluginDir, '.claude/skills', ComponentType.SKILL, id, marketplaceId);
+        found.forEach(addComponent);
       }
     } else {
       // 尝试扫描根目录下的 Skills (DeepV Code 扁平结构)
-      // 这种结构常见于旧的 DeepV Code 插件，如 document-skills
+      // 这种结构常见于旧性 DeepV Code 插件，如 document-skills
       const skills = await this.scanComponents(
         pluginDir, '.', ComponentType.SKILL, id, marketplaceId
       );
-      if (skills.length > 0) {
-        components.push(...skills);
-      }
+      skills.forEach(addComponent);
     }
 
     // 4. 构建 UnifiedPlugin

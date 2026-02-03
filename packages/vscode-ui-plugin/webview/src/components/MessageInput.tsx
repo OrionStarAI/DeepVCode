@@ -681,6 +681,51 @@ export const MessageInput = React.forwardRef<MessageInputHandle, MessageInputPro
     }, 300);
   };
 
+  // 🎯 暴露给父组件的方法
+  useImperativeHandle(ref, () => ({
+    insertCodeReference: (codeRef) => {
+      if (editorRef.current) {
+        editorRef.current.update(() => {
+          const selection = $getSelection();
+          if ($isRangeSelection(selection)) {
+            const codeNode = $createCodeReferenceNode(
+              codeRef.fileName,
+              codeRef.filePath,
+              codeRef.startLine,
+              codeRef.endLine,
+              codeRef.code
+            );
+            selection.insertNodes([codeNode]);
+            // 在代码引用后添加一个空格
+            selection.insertText(' ');
+          } else {
+             // 如果没有选区（例如编辑器未聚焦），追加到文档末尾
+             const root = $getRoot();
+             const paragraph = $createParagraphNode();
+             const codeNode = $createCodeReferenceNode(
+              codeRef.fileName,
+              codeRef.filePath,
+              codeRef.startLine,
+              codeRef.endLine,
+              codeRef.code
+            );
+            paragraph.append(codeNode);
+            paragraph.append($createTextNode(' '));
+            root.append(paragraph);
+          }
+        });
+        // 聚焦编辑器
+        setTimeout(() => {
+            editorRef.current?.focus();
+        }, 0);
+      }
+    },
+    setContent: (content: MessageContent) => {
+      console.log('🎯 MessageInput.setContent called via ref:', content);
+      populateEditorWithContent(content);
+    }
+  }));
+
   // 🎯 编辑器准备就绪回调
   const handleEditorReady = () => {
     if (isEditMode && initialContent && !hasPopulatedContent) {

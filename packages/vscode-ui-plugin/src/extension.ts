@@ -2679,6 +2679,25 @@ function setupMultiSessionHandlers() {
     }
   });
 
+  // 🎯 处理Session拖拽排序请求
+  communicationService.addMessageHandler('session_reorder', async (payload: { sessionIds: string[] }) => {
+    try {
+      logger.info('Received session_reorder request', { sessionIds: payload.sessionIds.map(id => id.substring(0, 8)) });
+
+      // 调用持久化服务保存新顺序
+      await sessionManager.saveSessionsOrder(payload.sessionIds);
+
+      logger.info('✅ Session order saved successfully');
+
+      // 🎯 注意：不发送 session_list_update！
+      // 前端已经通过 reorderSessions 更新了 UI，
+      // 如果发送 session_list_update，会覆盖前端的拖拽顺序
+      // （因为 getAllSessionsInfo() 按 lastActivity 排序，不是用户自定义顺序）
+    } catch (error) {
+      logger.error('Failed to reorder sessions', error instanceof Error ? error : undefined);
+    }
+  });
+
   // 处理Session更新请求
   communicationService.onSessionUpdate(async (payload) => {
     try {
