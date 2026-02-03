@@ -16,6 +16,7 @@ interface ScrollingDebugConsoleProps {
   messages: ConsoleMessageItem[];
   height: number;
   width: number;
+  errorOnly?: boolean;
 }
 
 /**
@@ -87,6 +88,7 @@ function ScrollingDebugConsoleComponent({
   messages,
   height,
   width,
+  errorOnly = false,
 }: ScrollingDebugConsoleProps) {
   const errorCount = messages.filter((msg) => msg.type === 'error').length;
 
@@ -117,17 +119,22 @@ function ScrollingDebugConsoleComponent({
       <Box marginBottom={1} justifyContent="space-between">
         <Text bold color={Colors.Foreground}>
           Debug Console{' '}
+          {errorOnly && (
+            <Text color={Colors.AccentYellow} bold>
+              [ERRORS ONLY]{' '}
+            </Text>
+          )}
           <Text color={Colors.Gray}>
-            (ctrl+o to toggle, ctrl+s to expand)
+            (ctrl+o to {errorOnly ? 'close' : 'filter'}, ctrl+s to expand)
           </Text>
         </Text>
         <Text color={errorCount > 0 ? Colors.AccentRed : Colors.Gray}>
-          Errors: {errorCount}
+          {errorOnly ? `Showing ${errorCount} errors` : `Errors: ${errorCount}`}
         </Text>
       </Box>
 
       {/* Content area with scrolling logic */}
-      <Box flexDirection="column" height={contentHeight}>
+      <Box flexDirection="column" height={adjustedContentHeight}>
         {displayItems.length === 0 ? (
           <Box>
             <Text color={Colors.Gray}>No messages</Text>
