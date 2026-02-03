@@ -853,6 +853,82 @@ describe('customModelAdapter - Streaming Tool Calls', () => {
       expect(toolCallResponse?.functionCalls).toBeDefined();
       expect(toolCallResponse?.functionCalls?.[0]?.name).toBe('search');
     });
+
+    it('should trim leading and trailing spaces from tool names in streaming', async () => {
+      const mockResponse = {
+        ok: true,
+        body: {
+          getReader: () => {
+            let index = 0;
+            const chunks = [
+              'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","function":{"name":" read_file","arguments":""}}]},"index":0}]}\n',
+              'data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\\"absolute_path\\":\\"/file.txt\\"}"}}]},"index":0}]}\n',
+              'data: {"choices":[{"finish_reason":"stop","index":0}],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}\n',
+              'data: [DONE]\n',
+            ];
+
+            return {
+              read: vi.fn(async () => {
+                if (index < chunks.length) {
+                  const value = new TextEncoder().encode(chunks[index]);
+                  index++;
+                  return { done: false, value };
+                }
+                return { done: true, value: undefined };
+              }),
+              releaseLock: vi.fn(),
+            };
+          },
+        },
+      };
+
+      global.fetch = vi.fn().mockResolvedValue(mockResponse);
+
+      const modelConfig = {
+        provider: 'openai' as const,
+        modelId: 'gpt-4',
+        baseUrl: 'https://api.openai.com/v1',
+        apiKey: 'sk-test',
+        displayName: 'GPT-4',
+      };
+
+      const request = {
+        contents: [
+          {
+            role: MESSAGE_ROLES.USER,
+            parts: [{ text: 'read file' }],
+          },
+        ],
+        config: {
+          tools: [
+            {
+              name: 'read_file',
+              description: 'Read a file',
+              parameters: { type: 'object', properties: { absolute_path: { type: 'string' } } },
+            },
+          ],
+        },
+      };
+
+      const responses: any[] = [];
+      for await (const response of callOpenAICompatibleModelStream(modelConfig as any, request)) {
+        responses.push(response);
+      }
+
+      const toolCallResponse = responses.find(r => {
+        const parts = r.candidates?.[0]?.content?.parts;
+        return parts && parts.some((p: any) => p.functionCall);
+      });
+
+      expect(toolCallResponse).toBeDefined();
+      if (toolCallResponse) {
+        const functionCall = toolCallResponse.candidates[0].content.parts.find((p: any) => p.functionCall)?.functionCall;
+        expect(functionCall).toBeDefined();
+        // 验证工具名称已被 trim
+        expect(functionCall?.name).toBe('read_file'); // 不是 " read_file"
+        expect(functionCall?.args).toEqual({ absolute_path: '/file.txt' });
+      }
+    });
   });
 
   describe('Claude streaming', () => {
@@ -1174,6 +1250,83 @@ describe('customModelAdapter - Streaming Tool Calls', () => {
       });
       expect(textResponse).toBeDefined();
       expect(textResponse?.candidates[0].content.parts[0].text).toBe('Here is my answer');
+    });
+
+    it('should trim leading and trailing spaces from tool names', async () => {
+      const mockResponse = {
+        ok: true,
+        body: {
+          getReader: () => {
+            let index = 0;
+            const chunks = [
+              'data: {"type":"message_start","message":{"usage":{"input_tokens":10}}}\n',
+              'data: {"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"tool_123","name":" read_file"}}\n',
+              'data: {"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{\\"absolute_path\\":\\"/file.txt\\"}"}}\n',
+              'data: {"type":"content_block_stop","index":0}\n',
+              'data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":5}}\n',
+            ];
+
+            return {
+              read: vi.fn(async () => {
+                if (index < chunks.length) {
+                  const value = new TextEncoder().encode(chunks[index]);
+                  index++;
+                  return { done: false, value };
+                }
+                return { done: true, value: undefined };
+              }),
+              releaseLock: vi.fn(),
+            };
+          },
+        },
+      };
+
+      global.fetch = vi.fn().mockResolvedValue(mockResponse);
+
+      const modelConfig = {
+        provider: 'anthropic' as const,
+        modelId: 'claude-3',
+        baseUrl: 'https://api.anthropic.com',
+        apiKey: 'sk-test',
+        displayName: 'Claude 3',
+      };
+
+      const request = {
+        contents: [
+          {
+            role: MESSAGE_ROLES.USER,
+            parts: [{ text: 'read file' }],
+          },
+        ],
+        config: {
+          tools: [
+            {
+              name: 'read_file',
+              description: 'Read a file',
+              parameters: { type: 'object', properties: { absolute_path: { type: 'string' } } },
+            },
+          ],
+        },
+      };
+
+      const responses: any[] = [];
+      for await (const response of callAnthropicModelStream(modelConfig as any, request)) {
+        responses.push(response);
+      }
+
+      const toolCallResponse = responses.find(r => {
+        const parts = r.candidates?.[0]?.content?.parts;
+        return parts && parts.some((p: any) => p.functionCall);
+      });
+
+      expect(toolCallResponse).toBeDefined();
+      if (toolCallResponse) {
+        const functionCall = toolCallResponse.candidates[0].content.parts.find((p: any) => p.functionCall)?.functionCall;
+        expect(functionCall).toBeDefined();
+        // 验证工具名称已被 trim
+        expect(functionCall?.name).toBe('read_file'); // 不是 " read_file"
+        expect(functionCall?.args).toEqual({ absolute_path: '/file.txt' });
+      }
     });
   });
 });
