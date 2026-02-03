@@ -442,13 +442,6 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     consolePatcher.patch();
     registerCleanup(consolePatcher.cleanup);
 
-    // 🎯 TEST: Inject AaronCustomizedException for Ctrl+O feature verification
-    setTimeout(() => {
-      console.log('✓ DeepVCode initialized successfully');
-      console.log('ℹ Type your prompt and press Enter to start');
-      console.error('AaronCustomizedException: This is a test error to verify Ctrl+O error filtering feature');
-      console.error('  at testErrorInjection (App.tsx:449)');
-    }, 1000);
   }, [handleNewMessage, config]);
 
   const { stats: sessionStats } = useSessionStats();
