@@ -11,7 +11,6 @@ import { Box, Text } from 'ink';
 import { Colors } from '../colors.js';
 import { type Config, SessionManager, ProxyAuthManager } from 'deepv-code-core';
 import { t } from '../utils/i18n.js';
-import path from 'path';
 import { cuteVLogo } from './AsciiArt.js';
 import { getShortModelName } from '../utils/footerUtils.js';
 
@@ -26,9 +25,8 @@ interface RecentSessionDisplay {
   description: string;
 }
 
-// 每日技巧键名列表 - 从 i18n 中获取实际文本（只保留最有用的）
+// 每日技巧键名列表 - 从 i18n 中获取
 const DAILY_TIP_KEYS = [
-  // 斜杠命令 - 最实用的
   'tip.help',
   'tip.theme',
   'tip.auth',
@@ -42,56 +40,30 @@ const DAILY_TIP_KEYS = [
   'tip.docs',
   'tip.session',
   'tip.restore',
-
-  // 特殊输入符号
   'tip.at.filepath',
   'tip.shell.command',
   'tip.shell.mode',
-
-  // 快捷键 - 只保留最常用的
   'tip.ctrl.j',
-
-  // CLI 启动参数
   'tip.cli.update',
   'tip.cli.cloud',
 ];
 
-// 格式化相对时间
-function formatRelativeTime(date: Date): string {
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMs / 3600000);
-  const diffDays = Math.floor(diffMs / 86400000);
-  const diffWeeks = Math.floor(diffMs / 604800000);
-
-  if (diffMins < 1) return 'just now';
-  if (diffMins < 60) return `${diffMins}m ago`;
-  if (diffHours < 24) return `${diffHours}h ago`;
-  if (diffDays < 7) return `${diffDays}d ago`;
-  return `${diffWeeks}w ago`;
-}
-
 export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
   config,
   version,
-  customProxyUrl,
 }) => {
-  // 直接同步获取用户名，不使用 state
   const userName = useMemo(() => {
     const authManager = ProxyAuthManager.getInstance();
     const userInfo = authManager.getUserInfo();
     return userInfo?.name;
   }, []);
 
-  // 获取当前模型和 credits 信息
   const modelInfo = useMemo(() => {
     const currentModel = config.getModel();
     const cloudModelInfo = config.getCloudModelInfo(currentModel);
 
     if (cloudModelInfo) {
       const credits = cloudModelInfo.creditsPerRequest;
-      // 使用简化的模型名称（中等缩写）
       const shortName = getShortModelName(cloudModelInfo.displayName, true);
       return {
         displayName: shortName,
@@ -99,7 +71,6 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
       };
     }
 
-    // 如果没有 cloud model info，使用基本信息
     const modelName = currentModel === 'auto' ? 'Gemini' : currentModel;
     const shortName = getShortModelName(modelName, true);
     return {
@@ -110,110 +81,90 @@ export const WelcomeScreen: React.FC<WelcomeScreenProps> = ({
 
   const [recentSessions, setRecentSessions] = useState<RecentSessionDisplay[]>([]);
 
-  // 获取最近会话
   useEffect(() => {
     const loadRecentSessions = async () => {
-      // 🚀 启动优化：将非核心任务推迟执行
       await new Promise(resolve => setTimeout(resolve, 1000));
       try {
         const sessionManager = new SessionManager(config.getProjectRoot());
         const sessions = await sessionManager.listSessions();
 
         const recentDisplays: RecentSessionDisplay[] = sessions
-          .slice(0, 4)
+          .slice(0, 1)
           .map(session => ({
-            time: formatRelativeTime(new Date(session.lastActiveAt)),
+            time: '',
             description: session.title || session.firstUserMessage?.slice(0, 30) || 'Untitled session',
           }));
 
         setRecentSessions(recentDisplays);
       } catch (error) {
-        // 忽略错误，不显示历史
+        // 忽略错误
       }
     };
 
     loadRecentSessions();
   }, [config]);
 
-  // 获取当前目录名称
-  const currentDir = useMemo(() => {
-    const fullPath = config.getProjectRoot();
-    return path.basename(fullPath);
-  }, [config]);
-
-  // 获取完整路径
-  const fullPath = config.getProjectRoot();
-
   // 随机选择一条每日技巧
   const dailyTip = useMemo(() => {
     const randomIndex = Math.floor(Math.random() * DAILY_TIP_KEYS.length);
     const tipKey = DAILY_TIP_KEYS[randomIndex];
-    return t(tipKey as any); // 类型断言，因为技巧键是动态的
+    const rawTip = t(tipKey as any);
+    return rawTip
+      .replace(/^Tip:\s*/i, '')
+      .replace(/[\u{1F300}-\u{1F9FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}]/gu, '')
+      .trim();
   }, []);
 
-  // 友好的欢迎消息
-  const welcomeMessage = userName ? `Welcome back, ${userName}!` : 'Welcome to DeepV Code!';
+  const fullPath = config.getProjectRoot();
+  const welcomeMessage = userName ? `Welcome back, ${userName}!` : 'Welcome back!';
+
+  // 处理 Logo 字符串
+  const trimmedLogo = cuteVLogo.trim();
+
+  // 🎯 极致紧凑宽度
+  const COMPACT_WIDTH = 68;
 
   return (
-    <Box flexDirection="column" marginBottom={1} borderStyle="round" borderColor="gray" paddingX={1} minWidth={80}>
-      {/* 顶部标题行 - 包含像素机器人 logo */}
-      <Box flexDirection="row" marginBottom={1}>
-        <Box marginRight={2}>
-          <Text color={Colors.AccentBlue}>{cuteVLogo}</Text>
-        </Box>
-        <Box flexDirection="column" justifyContent="center">
-          <Text>DeepV Code </Text>
-          <Text dimColor>v{version}</Text>
-          <Text dimColor>{modelInfo.displayName} · {modelInfo.creditsText}</Text>
-        </Box>
+    <Box flexDirection="column" width={COMPACT_WIDTH} marginBottom={0}>
+      {/* 顶部标题行 */}
+      <Box justifyContent="space-between" paddingX={1}>
+        <Text color={Colors.AccentBlue} bold>DeepV Code v{version}</Text>
+        <Text dimColor wrap="truncate-middle">{fullPath}</Text>
       </Box>
 
-      {/* 用户欢迎信息 */}
-      <Box>
-        <Text color={Colors.AccentGreen}>{welcomeMessage}</Text>
-      </Box>
-
-      {/* 主内容区 - 左对齐布局 */}
-      <Box flexDirection="column">
-        {/* 项目路径 */}
-        <Box>
-          <Text dimColor>{fullPath}</Text>
-        </Box>
-
-        {/* Custom server info */}
-        {customProxyUrl && (
-          <Box flexDirection="column" marginBottom={1}>
-            <Text color={Colors.AccentOrange}>🔗 Custom server: {customProxyUrl}</Text>
-            <Text color={Colors.AccentOrange}>   Please verify trustworthiness and monitor your API usage.</Text>
+      {/* 内容主体 */}
+      <Box
+        flexDirection="column"
+        borderStyle="round"
+        borderColor="gray"
+        paddingX={1}
+        paddingY={0}
+      >
+        <Box flexDirection="row" paddingX={0}>
+          {/* 左侧：Logo 区域收缩宽度，移除偏移，让整体更内敛 */}
+          <Box flexDirection="column" width={18} justifyContent="center" alignItems="center">
+            <Text color={Colors.AccentBlue}>{trimmedLogo}</Text>
           </Box>
-        )}
 
-        {/* Recent activity */}
-        {recentSessions.length > 0 && (
-          <Box flexDirection="column">
-            <Text color={Colors.AccentOrange}>Recent activity</Text>
-            <Box flexDirection="column">
-              {recentSessions.map((session, idx) => (
-                <Box key={idx}>
-                  <Text dimColor>{session.time.padEnd(10)}</Text>
-                  <Text>{session.description.slice(0, 30)}</Text>
-                </Box>
-              ))}
-              <Box>
-                <Text dimColor>... /resume for more</Text>
-              </Box>
-            </Box>
-          </Box>
-        )}
-
-        {/* 每日技巧 */}
-        <Box flexDirection="column">
-          <Text>💡 {t('welcome.daily.tip.title')}</Text>
-          <Box flexDirection="column">
-            <Text>{dailyTip}</Text>
+          {/* 右侧：内容右对齐 */}
+          <Box flexDirection="column" flexGrow={1} justifyContent="center" alignItems="flex-end" paddingLeft={1}>
             <Box>
-              <Text dimColor>{t('welcome.daily.tip.more')}</Text>
+              <Text color={Colors.AccentBlue} bold wrap="truncate-end">{welcomeMessage}</Text>
             </Box>
+
+            <Box>
+              <Text dimColor wrap="truncate-end">{modelInfo.displayName}</Text>
+            </Box>
+
+            <Box>
+              <Text color={Colors.AccentCyan} wrap="truncate-end">{dailyTip}</Text>
+            </Box>
+
+            {recentSessions.length > 0 && (
+              <Box>
+                <Text dimColor wrap="truncate-end">Last: {recentSessions[0].description}</Text>
+              </Box>
+            )}
           </Box>
         </Box>
       </Box>
