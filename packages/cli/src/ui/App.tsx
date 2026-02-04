@@ -441,6 +441,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     });
     consolePatcher.patch();
     registerCleanup(consolePatcher.cleanup);
+
   }, [handleNewMessage, config]);
 
   const { stats: sessionStats } = useSessionStats();
@@ -497,6 +498,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   const [planModeActive, setPlanModeActive] = useState(config.getPlanModeActive());
   const [showErrorDetails, setShowErrorDetails] = useState<boolean>(false);
   const [debugPanelExpanded, setDebugPanelExpanded] = useState<boolean>(false);
+  const [debugConsoleErrorOnly, setDebugConsoleErrorOnly] = useState<boolean>(false);
   const [showToolDescriptions, setShowToolDescriptions] =
     useState<boolean>(false);
   const [showIDEContextDetail, setShowIDEContextDetail] =
@@ -1832,14 +1834,20 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     }
 
     if (key.ctrl && input === 'o') {
-      // Toggle debug console open/closed
-      setShowErrorDetails((prev) => {
-        const next = !prev;
-        if (!next) {
-          setDebugPanelExpanded(false);
-        }
-        return next;
-      });
+      // 3-state cycle: Closed -> Open (All) -> Open (Errors Only) -> Closed
+      if (!showErrorDetails) {
+        // State 1 -> State 2: Open with all logs
+        setShowErrorDetails(true);
+        setDebugConsoleErrorOnly(false);
+      } else if (!debugConsoleErrorOnly) {
+        // State 2 -> State 3: Filter to errors only
+        setDebugConsoleErrorOnly(true);
+      } else {
+        // State 3 -> State 1: Close console
+        setShowErrorDetails(false);
+        setDebugConsoleErrorOnly(false);
+        setDebugPanelExpanded(false);
+      }
     } else if (key.ctrl && input === 's') {
       // Toggle between small and expanded debug console (only when open)
       if (showErrorDetails) {
@@ -2059,11 +2067,44 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   // 正确方案：让Ink自然处理，只在staticKey变化时重绘
 
   const filteredConsoleMessages = useMemo(() => {
-    if (config.getDebugMode()) {
-      return consoleMessages;
+    let messages = consoleMessages;
+
+    // Filter out debug messages if debug mode is off
+    if (!config.getDebugMode()) {
+      messages = messages.filter((msg) => msg.type !== 'debug');
     }
-    return consoleMessages.filter((msg) => msg.type !== 'debug');
-  }, [consoleMessages, config]);
+
+    // Filter to errors only if in error-only mode
+    if (debugConsoleErrorOnly) {
+      messages = messages.filter((msg) => {
+        // Include actual error type messages
+        if (msg.type === 'error') return true;
+
+        // Include messages with error-related keywords
+        const content = msg.content.toLowerCase();
+        if (content.includes('error') ||
+            content.includes('exception') ||
+            content.includes('traceback') ||
+            content.includes('failed')) {
+          return true;
+        }
+
+        // Include stack trace patterns
+        if (/^\s+at\s+/.test(msg.content)) {
+          return true;
+        }
+
+        // Include error name patterns (e.g., "ReferenceError:", "TypeError:")
+        if (/^[A-Z]\w*Error:/m.test(msg.content)) {
+          return true;
+        }
+
+        return false;
+      });
+    }
+
+    return messages;
+  }, [consoleMessages, config, debugConsoleErrorOnly]);
 
   const branchName = useGitBranchName(config.getTargetDir());
 
@@ -2156,6 +2197,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
           messages={filteredConsoleMessages}
           height={debugPanelHeight}
           width={inputWidth}
+          errorOnly={debugConsoleErrorOnly}
         />
       </Box>
     );
