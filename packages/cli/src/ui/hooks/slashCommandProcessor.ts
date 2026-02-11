@@ -50,6 +50,7 @@ export const useSlashCommandProcessor = (
   addItem: UseHistoryManagerReturn['addItem'],
   clearItems: UseHistoryManagerReturn['clearItems'],
   loadHistory: UseHistoryManagerReturn['loadHistory'],
+  history: HistoryItem[],
   refreshStatic: () => void,
   setShowHelp: React.Dispatch<React.SetStateAction<boolean>>,
   onDebugMessage: (message: string) => void,
@@ -181,6 +182,7 @@ export const useSlashCommandProcessor = (
         toggleCorgiMode,
         toggleVimEnabled,
         debugMessages: consoleMessages,
+        history,
       },
       session: {
         stats: session.stats,
@@ -205,6 +207,7 @@ export const useSlashCommandProcessor = (
       setPendingCompressionItem,
       toggleCorgiMode,
       toggleVimEnabled,
+      history,
     ],
   );
 
@@ -241,6 +244,42 @@ export const useSlashCommandProcessor = (
   // BUG修复: 避免文件路径被误判为斜杠命令
   // 修复策略: 动态获取已加载的命令，只有真正的命令才会被处理
   // 影响范围: packages/cli/src/ui/hooks/slashCommandProcessor.ts
+  const resolveCommandAlias = useCallback(
+    (input: string): { normalized: string; alias?: string } => {
+      const aliases = settings.merged.commandAliases;
+      if (!aliases) {
+        return { normalized: input };
+      }
+
+      const trimmed = input.trim();
+      if (!trimmed.startsWith('/')) {
+        return { normalized: input };
+      }
+
+      const parts = trimmed.substring(1).trim().split(/\s+/).filter(Boolean);
+      if (parts.length === 0) {
+        return { normalized: input };
+      }
+
+      const aliasValue = aliases[parts[0]];
+      if (!aliasValue) {
+        return { normalized: input };
+      }
+
+      const aliasCommand = aliasValue.trim().startsWith('/')
+        ? aliasValue.trim().slice(1)
+        : aliasValue.trim();
+      const aliasParts = aliasCommand.split(/\s+/).filter(Boolean);
+      if (aliasParts.length === 0) {
+        return { normalized: input };
+      }
+
+      const merged = [...aliasParts, ...parts.slice(1)];
+      return { normalized: `/${merged.join(' ')}`, alias: parts[0] };
+    },
+    [settings.merged.commandAliases],
+  );
+
   const isValidSlashCommand = useCallback(
     (input: string, commandList: readonly SlashCommand[]): boolean => {
       // 🔧 修复：如果命令列表尚未加载完成（空数组），则先假定是有效命令
@@ -277,9 +316,11 @@ export const useSlashCommandProcessor = (
         return false;
       }
 
+      const { normalized } = resolveCommandAlias(trimmed);
+
       // 🆕 新增：智能命令验证
       // 只有在已知命令列表中的才认为是有效命令，避免文件路径被误判
-      if (!isValidSlashCommand(trimmed, commands)) {
+      if (!isValidSlashCommand(normalized, commands)) {
         return false; // 不是有效命令，让其作为普通文本处理
       }
 
@@ -287,7 +328,7 @@ export const useSlashCommandProcessor = (
       const userMessageTimestamp = Date.now();
       addItem({ type: MessageType.USER, text: trimmed }, userMessageTimestamp);
 
-      const parts = trimmed.substring(1).trim().split(/\s+/);
+      const parts = normalized.substring(1).trim().split(/\s+/);
       const commandPath = parts.filter((p) => p); // The parts of the command, e.g., ['memory', 'add']
 
       let currentCommands = commands;

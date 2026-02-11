@@ -16,7 +16,13 @@ import {
   useInput,
   type Key as InkKeyType,
 } from 'ink';
-import { StreamingState, type HistoryItem, MessageType, ToolCallStatus, type IndividualToolCallDisplay } from './types.js';
+import {
+  StreamingState,
+  type HistoryItem,
+  MessageType,
+  ToolCallStatus,
+  type IndividualToolCallDisplay,
+} from './types.js';
 import { useTerminalSize } from './hooks/useTerminalSize.js';
 import { useGeminiStream } from './hooks/useGeminiStream.js';
 import { useAnimatedTitleIcon } from './hooks/useAnimatedTitleIcon.js';
@@ -36,7 +42,10 @@ import { usePluginInstallCommand } from './hooks/usePluginInstallCommand.js';
 import { useSlashCommandProcessor } from './hooks/slashCommandProcessor.js';
 import { useAutoAcceptIndicator } from './hooks/useAutoAcceptIndicator.js';
 import { useConsoleMessages } from './hooks/useConsoleMessages.js';
-import { useBackgroundTaskNotifications, formatBackgroundTaskResult } from './hooks/useBackgroundTaskNotifications.js';
+import {
+  useBackgroundTaskNotifications,
+  formatBackgroundTaskResult,
+} from './hooks/useBackgroundTaskNotifications.js';
 import { BackgroundTaskPanel } from './components/BackgroundTaskPanel.js';
 import { BackgroundTaskHint } from './components/BackgroundTaskHint.js';
 import { Header } from './components/Header.js';
@@ -69,8 +78,16 @@ import { Tips } from './components/Tips.js';
 import { ConsolePatcher } from './utils/ConsolePatcher.js';
 import { registerCleanup } from '../utils/cleanup.js';
 import { DetailedMessagesDisplay } from './components/DetailedMessagesDisplay.js';
-import { TokenUsageDisplay, type TokenUsageInfo } from './components/TokenUsageDisplay.js';
-import { tokenUsageEventManager, IDEConnectionStatus, type BackgroundTask, getBackgroundTaskManager } from 'deepv-code-core';
+import {
+  TokenUsageDisplay,
+  type TokenUsageInfo,
+} from './components/TokenUsageDisplay.js';
+import {
+  tokenUsageEventManager,
+  IDEConnectionStatus,
+  type BackgroundTask,
+  getBackgroundTaskManager,
+} from 'deepv-code-core';
 import { HistoryItemDisplay } from './components/HistoryItemDisplay.js';
 import { ImagePollingSpinner } from './components/ImagePollingSpinner.js';
 import { StreamRecoverySpinner } from './components/StreamRecoverySpinner.js';
@@ -88,7 +105,10 @@ import { HealthyUseReminder } from './components/HealthyUseReminder.js';
 import { useHistoryCleanup } from './hooks/useHistoryCleanup.js';
 import { HistoryCleanupDialog } from './components/HistoryCleanupDialog.js';
 import { useHistory } from './hooks/useHistoryManager.js';
-import { useSessionRestore, useSessionAutoSave } from './hooks/useSessionRestore.js';
+import {
+  useSessionRestore,
+  useSessionAutoSave,
+} from './hooks/useSessionRestore.js';
 import process from 'node:process';
 import {
   getErrorMessage,
@@ -145,7 +165,6 @@ import { PrivacyNotice } from './privacy/PrivacyNotice.js';
 import { AudioNotification } from '../utils/audioNotification.js';
 import { SessionOption } from './commands/types.js';
 
-
 const CTRL_EXIT_PROMPT_DURATION_MS = 1000;
 
 // 🎯 后台任务输出截断配置（防止 token 爆炸）
@@ -182,11 +201,10 @@ function truncateBackgroundTaskOutput(output: string | undefined): string {
  */
 const detectIDEAEnvironment = (): boolean => {
   return !!(
-    process.env.TERMINAL_EMULATOR && (
-      process.env.TERMINAL_EMULATOR.includes('JetBrains') ||
-      process.env.TERMINAL_EMULATOR.includes('IntelliJ') ||
-      process.env.TERMINAL_EMULATOR.includes('IDEA')
-    ) ||
+    (process.env.TERMINAL_EMULATOR &&
+      (process.env.TERMINAL_EMULATOR.includes('JetBrains') ||
+        process.env.TERMINAL_EMULATOR.includes('IntelliJ') ||
+        process.env.TERMINAL_EMULATOR.includes('IDEA'))) ||
     // 检测IDEA相关的环境变量
     process.env.IDEA_INITIAL_DIRECTORY ||
     process.env.JETBRAINS_IDE ||
@@ -235,9 +253,7 @@ export const AppWrapper = (props: AppProps) => {
     <SessionStatsProvider>
       <VimModeProvider settings={props.settings}>
         <BackgroundModeProvider>
-          <KeypressProvider
-            config={props.config}
-          >
+          <KeypressProvider config={props.config}>
             <BackgroundModeBridge>
               <App {...props} />
             </BackgroundModeBridge>
@@ -248,7 +264,14 @@ export const AppWrapper = (props: AppProps) => {
   );
 };
 
-const App = ({ config, settings, startupWarnings = [], version, promptExtensions = [], customProxyUrl }: AppProps) => {
+const App = ({
+  config,
+  settings,
+  startupWarnings = [],
+  version,
+  promptExtensions = [],
+  customProxyUrl,
+}: AppProps) => {
   const isFocused = useFocus();
   useBracketedPaste();
 
@@ -260,8 +283,12 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   } = useHistoryCleanup(settings);
 
   // Token usage tracking
-  const [lastTokenUsage, setLastTokenUsage] = useState<TokenUsageInfo | null>(null);
-  const [estimatedInputTokens, setEstimatedInputTokens] = useState<number | undefined>(undefined);
+  const [lastTokenUsage, setLastTokenUsage] = useState<TokenUsageInfo | null>(
+    null,
+  );
+  const [estimatedInputTokens, setEstimatedInputTokens] = useState<
+    number | undefined
+  >(undefined);
 
   // Credits accumulation tracking for current turn/session
   const [cumulativeCredits, setCumulativeCredits] = useState<number>(0);
@@ -269,26 +296,32 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   const [totalSessionCredits, setTotalSessionCredits] = useState<number>(0);
 
   // Callback to update token usage from API responses
-  const handleTokenUsageUpdate = useCallback((tokenUsage: any) => {
-    if (tokenUsage) {
-      const currentCredits = tokenUsage.credits_usage || 0;
+  const handleTokenUsageUpdate = useCallback(
+    (tokenUsage: any) => {
+      if (tokenUsage) {
+        const currentCredits = tokenUsage.credits_usage || 0;
 
-      // 累加credits到当前回合总计
-      setCumulativeCredits(prev => prev + currentCredits);
-      // 🆕 累加到会话总计
-      setTotalSessionCredits(prev => prev + currentCredits);
+        // 累加credits到当前回合总计
+        setCumulativeCredits((prev) => prev + currentCredits);
+        // 🆕 累加到会话总计
+        setTotalSessionCredits((prev) => prev + currentCredits);
 
-      setLastTokenUsage({
-        cache_creation_input_tokens: tokenUsage.cache_creation_input_tokens || 0,
-        cache_read_input_tokens: tokenUsage.cache_read_input_tokens || 0,
-        input_tokens: tokenUsage.input_token_count || tokenUsage.input_tokens || 0,
-        output_tokens: tokenUsage.output_token_count || tokenUsage.output_tokens || 0,
-        credits_usage: currentCredits, // 单次请求的credits
-        model: config.getModel(),
-        timestamp: Date.now(),
-      });
-    }
-  }, [config]);
+        setLastTokenUsage({
+          cache_creation_input_tokens:
+            tokenUsage.cache_creation_input_tokens || 0,
+          cache_read_input_tokens: tokenUsage.cache_read_input_tokens || 0,
+          input_tokens:
+            tokenUsage.input_token_count || tokenUsage.input_tokens || 0,
+          output_tokens:
+            tokenUsage.output_token_count || tokenUsage.output_tokens || 0,
+          credits_usage: currentCredits, // 单次请求的credits
+          model: config.getModel(),
+          timestamp: Date.now(),
+        });
+      }
+    },
+    [config],
+  );
 
   // 监听token使用事件
   useEffect(() => {
@@ -308,7 +341,9 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   const nightly = version.includes('nightly');
 
   // 飞书服务器端口状态
-  const [feishuServerPort, setFeishuServerPort] = useState<number | undefined>(undefined);
+  const [feishuServerPort, setFeishuServerPort] = useState<number | undefined>(
+    undefined,
+  );
 
   // 监听飞书服务器事件
   useEffect(() => {
@@ -349,9 +384,9 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   useEffect(() => {
     const handleCreditsConsumed = (credits: number) => {
       if (credits > 0) {
-        setCumulativeCredits(prev => prev + credits);
+        setCumulativeCredits((prev) => prev + credits);
         // 🆕 累加到会话总计
-        setTotalSessionCredits(prev => prev + credits);
+        setTotalSessionCredits((prev) => prev + credits);
         // 🆕 Update persistent usage stats
         ProxyAuthManager.getInstance().updateUsageStats(credits);
       }
@@ -370,7 +405,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   useEffect(() => {
     const handleMCPStatusChange = () => {
       // 触发重新渲染以更新MCP服务器计数
-      setMcpStatusUpdateTrigger(prev => prev + 1);
+      setMcpStatusUpdateTrigger((prev) => prev + 1);
     };
 
     addMCPStatusChangeListener(handleMCPStatusChange);
@@ -403,21 +438,25 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   useEffect(() => {
     (async () => {
       // 🚀 启动优化：推迟模型列表刷新，避免抢占启动带宽
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await new Promise((resolve) => setTimeout(resolve, 2000));
       try {
-        const { refreshModelsInBackground } = await import('../ui/commands/modelCommand.js');
+        const { refreshModelsInBackground } =
+          await import('../ui/commands/modelCommand.js');
         if (config.getDebugMode()) {
           console.log('[Startup] Starting async cloud model list update...');
         }
         // 异步更新模型列表，不阻塞UI
-        refreshModelsInBackground(settings, config).catch(error => {
+        refreshModelsInBackground(settings, config).catch((error) => {
           if (config.getDebugMode()) {
             console.log('[Startup] Cloud model list update failed:', error);
           }
         });
       } catch (error) {
         if (config.getDebugMode()) {
-          console.log('[Startup] Failed to import refreshModelsInBackground:', error);
+          console.log(
+            '[Startup] Failed to import refreshModelsInBackground:',
+            error,
+          );
         }
       }
     })();
@@ -441,7 +480,6 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     });
     consolePatcher.patch();
     registerCleanup(consolePatcher.cleanup);
-
   }, [handleNewMessage, config]);
 
   const { stats: sessionStats } = useSessionStats();
@@ -470,20 +508,27 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   const [geminiMdFileCount, setGeminiMdFileCount] = useState<number>(0);
   const [debugMessage, setDebugMessage] = useState<string>('');
   const [showHelp, setShowHelp] = useState<boolean>(false);
-  const [showBackgroundTaskPanel, setShowBackgroundTaskPanelState] = useState<boolean>(false);
+  const [showBackgroundTaskPanel, setShowBackgroundTaskPanelState] =
+    useState<boolean>(false);
 
   // 🎯 后台任务通知队列 - AI 忙时先缓存，等 AI 空闲后再注入历史
-  const [pendingBackgroundNotifications, setPendingBackgroundNotifications] = useState<string[]>([]);
+  const [pendingBackgroundNotifications, setPendingBackgroundNotifications] =
+    useState<string[]>([]);
 
   // 🎯 包装 setter 来同步全局状态（用于 useGeminiStream 检查）
-  const setShowBackgroundTaskPanel = useCallback((value: boolean | ((prev: boolean) => boolean)) => {
-    setShowBackgroundTaskPanelState(prev => {
-      const newValue = typeof value === 'function' ? value(prev) : value;
-      // 同步到全局状态
-      import('./utils/modalState.js').then(m => m.setBackgroundTaskPanelOpen(newValue));
-      return newValue;
-    });
-  }, []);
+  const setShowBackgroundTaskPanel = useCallback(
+    (value: boolean | ((prev: boolean) => boolean)) => {
+      setShowBackgroundTaskPanelState((prev) => {
+        const newValue = typeof value === 'function' ? value(prev) : value;
+        // 同步到全局状态
+        import('./utils/modalState.js').then((m) =>
+          m.setBackgroundTaskPanelOpen(newValue),
+        );
+        return newValue;
+      });
+    },
+    [],
+  );
 
   const [themeError, setThemeError] = useState<string | null>(null);
   const [modelError, setModelError] = useState<string | null>(null);
@@ -495,10 +540,13 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   const [currentModel, setCurrentModel] = useState(config.getModel());
   const [shellModeActive, setShellModeActive] = useState(false);
   const [helpModeActive, setHelpModeActive] = useState(false);
-  const [planModeActive, setPlanModeActive] = useState(config.getPlanModeActive());
+  const [planModeActive, setPlanModeActive] = useState(
+    config.getPlanModeActive(),
+  );
   const [showErrorDetails, setShowErrorDetails] = useState<boolean>(false);
   const [debugPanelExpanded, setDebugPanelExpanded] = useState<boolean>(false);
-  const [debugConsoleErrorOnly, setDebugConsoleErrorOnly] = useState<boolean>(false);
+  const [debugConsoleErrorOnly, setDebugConsoleErrorOnly] =
+    useState<boolean>(false);
   const [showToolDescriptions, setShowToolDescriptions] =
     useState<boolean>(false);
   const [showIDEContextDetail, setShowIDEContextDetail] =
@@ -511,20 +559,22 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   const [ctrlDPressedOnce, setCtrlDPressedOnce] = useState(false);
   const ctrlDTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const [ideConnectionStatus, setIdeConnectionStatus] = useState<IDEConnectionStatus>(
-    IDEConnectionStatus.Disconnected
-  );
+  const [ideConnectionStatus, setIdeConnectionStatus] =
+    useState<IDEConnectionStatus>(IDEConnectionStatus.Disconnected);
   const [showPrivacyNotice, setShowPrivacyNotice] = useState<boolean>(false);
   const [modelSwitchedFromQuotaError, setModelSwitchedFromQuotaError] =
     useState<boolean>(false);
   const [userTier, setUserTier] = useState<UserTierId | undefined>(undefined);
-  const [showHealthyUseReminder, setShowHealthyUseReminder] = useState<boolean>(false);
+  const [showHealthyUseReminder, setShowHealthyUseReminder] =
+    useState<boolean>(false);
   const reminderStateRef = useRef<HealthyUseReminderState | null>(null);
 
   // 初始化健康使用提醒状态管理
   useEffect(() => {
     if (!reminderStateRef.current) {
-      reminderStateRef.current = new HealthyUseReminderState(config.getTargetDir());
+      reminderStateRef.current = new HealthyUseReminderState(
+        config.getTargetDir(),
+      );
     }
   }, [config]);
 
@@ -574,19 +624,35 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   const [queuePaused, setQueuePaused] = useState<boolean>(false); // 队列暂停标志
   const [queueEditMode, setQueueEditMode] = useState<boolean>(false); // 队列编辑模式
   const [queueEditIndex, setQueueEditIndex] = useState<number>(0); // 当前编辑的队列索引
-  const [imagePolling, setImagePolling] = useState<{ isVisible: boolean; elapsed: number; estimated: number }>({
+  const [imagePolling, setImagePolling] = useState<{
+    isVisible: boolean;
+    elapsed: number;
+    estimated: number;
+  }>({
     isVisible: false,
     elapsed: 0,
     estimated: 30,
   });
-  const [streamRecovery, setStreamRecovery] = useState<{ isVisible: boolean; remaining: number }>({
+  const [streamRecovery, setStreamRecovery] = useState<{
+    isVisible: boolean;
+    remaining: number;
+  }>({
     isVisible: false,
     remaining: 10,
   });
 
   // 调试：监听 refineResult 变化
   useEffect(() => {
-    console.log('[App] refineResult 状态变化:', refineResult ? '有值' : 'null', refineResult ? { originalLength: refineResult.original.length, refinedLength: refineResult.refined.length } : null);
+    console.log(
+      '[App] refineResult 状态变化:',
+      refineResult ? '有值' : 'null',
+      refineResult
+        ? {
+            originalLength: refineResult.original.length,
+            refinedLength: refineResult.refined.length,
+          }
+        : null,
+    );
   }, [refineResult]);
 
   // 🆕 预加载用户积分信息和内存文件路径，初始化时显示
@@ -600,7 +666,11 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
 
         // 如果有积分信息，显示它
         if (info) {
-          const creditsText = formatCreditsWithColor(info.totalCredits, info.usedCredits, info.usagePercentage);
+          const creditsText = formatCreditsWithColor(
+            info.totalCredits,
+            info.usedCredits,
+            info.usagePercentage,
+          );
           if (creditsText) {
             addItem(
               {
@@ -622,7 +692,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     // 同步处理内存文件路径（快速，不阻塞）
     const memoryFilePaths = config.getGeminiMdFilePaths();
     if (memoryFilePaths.length > 0) {
-      const pathsText = `Memory files (${memoryFilePaths.length}):\n${memoryFilePaths.map(f => `  - ${f}`).join('\n')}`;
+      const pathsText = `Memory files (${memoryFilePaths.length}):\n${memoryFilePaths.map((f) => `  - ${f}`).join('\n')}`;
       addItem(
         {
           type: MessageType.INFO,
@@ -637,10 +707,18 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
    * 渲染带有黄色省略提示的文本
    * 只有省略提示部分显示为黄色，其他文字保持原色
    */
-  const renderTextWithHighlightedOmission = (text: string, placeholder?: string, omittedLines?: number) => {
+  const renderTextWithHighlightedOmission = (
+    text: string,
+    placeholder?: string,
+    omittedLines?: number,
+  ) => {
     if (!placeholder || !text.includes(placeholder)) {
       // 没有省略提示，直接渲染原文
-      return <Text wrap="wrap" italic>{text}</Text>;
+      return (
+        <Text wrap="wrap" italic>
+          {text}
+        </Text>
+      );
     }
 
     // 分割文本，将占位符替换为实际的省略提示
@@ -694,7 +772,10 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     appEvents.on(AppEvent.LogError, logErrorHandler);
 
     // Handle image polling events
-    const handlePollingStart = (data: { taskId: string; estimatedTime: number }) => {
+    const handlePollingStart = (data: {
+      taskId: string;
+      estimatedTime: number;
+    }) => {
       setImagePolling({
         isVisible: true,
         elapsed: 0,
@@ -702,8 +783,11 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
       });
     };
 
-    const handlePollingProgress = (data: { elapsed: number; estimated: number }) => {
-      setImagePolling(prev => ({
+    const handlePollingProgress = (data: {
+      elapsed: number;
+      estimated: number;
+    }) => {
+      setImagePolling((prev) => ({
         ...prev,
         elapsed: data.elapsed,
         estimated: data.estimated,
@@ -711,7 +795,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     };
 
     const handlePollingEnd = () => {
-      setImagePolling(prev => ({
+      setImagePolling((prev) => ({
         ...prev,
         isVisible: false,
       }));
@@ -726,14 +810,14 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     };
 
     const handleStreamRecoveryCountdown = (data: { remaining: number }) => {
-      setStreamRecovery(prev => ({
+      setStreamRecovery((prev) => ({
         ...prev,
         remaining: data.remaining,
       }));
     };
 
     const handleStreamRecoveryEnd = () => {
-      setStreamRecovery(prev => ({
+      setStreamRecovery((prev) => ({
         ...prev,
         isVisible: false,
       }));
@@ -743,7 +827,10 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     appEvents.on(AppEvent.ImagePollingProgress, handlePollingProgress);
     appEvents.on(AppEvent.ImagePollingEnd, handlePollingEnd);
     appEvents.on(AppEvent.StreamRecoveryStart, handleStreamRecoveryStart);
-    appEvents.on(AppEvent.StreamRecoveryCountdown, handleStreamRecoveryCountdown);
+    appEvents.on(
+      AppEvent.StreamRecoveryCountdown,
+      handleStreamRecoveryCountdown,
+    );
     appEvents.on(AppEvent.StreamRecoveryEnd, handleStreamRecoveryEnd);
 
     return () => {
@@ -753,7 +840,10 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
       appEvents.off(AppEvent.ImagePollingProgress, handlePollingProgress);
       appEvents.off(AppEvent.ImagePollingEnd, handlePollingEnd);
       appEvents.off(AppEvent.StreamRecoveryStart, handleStreamRecoveryStart);
-      appEvents.off(AppEvent.StreamRecoveryCountdown, handleStreamRecoveryCountdown);
+      appEvents.off(
+        AppEvent.StreamRecoveryCountdown,
+        handleStreamRecoveryCountdown,
+      );
       appEvents.off(AppEvent.StreamRecoveryEnd, handleStreamRecoveryEnd);
     };
   }, [handleNewMessage]);
@@ -810,7 +900,13 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     handleUseCustomModel,
     isCustomModelOnlyMode,
     resetCustomModelOnlyMode,
-  } = useAuthCommand(settings, setAuthError, config, setCurrentModel, customProxyUrl);
+  } = useAuthCommand(
+    settings,
+    setAuthError,
+    config,
+    setCurrentModel,
+    customProxyUrl,
+  );
 
   const {
     isLoginDialogOpen,
@@ -818,7 +914,13 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     handleLoginSelect,
     isAuthenticating: isLoginAuthenticating,
     cancelAuthentication: cancelLoginAuthentication,
-  } = useLoginCommand(settings, setLoginError, config, setCurrentModel, customProxyUrl);
+  } = useLoginCommand(
+    settings,
+    setLoginError,
+    config,
+    setCurrentModel,
+    customProxyUrl,
+  );
 
   // Listen for authentication required events (e.g., from model dialog when not logged in)
   useEffect(() => {
@@ -903,7 +1005,9 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     handlePluginInstallClose,
   } = usePluginInstallCommand(addItem);
 
-  const [sessionSelectData, setSessionSelectData] = useState<SessionOption[] | null>(null);
+  const [sessionSelectData, setSessionSelectData] = useState<
+    SessionOption[] | null
+  >(null);
 
   const toggleCorgiMode = useCallback(() => {
     setCorgiMode((prev) => !prev);
@@ -918,14 +1022,15 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
       Date.now(),
     );
     try {
-      const { memoryContent, fileCount, filePaths } = await loadHierarchicalGeminiMemory(
-        process.cwd(),
-        config.getDebugMode(),
-        config.getFileService(),
-        settings.merged,
-        config.getExtensionContextFilePaths(),
-        config.getFileFilteringOptions(),
-      );
+      const { memoryContent, fileCount, filePaths } =
+        await loadHierarchicalGeminiMemory(
+          process.cwd(),
+          config.getDebugMode(),
+          config.getFileService(),
+          settings.merged,
+          config.getExtensionContextFilePaths(),
+          config.getFileFilteringOptions(),
+        );
 
       config.setUserMemory(memoryContent);
       config.setGeminiMdFileCount(fileCount);
@@ -933,7 +1038,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
 
       let successMessage = `Memory refreshed successfully. ${memoryContent.length > 0 ? `Loaded ${memoryContent.length} characters from ${fileCount} file(s).` : 'No memory content found.'}`;
       if (fileCount > 0 && filePaths.length > 0) {
-        successMessage += `\nMemory files:\n${filePaths.map(f => `  - ${f}`).join('\n')}`;
+        successMessage += `\nMemory files:\n${filePaths.map((f) => `  - ${f}`).join('\n')}`;
       }
 
       addItem(
@@ -984,15 +1089,16 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
       // 🆕 自定义模型：跳过所有 quota/region 相关的错误处理和模型切换
       // 这些错误对于自定义模型来说是预期行为，不应该显示友好提示或切换模型
       if (isCustomModel(currentModel)) {
-        console.warn('[FlashFallback] Custom model detected, skipping fallback handling');
+        console.warn(
+          '[FlashFallback] Custom model detected, skipping fallback handling',
+        );
         return true; // 继续当前请求，不切换模型
       }
 
       let message: string;
 
       if (
-        config.getContentGeneratorConfig().authType ===
-        AuthType.USE_PROXY_AUTH
+        config.getContentGeneratorConfig().authType === AuthType.USE_PROXY_AUTH
       ) {
         // Use actual user tier if available; otherwise, default to FREE tier behavior (safe default)
         const isPaidTier =
@@ -1001,9 +1107,11 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
         // 🆕 优先检查DeepX服务端的配额错误
         if (error && isDeepXQuotaError(error)) {
           const deepxMessage = getDeepXQuotaErrorMessage(error);
-          message = deepxMessage || `🚫 服务不可用
+          message =
+            deepxMessage ||
+            `🚫 服务不可用
 💡 请联系管理员检查账户配置`;
-        // Check if this is a Pro quota exceeded error
+          // Check if this is a Pro quota exceeded error
         } else if (error && isProQuotaExceededError(error)) {
           if (isPaidTier) {
             message = `⚡ You have reached your daily ${currentModel} quota limit.
@@ -1106,7 +1214,9 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   const onAuthError = useCallback(() => {
     // 如果配置了自定义代理URL，跳过认证错误处理
     if (customProxyUrl) {
-      console.log('[AuthError] Custom proxy URL configured, ignoring authentication error');
+      console.log(
+        '[AuthError] Custom proxy URL configured, ignoring authentication error',
+      );
       return;
     }
     setAuthError('reauth required');
@@ -1131,6 +1241,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     addItem,
     clearItems,
     loadHistory,
+    history,
     refreshStatic,
     setShowHelp,
     setDebugMessage,
@@ -1191,116 +1302,165 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
 
   // 🎯 监听后台任务完成事件
   useBackgroundTaskNotifications({
-    onTaskCompleted: useCallback((task: BackgroundTask) => {
-      console.log('[App] Background task completed, adding to history:', task.id);
-      const result = formatBackgroundTaskResult(task);
+    onTaskCompleted: useCallback(
+      (task: BackgroundTask) => {
+        console.log(
+          '[App] Background task completed, adding to history:',
+          task.id,
+        );
+        const result = formatBackgroundTaskResult(task);
 
-      // 🎯 使用 tool_group 格式显示任务输出（仿 Claude Code 风格）
-      // 🔧 截断大型输出，防止 CLI 界面压力过大
-      const shortId = task.id;
-      const truncatedOutput = truncateBackgroundTaskOutput(task.output);
-      const toolGroupItem: IndividualToolCallDisplay = {
-        callId: `bg-${task.id}`,
-        name: t('background.task.output'),
-        toolId: 'background_task_output',
-        description: `${shortId} ${task.command}`,
-        resultDisplay: truncatedOutput || `Exit code: ${task.exitCode ?? 'unknown'}`,
-        status: task.exitCode === 0 ? ToolCallStatus.Success : ToolCallStatus.Error,
-        confirmationDetails: undefined,
-      };
-      addItem(
-        { type: 'tool_group', tools: [toolGroupItem] } as any,
-        Date.now(),
-      );
+        // 🎯 使用 tool_group 格式显示任务输出（仿 Claude Code 风格）
+        // 🔧 截断大型输出，防止 CLI 界面压力过大
+        const shortId = task.id;
+        const truncatedOutput = truncateBackgroundTaskOutput(task.output);
+        const toolGroupItem: IndividualToolCallDisplay = {
+          callId: `bg-${task.id}`,
+          name: t('background.task.output'),
+          toolId: 'background_task_output',
+          description: `${shortId} ${task.command}`,
+          resultDisplay:
+            truncatedOutput || `Exit code: ${task.exitCode ?? 'unknown'}`,
+          status:
+            task.exitCode === 0 ? ToolCallStatus.Success : ToolCallStatus.Error,
+          confirmationDetails: undefined,
+        };
+        addItem(
+          { type: 'tool_group', tools: [toolGroupItem] } as any,
+          Date.now(),
+        );
 
-      // 🎯 构建通知消息（包含完整的任务信息，供 AI 理解）
-      const notificationText = `[DeepV Code - SYSTEM NOTIFICATION] Background task completed (Task ID: ${task.id}). Exit code: ${task.exitCode ?? 'unknown'}. Output:\n${task.output?.substring(0, 1000) || '(no output)'}`;
+        // 🎯 构建通知消息（包含完整的任务信息，供 AI 理解）
+        const notificationText = `[DeepV Code - SYSTEM NOTIFICATION] Background task completed (Task ID: ${task.id}). Exit code: ${task.exitCode ?? 'unknown'}. Output:\n${task.output?.substring(0, 1000) || '(no output)'}`;
 
-      // 🎯 如果 AI 当前空闲，自动触发 AI 继续处理（静默模式，不显示用户消息）
-      if (streamingState === StreamingState.Idle) {
-        console.log('[App] AI is idle, auto-triggering continuation for background task:', task.id);
-        // 直接发送包含完整信息的消息，让 AI 能看到结果
-        submitQuery(notificationText, { silent: true });
-      } else {
-        // AI 正忙，加入队列等待
-        console.log('[App] AI is busy, queuing background task notification:', task.id);
-        setPendingBackgroundNotifications(prev => [...prev, notificationText]);
-      }
-    }, [addItem, streamingState, submitQuery]),
-    onTaskFailed: useCallback((task: BackgroundTask) => {
-      console.log('[App] Background task failed:', task.id);
-      // 🎯 使用 tool_group 格式显示任务失败
-      // 🔧 截断大型输出，防止 CLI 界面压力过大
-      const shortId = task.id;
-      const truncatedOutput = truncateBackgroundTaskOutput(task.error || task.output);
-      const toolGroupItem: IndividualToolCallDisplay = {
-        callId: `bg-${task.id}`,
-        name: t('background.task.output'),
-        toolId: 'background_task_output',
-        description: `${shortId} ${task.command}`,
-        resultDisplay: truncatedOutput || 'Unknown error',
-        status: ToolCallStatus.Error,
-        confirmationDetails: undefined,
-      };
-      addItem(
-        { type: 'tool_group', tools: [toolGroupItem] } as any,
-        Date.now(),
-      );
+        // 🎯 如果 AI 当前空闲，自动触发 AI 继续处理（静默模式，不显示用户消息）
+        if (streamingState === StreamingState.Idle) {
+          console.log(
+            '[App] AI is idle, auto-triggering continuation for background task:',
+            task.id,
+          );
+          // 直接发送包含完整信息的消息，让 AI 能看到结果
+          submitQuery(notificationText, { silent: true });
+        } else {
+          // AI 正忙，加入队列等待
+          console.log(
+            '[App] AI is busy, queuing background task notification:',
+            task.id,
+          );
+          setPendingBackgroundNotifications((prev) => [
+            ...prev,
+            notificationText,
+          ]);
+        }
+      },
+      [addItem, streamingState, submitQuery],
+    ),
+    onTaskFailed: useCallback(
+      (task: BackgroundTask) => {
+        console.log('[App] Background task failed:', task.id);
+        // 🎯 使用 tool_group 格式显示任务失败
+        // 🔧 截断大型输出，防止 CLI 界面压力过大
+        const shortId = task.id;
+        const truncatedOutput = truncateBackgroundTaskOutput(
+          task.error || task.output,
+        );
+        const toolGroupItem: IndividualToolCallDisplay = {
+          callId: `bg-${task.id}`,
+          name: t('background.task.output'),
+          toolId: 'background_task_output',
+          description: `${shortId} ${task.command}`,
+          resultDisplay: truncatedOutput || 'Unknown error',
+          status: ToolCallStatus.Error,
+          confirmationDetails: undefined,
+        };
+        addItem(
+          { type: 'tool_group', tools: [toolGroupItem] } as any,
+          Date.now(),
+        );
 
-      // 🎯 构建通知消息（包含完整的任务信息，供 AI 理解）
-      const notificationText = `[System] Background task failed (Task ID: ${task.id}). Command: ${task.command}. Error: ${task.error || 'Unknown error'}. Output:\n${task.output?.substring(0, 1000) || '(no output)'}`;
+        // 🎯 构建通知消息（包含完整的任务信息，供 AI 理解）
+        const notificationText = `[System] Background task failed (Task ID: ${task.id}). Command: ${task.command}. Error: ${task.error || 'Unknown error'}. Output:\n${task.output?.substring(0, 1000) || '(no output)'}`;
 
-      // 🎯 如果 AI 当前空闲，自动触发 AI 继续处理（静默模式，不显示用户消息）
-      if (streamingState === StreamingState.Idle) {
-        console.log('[App] AI is idle, auto-triggering continuation for failed task:', task.id);
-        // 直接发送包含完整信息的消息，让 AI 能看到结果
-        submitQuery(notificationText, { silent: true });
-      } else {
-        // AI 正忙，加入队列等待
-        console.log('[App] AI is busy, queuing background task failure notification:', task.id);
-        setPendingBackgroundNotifications(prev => [...prev, notificationText]);
-      }
-    }, [addItem, streamingState, submitQuery]),
-    onTaskKilled: useCallback((task: BackgroundTask) => {
-      console.log('[App] Background task killed by user:', task.id);
-      // 🎯 使用 tool_group 格式显示任务被终止
-      // 🔧 截断大型输出，防止 CLI 界面压力过大
-      const shortId = task.id;
-      const truncatedOutput = truncateBackgroundTaskOutput(task.output);
-      const toolGroupItem: IndividualToolCallDisplay = {
-        callId: `bg-${task.id}`,
-        name: t('background.task.output'),
-        toolId: 'background_task_output',
-        description: `${shortId} ${task.command}`,
-        resultDisplay: truncatedOutput || 'Killed by user',
-        status: ToolCallStatus.Canceled,
-        confirmationDetails: undefined,
-      };
-      addItem(
-        { type: 'tool_group', tools: [toolGroupItem] } as any,
-        Date.now(),
-      );
+        // 🎯 如果 AI 当前空闲，自动触发 AI 继续处理（静默模式，不显示用户消息）
+        if (streamingState === StreamingState.Idle) {
+          console.log(
+            '[App] AI is idle, auto-triggering continuation for failed task:',
+            task.id,
+          );
+          // 直接发送包含完整信息的消息，让 AI 能看到结果
+          submitQuery(notificationText, { silent: true });
+        } else {
+          // AI 正忙，加入队列等待
+          console.log(
+            '[App] AI is busy, queuing background task failure notification:',
+            task.id,
+          );
+          setPendingBackgroundNotifications((prev) => [
+            ...prev,
+            notificationText,
+          ]);
+        }
+      },
+      [addItem, streamingState, submitQuery],
+    ),
+    onTaskKilled: useCallback(
+      (task: BackgroundTask) => {
+        console.log('[App] Background task killed by user:', task.id);
+        // 🎯 使用 tool_group 格式显示任务被终止
+        // 🔧 截断大型输出，防止 CLI 界面压力过大
+        const shortId = task.id;
+        const truncatedOutput = truncateBackgroundTaskOutput(task.output);
+        const toolGroupItem: IndividualToolCallDisplay = {
+          callId: `bg-${task.id}`,
+          name: t('background.task.output'),
+          toolId: 'background_task_output',
+          description: `${shortId} ${task.command}`,
+          resultDisplay: truncatedOutput || 'Killed by user',
+          status: ToolCallStatus.Canceled,
+          confirmationDetails: undefined,
+        };
+        addItem(
+          { type: 'tool_group', tools: [toolGroupItem] } as any,
+          Date.now(),
+        );
 
-      // 🎯 构建通知消息（包含完整的任务信息，供 AI 理解）
-      const notificationText = `[System] Background task killed by user (Task ID: ${task.id}). Command: ${task.command}. Output before kill:\n${task.output?.substring(0, 1000) || '(no output)'}`;
+        // 🎯 构建通知消息（包含完整的任务信息，供 AI 理解）
+        const notificationText = `[System] Background task killed by user (Task ID: ${task.id}). Command: ${task.command}. Output before kill:\n${task.output?.substring(0, 1000) || '(no output)'}`;
 
-      // 🎯 如果 AI 当前空闲，自动触发 AI 继续处理（静默模式，不显示用户消息）
-      if (streamingState === StreamingState.Idle) {
-        console.log('[App] AI is idle, auto-triggering continuation for killed task:', task.id);
-        // 直接发送包含完整信息的消息，让 AI 能看到结果
-        submitQuery(notificationText, { silent: true });
-      } else {
-        // AI 正忙，加入队列等待
-        console.log('[App] AI is busy, queuing background task kill notification:', task.id);
-        setPendingBackgroundNotifications(prev => [...prev, notificationText]);
-      }
-    }, [addItem, streamingState, submitQuery]),
+        // 🎯 如果 AI 当前空闲，自动触发 AI 继续处理（静默模式，不显示用户消息）
+        if (streamingState === StreamingState.Idle) {
+          console.log(
+            '[App] AI is idle, auto-triggering continuation for killed task:',
+            task.id,
+          );
+          // 直接发送包含完整信息的消息，让 AI 能看到结果
+          submitQuery(notificationText, { silent: true });
+        } else {
+          // AI 正忙，加入队列等待
+          console.log(
+            '[App] AI is busy, queuing background task kill notification:',
+            task.id,
+          );
+          setPendingBackgroundNotifications((prev) => [
+            ...prev,
+            notificationText,
+          ]);
+        }
+      },
+      [addItem, streamingState, submitQuery],
+    ),
   });
 
   // 🎯 当 AI 变为空闲时，处理队列中的后台任务通知
   useEffect(() => {
-    if (streamingState === StreamingState.Idle && pendingBackgroundNotifications.length > 0) {
-      console.log('[App] AI is now idle, processing pending background notifications:', pendingBackgroundNotifications.length);
+    if (
+      streamingState === StreamingState.Idle &&
+      pendingBackgroundNotifications.length > 0
+    ) {
+      console.log(
+        '[App] AI is now idle, processing pending background notifications:',
+        pendingBackgroundNotifications.length,
+      );
 
       // 将所有待处理的通知注入到 AI 历史中
       try {
@@ -1317,9 +1477,15 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
         setPendingBackgroundNotifications([]);
 
         // 自动触发 AI 继续处理（静默模式，不显示用户消息）
-        submitQuery('[DeepV Code - SYSTEM NOTIFICATION] Background tasks have completed while you were busy. Please review the results above if necessary, and continue.', { silent: true });
+        submitQuery(
+          '[DeepV Code - SYSTEM NOTIFICATION] Background tasks have completed while you were busy. Please review the results above if necessary, and continue.',
+          { silent: true },
+        );
       } catch (e) {
-        console.error('[App] Failed to process pending background notifications:', e);
+        console.error(
+          '[App] Failed to process pending background notifications:',
+          e,
+        );
       }
     }
   }, [streamingState, pendingBackgroundNotifications, config, submitQuery]);
@@ -1346,40 +1512,43 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     setQueuedPrompts((prev) => [...prev, promptText]);
   }, []);
 
-  const updateQueueItem = useCallback((index: number, newContent: string) => {
-    const trimmed = newContent.trim();
-    if (trimmed === '') {
-      // 空内容 = 删除该项
-      setQueuedPrompts((prev) => prev.filter((_, i) => i !== index));
-      addItem(
-        {
-          type: MessageType.INFO,
-          text: tp('input.queue.item.deleted', { position: index + 1 }),
-        },
-        Date.now(),
-      );
-      // 如果删除后队列为空，退出编辑模式
-      setQueuedPrompts((prev) => {
-        if (prev.length === 0) {
-          setQueueEditMode(false);
-          setQueuePaused(false);
-        }
-        return prev;
-      });
-    } else {
-      // 更新内容
-      setQueuedPrompts((prev) =>
-        prev.map((item, i) => (i === index ? trimmed : item)),
-      );
-      addItem(
-        {
-          type: MessageType.INFO,
-          text: tp('input.queue.item.updated', { position: index + 1 }),
-        },
-        Date.now(),
-      );
-    }
-  }, [addItem, tp]);
+  const updateQueueItem = useCallback(
+    (index: number, newContent: string) => {
+      const trimmed = newContent.trim();
+      if (trimmed === '') {
+        // 空内容 = 删除该项
+        setQueuedPrompts((prev) => prev.filter((_, i) => i !== index));
+        addItem(
+          {
+            type: MessageType.INFO,
+            text: tp('input.queue.item.deleted', { position: index + 1 }),
+          },
+          Date.now(),
+        );
+        // 如果删除后队列为空，退出编辑模式
+        setQueuedPrompts((prev) => {
+          if (prev.length === 0) {
+            setQueueEditMode(false);
+            setQueuePaused(false);
+          }
+          return prev;
+        });
+      } else {
+        // 更新内容
+        setQueuedPrompts((prev) =>
+          prev.map((item, i) => (i === index ? trimmed : item)),
+        );
+        addItem(
+          {
+            type: MessageType.INFO,
+            text: tp('input.queue.item.updated', { position: index + 1 }),
+          },
+          Date.now(),
+        );
+      }
+    },
+    [addItem, tp],
+  );
 
   const handlePromptOrQueue = useCallback(
     (promptText: string, pauseQueueUntilResponse = false) => {
@@ -1396,7 +1565,13 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
 
       sendPromptImmediately(sanitizedPrompt, pauseQueueUntilResponse);
     },
-    [addItem, queuePrompt, queuedPrompts.length, sendPromptImmediately, streamingState],
+    [
+      addItem,
+      queuePrompt,
+      queuedPrompts.length,
+      sendPromptImmediately,
+      streamingState,
+    ],
   );
 
   // Session自动保存 - 监听streaming状态变化
@@ -1421,7 +1596,14 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
 
     setQueuedPrompts((prev) => prev.slice(1));
     sendPromptImmediately(nextPrompt);
-  }, [queuedPrompts, refineResult, sendPromptImmediately, streamingState, queuePaused, queueEditMode]);
+  }, [
+    queuedPrompts,
+    refineResult,
+    sendPromptImmediately,
+    streamingState,
+    queuePaused,
+    queueEditMode,
+  ]);
 
   // 当 AI 开始响应时，解除队列暂停
   useEffect(() => {
@@ -1429,8 +1611,6 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
       setQueuePaused(false);
     }
   }, [queuePaused, streamingState]);
-
-
 
   // Input handling
   const handleFinalSubmit = useCallback(
@@ -1484,51 +1664,60 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                 return;
               }
 
-            if (slashCommandResult.type === 'handled') {
-              // Slash命令已处理，不需要继续
-              return;
-            } else if (slashCommandResult.type === 'submit_prompt') {
-              // Slash命令返回需要提交的内容
-              handlePromptOrQueue(slashCommandResult.content);
-              return;
-            } else if (slashCommandResult.type === 'schedule_tool') {
-              // Slash命令要求执行工具，这里可以扩展处理
-              return;
-            } else if (slashCommandResult.type === 'select_session') {
-              // 开启 Session 选择对话框
-              setSessionSelectData(slashCommandResult.sessions);
-              return;
-            } else if (slashCommandResult.type === 'refine_result') {
-              // 润色结果，显示确认界面
-              console.log('[App] 收到 refine_result，设置 refineResult 状态');
+              if (slashCommandResult.type === 'handled') {
+                // Slash命令已处理，不需要继续
+                return;
+              } else if (slashCommandResult.type === 'submit_prompt') {
+                // Slash命令返回需要提交的内容
+                handlePromptOrQueue(slashCommandResult.content);
+                return;
+              } else if (slashCommandResult.type === 'schedule_tool') {
+                // Slash命令要求执行工具，这里可以扩展处理
+                return;
+              } else if (slashCommandResult.type === 'select_session') {
+                // 开启 Session 选择对话框
+                setSessionSelectData(slashCommandResult.sessions);
+                return;
+              } else if (slashCommandResult.type === 'refine_result') {
+                // 润色结果，显示确认界面
+                console.log('[App] 收到 refine_result，设置 refineResult 状态');
 
-              // 计算截断阈值
-              const maxRowsSent = getDefaultMaxRows('sent', terminalHeight);
-              const maxRowsRefined = getDefaultMaxRows('refined', terminalHeight);
+                // 计算截断阈值
+                const maxRowsSent = getDefaultMaxRows('sent', terminalHeight);
+                const maxRowsRefined = getDefaultMaxRows(
+                  'refined',
+                  terminalHeight,
+                );
 
-              // 截断原文（发送场景：更严格）
-              const truncatedOriginal = truncateText(slashCommandResult.original, {
-                maxRows: maxRowsSent,
-                terminalWidth: terminalWidth,
-              });
+                // 截断原文（发送场景：更严格）
+                const truncatedOriginal = truncateText(
+                  slashCommandResult.original,
+                  {
+                    maxRows: maxRowsSent,
+                    terminalWidth: terminalWidth,
+                  },
+                );
 
-              // 截断润色结果（Refine 场景：更宽松）
-              const truncatedRefined = truncateText(slashCommandResult.refined, {
-                maxRows: maxRowsRefined,
-                terminalWidth: terminalWidth,
-              });
+                // 截断润色结果（Refine 场景：更宽松）
+                const truncatedRefined = truncateText(
+                  slashCommandResult.refined,
+                  {
+                    maxRows: maxRowsRefined,
+                    terminalWidth: terminalWidth,
+                  },
+                );
 
-              setRefineResult({
-                original: slashCommandResult.original, // 完整原文
-                refined: slashCommandResult.refined, // 完整润色结果
-                displayOriginal: truncatedOriginal.displayText, // 显示用原文
-                displayRefined: truncatedRefined.displayText, // 显示用润色结果
-                omittedPlaceholder: truncatedRefined.omittedPlaceholder, // 省略提示占位符
-                omittedLines: truncatedRefined.omittedLines, // 省略的行数
-                options: slashCommandResult.options,
-              });
-              return;
-            }
+                setRefineResult({
+                  original: slashCommandResult.original, // 完整原文
+                  refined: slashCommandResult.refined, // 完整润色结果
+                  displayOriginal: truncatedOriginal.displayText, // 显示用原文
+                  displayRefined: truncatedRefined.displayText, // 显示用润色结果
+                  omittedPlaceholder: truncatedRefined.omittedPlaceholder, // 省略提示占位符
+                  omittedLines: truncatedRefined.omittedLines, // 省略的行数
+                  options: slashCommandResult.options,
+                });
+                return;
+              }
             }
           } finally {
             // 润色完成，隐藏 loading 状态
@@ -1565,9 +1754,10 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   const isToolConfirmationMenuOpen = useMemo(() => {
     // 递归检查工具及其子工具调用
     const hasConfirmingTool = (tools: IndividualToolCallDisplay[]): boolean => {
-      return tools.some((tool) =>
-        tool.status === ToolCallStatus.Confirming ||
-        (tool.subToolCalls && hasConfirmingTool(tool.subToolCalls))
+      return tools.some(
+        (tool) =>
+          tool.status === ToolCallStatus.Confirming ||
+          (tool.subToolCalls && hasConfirmingTool(tool.subToolCalls)),
       );
     };
 
@@ -1590,8 +1780,11 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     return inHistory || inPending;
   }, [history, pendingHistoryItems]);
 
-  const { elapsedTime, currentLoadingPhrase, estimatedInputTokens: loadingEstimatedTokens } =
-    useLoadingIndicator(streamingState, estimatedInputTokens);
+  const {
+    elapsedTime,
+    currentLoadingPhrase,
+    estimatedInputTokens: loadingEstimatedTokens,
+  } = useLoadingIndicator(streamingState, estimatedInputTokens);
 
   // When transitioning from Responding to Idle, capture the elapsed time for printing
   const lastElapsedTimeBeforeIdleRef = useRef<number>(0);
@@ -1603,7 +1796,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
 
   const { shouldShowSummary, completionElapsedTime } = useTaskCompletionSummary(
     streamingState,
-    lastElapsedTimeBeforeIdleRef.current
+    lastElapsedTimeBeforeIdleRef.current,
   );
 
   // Track completion summary counter for unique keys
@@ -1638,7 +1831,9 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
 
         // 🎯 优化：第一次按下 Ctrl+C 时，预加载积分信息
         // 这样在 /quit 命令执行并显示 SessionSummaryDisplay 时，积分信息可能已经缓存好了
-        getCreditsService().getCreditsInfo().catch(() => {});
+        getCreditsService()
+          .getCreditsInfo()
+          .catch(() => {});
 
         timerRef.current = setTimeout(() => {
           setPressedOnce(false);
@@ -1677,9 +1872,10 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
 
     // 检测IDEA环境下的替代取消键
     const isIDEATerminal = detectIDEAEnvironment();
-    const isCancelKey = key.escape ||
-                       (isIDEATerminal && key.ctrl && input === 'q') ||
-                       (process.platform === 'darwin' && key.meta && input === 'q');
+    const isCancelKey =
+      key.escape ||
+      (isIDEATerminal && key.ctrl && input === 'q') ||
+      (process.platform === 'darwin' && key.meta && input === 'q');
 
     // 处理队列编辑模式
     if (queueEditMode) {
@@ -1739,7 +1935,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
       if (key.downArrow && !key.ctrl && !key.shift && !key.meta) {
         const taskManager = getBackgroundTaskManager();
         const tasks = taskManager.getAllTasks();
-        const runningTasks = tasks.filter(t => t.status === 'running');
+        const runningTasks = tasks.filter((t) => t.status === 'running');
         if (runningTasks.length > 0) {
           setShowBackgroundTaskPanel(true);
           return;
@@ -1749,7 +1945,10 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
 
     // 处理润色结果的确认
     if (refineResult) {
-      console.log('[App useInput] refineResult存在，处理按键:', { input, return: key.return });
+      console.log('[App useInput] refineResult存在，处理按键:', {
+        input,
+        return: key.return,
+      });
       if (key.return) {
         // 回车：发送润色后的文本给 AI
         console.log('[App useInput] 按回车，发送润色后的文本给 AI');
@@ -1769,23 +1968,37 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
         // 异步处理润色命令
         (async () => {
           try {
-            const slashCommandResult = await handleSlashCommand(`/refine ${originalText}`);
-            if (slashCommandResult !== false && slashCommandResult.type === 'refine_result') {
+            const slashCommandResult = await handleSlashCommand(
+              `/refine ${originalText}`,
+            );
+            if (
+              slashCommandResult !== false &&
+              slashCommandResult.type === 'refine_result'
+            ) {
               // 计算截断阈值
               const maxRowsSent = getDefaultMaxRows('sent', terminalHeight);
-              const maxRowsRefined = getDefaultMaxRows('refined', terminalHeight);
+              const maxRowsRefined = getDefaultMaxRows(
+                'refined',
+                terminalHeight,
+              );
 
               // 截断原文（发送场景：更严格）
-              const truncatedOriginal = truncateText(slashCommandResult.original, {
-                maxRows: maxRowsSent,
-                terminalWidth: terminalWidth,
-              });
+              const truncatedOriginal = truncateText(
+                slashCommandResult.original,
+                {
+                  maxRows: maxRowsSent,
+                  terminalWidth: terminalWidth,
+                },
+              );
 
               // 截断润色结果（Refine 场景：更宽松）
-              const truncatedRefined = truncateText(slashCommandResult.refined, {
-                maxRows: maxRowsRefined,
-                terminalWidth: terminalWidth,
-              });
+              const truncatedRefined = truncateText(
+                slashCommandResult.refined,
+                {
+                  maxRows: maxRowsRefined,
+                  terminalWidth: terminalWidth,
+                },
+              );
 
               setRefineResult({
                 original: slashCommandResult.original, // 完整原文
@@ -1997,7 +2210,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
             customProxyUrl={customProxyUrl}
           />
         )}
-      </Box>
+      </Box>,
     ];
 
     // 注：积分信息现在通过初始化消息显示，而不是在这里
@@ -2007,16 +2220,18 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     // 现代终端和计算机完全可以处理几百条消息的渲染
 
     // 添加所有历史项，使用staticKey确保/chat resume后强制重新渲染
-    items.push(...history.map((h) => (
-      <HistoryItemDisplay
-        terminalWidth={mainAreaWidth}
-        availableTerminalHeight={staticAreaMaxItemHeight}
-        key={`${staticKey}-${h.id}`} // 使用 staticKey 和 item ID 确保稳定的组件复用
-        item={h}
-        isPending={false}
-        config={config}
-      />
-    )));
+    items.push(
+      ...history.map((h) => (
+        <HistoryItemDisplay
+          terminalWidth={mainAreaWidth}
+          availableTerminalHeight={staticAreaMaxItemHeight}
+          key={`${staticKey}-${h.id}`} // 使用 staticKey 和 item ID 确保稳定的组件复用
+          item={h}
+          isPending={false}
+          config={config}
+        />
+      )),
+    );
 
     // Add task completion summary to static area when it should be shown
     // The hook manages the display duration to prevent overlap with queued prompts
@@ -2026,12 +2241,24 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
           key={`completion-${completionSummaryCounterRef.current}`}
           elapsedTime={completionElapsedTime}
           isVisible={true}
-        />
+        />,
       );
     }
 
     return items;
-  }, [history, mainAreaWidth, staticAreaMaxItemHeight, staticKey, terminalWidth, settings.merged.hideBanner, settings.merged.hideTips, config, shouldShowSummary, completionElapsedTime, completionSummaryCounterRef]); // 🚀 保留关键依赖：terminalWidth 对响应式布局重要
+  }, [
+    history,
+    mainAreaWidth,
+    staticAreaMaxItemHeight,
+    staticKey,
+    terminalWidth,
+    settings.merged.hideBanner,
+    settings.merged.hideTips,
+    config,
+    shouldShowSummary,
+    completionElapsedTime,
+    completionSummaryCounterRef,
+  ]); // 🚀 保留关键依赖：terminalWidth 对响应式布局重要
 
   useEffect(() => {
     // skip refreshing Static during first mount
@@ -2050,7 +2277,12 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     return () => {
       clearTimeout(handler);
     };
-  }, [terminalWidth, terminalHeight, refreshStatic, smallWindowConfig.refreshDebounceMs]);
+  }, [
+    terminalWidth,
+    terminalHeight,
+    refreshStatic,
+    smallWindowConfig.refreshDebounceMs,
+  ]);
 
   useEffect(() => {
     if (streamingState === StreamingState.Idle && staticNeedsRefresh) {
@@ -2082,10 +2314,12 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
 
         // Include messages with error-related keywords
         const content = msg.content.toLowerCase();
-        if (content.includes('error') ||
-            content.includes('exception') ||
-            content.includes('traceback') ||
-            content.includes('failed')) {
+        if (
+          content.includes('error') ||
+          content.includes('exception') ||
+          content.includes('traceback') ||
+          content.includes('failed')
+        ) {
           return true;
         }
 
@@ -2126,7 +2360,9 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
     if (!normalized) {
       return '';
     }
-    return normalized.length > 80 ? `${normalized.slice(0, 80)}...` : normalized;
+    return normalized.length > 80
+      ? `${normalized.slice(0, 80)}...`
+      : normalized;
   }, [queuedPrompts]);
 
   useEffect(() => {
@@ -2177,14 +2413,14 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
   ) : null;
   const debugConsoleMaxHeight = Math.floor(Math.max(terminalHeight * 0.2, 5));
   const debugPanelPageSize = Math.floor(Math.max(terminalHeight * 0.6, 10)); // 60% of terminal height
-  const debugPanelHeight = debugPanelExpanded ? debugPanelPageSize : debugConsoleMaxHeight;
+  const debugPanelHeight = debugPanelExpanded
+    ? debugPanelPageSize
+    : debugConsoleMaxHeight;
   const placeholder = planModeActive
-    ? "  计划模式：可读取代码分析，禁止修改 (/plan off 退出)"
+    ? '  计划模式：可读取代码分析，禁止修改 (/plan off 退出)'
     : vimModeEnabled
       ? "  按 'i' 进入插入模式，按 'Esc' 进入普通模式。"
       : '  输入您的消息或 @文件路径';
-
-
 
   // Helper function to render debug panel with scrolling display
   const renderDebugPanel = () => {
@@ -2225,10 +2461,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
          * content is set it'll flush content to the terminal and move the area which it's "clearing"
          * down a notch. Without Static the area which gets erased and redrawn continuously grows.
          */}
-        <Static
-          key={staticKey}
-          items={staticItems}
-        >
+        <Static key={staticKey} items={staticItems}>
           {(item) => item}
         </Static>
         <OverflowProvider>
@@ -2261,10 +2494,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
           />
         ) : null}
 
-        <Box
-          flexDirection="column"
-          ref={mainControlsRef}
-        >
+        <Box flexDirection="column" ref={mainControlsRef}>
           {startupWarnings.length > 0 ? (
             <Box
               borderStyle="round"
@@ -2350,7 +2580,9 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
               <AuthInProgress
                 stage="environment"
                 onTimeout={() => {
-                  setAuthError('Environment preparation timed out. Please try again.');
+                  setAuthError(
+                    'Environment preparation timed out. Please try again.',
+                  );
                   cancelAuthentication();
                   openAuthDialog();
                 }}
@@ -2397,14 +2629,18 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                   if (result.action === 'message') {
                     addItem(
                       {
-                        type: result.messageType === 'error'
-                          ? MessageType.ERROR
-                          : MessageType.INFO,
+                        type:
+                          result.messageType === 'error'
+                            ? MessageType.ERROR
+                            : MessageType.INFO,
                         text: result.content!,
                       },
                       Date.now(),
                     );
-                  } else if (result.action === 'submit_prompt' && result.content) {
+                  } else if (
+                    result.action === 'submit_prompt' &&
+                    result.content
+                  ) {
                     handlePromptOrQueue(result.content);
                   }
                 }}
@@ -2463,7 +2699,9 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
               {/* 🎯 Checkpoint创建中提示 */}
               {isCreatingCheckpoint ? (
                 <Box marginBottom={1}>
-                  <Text color={Colors.AccentBlue}>🔄 {t('checkpoint.creating')}</Text>
+                  <Text color={Colors.AccentBlue}>
+                    🔄 {t('checkpoint.creating')}
+                  </Text>
                 </Box>
               ) : null}
 
@@ -2482,8 +2720,6 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                 }
                 elapsedTime={elapsedTime}
               />
-
-
 
               <Box
                 marginTop={1}
@@ -2518,11 +2754,13 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                 <Box>
                   {planModeActive ? <PlanModeIndicator /> : null}
                   {showAutoAcceptIndicator !== ApprovalMode.DEFAULT &&
-                    !shellModeActive && !helpModeActive && !planModeActive ? (
-                      <AutoAcceptIndicator
-                        approvalMode={showAutoAcceptIndicator}
-                      />
-                    ) : null}
+                  !shellModeActive &&
+                  !helpModeActive &&
+                  !planModeActive ? (
+                    <AutoAcceptIndicator
+                      approvalMode={showAutoAcceptIndicator}
+                    />
+                  ) : null}
                   {shellModeActive ? <ShellModeIndicator /> : null}
                   {helpModeActive ? <HelpModeIndicator /> : null}
                 </Box>
@@ -2553,7 +2791,8 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
               ) : null}
 
               {/* Token Usage Display - 显示在输入框上方 */}
-              {lastTokenUsage && streamingState !== StreamingState.Responding ? (
+              {lastTokenUsage &&
+              streamingState !== StreamingState.Responding ? (
                 <TokenUsageDisplay
                   tokenUsage={lastTokenUsage}
                   inputWidth={inputWidth}
@@ -2565,7 +2804,8 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
               {queuedPrompts.length > 0 && !initError ? (
                 <Box marginY={1} flexDirection="column" gap={0}>
                   {queuedPrompts.map((prompt, index) => {
-                    const preview = prompt.length > 60 ? `${prompt.slice(0, 60)}...` : prompt;
+                    const preview =
+                      prompt.length > 60 ? `${prompt.slice(0, 60)}...` : prompt;
                     return (
                       <Text key={index} dimColor>
                         {index === 0 ? '↓' : ' '} {preview}
@@ -2573,9 +2813,7 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                     );
                   })}
                   {queuedPrompts.length > 0 ? (
-                    <Text dimColor>
-                      {t('input.queue.edit.hint')}
-                    </Text>
+                    <Text dimColor>{t('input.queue.edit.hint')}</Text>
                   ) : null}
                 </Box>
               ) : null}
@@ -2584,10 +2822,12 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
               {queueEditMode ? (
                 <Box marginY={1}>
                   <Text color={Colors.AccentBlue}>
-                    🔄 {tp('input.queue.edit.mode', {
+                    🔄{' '}
+                    {tp('input.queue.edit.mode', {
                       current: queueEditIndex + 1,
-                      total: queuedPrompts.length
-                    })} • {t('input.queue.edit.actions')}
+                      total: queuedPrompts.length,
+                    })}{' '}
+                    • {t('input.queue.edit.actions')}
                   </Text>
                 </Box>
               ) : null}
@@ -2603,10 +2843,14 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                   marginY={1}
                 >
                   <Box>
-                    <Text bold color={Colors.AccentBlue}>✨ {t('command.refine.loading.title')}</Text>
+                    <Text bold color={Colors.AccentBlue}>
+                      ✨ {t('command.refine.loading.title')}
+                    </Text>
                   </Box>
                   <Box marginTop={1}>
-                    <Text color={Colors.Gray}>{t('command.refine.loading.message')}</Text>
+                    <Text color={Colors.Gray}>
+                      {t('command.refine.loading.message')}
+                    </Text>
                   </Box>
                 </Box>
               ) : null}
@@ -2622,26 +2866,39 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                   marginY={1}
                 >
                   <Box marginBottom={1}>
-                    <Text bold color={Colors.AccentGreen}>{t('command.refine.confirm.title')}</Text>
+                    <Text bold color={Colors.AccentGreen}>
+                      {t('command.refine.confirm.title')}
+                    </Text>
                   </Box>
                   <Box marginBottom={1}>
-                    {refineResult.showFullText
-                      ? <Text wrap="wrap" italic>{refineResult.refined}</Text>
-                      : renderTextWithHighlightedOmission(refineResult.displayRefined, refineResult.omittedPlaceholder, refineResult.omittedLines)
-                    }
+                    {refineResult.showFullText ? (
+                      <Text wrap="wrap" italic>
+                        {refineResult.refined}
+                      </Text>
+                    ) : (
+                      renderTextWithHighlightedOmission(
+                        refineResult.displayRefined,
+                        refineResult.omittedPlaceholder,
+                        refineResult.omittedLines,
+                      )
+                    )}
                   </Box>
                   <Box>
                     <Text color={Colors.Gray}>{'─'.repeat(50)}</Text>
                   </Box>
                   <Box marginTop={1}>
                     <Box marginRight={2}>
-                      <Text bold color={Colors.AccentGreen}>{t('command.refine.confirm.hint.send')}</Text>
+                      <Text bold color={Colors.AccentGreen}>
+                        {t('command.refine.confirm.hint.send')}
+                      </Text>
                     </Box>
                     <Box marginRight={2}>
                       <Text color={Colors.Gray}>|</Text>
                     </Box>
                     <Box marginRight={2}>
-                      <Text bold color={Colors.AccentYellow}>{t('command.refine.confirm.hint.refine-again')}</Text>
+                      <Text bold color={Colors.AccentYellow}>
+                        {t('command.refine.confirm.hint.refine-again')}
+                      </Text>
                     </Box>
                     {refineResult.omittedLines && !refineResult.showFullText ? (
                       <>
@@ -2649,7 +2906,9 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                           <Text color={Colors.Gray}>|</Text>
                         </Box>
                         <Box marginRight={2}>
-                          <Text bold color={Colors.AccentBlue}>{t('command.refine.confirm.hint.view-full')}</Text>
+                          <Text bold color={Colors.AccentBlue}>
+                            {t('command.refine.confirm.hint.view-full')}
+                          </Text>
                         </Box>
                       </>
                     ) : null}
@@ -2657,7 +2916,9 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                       <Text color={Colors.Gray}>|</Text>
                     </Box>
                     <Box>
-                      <Text bold color={Colors.AccentRed}>{t('command.refine.confirm.hint.cancel')}</Text>
+                      <Text bold color={Colors.AccentRed}>
+                        {t('command.refine.confirm.hint.cancel')}
+                      </Text>
                     </Box>
                   </Box>
                 </Box>
@@ -2682,9 +2943,22 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                   focus={isFocused}
                   vimHandleInput={vimHandleInput}
                   placeholder={placeholder}
-                  isModalOpen={isModelDialogOpen || isCustomModelWizardOpen || isAuthDialogOpen || isThemeDialogOpen || isEditorDialogOpen || isInitChoiceDialogOpen || isPluginInstallDialogOpen || isToolConfirmationMenuOpen || showBackgroundTaskPanel}
+                  isModalOpen={
+                    isModelDialogOpen ||
+                    isCustomModelWizardOpen ||
+                    isAuthDialogOpen ||
+                    isThemeDialogOpen ||
+                    isEditorDialogOpen ||
+                    isInitChoiceDialogOpen ||
+                    isPluginInstallDialogOpen ||
+                    isToolConfirmationMenuOpen ||
+                    showBackgroundTaskPanel
+                  }
                   isExecutingTools={isExecutingTools}
-                  isBusy={streamingState !== StreamingState.Idle || queuedPrompts.length > 0}
+                  isBusy={
+                    streamingState !== StreamingState.Idle ||
+                    queuedPrompts.length > 0
+                  }
                   isInSpecialMode={!!refineResult || queueEditMode}
                 />
               ) : null}
@@ -2715,13 +2989,8 @@ const App = ({ config, settings, startupWarnings = [], version, promptExtensions
                 </Text>
               ) : (
                 <>
-                  <Text color={Colors.AccentRed}>
-                    初始化错误：{initError}
-                  </Text>
-                  <Text color={Colors.AccentRed}>
-                    {' '}
-                    请检查 API 密钥和配置。
-                  </Text>
+                  <Text color={Colors.AccentRed}>初始化错误：{initError}</Text>
+                  <Text color={Colors.AccentRed}> 请检查 API 密钥和配置。</Text>
                 </>
               )}
             </Box>

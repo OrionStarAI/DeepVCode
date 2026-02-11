@@ -106,8 +106,8 @@ export interface Settings {
 
   // 标题保护相关设置
   titleProtection?: {
-    enabled?: boolean;           // 是否启用标题保护
-    restoreInterval?: number;    // 定期恢复间隔（秒）
+    enabled?: boolean; // 是否启用标题保护
+    restoreInterval?: number; // 定期恢复间隔（秒）
     restoreAfterShell?: boolean; // 是否在shell命令后恢复标题
   };
 
@@ -158,6 +158,9 @@ export interface Settings {
 
   // 语言偏好设置
   preferredLanguage?: string;
+
+  // Slash command aliases
+  commandAliases?: Record<string, string>;
 }
 
 export interface SettingsError {
@@ -463,10 +466,7 @@ export function loadSettings(workspaceDir: string): LoadedSettings {
       projectSettings = resolveEnvVarsInObject(parsedProjectSettings);
       if (projectSettings.theme && projectSettings.theme === 'VS') {
         projectSettings.theme = DefaultLight.name;
-      } else if (
-        projectSettings.theme &&
-        projectSettings.theme === 'VS2015'
-      ) {
+      } else if (projectSettings.theme && projectSettings.theme === 'VS2015') {
         projectSettings.theme = DefaultDark.name;
       }
     }

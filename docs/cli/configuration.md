@@ -108,6 +108,18 @@ In addition to a project settings file, a project's `.gemini` directory can cont
   - **Default:** `false`
   - **Example:** `"vimMode": true`
 
+- **`commandAliases`** (object):
+  - **Description:** Defines slash command aliases. Keys are alias names, values are command strings. Values may include subcommands and default arguments.
+  - **Default:** `{}`
+  - **Example:**
+    ```json
+    "commandAliases": {
+      "d": "doctor",
+      "rep": "report --full",
+      "mem": "memory show"
+    }
+    ```
+
 - **`sandbox`** (boolean or string):
   - **Description:** Controls whether and how to use sandboxing for tool execution. If set to `true`, Gemini CLI uses a pre-built `gemini-cli-sandbox` Docker image. For more information, see [Sandboxing](#sandboxing).
   - **Default:** `false`
