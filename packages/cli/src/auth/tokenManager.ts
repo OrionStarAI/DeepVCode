@@ -5,7 +5,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import * as os from 'os';
@@ -50,6 +49,9 @@ export class TokenManager {
   private readonly TOKEN_EXPIRY_FILE = 'token_expiry';
   private readonly USER_INFO_FILE = 'user_info';
   private readonly ENCRYPTION_KEY_FILE = 'token_key';
+  private readonly ENCRYPTION_MAGIC = Buffer.from('DV2');
+  private readonly ENCRYPTION_IV_LENGTH = 12;
+  private readonly ENCRYPTION_TAG_LENGTH = 16;
 
   private config: TokenManagerConfig;
   private tokenDir: string;
@@ -67,7 +69,7 @@ export class TokenManager {
     this.config = {
       autoRefresh: true,
       refreshBufferTime: 259200, // 3天：提前3天开始renew，符合长期token设计
-      ...config
+      ...config,
     };
 
     this.tokenDir = config.tokenDir || path.join(os.homedir(), '.deepv');
@@ -96,7 +98,9 @@ export class TokenManager {
         this.startAutoRefresh();
       }
 
-      console.log(`🔑 TokenManager initialized with directory: ${this.tokenDir}`);
+      console.log(
+        `🔑 TokenManager initialized with directory: ${this.tokenDir}`,
+      );
     } catch (error) {
       console.error('❌ Failed to initialize TokenManager:', error);
     }
@@ -136,7 +140,7 @@ export class TokenManager {
     try {
       this.accessToken = tokens.accessToken;
       this.refreshToken = tokens.refreshToken;
-      this.tokenExpiry = Date.now() + (tokens.expiresIn * 1000);
+      this.tokenExpiry = Date.now() + tokens.expiresIn * 1000;
       this.userInfo = user || null;
 
       // 安全存储到文件
@@ -144,7 +148,9 @@ export class TokenManager {
         this.secureStore(this.TOKEN_FILE, tokens.accessToken),
         this.secureStore(this.REFRESH_TOKEN_FILE, tokens.refreshToken),
         this.secureStore(this.TOKEN_EXPIRY_FILE, this.tokenExpiry.toString()),
-        user ? this.secureStore(this.USER_INFO_FILE, JSON.stringify(user)) : Promise.resolve()
+        user
+          ? this.secureStore(this.USER_INFO_FILE, JSON.stringify(user))
+          : Promise.resolve(),
       ]);
 
       appEvents.emit(AppEvent.TokensUpdated, { tokens, user });
@@ -187,16 +193,19 @@ export class TokenManager {
     try {
       console.log('🔄 Refreshing access token...');
 
-      const response = await fetch(`${this.config.serverEndpoint}/auth/jwt/refresh`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'DeepCode CLI TokenManager'
+      const response = await fetch(
+        `${this.config.serverEndpoint}/auth/jwt/refresh`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'DeepCode CLI TokenManager',
+          },
+          body: JSON.stringify({
+            refreshToken: this.refreshToken,
+          }),
         },
-        body: JSON.stringify({
-          refreshToken: this.refreshToken
-        })
-      });
+      );
 
       if (!response.ok) {
         if (response.status === 401) {
@@ -206,17 +215,22 @@ export class TokenManager {
         }
 
         const errorText = await response.text();
-        throw new Error(`Token refresh failed (${response.status}): ${errorText}`);
+        throw new Error(
+          `Token refresh failed (${response.status}): ${errorText}`,
+        );
       }
 
       const tokenData = await response.json();
 
       // 更新令牌
-      await this.setTokens({
-        accessToken: tokenData.accessToken,
-        refreshToken: tokenData.refreshToken || this.refreshToken,
-        expiresIn: tokenData.expiresIn
-      }, this.userInfo || undefined);
+      await this.setTokens(
+        {
+          accessToken: tokenData.accessToken,
+          refreshToken: tokenData.refreshToken || this.refreshToken,
+          expiresIn: tokenData.expiresIn,
+        },
+        this.userInfo || undefined,
+      );
 
       console.log('✅ Access token refreshed successfully');
       return tokenData.accessToken;
@@ -233,39 +247,45 @@ export class TokenManager {
     try {
       console.log('🔄 Exchanging Feishu token for JWT...');
 
-      const response = await fetch(`${this.config.serverEndpoint}/auth/jwt/feishu-login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'User-Agent': 'DeepCode CLI TokenManager'
+      const response = await fetch(
+        `${this.config.serverEndpoint}/auth/jwt/feishu-login`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'User-Agent': 'DeepCode CLI TokenManager',
+          },
+          body: JSON.stringify({
+            feishuAccessToken,
+            clientInfo: {
+              platform: process.platform,
+              version: process.version,
+              timestamp: Date.now(),
+            },
+          }),
         },
-        body: JSON.stringify({
-          feishuAccessToken,
-          clientInfo: {
-            platform: process.platform,
-            version: process.version,
-            timestamp: Date.now()
-          }
-        })
-      });
+      );
 
       if (!response.ok) {
         const errorText = await response.text();
         console.error('❌ Feishu authentication failed:', errorText);
         return {
           success: false,
-          error: `Authentication failed (${response.status}): ${errorText}`
+          error: `Authentication failed (${response.status}): ${errorText}`,
         };
       }
 
       const authData = await response.json();
 
       // 存储JWT令牌和用户信息
-      await this.setTokens({
-        accessToken: authData.accessToken,
-        refreshToken: authData.refreshToken,
-        expiresIn: authData.expiresIn
-      }, authData.user);
+      await this.setTokens(
+        {
+          accessToken: authData.accessToken,
+          refreshToken: authData.refreshToken,
+          expiresIn: authData.expiresIn,
+        },
+        authData.user,
+      );
 
       console.log('✅ JWT authentication successful');
       return {
@@ -273,15 +293,15 @@ export class TokenManager {
         tokens: {
           accessToken: authData.accessToken,
           refreshToken: authData.refreshToken,
-          expiresIn: authData.expiresIn
+          expiresIn: authData.expiresIn,
         },
-        user: authData.user
+        user: authData.user,
       };
     } catch (error) {
       console.error('❌ Feishu authentication error:', error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : String(error)
+        error: error instanceof Error ? error.message : String(error),
       };
     }
   }
@@ -315,7 +335,7 @@ export class TokenManager {
         this.secureRemove(this.TOKEN_FILE),
         this.secureRemove(this.REFRESH_TOKEN_FILE),
         this.secureRemove(this.TOKEN_EXPIRY_FILE),
-        this.secureRemove(this.USER_INFO_FILE)
+        this.secureRemove(this.USER_INFO_FILE),
       ]);
 
       appEvents.emit(AppEvent.TokensCleared);
@@ -329,9 +349,11 @@ export class TokenManager {
    * 检查令牌是否有效
    */
   isTokenValid(): boolean {
-    return !!(this.accessToken &&
-             this.tokenExpiry &&
-             Date.now() < this.tokenExpiry);
+    return !!(
+      this.accessToken &&
+      this.tokenExpiry &&
+      Date.now() < this.tokenExpiry
+    );
   }
 
   /**
@@ -348,8 +370,8 @@ export class TokenManager {
   private isTokenExpiringSoon(bufferTimeMs?: number): boolean {
     if (!this.tokenExpiry) return true;
 
-    const buffer = bufferTimeMs || (this.config.refreshBufferTime! * 1000);
-    return Date.now() > (this.tokenExpiry - buffer);
+    const buffer = bufferTimeMs || this.config.refreshBufferTime! * 1000;
+    return Date.now() > this.tokenExpiry - buffer;
   }
 
   /**
@@ -361,7 +383,7 @@ export class TokenManager {
         this.secureGet(this.TOKEN_FILE),
         this.secureGet(this.REFRESH_TOKEN_FILE),
         this.secureGet(this.TOKEN_EXPIRY_FILE),
-        this.secureGet(this.USER_INFO_FILE)
+        this.secureGet(this.USER_INFO_FILE),
       ]);
 
       this.accessToken = accessToken;
@@ -486,12 +508,15 @@ export class TokenManager {
       throw new Error('Encryption key not initialized');
     }
 
-    const iv = crypto.randomBytes(16);
-    const cipher = crypto.createCipher('aes-256-cbc', this.encryptionKey);
-    cipher.update(data, 'utf8');
-    const encrypted = cipher.final();
+    const iv = crypto.randomBytes(this.ENCRYPTION_IV_LENGTH);
+    const cipher = crypto.createCipheriv('aes-256-gcm', this.encryptionKey, iv);
+    const encrypted = Buffer.concat([
+      cipher.update(data, 'utf8'),
+      cipher.final(),
+    ]);
+    const tag = cipher.getAuthTag();
 
-    return Buffer.concat([iv, encrypted]);
+    return Buffer.concat([this.ENCRYPTION_MAGIC, iv, tag, encrypted]);
   }
 
   /**
@@ -502,9 +527,41 @@ export class TokenManager {
       throw new Error('Encryption key not initialized');
     }
 
-    const iv = encryptedData.slice(0, 16);
-    const encrypted = encryptedData.slice(16);
+    const isV2 =
+      encryptedData.length > this.ENCRYPTION_MAGIC.length &&
+      encryptedData
+        .slice(0, this.ENCRYPTION_MAGIC.length)
+        .equals(this.ENCRYPTION_MAGIC);
 
+    if (isV2) {
+      const offset = this.ENCRYPTION_MAGIC.length;
+      const iv = encryptedData.slice(
+        offset,
+        offset + this.ENCRYPTION_IV_LENGTH,
+      );
+      const tagStart = offset + this.ENCRYPTION_IV_LENGTH;
+      const tag = encryptedData.slice(
+        tagStart,
+        tagStart + this.ENCRYPTION_TAG_LENGTH,
+      );
+      const encrypted = encryptedData.slice(
+        tagStart + this.ENCRYPTION_TAG_LENGTH,
+      );
+
+      const decipher = crypto.createDecipheriv(
+        'aes-256-gcm',
+        this.encryptionKey,
+        iv,
+      );
+      decipher.setAuthTag(tag);
+      const decrypted = Buffer.concat([
+        decipher.update(encrypted),
+        decipher.final(),
+      ]);
+      return decrypted.toString('utf8');
+    }
+
+    const encrypted = encryptedData.slice(16);
     const decipher = crypto.createDecipher('aes-256-cbc', this.encryptionKey);
     decipher.update(encrypted);
     return decipher.final('utf8');
@@ -559,7 +616,9 @@ export function getTokenManager(config?: TokenManagerConfig): TokenManager {
   }
 
   if (!globalTokenManager) {
-    throw new Error('TokenManager not initialized. Call getTokenManager with config first.');
+    throw new Error(
+      'TokenManager not initialized. Call getTokenManager with config first.',
+    );
   }
 
   return globalTokenManager;

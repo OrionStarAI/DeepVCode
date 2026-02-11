@@ -5,10 +5,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-
 import { CommandKind, MessageActionReturn, SlashCommand } from './types.js';
 import { AuthServer } from 'deepv-code-core';
-import { exec } from 'child_process';
+import open from 'open';
 import { t } from '../utils/i18n.js';
 
 // 全局认证服务器实例
@@ -37,17 +36,13 @@ async function startAuthServer(): Promise<void> {
 /**
  * 打开浏览器
  */
-function openBrowser(url: string): void {
-  const command = process.platform === 'darwin' ? 'open' :
-                  process.platform === 'win32' ? 'start' : 'xdg-open';
-
-  exec(`${command} ${url}`, (error) => {
-    if (error) {
-      console.error('❌ 打开浏览器失败:', error);
-    } else {
-      console.log('✅ 浏览器已打开:', url);
-    }
-  });
+async function openBrowser(url: string): Promise<void> {
+  try {
+    await open(url, { wait: false });
+    console.log('✅ 浏览器已打开:', url);
+  } catch (error) {
+    console.error('❌ 打开浏览器失败:', error);
+  }
 }
 
 export const loginCommand: SlashCommand = {
@@ -62,12 +57,13 @@ export const loginCommand: SlashCommand = {
       await startAuthServer();
 
       // 打开浏览器到认证选择页面
-      openBrowser('http://localhost:7862');
+      await openBrowser('http://localhost:7862');
 
       return {
         type: 'message',
         messageType: 'info',
-        content: '✅ 登录服务器已启动！\n🌐 登录选择页面: http://localhost:7862\n🔗 请在浏览器中选择认证方式完成登录。',
+        content:
+          '✅ 登录服务器已启动！\n🌐 登录选择页面: http://localhost:7862\n🔗 请在浏览器中选择认证方式完成登录。',
       };
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : '未知错误';

@@ -192,6 +192,8 @@ export const translations = {
     'update.completed': '✅ Update completed!',
     'update.failed.code': '❌ Update failed, exit code: {code}',
     'update.exec.command.error': '❌ Failed to execute update command: {error}',
+    'update.command.unsafe':
+      'Update command contains unsafe operators. Please run it manually.',
     'update.manual.run.hint': '💡 Please run the update command manually',
     'update.prompt.auto': '🤖 Automatically apply the update? (y/n): ',
     'update.prompt.now': '🤔 Update now? (y/n): ',
@@ -1877,6 +1879,7 @@ export const translations = {
     'update.completed': '✅ 更新完成！',
     'update.failed.code': '❌ 更新失败，退出码：{code}',
     'update.exec.command.error': '❌ 执行更新命令失败：{error}',
+    'update.command.unsafe': '更新命令包含不安全的操作符，请手动执行。',
     'update.manual.run.hint': '💡 请手动执行更新命令',
     'update.prompt.auto': '🤖 是否自动执行更新？ (y/n): ',
     'update.prompt.now': '🤔 是否现在更新？ (y/n): ',

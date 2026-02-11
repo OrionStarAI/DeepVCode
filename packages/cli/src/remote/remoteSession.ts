@@ -5,9 +5,24 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-
 import WebSocket from 'ws';
-import { Config, ToolRegistry, executeToolCall, GeminiClient, ToolCallRequestInfo, SceneType, AuthType, ApprovalMode, GeminiChat, MESSAGE_ROLES, GeminiEventType, ServerGeminiStreamEvent, CoreToolScheduler, ToolCall as EngineToolCall, CompletedToolCall } from 'deepv-code-core';
+import {
+  Config,
+  ToolRegistry,
+  executeToolCall,
+  GeminiClient,
+  ToolCallRequestInfo,
+  SceneType,
+  AuthType,
+  ApprovalMode,
+  GeminiChat,
+  MESSAGE_ROLES,
+  GeminiEventType,
+  ServerGeminiStreamEvent,
+  CoreToolScheduler,
+  ToolCall as EngineToolCall,
+  CompletedToolCall,
+} from 'deepv-code-core';
 import { EditorType } from 'deepv-code-core';
 import { GenerateContentResponse, FunctionCall, Part } from '@google/genai';
 import { Content } from 'deepv-code-core';
@@ -19,7 +34,12 @@ import {
 } from './remoteProtocol.js';
 import { parseAndFormatApiError } from '../ui/utils/errorParsing.js';
 import { remoteLogger } from './remoteLogger.js';
-import { getMCPDiscoveryState, MCPDiscoveryState, getMCPServerStatus, MCPServerStatus } from 'deepv-code-core';
+import {
+  getMCPDiscoveryState,
+  MCPDiscoveryState,
+  getMCPServerStatus,
+  MCPServerStatus,
+} from 'deepv-code-core';
 import { t, isChineseLocale } from '../ui/utils/i18n.js';
 
 /**
@@ -66,9 +86,11 @@ export class RemoteSession {
   constructor(
     private ws: WebSocket,
     private config: Config,
-    sessionId?: string
+    sessionId?: string,
   ) {
-    this.sessionId = sessionId || `session_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+    this.sessionId =
+      sessionId ||
+      `session_${Date.now()}_${Math.random().toString(16).slice(2)}`;
     // 不要在构造函数中获取 geminiClient，等到 initialize() 时再获取
     remoteLogger.info('RemoteSession', `创建新会话: ${this.sessionId}`);
   }
@@ -109,9 +131,24 @@ export class RemoteSession {
 
       await this.config.refreshAuth(AuthType.USE_PROXY_AUTH);
 
-      // 设置远程模式为YOLO模式 - 自动执行所有工具，不需要确认
+      // 设置远程模式下的工具确认策略（默认保持 YOLO，兼容旧行为）
+      const approvalModeEnv =
+        process.env.DEEPV_CLOUD_APPROVAL_MODE?.toLowerCase();
+      const approvalMode =
+        approvalModeEnv === 'ask'
+          ? ApprovalMode.DEFAULT
+          : approvalModeEnv === 'auto'
+            ? ApprovalMode.AUTO_EDIT
+            : ApprovalMode.YOLO;
 
-      this.config.setApprovalMode(ApprovalMode.YOLO);
+      if (approvalMode === ApprovalMode.YOLO) {
+        remoteLogger.warn(
+          'RemoteSession',
+          'Cloud approval mode is YOLO. Set DEEPV_CLOUD_APPROVAL_MODE=ask to require confirmation.',
+        );
+      }
+
+      this.config.setApprovalMode(approvalMode);
 
       // 获取 GeminiClient（在 config 初始化后）
 
@@ -130,10 +167,18 @@ export class RemoteSession {
       this.geminiChat = await this.geminiClient.getChat();
 
       remoteLogger.info('RemoteSession', `会话初始化完成: ${this.sessionId}`);
-      this.sendMessage(MessageFactory.createStatus('idle', 'DeepV Code 远程会话已就绪'));
+      this.sendMessage(
+        MessageFactory.createStatus('idle', 'DeepV Code 远程会话已就绪'),
+      );
     } catch (error) {
-      remoteLogger.error('RemoteSession', `会话初始化失败: ${this.sessionId}`, error);
-      this.sendError(`会话初始化失败: ${error instanceof Error ? error.message : String(error)}`);
+      remoteLogger.error(
+        'RemoteSession',
+        `会话初始化失败: ${this.sessionId}`,
+        error,
+      );
+      this.sendError(
+        `会话初始化失败: ${error instanceof Error ? error.message : String(error)}`,
+      );
       throw error;
     }
   }
@@ -154,11 +199,17 @@ export class RemoteSession {
 
     if (serverNames.length === 0) {
       // 没有配置MCP服务器，直接跳过等待
-      remoteLogger.info('RemoteSession', '未配置MCP服务器，跳过MCP discovery等待');
+      remoteLogger.info(
+        'RemoteSession',
+        '未配置MCP服务器，跳过MCP discovery等待',
+      );
       return;
     }
 
-    remoteLogger.info('RemoteSession', `等待MCP discovery完成，服务器列表: ${serverNames.join(', ')}`);
+    remoteLogger.info(
+      'RemoteSession',
+      `等待MCP discovery完成，服务器列表: ${serverNames.join(', ')}`,
+    );
 
     while (Date.now() - startTime < timeout) {
       const discoveryState = getMCPDiscoveryState();
@@ -166,34 +217,44 @@ export class RemoteSession {
       // 检查discovery是否已完成
       if (discoveryState === MCPDiscoveryState.COMPLETED) {
         // 检查每个服务器的状态
-        const serverStatusList = serverNames.map(name => ({
+        const serverStatusList = serverNames.map((name) => ({
           name,
-          status: getMCPServerStatus(name)
+          status: getMCPServerStatus(name),
         }));
 
-        const connectedServers = serverStatusList.filter(s => s.status === MCPServerStatus.CONNECTED);
-        const failedServers = serverStatusList.filter(s => s.status === MCPServerStatus.DISCONNECTED);
+        const connectedServers = serverStatusList.filter(
+          (s) => s.status === MCPServerStatus.CONNECTED,
+        );
+        const failedServers = serverStatusList.filter(
+          (s) => s.status === MCPServerStatus.DISCONNECTED,
+        );
 
         if (connectedServers.length > 0) {
-          remoteLogger.info('RemoteSession', `MCP已连接服务器: ${connectedServers.map(s => s.name).join(', ')}`);
+          remoteLogger.info(
+            'RemoteSession',
+            `MCP已连接服务器: ${connectedServers.map((s) => s.name).join(', ')}`,
+          );
         }
 
         if (failedServers.length > 0) {
-          remoteLogger.warn('RemoteSession', `MCP连接失败的服务器（不影响主流程）: ${failedServers.map(s => s.name).join(', ')}`);
+          remoteLogger.warn(
+            'RemoteSession',
+            `MCP连接失败的服务器（不影响主流程）: ${failedServers.map((s) => s.name).join(', ')}`,
+          );
         }
 
         return;
       }
 
       // Discovery还在进行中或未开始，继续等待
-      await new Promise(resolve => setTimeout(resolve, checkInterval));
+      await new Promise((resolve) => setTimeout(resolve, checkInterval));
     }
 
     // 超时后，记录警告但不抛出异常（允许继续运行）
     remoteLogger.warn('RemoteSession', `MCP discovery超时，继续启动会话`, {
       timeout,
       discoveryState: getMCPDiscoveryState(),
-      configuredServers: serverNames
+      configuredServers: serverNames,
     });
   }
 
@@ -210,12 +271,20 @@ export class RemoteSession {
   async handleCommand(message: CommandMessage): Promise<void> {
     const { command } = message.payload;
     console.log(`[${formatTimestamp()}] ${t('cloud.remote.message.received')}`);
-    remoteLogger.info('RemoteSession', `收到指令: ${this.sessionId}`, { command, messageId: message.id });
+    remoteLogger.info('RemoteSession', `收到指令: ${this.sessionId}`, {
+      command,
+      messageId: message.id,
+    });
 
     // 如果有正在处理的指令，则等待完成
     if (this.currentProcessingPromise) {
-      remoteLogger.warn('RemoteSession', `有指令正在执行，拒绝新指令: ${this.sessionId}`);
-      this.sendMessage(MessageFactory.createStatus('running', '有指令正在执行中，请等待...'));
+      remoteLogger.warn(
+        'RemoteSession',
+        `有指令正在执行，拒绝新指令: ${this.sessionId}`,
+      );
+      this.sendMessage(
+        MessageFactory.createStatus('running', '有指令正在执行中，请等待...'),
+      );
       return;
     }
 
@@ -227,21 +296,29 @@ export class RemoteSession {
     this.addUIRecord({
       type: 'user_input',
       content: command,
-      status: 'completed'
+      status: 'completed',
     });
 
     // 开始处理新指令
-    console.log(`[${formatTimestamp()}] ${t('cloud.remote.message.processing')}`);
+    console.log(
+      `[${formatTimestamp()}] ${t('cloud.remote.message.processing')}`,
+    );
     remoteLogger.info('RemoteSession', `开始处理指令: ${this.sessionId}`);
     this.currentProcessingPromise = this.processCommand(command);
 
     try {
       await this.currentProcessingPromise;
-      console.log(`[${formatTimestamp()}] ${t('cloud.remote.message.success')}`);
+      console.log(
+        `[${formatTimestamp()}] ${t('cloud.remote.message.success')}`,
+      );
       remoteLogger.info('RemoteSession', `指令处理完成: ${this.sessionId}`);
     } catch (error) {
       console.log(`[${formatTimestamp()}] ${t('cloud.remote.message.failed')}`);
-      remoteLogger.error('RemoteSession', `指令处理失败: ${this.sessionId}`, error);
+      remoteLogger.error(
+        'RemoteSession',
+        `指令处理失败: ${this.sessionId}`,
+        error,
+      );
     } finally {
       this.currentProcessingPromise = null;
       this.currentAIResponse = null;
@@ -260,7 +337,6 @@ export class RemoteSession {
 
     // 中断当前的AbortController - 但这主要影响Gemini API调用，不影响已开始的工具执行
     if (this.currentAbortController) {
-
       this.currentAbortController.abort();
       this.currentAbortController = null;
     }
@@ -269,14 +345,13 @@ export class RemoteSession {
     if (this.currentAIResponse) {
       this.currentAIResponse.status = 'error';
       this.currentAIResponse.content += '\n\n[操作已中断]';
-
     }
 
     // 添加中断状态记录
     this.addUIRecord({
       type: 'status',
       content: '指令已中断',
-      status: 'completed'
+      status: 'completed',
     });
 
     // 发送中断状态消息
@@ -284,7 +359,7 @@ export class RemoteSession {
 
     remoteLogger.info('RemoteSession', `中断处理完成: ${this.sessionId}`, {
       hasCurrentResponse: !!this.currentAIResponse,
-      hasAbortController: !!this.currentAbortController
+      hasAbortController: !!this.currentAbortController,
     });
   }
 
@@ -293,31 +368,29 @@ export class RemoteSession {
    */
   private async processCommand(input: string): Promise<void> {
     const prompt_id = Math.random().toString(16).slice(2);
-    remoteLogger.info('RemoteSession', `processCommand开始: ${this.sessionId}`, { input, prompt_id });
+    remoteLogger.info(
+      'RemoteSession',
+      `processCommand开始: ${this.sessionId}`,
+      { input, prompt_id },
+    );
 
     this.sendMessage(MessageFactory.createStatus('running', '正在处理指令...'));
 
     // 初始化当前AI响应为null，在每轮开始时创建新的响应记录
     this.currentAIResponse = null;
 
-
-
     try {
       if (!this.geminiChat || !this.toolRegistry) {
         const error = '会话未正确初始化';
         remoteLogger.error('RemoteSession', error, {
           geminiChat: !!this.geminiChat,
-          toolRegistry: !!this.toolRegistry
+          toolRegistry: !!this.toolRegistry,
         });
         throw new Error(error);
       }
 
-
-
       const abortController = new AbortController();
       this.currentAbortController = abortController;
-
-
 
       // 多轮对话循环：处理用户输入 → AI响应 → 工具执行 → 结果反馈 → 循环
       let currentInput: any[] = [{ text: input }];
@@ -327,7 +400,10 @@ export class RemoteSession {
         turnCount++;
 
         // 检查会话轮次限制
-        if (this.config.getMaxSessionTurns() > 0 && turnCount > this.config.getMaxSessionTurns()) {
+        if (
+          this.config.getMaxSessionTurns() > 0 &&
+          turnCount > this.config.getMaxSessionTurns()
+        ) {
           this.sendError('达到最大会话轮次，请增加 maxSessionTurns 设置');
           return;
         }
@@ -335,12 +411,11 @@ export class RemoteSession {
         // 🔧 修复: 为每轮AI响应创建新的记录，避免多轮响应被合并
         this.currentAIResponse = null;
 
-
         // 发送当前轮次的消息给AI（可能是初始用户输入或工具执行结果）
         const responseStreamGenerator = this.geminiClient!.sendMessageStream(
           currentInput,
           abortController.signal,
-          prompt_id
+          prompt_id,
         );
 
         // 收集当前轮次的工具调用请求
@@ -349,11 +424,12 @@ export class RemoteSession {
 
         // 处理AI响应事件
         for await (const event of responseStreamGenerator) {
-
-
           // 检查中断状态
           if (abortController.signal.aborted || this.isProcessingInterrupted) {
-            remoteLogger.warn('RemoteSession', `第${turnCount}轮事件处理被中断: ${this.sessionId}`);
+            remoteLogger.warn(
+              'RemoteSession',
+              `第${turnCount}轮事件处理被中断: ${this.sessionId}`,
+            );
             return;
           }
 
@@ -367,19 +443,27 @@ export class RemoteSession {
           }
         }
 
-        remoteLogger.info('RemoteSession', `第${turnCount}轮处理完成: ${this.sessionId}`, {
-          hasContent,
-          toolCallsCount: toolCallRequests.length
-        });
+        remoteLogger.info(
+          'RemoteSession',
+          `第${turnCount}轮处理完成: ${this.sessionId}`,
+          {
+            hasContent,
+            toolCallsCount: toolCallRequests.length,
+          },
+        );
 
         // 🔧 修复: 标记当前轮次的AI响应为完成状态
         if (this.currentAIResponse && hasContent) {
           const currentResponse: UIDisplayRecord = this.currentAIResponse; // 明确类型
           currentResponse.status = 'completed';
-          remoteLogger.info('RemoteSession', `第${turnCount}轮AI响应完成: ${this.sessionId}`, {
-            recordId: currentResponse.id,
-            contentLength: currentResponse.content.length
-          });
+          remoteLogger.info(
+            'RemoteSession',
+            `第${turnCount}轮AI响应完成: ${this.sessionId}`,
+            {
+              recordId: currentResponse.id,
+              contentLength: currentResponse.content.length,
+            },
+          );
         }
 
         // 如果没有工具调用，对话结束
@@ -389,11 +473,18 @@ export class RemoteSession {
         }
 
         // 执行工具调用并收集结果
-        const toolResults = await this.executeToolCalls(toolCallRequests, prompt_id, abortController.signal);
+        const toolResults = await this.executeToolCalls(
+          toolCallRequests,
+          prompt_id,
+          abortController.signal,
+        );
 
         // 如果被中断，退出循环
         if (this.isProcessingInterrupted) {
-          remoteLogger.info('RemoteSession', `工具执行被中断，结束对话: ${this.sessionId}`);
+          remoteLogger.info(
+            'RemoteSession',
+            `工具执行被中断，结束对话: ${this.sessionId}`,
+          );
           return;
         }
 
@@ -401,11 +492,18 @@ export class RemoteSession {
         currentInput = toolResults;
       }
     } catch (error) {
-      remoteLogger.error('RemoteSession', `指令处理错误: ${this.sessionId}`, error);
+      remoteLogger.error(
+        'RemoteSession',
+        `指令处理错误: ${this.sessionId}`,
+        error,
+      );
 
       // 如果是中断操作，静默处理，不发送额外消息
       if (this.isProcessingInterrupted) {
-        remoteLogger.info('RemoteSession', `中断期间的错误，静默处理: ${this.sessionId}`);
+        remoteLogger.info(
+          'RemoteSession',
+          `中断期间的错误，静默处理: ${this.sessionId}`,
+        );
         return;
       }
 
@@ -429,29 +527,30 @@ export class RemoteSession {
    * 发送消息到客户端
    */
   sendMessage(message: RemoteMessage): void {
-
-
     // 🎯 确保所有消息都包含sessionId，用于云端模式的精确路由
     const messageWithSession: RemoteMessage = {
       ...message,
-      sessionId: this.sessionId
+      sessionId: this.sessionId,
     };
 
     if (this.ws?.readyState === WebSocket.OPEN) {
       try {
         this.ws.send(JSON.stringify(messageWithSession));
-
       } catch (error) {
         remoteLogger.error('RemoteSession', `消息发送失败: ${this.sessionId}`, {
           messageId: message.id,
-          error
+          error,
         });
       }
     } else {
-      remoteLogger.warn('RemoteSession', `WebSocket未连接，无法发送消息: ${this.sessionId}`, {
-        messageId: message.id,
-        readyState: this.ws?.readyState ?? 'null'
-      });
+      remoteLogger.warn(
+        'RemoteSession',
+        `WebSocket未连接，无法发送消息: ${this.sessionId}`,
+        {
+          messageId: message.id,
+          readyState: this.ws?.readyState ?? 'null',
+        },
+      );
     }
   }
 
@@ -461,11 +560,16 @@ export class RemoteSession {
   private sendError(error: string): void {
     // 如果是中断状态，不发送错误消息（中断已经有自己的状态消息）
     if (this.isProcessingInterrupted) {
-      remoteLogger.info('RemoteSession', `跳过中断期间的错误消息: ${this.sessionId}`);
+      remoteLogger.info(
+        'RemoteSession',
+        `跳过中断期间的错误消息: ${this.sessionId}`,
+      );
       return;
     }
 
-    remoteLogger.error('RemoteSession', `发送错误消息: ${this.sessionId}`, { error });
+    remoteLogger.error('RemoteSession', `发送错误消息: ${this.sessionId}`, {
+      error,
+    });
     this.sendMessage(MessageFactory.createError(error));
     // 确保发送idle状态
     this.sendMessage(MessageFactory.createStatus('idle', '操作完成'));
@@ -513,7 +617,11 @@ export class RemoteSession {
     try {
       return this.geminiChat.getHistory(true); // 获取精选历史记录
     } catch (error) {
-      remoteLogger.error('RemoteSession', `获取历史记录失败: ${this.sessionId}`, error);
+      remoteLogger.error(
+        'RemoteSession',
+        `获取历史记录失败: ${this.sessionId}`,
+        error,
+      );
       return [];
     }
   }
@@ -521,11 +629,13 @@ export class RemoteSession {
   /**
    * 添加UI展示记录
    */
-  private addUIRecord(record: Omit<UIDisplayRecord, 'id' | 'timestamp'>): UIDisplayRecord {
+  private addUIRecord(
+    record: Omit<UIDisplayRecord, 'id' | 'timestamp'>,
+  ): UIDisplayRecord {
     const fullRecord: UIDisplayRecord = {
       id: `ui_${Date.now()}_${Math.random().toString(16).slice(2)}`,
       timestamp: Date.now(),
-      ...record
+      ...record,
     };
 
     this.uiDisplayRecords.push(fullRecord);
@@ -553,7 +663,8 @@ export class RemoteSession {
     return {
       completedRecords,
       currentRecord: this.currentAIResponse,
-      isProcessing: this.currentProcessingPromise !== null && !this.isProcessingInterrupted
+      isProcessing:
+        this.currentProcessingPromise !== null && !this.isProcessingInterrupted,
     };
   }
 
@@ -567,7 +678,9 @@ export class RemoteSession {
   /**
    * 处理除content和tool_call_request之外的其他事件
    */
-  private async handleOtherEvent(event: ServerGeminiStreamEvent): Promise<void> {
+  private async handleOtherEvent(
+    event: ServerGeminiStreamEvent,
+  ): Promise<void> {
     switch (event.type) {
       case GeminiEventType.ToolCallResponse:
         // 工具调用响应 - 记录到UI
@@ -576,7 +689,11 @@ export class RemoteSession {
 
       case GeminiEventType.ChatCompressed:
         // 对话压缩通知
-        remoteLogger.info('RemoteSession', `对话已自动压缩: ${this.sessionId}`, event.value);
+        remoteLogger.info(
+          'RemoteSession',
+          `对话已自动压缩: ${this.sessionId}`,
+          event.value,
+        );
         break;
 
       case GeminiEventType.MaxSessionTurns:
@@ -605,7 +722,10 @@ export class RemoteSession {
               : 'Repetitive loop detected, conversation stopped';
         }
 
-        remoteLogger.warn('RemoteSession', `检测到对话循环: ${this.sessionId} (type: ${loopType || 'unknown'})`);
+        remoteLogger.warn(
+          'RemoteSession',
+          `检测到对话循环: ${this.sessionId} (type: ${loopType || 'unknown'})`,
+        );
         this.sendMessage(MessageFactory.createStatus('idle', loopMessage));
         break;
 
@@ -621,8 +741,14 @@ export class RemoteSession {
 
       case GeminiEventType.Error:
         // 错误事件
-        remoteLogger.error('RemoteSession', `收到错误事件: ${this.sessionId}`, event.value);
-        this.sendError(`AI处理错误: ${event.value.error.message || '未知错误'}`);
+        remoteLogger.error(
+          'RemoteSession',
+          `收到错误事件: ${this.sessionId}`,
+          event.value,
+        );
+        this.sendError(
+          `AI处理错误: ${event.value.error.message || '未知错误'}`,
+        );
         break;
 
       case GeminiEventType.Finished:
@@ -637,7 +763,9 @@ export class RemoteSession {
 
       default:
         // 未知事件类型
-        remoteLogger.warn('RemoteSession', `未处理的事件类型: ${event.type}`, { sessionId: this.sessionId });
+        remoteLogger.warn('RemoteSession', `未处理的事件类型: ${event.type}`, {
+          sessionId: this.sessionId,
+        });
         break;
     }
   }
@@ -649,12 +777,16 @@ export class RemoteSession {
   private async executeToolCalls(
     toolCallRequests: ToolCallRequestInfo[],
     prompt_id: string,
-    abortSignal: AbortSignal
+    abortSignal: AbortSignal,
   ): Promise<Part[]> {
-    remoteLogger.info('RemoteSession', `开始使用CoreToolScheduler执行工具: ${this.sessionId}`, {
-      toolCount: toolCallRequests.length,
-      tools: toolCallRequests.map((req: ToolCallRequestInfo) => req.name)
-    });
+    remoteLogger.info(
+      'RemoteSession',
+      `开始使用CoreToolScheduler执行工具: ${this.sessionId}`,
+      {
+        toolCount: toolCallRequests.length,
+        tools: toolCallRequests.map((req: ToolCallRequestInfo) => req.name),
+      },
+    );
 
     // 收集工具执行结果
     const toolResults: Part[] = [];
@@ -666,24 +798,34 @@ export class RemoteSession {
       approvalMode: this.config.getApprovalMode(),
       outputUpdateHandler: (callId: string, outputChunk: string) => {
         // 处理工具输出流更新 - 使用工具状态消息
-        const tool = this.toolRegistry?.getTool('unknown') || { displayName: 'Unknown Tool' };
-        this.sendMessage(MessageFactory.createToolStatus(
-          tool.displayName,
-          callId,
-          'running',
-          outputChunk.substring(0, 200) + (outputChunk.length > 200 ? '...' : '') // 截断长输出
-        ));
+        const tool = this.toolRegistry?.getTool('unknown') || {
+          displayName: 'Unknown Tool',
+        };
+        this.sendMessage(
+          MessageFactory.createToolStatus(
+            tool.displayName,
+            callId,
+            'running',
+            outputChunk.substring(0, 200) +
+              (outputChunk.length > 200 ? '...' : ''), // 截断长输出
+          ),
+        );
       },
       onAllToolCallsComplete: (completedToolCalls: CompletedToolCall[]) => {
         // 发送工具执行完成消息并收集结果
         for (const toolCall of completedToolCalls) {
-          const toolName = 'tool' in toolCall ? toolCall.tool.displayName || toolCall.tool.name : toolCall.request.name;
+          const toolName =
+            'tool' in toolCall
+              ? toolCall.tool.displayName || toolCall.tool.name
+              : toolCall.request.name;
           const duration = toolCall.durationMs || 0;
 
           // 获取简化的工具描述
           let toolDescription = '';
           if ('tool' in toolCall) {
-            const fullDescription = toolCall.tool.getDescription(toolCall.request.args);
+            const fullDescription = toolCall.tool.getDescription(
+              toolCall.request.args,
+            );
             // 截断过长的描述，移除换行符，确保单行显示
             const maxDescLength = 80;
             toolDescription = fullDescription
@@ -694,32 +836,40 @@ export class RemoteSession {
             }
           }
 
-          if (toolCall.status === 'success' && toolCall.response.responseParts) {
+          if (
+            toolCall.status === 'success' &&
+            toolCall.response.responseParts
+          ) {
             // 发送成功完成消息
-            const resultText = typeof toolCall.response.resultDisplay === 'string'
-              ? toolCall.response.resultDisplay
-              : toolCall.response.resultDisplay
-                ? JSON.stringify(toolCall.response.resultDisplay)
-                : 'Tool executed successfully';
+            const resultText =
+              typeof toolCall.response.resultDisplay === 'string'
+                ? toolCall.response.resultDisplay
+                : toolCall.response.resultDisplay
+                  ? JSON.stringify(toolCall.response.resultDisplay)
+                  : 'Tool executed successfully';
 
-            this.sendMessage(MessageFactory.createToolCall(
-              toolName,
-              toolCall.request.callId,
-              toolCall.request.args,
-              true, // success
-              resultText,
-              undefined, // no error
-              duration,
-              toolDescription
-            ));
+            this.sendMessage(
+              MessageFactory.createToolCall(
+                toolName,
+                toolCall.request.callId,
+                toolCall.request.args,
+                true, // success
+                resultText,
+                undefined, // no error
+                duration,
+                toolDescription,
+              ),
+            );
 
             // 发送工具完成状态
-            this.sendMessage(MessageFactory.createToolStatus(
-              toolName,
-              toolCall.request.callId,
-              'completed',
-              `执行完成: ${toolName}`
-            ));
+            this.sendMessage(
+              MessageFactory.createToolStatus(
+                toolName,
+                toolCall.request.callId,
+                'completed',
+                `执行完成: ${toolName}`,
+              ),
+            );
 
             // 添加工具调用UI记录
             this.addUIRecord({
@@ -731,9 +881,9 @@ export class RemoteSession {
                 args: toolCall.request.args,
                 success: true,
                 result: resultText,
-                duration
+                duration,
               },
-              status: 'completed'
+              status: 'completed',
             });
 
             // 收集结果转换为Part格式
@@ -755,33 +905,41 @@ export class RemoteSession {
                 toolResults.push(responseParts);
               }
             }
-          } else if (toolCall.status === 'error' || toolCall.status === 'cancelled') {
+          } else if (
+            toolCall.status === 'error' ||
+            toolCall.status === 'cancelled'
+          ) {
             // 处理错误或取消的工具
-            const errorMessage = toolCall.status === 'cancelled'
-              ? 'User Canceled'
-              : (toolCall.status === 'error'
+            const errorMessage =
+              toolCall.status === 'cancelled'
+                ? 'User Canceled'
+                : toolCall.status === 'error'
                   ? toolCall.response.error?.message || 'Tool execution failed'
-                  : 'Tool execution failed');
+                  : 'Tool execution failed';
 
             // 发送错误完成消息
-            this.sendMessage(MessageFactory.createToolCall(
-              toolName,
-              toolCall.request.callId,
-              toolCall.request.args,
-              false, // not success
-              undefined, // no result
-              errorMessage,
-              duration,
-              toolDescription
-            ));
+            this.sendMessage(
+              MessageFactory.createToolCall(
+                toolName,
+                toolCall.request.callId,
+                toolCall.request.args,
+                false, // not success
+                undefined, // no result
+                errorMessage,
+                duration,
+                toolDescription,
+              ),
+            );
 
             // 发送工具错误状态
-            this.sendMessage(MessageFactory.createToolStatus(
-              toolName,
-              toolCall.request.callId,
-              'error',
-              `执行失败: ${errorMessage}`
-            ));
+            this.sendMessage(
+              MessageFactory.createToolStatus(
+                toolName,
+                toolCall.request.callId,
+                'error',
+                `执行失败: ${errorMessage}`,
+              ),
+            );
 
             // 添加错误UI记录
             this.addUIRecord({
@@ -793,9 +951,9 @@ export class RemoteSession {
                 args: toolCall.request.args,
                 success: false,
                 error: errorMessage,
-                duration
+                duration,
               },
-              status: 'error'
+              status: 'error',
             });
 
             // 为错误或取消的工具创建错误响应
@@ -803,16 +961,20 @@ export class RemoteSession {
               functionResponse: {
                 id: toolCall.request.callId,
                 response: {
-                  output: `Error: ${errorMessage}`
+                  output: `Error: ${errorMessage}`,
                 },
               },
             });
           }
         }
 
-        remoteLogger.info('RemoteSession', `所有工具执行完成: ${this.sessionId}`, {
-          completedCount: completedToolCalls.length
-        });
+        remoteLogger.info(
+          'RemoteSession',
+          `所有工具执行完成: ${this.sessionId}`,
+          {
+            completedCount: completedToolCalls.length,
+          },
+        );
 
         allToolsCompleted = true;
       },
@@ -828,32 +990,43 @@ export class RemoteSession {
       },
       onPreToolExecution: async (toolCallInfo) => {
         // 工具执行前的预处理
-        const toolDisplayName = toolCallInfo.tool.displayName || toolCallInfo.tool.name;
-        this.sendMessage(MessageFactory.createToolStatus(
-          toolDisplayName,
-          toolCallInfo.callId,
-          'starting',
-          `开始执行工具: ${toolDisplayName}`
-        ));
+        const toolDisplayName =
+          toolCallInfo.tool.displayName || toolCallInfo.tool.name;
+        this.sendMessage(
+          MessageFactory.createToolStatus(
+            toolDisplayName,
+            toolCallInfo.callId,
+            'starting',
+            `开始执行工具: ${toolDisplayName}`,
+          ),
+        );
       },
       getPreferredEditor: () => 'vscode' as EditorType, // 远程会话默认使用VSCode
       config: this.config,
-      hookEventHandler: this.config.getHookSystem().getEventHandler()
+      hookEventHandler: this.config.getHookSystem().getEventHandler(),
     });
 
     // 使用专用调度器执行工具
     await toolScheduler.schedule(toolCallRequests, abortSignal);
 
     // 等待所有工具完成
-    while (!allToolsCompleted && !this.isProcessingInterrupted && !abortSignal.aborted) {
-      await new Promise(resolve => setTimeout(resolve, 50)); // 50ms轮询
+    while (
+      !allToolsCompleted &&
+      !this.isProcessingInterrupted &&
+      !abortSignal.aborted
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 50)); // 50ms轮询
     }
 
-    remoteLogger.info('RemoteSession', `CoreToolScheduler工具执行完成: ${this.sessionId}`, {
-      toolCount: toolCallRequests.length,
-      resultCount: toolResults.length,
-      interrupted: this.isProcessingInterrupted
-    });
+    remoteLogger.info(
+      'RemoteSession',
+      `CoreToolScheduler工具执行完成: ${this.sessionId}`,
+      {
+        toolCount: toolCallRequests.length,
+        resultCount: toolResults.length,
+        interrupted: this.isProcessingInterrupted,
+      },
+    );
 
     return toolResults;
   }
@@ -861,24 +1034,29 @@ export class RemoteSession {
   /**
    * 处理AI文本响应事件
    */
-  private async handleContentEvent(content: string, turnCount?: number): Promise<void> {
+  private async handleContentEvent(
+    content: string,
+    turnCount?: number,
+  ): Promise<void> {
     if (!content) return;
-
-
 
     // 🔧 修复: 为每轮AI响应创建独立的记录，避免多轮响应被合并
     if (!this.currentAIResponse) {
       this.currentAIResponse = this.addUIRecord({
         type: 'ai_response',
         content: '',
-        status: 'in_progress'
+        status: 'in_progress',
       });
 
       // 记录当前是第几轮对话，用于调试
       if (turnCount) {
-        remoteLogger.info('RemoteSession', `创建新的AI响应记录 - 第${turnCount}轮: ${this.sessionId}`, {
-          recordId: this.currentAIResponse.id
-        });
+        remoteLogger.info(
+          'RemoteSession',
+          `创建新的AI响应记录 - 第${turnCount}轮: ${this.sessionId}`,
+          {
+            recordId: this.currentAIResponse.id,
+          },
+        );
       }
     }
 
@@ -889,6 +1067,4 @@ export class RemoteSession {
     // 发送实时响应到前端
     this.sendMessage(MessageFactory.createOutput(content, false, 'stdout'));
   }
-
-
 }

@@ -5,12 +5,27 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import { Suggestion } from '../components/SuggestionsDisplay.js';
+import path from 'node:path';
+import { homedir } from 'node:os';
 
 const execAsync = promisify(exec);
+
+function escapeSingleQuotes(value: string): string {
+  return value.replace(/'/g, "'\\''");
+}
+
+function expandHomeDir(inputPath: string): string {
+  if (inputPath === '~') {
+    return homedir();
+  }
+  if (inputPath.startsWith('~/')) {
+    return path.join(homedir(), inputPath.slice(2));
+  }
+  return inputPath;
+}
 
 /**
  * 检查是否支持 shell 补全（仅 macOS 和 Linux）
@@ -26,18 +41,19 @@ async function getCommandCompletions(prefix: string): Promise<Suggestion[]> {
   if (!prefix.trim()) return [];
 
   try {
+    const escapedPrefix = escapeSingleQuotes(prefix);
     const { stdout } = await execAsync(
-      `bash -ic "compgen -c -- '${prefix.replace(/'/g, "'\\''")}'" 2>/dev/null`,
-      { timeout: 2000 }
+      `bash -lc "compgen -c -- '${escapedPrefix}'" 2>/dev/null`,
+      { timeout: 2000 },
     );
 
     return stdout
       .split('\n')
-      .filter(cmd => cmd.trim())
+      .filter((cmd) => cmd.trim())
       .slice(0, 30) // 限制数量
-      .map(cmd => ({
+      .map((cmd) => ({
         label: cmd,
-        value: cmd
+        value: cmd,
       }));
   } catch {
     return [];
@@ -47,7 +63,10 @@ async function getCommandCompletions(prefix: string): Promise<Suggestion[]> {
 /**
  * 获取文件/目录补全建议
  */
-async function getFileCompletions(prefix: string, cwd: string): Promise<Suggestion[]> {
+async function getFileCompletions(
+  prefix: string,
+  cwd: string,
+): Promise<Suggestion[]> {
   try {
     // 解析路径：分离目录部分和文件名前缀部分
     const lastSlashIndex = prefix.lastIndexOf('/');
@@ -64,8 +83,8 @@ async function getFileCompletions(prefix: string, cwd: string): Promise<Suggesti
         // 绝对路径：/user/xxx -> searchDir = "/user"
         searchDir = dirPart;
       } else if (prefix.startsWith('~/')) {
-        // 家目录路径：~/Documents/xxx -> searchDir = "~/Documents"
-        searchDir = dirPart;
+        // 家目录路径：~/Documents/xxx -> searchDir = "<home>/Documents"
+        searchDir = expandHomeDir(dirPart);
       } else {
         // 相对路径：src/xxx -> searchDir = "cwd/src"
         searchDir = `${cwd}/${dirPart}`;
@@ -73,26 +92,20 @@ async function getFileCompletions(prefix: string, cwd: string): Promise<Suggesti
     } else {
       // 没有路径分隔符的情况
       if (prefix.startsWith('~')) {
-        // 只有 ~ 开头但没有斜杠，例如 "~doc"，需要展开家目录
-        searchDir = '~';
-        pathPrefix = '';
+        // 只有 ~ 开头但没有斜杠，例如 "~doc"，在家目录下搜索
+        searchDir = expandHomeDir('~');
+        filePrefix = prefix.slice(1);
+        pathPrefix = '~';
       }
       // 其他情况保持默认（在当前目录搜索）
     }
 
-    const escapedFilePrefix = filePrefix.replace(/'/g, "'\\''");
+    const escapedFilePrefix = escapeSingleQuotes(filePrefix);
+    const resolvedSearchDir = expandHomeDir(searchDir);
+    const escapedSearchDir = escapeSingleQuotes(resolvedSearchDir);
 
-    // 构建 bash 命令，对不同路径类型采用不同的处理方式
-    let bashCommand: string;
-    if (searchDir.startsWith('~')) {
-      // 家目录路径：让 bash 自动展开 ~
-      const expandedSearchDir = searchDir.replace(/'/g, "'\\''");
-      bashCommand = `bash -ic "cd ${expandedSearchDir} && compgen -f -- '${escapedFilePrefix}' | head -30 | xargs -r -I {} ls -dF {} 2>/dev/null" 2>/dev/null`;
-    } else {
-      // 绝对路径和相对路径：使用引号保护
-      const escapedSearchDir = searchDir.replace(/'/g, "'\\''");
-      bashCommand = `bash -ic "cd '${escapedSearchDir}' && compgen -f -- '${escapedFilePrefix}' | head -30 | xargs -r -I {} ls -dF {} 2>/dev/null" 2>/dev/null`;
-    }
+    // 构建 bash 命令，避免未转义路径与非交互执行
+    const bashCommand = `bash -lc "cd -- '${escapedSearchDir}' && compgen -f -- '${escapedFilePrefix}' | head -30 | xargs -r -I {} ls -dF {} 2>/dev/null" 2>/dev/null`;
 
     // 在正确的目录中搜索匹配的文件
     const { stdout } = await execAsync(bashCommand, { timeout: 2000 });
@@ -102,9 +115,9 @@ async function getFileCompletions(prefix: string, cwd: string): Promise<Suggesti
     }
 
     const suggestions: Suggestion[] = [];
-    const paths = stdout.split('\n').filter(path => path.trim());
+    const paths = stdout.split('\n').filter((path) => path.trim());
 
-    paths.forEach(path => {
+    paths.forEach((path) => {
       const hasSpaces = path.includes(' ');
 
       if (path.endsWith('/')) {
@@ -113,7 +126,7 @@ async function getFileCompletions(prefix: string, cwd: string): Promise<Suggesti
         const fullPath = pathPrefix + dirName + '/';
         suggestions.push({
           label: fullPath,
-          value: hasSpaces ? `"${fullPath}"` : fullPath
+          value: hasSpaces ? `"${fullPath}"` : fullPath,
         });
       } else {
         // 文件：移除ls -F的类型标记并重新构建完整路径
@@ -121,7 +134,7 @@ async function getFileCompletions(prefix: string, cwd: string): Promise<Suggesti
         const fullPath = pathPrefix + fileName;
         suggestions.push({
           label: fullPath,
-          value: hasSpaces ? `"${fullPath}"` : fullPath
+          value: hasSpaces ? `"${fullPath}"` : fullPath,
         });
       }
     });
@@ -135,7 +148,6 @@ async function getFileCompletions(prefix: string, cwd: string): Promise<Suggesti
       if (!aIsDir && bIsDir) return 1;
       return a.label.localeCompare(b.label);
     });
-
   } catch {
     return [];
   }
@@ -144,7 +156,10 @@ async function getFileCompletions(prefix: string, cwd: string): Promise<Suggesti
 /**
  * 获取 shell 模式的补全建议
  */
-export async function getShellCompletions(input: string, cwd: string): Promise<Suggestion[]> {
+export async function getShellCompletions(
+  input: string,
+  cwd: string,
+): Promise<Suggestion[]> {
   if (!isShellCompletionSupported() || !input.trim()) {
     return [];
   }
