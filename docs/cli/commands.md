@@ -48,6 +48,9 @@ Slash commands provide meta-level control over the CLI itself.
 - **`/doctor`**
   - **Description:** Run quick diagnostics for the CLI environment (versions, build status, core dependencies).
 
+- **`/report`**
+  - **Description:** Generate a diagnostic report for sharing. Copies to clipboard by default.
+
 - **`/mcp`**
   - **Description:** List configured Model Context Protocol (MCP) servers, their connection status, server details, and available tools.
   - **Sub-commands:**

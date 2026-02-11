@@ -53,6 +53,8 @@ export const createMockCommandContext = (
       setPendingItem: vi.fn(),
       loadHistory: vi.fn(),
       toggleCorgiMode: vi.fn(),
+      toggleVimEnabled: vi.fn().mockResolvedValue(true),
+      history: [],
     },
     session: {
       stats: {
@@ -70,6 +72,8 @@ export const createMockCommandContext = (
           },
         },
       } as SessionStatsState,
+      cumulativeCredits: 0,
+      totalSessionCredits: 0,
     },
   };
 
