@@ -8,6 +8,7 @@ import { Message, MessageType } from '../types.js';
 import { Config } from 'deepv-code-core';
 import { LoadedSettings } from '../../config/settings.js';
 import { t } from '../utils/i18n.js';
+import { logDebug } from '../../utils/cliLogger.js';
 
 export function createShowMemoryAction(
   config: Config | null,
@@ -27,7 +28,7 @@ export function createShowMemoryAction(
     const debugMode = config.getDebugMode();
 
     if (debugMode) {
-      console.log('[DEBUG] Show Memory command invoked.');
+      logDebug('Show Memory command invoked.');
     }
 
     const currentMemory = config.getUserMemory();
@@ -38,10 +39,10 @@ export function createShowMemoryAction(
       : [contextFileName];
 
     if (debugMode) {
-      console.log(
-        `[DEBUG] Showing memory. Content from config.getUserMemory() (first 200 chars): ${currentMemory.substring(0, 200)}...`,
+      logDebug(
+        `Showing memory. Content from config.getUserMemory() (first 200 chars): ${currentMemory.substring(0, 200)}...`,
       );
-      console.log(`[DEBUG] Number of context files loaded: ${fileCount}`);
+      logDebug(`Number of context files loaded: ${fileCount}`);
     }
 
     if (fileCount > 0) {
@@ -67,8 +68,8 @@ export function createShowMemoryAction(
         type: MessageType.INFO,
         content:
           fileCount > 0
-                    ? 'Hierarchical memory (DEEPV.md or other context files) is loaded but content is empty.'
-        : 'No hierarchical memory (DEEPV.md or other context files) is currently loaded.',
+            ? 'Hierarchical memory (DEEPV.md or other context files) is loaded but content is empty.'
+            : 'No hierarchical memory (DEEPV.md or other context files) is currently loaded.',
         timestamp: new Date(),
       });
     }

@@ -77,6 +77,8 @@ export interface CommandContext {
     toggleVimEnabled: () => Promise<boolean>;
     /** Current console/debug messages. */
     debugMessages?: ConsoleMessageItem[];
+    /** Current UI history items. */
+    history?: HistoryItem[];
   };
   // Session-specific data
   session: {
@@ -117,7 +119,18 @@ export interface MessageActionReturn {
  */
 export interface OpenDialogActionReturn {
   type: 'dialog';
-  dialog: 'help' | 'auth' | 'login' | 'theme' | 'editor' | 'privacy' | 'model' | 'customModelWizard' | 'settings-menu' | 'init-choice' | 'plugin-install';
+  dialog:
+    | 'help'
+    | 'auth'
+    | 'login'
+    | 'theme'
+    | 'editor'
+    | 'privacy'
+    | 'model'
+    | 'customModelWizard'
+    | 'settings-menu'
+    | 'init-choice'
+    | 'plugin-install';
   metadata?: Record<string, unknown>;
 }
 

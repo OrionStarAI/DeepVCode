@@ -61,7 +61,7 @@ export class CloudClient {
   constructor(
     private cloudServerUrl: string,
     private localRemoteServer: RemoteServer,
-    private config: Config
+    private config: Config,
   ) {
     this.cliId = this.generateCLIId();
     console.log(tp('cloud.cli.id', { cliId: this.cliId }));
@@ -79,9 +79,11 @@ export class CloudClient {
   }
 
   private isClosed(): boolean {
-    return !this.ws ||
-           this.ws?.readyState === WebSocket.CLOSED ||
-           this.ws?.readyState === WebSocket.CLOSING;
+    return (
+      !this.ws ||
+      this.ws?.readyState === WebSocket.CLOSED ||
+      this.ws?.readyState === WebSocket.CLOSING
+    );
   }
 
   /**
@@ -106,7 +108,11 @@ export class CloudClient {
       console.log(t('cloud.connection.established'));
       this.reconnectAttempts = 0;
     } catch (error) {
-      console.error(tp('cloud.connection.failed', { error: error instanceof Error ? error.message : String(error) }));
+      console.error(
+        tp('cloud.connection.failed', {
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
       this.scheduleReconnect();
     }
   }
@@ -130,11 +136,21 @@ export class CloudClient {
     this.userId = userInfo?.userId || userInfo?.openId || 'unknown';
 
     // 建立WebSocket连接
-    const connectUrl = this.buildConnectUrl(authToken);
+    const headerOnly = process.env.DEEPV_CLOUD_AUTH_HEADER_ONLY === 'true';
+    if (!headerOnly) {
+      console.warn(
+        '⚠️ Cloud auth token is included in the URL for compatibility. Set DEEPV_CLOUD_AUTH_HEADER_ONLY=true to disable.',
+      );
+    }
+    const connectUrl = this.buildConnectUrl(headerOnly ? undefined : authToken);
     const { maskUrl } = await import('../utils/urlMask.js');
     console.log(`${t('cloud.connection.url')} ${maskUrl(connectUrl)}`);
 
-    this.ws = new WebSocket(connectUrl);
+    this.ws = new WebSocket(connectUrl, {
+      headers: {
+        Authorization: `Bearer ${authToken}`,
+      },
+    });
     this.setupEventHandlers();
 
     // 等待连接建立
@@ -162,7 +178,7 @@ export class CloudClient {
    */
   private cleanup(): void {
     // 停止所有定时器
-    [this.heartbeatInterval, this.reconnectTimer].forEach(timer => {
+    [this.heartbeatInterval, this.reconnectTimer].forEach((timer) => {
       if (timer) clearInterval(timer);
     });
 
@@ -172,8 +188,10 @@ export class CloudClient {
     // 关闭现有WebSocket连接
     if (this.ws) {
       this.ws.removeAllListeners();
-      if (this.ws?.readyState === WebSocket.OPEN ||
-          this.ws?.readyState === WebSocket.CONNECTING) {
+      if (
+        this.ws?.readyState === WebSocket.OPEN ||
+        this.ws?.readyState === WebSocket.CONNECTING
+      ) {
         this.ws.close();
       }
       this.ws = null;
@@ -226,8 +244,12 @@ export class CloudClient {
       }
 
       const { maskEmail } = await import('../utils/urlMask.js');
-      const displayInfo = userInfo.email ? maskEmail(userInfo.email) : (userInfo.openId || 'N/A');
-      console.log(tp('cloud.user.info', { name: userInfo.name, info: displayInfo }));
+      const displayInfo = userInfo.email
+        ? maskEmail(userInfo.email)
+        : userInfo.openId || 'N/A';
+      console.log(
+        tp('cloud.user.info', { name: userInfo.name, info: displayInfo }),
+      );
       return userInfo;
     } catch (error) {
       console.error('❌ 获取用户信息失败:', error);
@@ -238,11 +260,13 @@ export class CloudClient {
   /**
    * 构造连接URL
    */
-  private buildConnectUrl(authToken: string): string {
+  private buildConnectUrl(authToken?: string): string {
     const url = new URL('/ws/cli', this.cloudServerUrl.replace(/^http/, 'ws'));
 
     // 添加认证参数
-    url.searchParams.set('token', authToken);
+    if (authToken) {
+      url.searchParams.set('token', authToken);
+    }
     url.searchParams.set('cliId', this.cliId);
 
     // 添加元数据
@@ -273,12 +297,18 @@ export class CloudClient {
         const message: CloudMessage = JSON.parse(data.toString());
         await this.handleCloudMessage(message);
       } catch (error) {
-        console.error(tp('cloud.message.handle.failed', { error: error instanceof Error ? error.message : String(error) }));
+        console.error(
+          tp('cloud.message.handle.failed', {
+            error: error instanceof Error ? error.message : String(error),
+          }),
+        );
       }
     });
 
     this.ws.on('close', (code, reason) => {
-      console.log(tp('cloud.websocket.closed', { code, reason: reason.toString() }));
+      console.log(
+        tp('cloud.websocket.closed', { code, reason: reason.toString() }),
+      );
       this.stopTimers();
 
       // 非正常关闭才重连
@@ -288,7 +318,11 @@ export class CloudClient {
     });
 
     this.ws.on('error', (error) => {
-      console.error(tp('cloud.websocket.error', { error: error instanceof Error ? error.message : String(error) }));
+      console.error(
+        tp('cloud.websocket.error', {
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
       // error事件后通常会触发close事件，所以这里不直接重连
     });
   }
@@ -336,9 +370,20 @@ export class CloudClient {
     try {
       switch (message.type) {
         case 'CLI_REGISTER_SUCCESS':
-          console.log(tp('cloud.cli.register.success', { message: message.payload?.message }));
+          console.log(
+            tp('cloud.cli.register.success', {
+              message: message.payload?.message,
+            }),
+          );
           console.log('');
-          console.log('✅🎉🚀 ' + chalk.green(tp('cloud.remote.access.ready', { url: 'https://dvcode.deepvlab.ai/remote' })));
+          console.log(
+            '✅🎉🚀 ' +
+              chalk.green(
+                tp('cloud.remote.access.ready', {
+                  url: 'https://dvcode.deepvlab.ai/remote',
+                }),
+              ),
+          );
           break;
 
         case 'CLI_HEARTBEAT_RESPONSE':
@@ -369,9 +414,12 @@ export class CloudClient {
 
       // 调用RemoteServer的handleCloudMessage方法处理消息
       await this.localRemoteServer.handleCloudMessage(localMessage);
-
     } catch (error) {
-      console.error(tp('cloud.message.forward.failed', { error: error instanceof Error ? error.message : String(error) }));
+      console.error(
+        tp('cloud.message.forward.failed', {
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
     }
   }
 
@@ -388,7 +436,11 @@ export class CloudClient {
       this.ws!.send(JSON.stringify(message));
       return true;
     } catch (error) {
-      console.error(tp('cloud.send.failed', { error: error instanceof Error ? error.message : String(error) }));
+      console.error(
+        tp('cloud.send.failed', {
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
       return false;
     }
   }
@@ -421,9 +473,9 @@ export class CloudClient {
         cliId: this.cliId,
         activeSessions: this.getActiveSessionCount(),
         memoryUsage: Math.round(memUsage.heapUsed / 1024 / 1024), // MB
-        cpuUsage: 0 // TODO: 实现CPU使用率获取
+        cpuUsage: 0, // TODO: 实现CPU使用率获取
       },
-      timestamp: Date.now()
+      timestamp: Date.now(),
     };
 
     this.sendToCloud(heartbeatMessage);
@@ -449,12 +501,11 @@ export class CloudClient {
       const sessionListMessage: SessionListMessage = {
         type: 'CLI_SESSION_LIST',
         payload: { sessions },
-        timestamp: Date.now()
+        timestamp: Date.now(),
       };
 
       this.sendToCloud(sessionListMessage);
       // 不打印session同步日志
-
     } catch (error) {
       console.error('❌ 同步Session列表失败:', error);
     }
@@ -467,7 +518,11 @@ export class CloudClient {
     try {
       return this.localRemoteServer.getAllSessionsInfo();
     } catch (error) {
-      console.error(tp('cloud.session.get.failed', { error: error instanceof Error ? error.message : String(error) }));
+      console.error(
+        tp('cloud.session.get.failed', {
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
       return [];
     }
   }
@@ -479,7 +534,11 @@ export class CloudClient {
     try {
       return this.localRemoteServer.getActiveSessionCount();
     } catch (error) {
-      console.error(tp('cloud.session.count.failed', { error: error instanceof Error ? error.message : String(error) }));
+      console.error(
+        tp('cloud.session.count.failed', {
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      );
       return 0;
     }
   }
@@ -504,7 +563,12 @@ export class CloudClient {
     this.reconnectAttempts++;
     const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts), 30000);
 
-    console.log(tp('cloud.reconnect.scheduled', { delay: delay/1000, attempt: this.reconnectAttempts }));
+    console.log(
+      tp('cloud.reconnect.scheduled', {
+        delay: delay / 1000,
+        attempt: this.reconnectAttempts,
+      }),
+    );
 
     // 安排重连
     this.reconnectTimer = setTimeout(() => {
@@ -530,8 +594,7 @@ export class CloudClient {
       userId: this.userId,
       isConnected: this.isConnected(),
       reconnectAttempts: this.reconnectAttempts,
-      serverUrl: this.cloudServerUrl
+      serverUrl: this.cloudServerUrl,
     };
   }
-
 }

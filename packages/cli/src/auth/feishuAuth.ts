@@ -5,13 +5,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-
 import * as crypto from 'crypto';
 import * as http from 'http';
 import { URL } from 'url';
-import { exec } from 'child_process';
+import open from 'open';
 import { appEvents, AppEvent } from '../utils/events.js';
-
 
 // 功能实现: 飞书OAuth2认证集成
 // 实现方案: 基于飞书开放平台OAuth2授权码模式
@@ -59,10 +57,10 @@ export class FeishuAuthHandler {
    */
   public buildAuthUrl(): string {
     const params = new URLSearchParams({
-      app_id: this.config.appId,  // 飞书使用app_id参数
+      app_id: this.config.appId, // 飞书使用app_id参数
       redirect_uri: this.config.redirectUri,
       response_type: 'code',
-      scope: 'contact:user.employee_id:readonly',  // 使用正确的scope
+      scope: 'contact:user.employee_id:readonly', // 使用正确的scope
       state: this.state,
     });
 
@@ -111,7 +109,10 @@ export class FeishuAuthHandler {
 
           // 如果端口改变了，需要更新配置
           if (currentPort !== port) {
-            const newRedirectUri = this.config.redirectUri.replace(`:${port}`, `:${currentPort}`);
+            const newRedirectUri = this.config.redirectUri.replace(
+              `:${port}`,
+              `:${currentPort}`,
+            );
             this.config.redirectUri = newRedirectUri;
             console.log(`📝 重定向URI已更新为: ${newRedirectUri}`);
           }
@@ -122,21 +123,30 @@ export class FeishuAuthHandler {
           console.log(`🚀 正在打开浏览器进行飞书授权...`);
 
           // 自动打开浏览器
-          this.openBrowser(authUrl);
+          void this.openBrowser(authUrl);
         });
 
         this.server!.on('error', (err: any) => {
           if (err.code === 'EADDRINUSE') {
-            console.log(`⚠️ 端口 ${currentPort} 被占用，尝试端口 ${currentPort + 1}`);
-            if (currentPort < 6709) { // 最多尝试10个端口 (6699-6709)
+            console.log(
+              `⚠️ 端口 ${currentPort} 被占用，尝试端口 ${currentPort + 1}`,
+            );
+            if (currentPort < 6709) {
+              // 最多尝试10个端口 (6699-6709)
               tryListen(currentPort + 1);
             } else {
               this.cleanup();
-              resolve({ success: false, error: '无法找到可用端口 (6699-6709)' });
+              resolve({
+                success: false,
+                error: '无法找到可用端口 (6699-6709)',
+              });
             }
           } else {
             this.cleanup();
-            resolve({ success: false, error: `服务器启动失败: ${err.message}` });
+            resolve({
+              success: false,
+              error: `服务器启动失败: ${err.message}`,
+            });
           }
         });
       };
@@ -154,27 +164,16 @@ export class FeishuAuthHandler {
   /**
    * 自动打开浏览器到指定URL
    */
-  private openBrowser(url: string): void {
-    const platform = process.platform;
-
-    let command: string;
-    if (platform === 'win32') {
-      command = `start "" "${url}"`;
-    } else if (platform === 'darwin') {
-      command = `open "${url}"`;
-    } else {
-      command = `xdg-open "${url}"`;
+  private async openBrowser(url: string): Promise<void> {
+    try {
+      await open(url, { wait: false });
+      console.log('✅ 浏览器已打开，请在飞书页面完成授权');
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`❌ 无法自动打开浏览器: ${message}`);
+      console.log('📋 请手动复制以下URL到浏览器中打开:');
+      console.log(`🔗 ${url}`);
     }
-
-    exec(command, (error: any) => {
-      if (error) {
-        console.error(`❌ 无法自动打开浏览器: ${error.message}`);
-        console.log(`📋 请手动复制以下URL到浏览器中打开:`);
-        console.log(`🔗 ${url}`);
-      } else {
-        console.log(`✅ 浏览器已打开，请在飞书页面完成授权`);
-      }
-    });
   }
 
   /**
@@ -184,7 +183,7 @@ export class FeishuAuthHandler {
   private async handleCallbackWithPlatCheck(
     reqUrl: URL,
     res: http.ServerResponse,
-    resolve: (result: FeishuAuthResult) => void
+    resolve: (result: FeishuAuthResult) => void,
   ): Promise<void> {
     // 直接处理飞书认证回调，不再处理DeepVlab
     console.log('🔄 [FeishuAuth] 处理飞书认证回调（旧流程）');
@@ -197,7 +196,7 @@ export class FeishuAuthHandler {
   private async handleCallback(
     reqUrl: URL,
     res: http.ServerResponse,
-    resolve: (result: FeishuAuthResult) => void
+    resolve: (result: FeishuAuthResult) => void,
   ): Promise<void> {
     const code = reqUrl.searchParams.get('code');
     const state = reqUrl.searchParams.get('state');
@@ -228,10 +227,10 @@ export class FeishuAuthHandler {
       const accessToken = await this.exchangeCodeForToken(code);
       this.sendSuccessResponse(res);
       this.cleanup();
-      resolve({ 
-        success: true, 
+      resolve({
+        success: true,
         accessToken,
-        nextStepUrl: this.config.nextStepUrl
+        nextStepUrl: this.config.nextStepUrl,
       });
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : '未知错误';
@@ -256,15 +255,14 @@ export class FeishuAuthHandler {
     // 修复策略: 回到标准OAuth2规范，移除重复的body构建逻辑
     // 影响范围: packages/cli/src/auth/feishuAuth.ts:231-262
     // 修复日期: 2025-01-26
-    
+
     const formData = new URLSearchParams({
       grant_type: 'authorization_code',
-      client_id: this.config.appId,        // 使用标准OAuth2参数名
+      client_id: this.config.appId, // 使用标准OAuth2参数名
       client_secret: this.config.appSecret, // 使用标准OAuth2参数名
       code: code,
       redirect_uri: this.config.redirectUri,
     });
-
 
     const response = await fetch(tokenUrl, {
       method: 'POST',
@@ -282,7 +280,9 @@ export class FeishuAuthHandler {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('❌ exchangeCodeForToken: 错误响应内容:', errorText);
-      throw new Error(`HTTP ${response.status}: ${response.statusText}\n响应内容: ${errorText}`);
+      throw new Error(
+        `HTTP ${response.status}: ${response.statusText}\n响应内容: ${errorText}`,
+      );
     }
 
     const data = await response.json();
@@ -293,17 +293,19 @@ export class FeishuAuthHandler {
     // 修复策略: OAuth2标准响应通常直接包含access_token，而不是通过code字段判断
     // 影响范围: packages/cli/src/auth/feishuAuth.ts:276-280
     // 修复日期: 2025-01-26
-    
+
     // 检查OAuth2标准错误格式
     if (data.error) {
-      throw new Error(`飞书OAuth2错误: ${data.error} - ${data.error_description || ''}`);
+      throw new Error(
+        `飞书OAuth2错误: ${data.error} - ${data.error_description || ''}`,
+      );
     }
-    
+
     // 检查飞书特有的code字段（如果存在）
     if (data.code !== undefined && data.code !== 0) {
       throw new Error(`飞书API错误: ${data.msg || data.error || '未知错误'}`);
     }
-    
+
     // 检查是否有access_token
     if (!data.access_token) {
       throw new Error('响应中缺少access_token字段');
@@ -399,12 +401,10 @@ export class FeishuAuthHandler {
       </body>
       </html>
     `;
-    
+
     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(html);
   }
-
-
 
   /**
    * 发送错误响应
@@ -477,7 +477,7 @@ export class FeishuAuthHandler {
       </body>
       </html>
     `;
-    
+
     res.writeHead(400, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end(html);
   }
@@ -501,13 +501,16 @@ export class FeishuAuthHandler {
 export function createFeishuAuthHandler(
   appId: string,
   appSecret: string,
-  nextStepUrl?: string
+  nextStepUrl?: string,
 ): FeishuAuthHandler {
   const config: FeishuAuthConfig = {
     appId,
     appSecret,
-    redirectUri: 'http://localhost:7863/callback',  // 使用与飞书应用配置匹配的回调地址
-    nextStepUrl: nextStepUrl || process.env.DEEPX_SERVER_URL || 'https://api-code.deepvlab.ai',
+    redirectUri: 'http://localhost:7863/callback', // 使用与飞书应用配置匹配的回调地址
+    nextStepUrl:
+      nextStepUrl ||
+      process.env.DEEPX_SERVER_URL ||
+      'https://api-code.deepvlab.ai',
   };
 
   return new FeishuAuthHandler(config);

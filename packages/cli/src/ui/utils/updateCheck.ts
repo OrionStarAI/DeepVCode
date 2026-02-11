@@ -7,6 +7,7 @@
 import { getPackageJson } from '../../utils/package.js';
 import { t, tp, isChineseLocale } from './i18n.js';
 import { spawn } from 'node:child_process';
+import { parse } from 'shell-quote';
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
@@ -65,7 +66,11 @@ async function writeUpdateCheckCache(cache: UpdateCheckCache): Promise<void> {
     await fs.mkdir(settingsDir, { recursive: true });
     await fs.writeFile(cacheFile, JSON.stringify(cache, null, 2));
   } catch (error) {
-    console.warn(tp('update.cache.write.error', { error: error instanceof Error ? error.message : String(error) }));
+    console.warn(
+      tp('update.cache.write.error', {
+        error: error instanceof Error ? error.message : String(error),
+      }),
+    );
   }
 }
 
@@ -75,7 +80,10 @@ function formatNextCheckTime(timestamp: number): string {
   const now = new Date();
 
   const locale = isChineseLocale() ? 'zh-CN' : 'en-US';
-  const time = date.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
+  const time = date.toLocaleTimeString(locale, {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 
   if (date.toDateString() === now.toDateString()) {
     return tp('update.time.today', { time });
@@ -97,7 +105,7 @@ function formatNextCheckTime(timestamp: number): string {
 
 export async function checkForUpdates(
   showProgress: boolean = false,
-  forceCheck: boolean = false
+  forceCheck: boolean = false,
 ): Promise<string | null> {
   try {
     // Skip update check when running from source (development mode) unless forced
@@ -133,20 +141,19 @@ export async function checkForUpdates(
     const updateApiUrl = `${serverUrl}/api/update-check?version=${encodeURIComponent(packageJson.version)}`;
 
     // 调用自己服务器的更新检测API
-    const response = await fetch(
-      updateApiUrl,
-      {
-        method: 'GET',
-        headers: {
-          'User-Agent': `${packageJson.name}/${packageJson.version}`,
-        },
-        // 设置超时
-        signal: AbortSignal.timeout(10000), // 10秒超时
-      }
-    );
+    const response = await fetch(updateApiUrl, {
+      method: 'GET',
+      headers: {
+        'User-Agent': `${packageJson.name}/${packageJson.version}`,
+      },
+      // 设置超时
+      signal: AbortSignal.timeout(10000), // 10秒超时
+    });
 
     if (!response.ok) {
-      const message = tp('update.check.failed.http', { status: response.status });
+      const message = tp('update.check.failed.http', {
+        status: response.status,
+      });
       if (showProgress) {
         console.warn(message);
       } else {
@@ -158,7 +165,9 @@ export async function checkForUpdates(
     const data: UpdateCheckResponse = await response.json();
 
     if (!data.success) {
-      const message = tp('update.check.failed.message', { message: String(data.message || '') });
+      const message = tp('update.check.failed.message', {
+        message: String(data.message || ''),
+      });
       if (showProgress) {
         console.warn(message);
       } else {
@@ -172,14 +181,24 @@ export async function checkForUpdates(
     let result: string | null = null;
     const MESSAGE_SEPARATOR = '::MSG::';
 
-    if (data.hasUpdate && data.forceUpdate && data.latestVersion && data.updateCommand) {
+    if (
+      data.hasUpdate &&
+      data.forceUpdate &&
+      data.latestVersion &&
+      data.updateCommand
+    ) {
       // 返回特殊标记，表示需要强制更新
       result = `FORCE_UPDATE:${data.latestVersion}:${data.updateCommand}${MESSAGE_SEPARATOR}${t('update.force.message.header')}
 ${tp('update.version.line', { current: packageJson.version, latest: String(data.latestVersion) })}
 ${tp('update.command.line', { command: String(data.updateCommand) })}
 
 ${t('update.after.success.exit')}`;
-    } else if (data.hasUpdate && showProgress && data.latestVersion && data.updateCommand) {
+    } else if (
+      data.hasUpdate &&
+      showProgress &&
+      data.latestVersion &&
+      data.updateCommand
+    ) {
       // 非强制更新时的提示
       result = `UPDATE_AVAILABLE:${data.latestVersion}:${data.updateCommand}${MESSAGE_SEPARATOR}${t('update.available.message.header')}
 ${tp('update.version.line', { current: packageJson.version, latest: String(data.latestVersion) })}
@@ -191,7 +210,7 @@ ${tp('update.command.line', { command: String(data.updateCommand) })}`;
       const cache: UpdateCheckCache = {
         lastCheckTime: now,
         lastResult: result,
-        version: packageJson.version
+        version: packageJson.version,
       };
       await writeUpdateCheckCache(cache);
     }
@@ -206,17 +225,31 @@ ${tp('update.command.line', { command: String(data.updateCommand) })}`;
 }
 
 // 执行自动更新命令
-export async function executeUpdateCommand(updateCommand: string): Promise<boolean> {
+export async function executeUpdateCommand(
+  updateCommand: string,
+): Promise<boolean> {
   return new Promise((resolve) => {
     console.log(t('update.auto.exec.start'));
     console.log(tp('update.command.line', { command: updateCommand }));
 
-    // 解析命令
-    const [command, ...args] = updateCommand.split(' ');
+    const parsed = parse(updateCommand);
+    const tokens = parsed.filter(
+      (part) => typeof part === 'string',
+    ) as string[];
+    const hasOperators = parsed.some((part) => typeof part !== 'string');
+
+    if (hasOperators || tokens.length === 0) {
+      console.error(t('update.command.unsafe'));
+      console.error(t('update.manual.run.hint'));
+      resolve(false);
+      return;
+    }
+
+    const [command, ...args] = tokens;
 
     const updateProcess = spawn(command, args, {
       stdio: 'inherit',
-      shell: process.platform === 'win32'
+      shell: false,
     });
 
     updateProcess.on('close', (code) => {

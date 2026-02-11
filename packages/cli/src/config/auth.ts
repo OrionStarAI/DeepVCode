@@ -7,19 +7,19 @@
 import { ProxyAuthManager, Config, AuthType } from 'deepv-code-core';
 import { createFeishuAuthHandler } from '../auth/feishuAuth.js';
 import { loadEnvironment, LoadedSettings, SettingScope } from './settings.js';
-import { getFeishuConfigFromServer, testServerConnection } from 'deepv-code-core';
+import {
+  getFeishuConfigFromServer,
+  testServerConnection,
+} from 'deepv-code-core';
 import { AuthServer } from 'deepv-code-core';
 import { t, tp } from '../ui/utils/i18n.js';
-import { exec } from 'child_process';
+import open from 'open';
 
 /**
  * 检测是否在VSCode终端环境中运行
  */
 function isVSCodeTerminal(): boolean {
-  return !!(
-    process.env.VSCODE_PID ||
-    process.env.TERM_PROGRAM === 'vscode'
-  );
+  return !!(process.env.VSCODE_PID || process.env.TERM_PROGRAM === 'vscode');
 }
 
 /**
@@ -49,13 +49,12 @@ async function restoreVSCodeTerminalState(): Promise<void> {
     }
 
     // 方法2：短暂延迟让VSCode终端稳定
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     // 方法3：发送一个空的输入提示来激活输入状态
     process.stdout.write('\r'); // 回车符
 
     console.log('✅ VSCode终端状态恢复完成');
-
   } catch (error) {
     console.warn('⚠️ VSCode终端状态恢复时出现警告:', error);
     // 即使恢复失败也不影响主流程
@@ -90,13 +89,16 @@ export const validateAuthMethod = (authMethod: string): string | null => {
  */
 async function getUserInfoFromFeishu(accessToken: string): Promise<any> {
   try {
-    const response = await fetch('https://open.feishu.cn/open-apis/authen/v1/user_info', {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
+    const response = await fetch(
+      'https://open.feishu.cn/open-apis/authen/v1/user_info',
+      {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
       },
-    });
+    );
 
     if (!response.ok) {
       throw new Error(`飞书API错误: ${response.status} ${response.statusText}`);
@@ -105,7 +107,9 @@ async function getUserInfoFromFeishu(accessToken: string): Promise<any> {
     const data = await response.json();
 
     if (data.code !== 0) {
-      throw new Error(`飞书API错误: ${data.code} - ${data.msg || data.message}`);
+      throw new Error(
+        `飞书API错误: ${data.code} - ${data.msg || data.message}`,
+      );
     }
 
     if (!data.data) {
@@ -129,7 +133,7 @@ async function getUserInfoFromFeishu(accessToken: string): Promise<any> {
 
 export async function handleFeishuAuth(
   nextStepUrl: string = 'http://localhost:9000',
-  settings?: LoadedSettings
+  settings?: LoadedSettings,
 ): Promise<boolean> {
   try {
     console.log('🚀 handleFeishuAuth: 开始飞书认证流程...');
@@ -146,7 +150,11 @@ export async function handleFeishuAuth(
 
       console.log('📱 handleFeishuAuth: 创建认证处理器...');
       // 注意：不再传递appSecret，因为token交换将在服务端进行
-      const authHandler = createFeishuAuthHandler(FEISHU_APP_ID, '', nextStepUrl);
+      const authHandler = createFeishuAuthHandler(
+        FEISHU_APP_ID,
+        '',
+        nextStepUrl,
+      );
 
       console.log('🌐 handleFeishuAuth: 授权URL:', authHandler.buildAuthUrl());
       console.log('📱 请在浏览器中完成飞书授权...');
@@ -154,7 +162,10 @@ export async function handleFeishuAuth(
       const result = await authHandler.startAuthFlow();
 
       // 安全修复: 移除完整认证结果打印，避免泄露访问令牌等敏感信息
-      console.log('📊 handleFeishuAuth: 认证流程完成，状态:', result.success ? '成功' : '失败');
+      console.log(
+        '📊 handleFeishuAuth: 认证流程完成，状态:',
+        result.success ? '成功' : '失败',
+      );
 
       if (result.success) {
         console.log('✅ 飞书认证成功！');
@@ -166,23 +177,27 @@ export async function handleFeishuAuth(
             console.log('📱 正在交换JWT令牌...');
 
             // 调用服务端的飞书JWT交换接口（统一使用标准端点）
-            const proxyServerUrl = process.env.DEEPX_SERVER_URL || 'https://api-code.deepvlab.ai';
-            const jwtResponse = await fetch(`${proxyServerUrl}/auth/jwt/feishu-login`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'User-Agent': 'DeepCode-CLI/1.0.0'
+            const proxyServerUrl =
+              process.env.DEEPX_SERVER_URL || 'https://api-code.deepvlab.ai';
+            const jwtResponse = await fetch(
+              `${proxyServerUrl}/auth/jwt/feishu-login`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'User-Agent': 'DeepCode-CLI/1.0.0',
+                },
+                body: JSON.stringify({
+                  feishuAccessToken: result.accessToken,
+                  clientInfo: {
+                    platform: process.platform,
+                    version: process.version,
+                    timestamp: Date.now(),
+                    userAgent: 'DeepCode-CLI/1.0.0',
+                  },
+                }),
               },
-              body: JSON.stringify({
-                feishuAccessToken: result.accessToken,
-                clientInfo: {
-                  platform: process.platform,
-                  version: process.version,
-                  timestamp: Date.now(),
-                  userAgent: 'DeepCode-CLI/1.0.0'
-                }
-              })
-            });
+            );
 
             if (!jwtResponse.ok) {
               const errorText = await jwtResponse.text();
@@ -194,7 +209,7 @@ export async function handleFeishuAuth(
             console.log('✅ JWT交换成功:', {
               user: jwtData.user?.name,
               email: jwtData.user?.email,
-              expiresIn: jwtData.expiresIn
+              expiresIn: jwtData.expiresIn,
             });
 
             // 保存JWT令牌和用户信息
@@ -205,7 +220,7 @@ export async function handleFeishuAuth(
               proxyAuthManager.setJwtTokenData({
                 accessToken: jwtData.accessToken,
                 refreshToken: jwtData.refreshToken,
-                expiresIn: jwtData.expiresIn || 900
+                expiresIn: jwtData.expiresIn || 900,
               });
               console.log('✅ JWT访问令牌和刷新令牌已保存');
             }
@@ -218,10 +233,12 @@ export async function handleFeishuAuth(
                 name: jwtData.user.name,
                 enName: jwtData.user.en_name || jwtData.user.name,
                 email: jwtData.user.email,
-                avatar: jwtData.user.avatar_url
+                avatar: jwtData.user.avatar_url,
               };
               proxyAuthManager.setUserInfo(userInfo);
-              console.log(`✅ 用户信息已保存: ${userInfo.name} (${userInfo.email || userInfo.openId || 'N/A'})`);
+              console.log(
+                `✅ 用户信息已保存: ${userInfo.name} (${userInfo.email || userInfo.openId || 'N/A'})`,
+              );
 
               console.log('✅ JWT认证配置完成');
             }
@@ -231,7 +248,6 @@ export async function handleFeishuAuth(
               // TODO: 实现刷新令牌的保存逻辑
               console.log('ℹ️ 收到刷新令牌，暂未实现保存逻辑');
             }
-
           } catch (error) {
             console.error('❌ JWT交换过程失败:', error);
             // 降级处理：如果JWT交换失败，仍然尝试使用飞书token获取用户信息
@@ -240,7 +256,9 @@ export async function handleFeishuAuth(
             try {
               const userInfo = await getUserInfoFromFeishu(result.accessToken);
               if (userInfo) {
-                console.log(`✅ 降级模式：获取用户信息成功: ${userInfo.name} (${userInfo.email || userInfo.openId || 'N/A'})`);
+                console.log(
+                  `✅ 降级模式：获取用户信息成功: ${userInfo.name} (${userInfo.email || userInfo.openId || 'N/A'})`,
+                );
                 const proxyAuthManager = ProxyAuthManager.getInstance();
                 proxyAuthManager.setUserInfo(userInfo);
               }
@@ -256,7 +274,6 @@ export async function handleFeishuAuth(
         console.error('❌ 飞书认证失败:', result.error);
         return false;
       }
-
     } catch (configError) {
       console.error('❌ 获取服务端配置失败:', configError);
       console.error('请确认：');
@@ -274,17 +291,13 @@ export async function handleFeishuAuth(
 /**
  * 打开浏览器
  */
-function openBrowser(url: string): void {
-  const command = process.platform === 'darwin' ? 'open' :
-                  process.platform === 'win32' ? 'start' : 'xdg-open';
-
-  exec(`${command} ${url}`, (error) => {
-    if (error) {
-      console.error('❌ 打开浏览器失败:', error);
-    } else {
-      console.log('✅ 浏览器已打开:', url);
-    }
-  });
+async function openBrowser(url: string): Promise<void> {
+  try {
+    await open(url, { wait: false });
+    console.log('✅ 浏览器已打开:', url);
+  } catch (error) {
+    console.error('❌ 打开浏览器失败:', error);
+  }
 }
 
 /**
@@ -301,14 +314,18 @@ export async function handleDeepvlabAuth(
   nextStepUrl: string = 'http://localhost:9000',
   settings?: LoadedSettings,
   clearExistingAuth: boolean = false,
-  onUrlReady?: (url: string) => void
+  onUrlReady?: (url: string) => void,
 ): Promise<{ success: boolean; authUrl?: string }> {
   try {
-    console.log('🚀 handleDeepvlabAuth: Starting DeepVlab unified authentication process...');
+    console.log(
+      '🚀 handleDeepvlabAuth: Starting DeepVlab unified authentication process...',
+    );
 
     // 如果是主动重新认证，清除现有的JWT token
     if (clearExistingAuth) {
-      console.log('🧹 handleDeepvlabAuth: Clearing existing authentication tokens for re-authentication...');
+      console.log(
+        '🧹 handleDeepvlabAuth: Clearing existing authentication tokens for re-authentication...',
+      );
       const proxyAuthManager = ProxyAuthManager.getInstance();
       proxyAuthManager.clear();
       console.log('✅ handleDeepvlabAuth: Existing authentication cleared');
@@ -325,7 +342,7 @@ export async function handleDeepvlabAuth(
     // 打开浏览器到认证选择页面（使用实际端口）
     const selectPort = authServer.getActualSelectPort();
     const authUrl = `http://localhost:${selectPort}`;
-    openBrowser(authUrl);
+    await openBrowser(authUrl);
 
     // 立即通知URL已准备好
     if (onUrlReady) {
@@ -362,7 +379,7 @@ export async function handleDeepvlabAuth(
       }
 
       // 等待一段时间后再次检查
-      await new Promise(resolve => setTimeout(resolve, checkInterval));
+      await new Promise((resolve) => setTimeout(resolve, checkInterval));
     }
 
     // 超时，关闭服务器
@@ -373,7 +390,6 @@ export async function handleDeepvlabAuth(
     await restoreVSCodeTerminalState();
 
     return { success: false, authUrl };
-
   } catch (error) {
     const errorMsg = error instanceof Error ? error.message : 'Unknown error';
     console.error(tp('auth.deepvlab.server.error', { error: errorMsg }));

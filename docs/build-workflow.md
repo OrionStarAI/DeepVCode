@@ -23,12 +23,18 @@ DeepCode/
 
 ### 1. 快速开发构建 / Quick Development Build
 
-**用途 / Purpose**: 日常开发时使用，构建速度快，排除 VS Code 扩展
-For daily development with faster build times, excluding VS Code extension
+**用途 / Purpose**: 日常开发时使用，按需构建所需模块
+For daily development with targeted builds
 
 ```bash
 # 基础构建 / Basic build
-npm run build                    # 仅构建 core 和 cli / Build only core and cli
+npm run build                    # 构建全部模块 / Build core + cli + vscode-ui-plugin
+
+# 仅构建 CLI / Build CLI only
+npm run build:cli                # 构建 core + cli / Build core + cli
+
+# 仅构建 VS Code 插件 / Build VS Code plugin only
+npm run build:plugin             # 构建 vscode-ui-plugin / Build vscode-ui-plugin
 
 # 开发版打包 / Development bundle
 npm run bundle:dev              # 开发版打包（快速）/ Development bundle (fast)
@@ -161,13 +167,14 @@ npm run env:test
 ### 日常开发 / Daily Development
 
 1. **开始开发 / Start Development**
+
    ```bash
    npm run dev                  # 启动开发模式 / Start development mode
    ```
 
 2. **代码修改后 / After Code Changes**
    ```bash
-   npm run build               # 快速构建验证 / Quick build verification
+   npm run build:cli           # CLI 快速构建验证 / Quick CLI build verification
    npm run lint                # 检查代码质量 / Check code quality
    npm test                    # 运行测试 / Run tests
    ```
@@ -175,6 +182,7 @@ npm run env:test
 ### VS Code 扩展开发 / VS Code Extension Development
 
 1. **准备扩展开发环境 / Prepare Extension Development**
+
    ```bash
    npm install --workspace=packages/vscode-ui-plugin
    ```
@@ -188,6 +196,7 @@ npm run env:test
 ### 发布准备 / Release Preparation
 
 1. **完整构建和测试 / Complete Build and Test**
+
    ```bash
    npm run preflight           # 完整预检 / Complete preflight
    npm run build:all           # 完整构建 / Complete build
@@ -215,8 +224,8 @@ npm run env:test
 
 ### 性能优化 / Performance Optimization
 
-- ⚡ **默认构建排除 VS Code 扩展以提升速度** / Default build excludes VS Code extension for speed
-- 🎨 **需要完整功能时使用 `INCLUDE_VSCODE_PLUGIN=true`** / Use `INCLUDE_VSCODE_PLUGIN=true` when complete functionality is needed
+- ⚡ **使用 `build:cli` 获得更快的日常构建** / Use `build:cli` for faster daily builds
+- 🎨 **需要完整功能时使用 `npm run build`** / Use `npm run build` for full builds
 - 🔄 **CI/CD 环境建议使用完整构建** / Recommend complete build for CI/CD environments
 
 ## 📚 相关文档 / Related Documentation
@@ -233,17 +242,20 @@ npm run env:test
 ### 新团队成员快速上手 / Quick Start for New Team Members
 
 1. **克隆项目 / Clone Project**
+
    ```bash
    git clone <repository-url>
    cd DeepCode
    ```
 
 2. **安装依赖 / Install Dependencies**
+
    ```bash
    npm install
    ```
 
 3. **验证环境 / Verify Environment**
+
    ```bash
    npm run build
    npm test
@@ -263,4 +275,4 @@ npm run env:test
 
 ---
 
-*最后更新 / Last Updated: 2024-09-25*
+_最后更新 / Last Updated: 2024-09-25_

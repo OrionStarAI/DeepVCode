@@ -9,7 +9,7 @@ import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
 import { readFile } from 'node:fs/promises';
-import { quote } from 'shell-quote';
+import { quote, parse } from 'shell-quote';
 import {
   USER_SETTINGS_DIR,
   SETTINGS_DIRECTORY_NAME,
@@ -254,9 +254,25 @@ export async function start_sandbox(
         sandboxEnv['NO_PROXY'] = noProxy;
         sandboxEnv['no_proxy'] = noProxy;
       }
-      proxyProcess = spawn(proxyCommand, {
+      const parsedProxyCommand = parse(proxyCommand);
+      const proxyArgs = parsedProxyCommand.filter(
+        (part) => typeof part === 'string',
+      ) as string[];
+      const hasOperators = parsedProxyCommand.some(
+        (part) => typeof part !== 'string',
+      );
+
+      if (hasOperators || proxyArgs.length === 0) {
+        console.error(
+          'ERROR: GEMINI_SANDBOX_PROXY_COMMAND contains unsafe operators. Use a simple command without shell control characters.',
+        );
+        process.exit(1);
+      }
+
+      const [proxyBinary, ...proxyBinaryArgs] = proxyArgs;
+      proxyProcess = spawn(proxyBinary, proxyBinaryArgs, {
         stdio: ['ignore', 'pipe', 'pipe'],
-        shell: true,
+        shell: false,
         detached: true,
       });
       // install handlers to stop proxy on exit/signal

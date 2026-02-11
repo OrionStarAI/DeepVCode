@@ -34,7 +34,12 @@ import { FileCommandLoader } from '../../services/FileCommandLoader.js';
 import { InlineCommandLoader } from '../../services/InlineCommandLoader.js';
 import { McpPromptLoader } from '../../services/McpPromptLoader.js';
 import { PluginCommandLoader } from '../../services/skill/loaders/plugin-command-loader.js';
-import { SettingsManager, MarketplaceManager, SkillLoader } from 'deepv-code-core';
+import {
+  SettingsManager,
+  MarketplaceManager,
+  SkillLoader,
+} from 'deepv-code-core';
+import { logDebug } from '../../utils/cliLogger.js';
 
 /**
  * Hook to define and process slash commands (e.g., /help, /clear).
@@ -45,6 +50,7 @@ export const useSlashCommandProcessor = (
   addItem: UseHistoryManagerReturn['addItem'],
   clearItems: UseHistoryManagerReturn['clearItems'],
   loadHistory: UseHistoryManagerReturn['loadHistory'],
+  history: HistoryItem[],
   refreshStatic: () => void,
   setShowHelp: React.Dispatch<React.SetStateAction<boolean>>,
   onDebugMessage: (message: string) => void,
@@ -80,9 +86,12 @@ export const useSlashCommandProcessor = (
       return;
     }
     // Use the GitService instance from config to ensure singleton behavior
-    config.getGitService().then(setGitService).catch(() => {
-      setGitService(undefined);
-    });
+    config
+      .getGitService()
+      .then(setGitService)
+      .catch(() => {
+        setGitService(undefined);
+      });
   }, [config]);
 
   const logger = useMemo(() => {
@@ -173,6 +182,7 @@ export const useSlashCommandProcessor = (
         toggleCorgiMode,
         toggleVimEnabled,
         debugMessages: consoleMessages,
+        history,
       },
       session: {
         stats: session.stats,
@@ -197,6 +207,7 @@ export const useSlashCommandProcessor = (
       setPendingCompressionItem,
       toggleCorgiMode,
       toggleVimEnabled,
+      history,
     ],
   );
 
@@ -233,25 +244,64 @@ export const useSlashCommandProcessor = (
   // BUG修复: 避免文件路径被误判为斜杠命令
   // 修复策略: 动态获取已加载的命令，只有真正的命令才会被处理
   // 影响范围: packages/cli/src/ui/hooks/slashCommandProcessor.ts
-  const isValidSlashCommand = useCallback((input: string, commandList: readonly SlashCommand[]): boolean => {
-    // 🔧 修复：如果命令列表尚未加载完成（空数组），则先假定是有效命令
-    // 让后续的命令查找逻辑处理，避免在加载期间拒绝所有命令
-    if (commandList.length === 0) {
-      return true; // 命令列表未加载时，允许通过验证
-    }
+  const resolveCommandAlias = useCallback(
+    (input: string): { normalized: string; alias?: string } => {
+      const aliases = settings.merged.commandAliases;
+      if (!aliases) {
+        return { normalized: input };
+      }
 
-    // 提取第一个词（命令名）
-    const firstWord = input.substring(1).trim().split(/\s+/)[0];
+      const trimmed = input.trim();
+      if (!trimmed.startsWith('/')) {
+        return { normalized: input };
+      }
 
-    if (!firstWord) {
-      return false; // 空命令不是有效命令
-    }
+      const parts = trimmed.substring(1).trim().split(/\s+/).filter(Boolean);
+      if (parts.length === 0) {
+        return { normalized: input };
+      }
 
-    // 动态检查：遍历实际加载的命令列表（包括主命令名和别名）
-    return commandList.some(cmd =>
-      cmd.name === firstWord || cmd.altNames?.includes(firstWord)
-    );
-  }, []);
+      const aliasValue = aliases[parts[0]];
+      if (!aliasValue) {
+        return { normalized: input };
+      }
+
+      const aliasCommand = aliasValue.trim().startsWith('/')
+        ? aliasValue.trim().slice(1)
+        : aliasValue.trim();
+      const aliasParts = aliasCommand.split(/\s+/).filter(Boolean);
+      if (aliasParts.length === 0) {
+        return { normalized: input };
+      }
+
+      const merged = [...aliasParts, ...parts.slice(1)];
+      return { normalized: `/${merged.join(' ')}`, alias: parts[0] };
+    },
+    [settings.merged.commandAliases],
+  );
+
+  const isValidSlashCommand = useCallback(
+    (input: string, commandList: readonly SlashCommand[]): boolean => {
+      // 🔧 修复：如果命令列表尚未加载完成（空数组），则先假定是有效命令
+      // 让后续的命令查找逻辑处理，避免在加载期间拒绝所有命令
+      if (commandList.length === 0) {
+        return true; // 命令列表未加载时，允许通过验证
+      }
+
+      // 提取第一个词（命令名）
+      const firstWord = input.substring(1).trim().split(/\s+/)[0];
+
+      if (!firstWord) {
+        return false; // 空命令不是有效命令
+      }
+
+      // 动态检查：遍历实际加载的命令列表（包括主命令名和别名）
+      return commandList.some(
+        (cmd) => cmd.name === firstWord || cmd.altNames?.includes(firstWord),
+      );
+    },
+    [],
+  );
 
   const handleSlashCommand = useCallback(
     async (
@@ -266,9 +316,11 @@ export const useSlashCommandProcessor = (
         return false;
       }
 
+      const { normalized } = resolveCommandAlias(trimmed);
+
       // 🆕 新增：智能命令验证
       // 只有在已知命令列表中的才认为是有效命令，避免文件路径被误判
-      if (!isValidSlashCommand(trimmed, commands)) {
+      if (!isValidSlashCommand(normalized, commands)) {
         return false; // 不是有效命令，让其作为普通文本处理
       }
 
@@ -276,7 +328,7 @@ export const useSlashCommandProcessor = (
       const userMessageTimestamp = Date.now();
       addItem({ type: MessageType.USER, text: trimmed }, userMessageTimestamp);
 
-      const parts = trimmed.substring(1).trim().split(/\s+/);
+      const parts = normalized.substring(1).trim().split(/\s+/);
       const commandPath = parts.filter((p) => p); // The parts of the command, e.g., ['memory', 'add']
 
       let currentCommands = commands;
@@ -424,7 +476,7 @@ export const useSlashCommandProcessor = (
                   });
                   // Linus fix: 会话恢复后触发Static刷新，确保UI显示恢复的内容
                   refreshStatic();
-                  console.log('🔄 Static refreshed after chat resume');
+                  logDebug('Static refreshed after chat resume');
                   return { type: 'handled' };
                 }
                 case 'switch_session': {
@@ -432,12 +484,12 @@ export const useSlashCommandProcessor = (
                   // 更新全局sessionId
                   if (config && result.sessionId) {
                     config.setSessionId(result.sessionId);
-                    console.log(`🔄 Switched to session: ${result.sessionId}`);
+                    logDebug(`Switched to session: ${result.sessionId}`);
                   }
 
                   // 重置统计数据到新session的状态
                   session.resetStats();
-                  console.log(`📊 Stats reset for new session: ${result.sessionId}`);
+                  logDebug(`Stats reset for new session: ${result.sessionId}`);
 
                   // 设置客户端历史记录
                   await config
@@ -452,7 +504,9 @@ export const useSlashCommandProcessor = (
 
                   // 触发Static刷新
                   refreshStatic();
-                  console.log(`🔄 Session switched and static refreshed: ${result.sessionId}`);
+                  logDebug(
+                    `Session switched and static refreshed: ${result.sessionId}`,
+                  );
                   return { type: 'handled' };
                 }
                 case 'quit':
@@ -596,22 +650,22 @@ export const useSlashCommandProcessor = (
       });
       return { type: 'handled' };
     },
-      [
-    config,
-    addItem,
-    setShowHelp,
-    openAuthDialog,
-    openLoginDialog,
-    commands,
-    commandContext,
-    addMessage,
-    openThemeDialog,
-    openModelDialog,
-    openPrivacyNotice,
-    openEditorDialog,
-    setQuittingMessages,
-    isValidSlashCommand, // 🆕 添加新的验证函数依赖
-  ],
+    [
+      config,
+      addItem,
+      setShowHelp,
+      openAuthDialog,
+      openLoginDialog,
+      commands,
+      commandContext,
+      addMessage,
+      openThemeDialog,
+      openModelDialog,
+      openPrivacyNotice,
+      openEditorDialog,
+      setQuittingMessages,
+      isValidSlashCommand, // 🆕 添加新的验证函数依赖
+    ],
   );
 
   return {

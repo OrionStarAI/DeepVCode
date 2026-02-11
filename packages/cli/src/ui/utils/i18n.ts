@@ -5,7 +5,6 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-
 import * as os from 'os';
 
 /**
@@ -14,11 +13,10 @@ import * as os from 'os';
 export const getCancelKeyHint = (): string => {
   // 检测IDEA环境
   const isIDEATerminal = !!(
-    process.env.TERMINAL_EMULATOR && (
-      process.env.TERMINAL_EMULATOR.includes('JetBrains') ||
-      process.env.TERMINAL_EMULATOR.includes('IntelliJ') ||
-      process.env.TERMINAL_EMULATOR.includes('IDEA')
-    ) ||
+    (process.env.TERMINAL_EMULATOR &&
+      (process.env.TERMINAL_EMULATOR.includes('JetBrains') ||
+        process.env.TERMINAL_EMULATOR.includes('IntelliJ') ||
+        process.env.TERMINAL_EMULATOR.includes('IDEA'))) ||
     process.env.IDEA_INITIAL_DIRECTORY ||
     process.env.JETBRAINS_IDE ||
     (process.env.TERM_PROGRAM && process.env.TERM_PROGRAM.includes('jetbrains'))
@@ -45,11 +43,10 @@ export const getCancelConfirmationText = (): string => {
 export const getInputCancelHint = (): string => {
   // 检测IDEA环境
   const isIDEATerminal = !!(
-    process.env.TERMINAL_EMULATOR && (
-      process.env.TERMINAL_EMULATOR.includes('JetBrains') ||
-      process.env.TERMINAL_EMULATOR.includes('IntelliJ') ||
-      process.env.TERMINAL_EMULATOR.includes('IDEA')
-    ) ||
+    (process.env.TERMINAL_EMULATOR &&
+      (process.env.TERMINAL_EMULATOR.includes('JetBrains') ||
+        process.env.TERMINAL_EMULATOR.includes('IntelliJ') ||
+        process.env.TERMINAL_EMULATOR.includes('IDEA'))) ||
     process.env.IDEA_INITIAL_DIRECTORY ||
     process.env.JETBRAINS_IDE ||
     (process.env.TERM_PROGRAM && process.env.TERM_PROGRAM.includes('jetbrains'))
@@ -82,7 +79,10 @@ function detectChineseLocale(): boolean {
     const env = process.env;
     const locale = env.LC_ALL || env.LC_CTYPE || env.LANG || '';
 
-    if (locale.toLowerCase().includes('zh') || locale.toLowerCase().includes('chinese')) {
+    if (
+      locale.toLowerCase().includes('zh') ||
+      locale.toLowerCase().includes('chinese')
+    ) {
       return true;
     }
 
@@ -108,9 +108,12 @@ export async function refreshLocaleAsync(): Promise<void> {
       const { promisify } = await import('node:util');
       const execAsync = promisify(exec);
 
-      const { stdout } = await execAsync('powershell -Command "Get-Culture | Select-Object -ExpandProperty Name"', {
-        timeout: 5000
-      });
+      const { stdout } = await execAsync(
+        'powershell -Command "Get-Culture | Select-Object -ExpandProperty Name"',
+        {
+          timeout: 5000,
+        },
+      );
 
       if (stdout.toLowerCase().includes('zh')) {
         _cachedIsChineseLocale = true;
@@ -161,8 +164,10 @@ export const translations = {
     'update.next.check.at': '⏰ Next check: {time} ({hours}h later)',
     'update.next.check.simple': '⏰ Next check: {time}',
     'update.using.cache': '💾 Using cached result',
-    'update.cache.expired.checking': '🔄 Cache expired, checking for updates...',
-    'update.first.check.or.version.changed': '🔄 First check or version changed...',
+    'update.cache.expired.checking':
+      '🔄 Cache expired, checking for updates...',
+    'update.first.check.or.version.changed':
+      '🔄 First check or version changed...',
     'update.checking': '🔍 Checking for updates...',
     'update.debug.package.name': 'Package name',
     'update.debug.current.version': 'Current version',
@@ -174,53 +179,71 @@ export const translations = {
     'update.check.failed.generic': '❌ Update check failed: {error}',
     'update.found.new.version': '🎉 New version found: {current} → {latest}',
     'update.current.latest': '✅ You are on the latest version',
-    'update.current.latest.full': '✅ You are on the latest version, no update needed',
+    'update.current.latest.full':
+      '✅ You are on the latest version, no update needed',
     'update.force.message.header': 'DeepV Code must be updated to continue!',
     'update.available.message.header': 'A new version is available!',
     'update.version.line': 'Current: {current} → Latest: {latest}',
     'update.command.line': '📋 Command: {command}',
-    'update.after.success.exit': 'After the update completes, the application will exit.',
+    'update.after.success.exit':
+      'After the update completes, the application will exit.',
     'update.auto.exec.start': '🚀 Running automatic update...',
     'update.auto.executing': '🚀 Executing automatic update (using -u flag)...',
     'update.completed': '✅ Update completed!',
     'update.failed.code': '❌ Update failed, exit code: {code}',
     'update.exec.command.error': '❌ Failed to execute update command: {error}',
+    'update.command.unsafe':
+      'Update command contains unsafe operators. Please run it manually.',
     'update.manual.run.hint': '💡 Please run the update command manually',
     'update.prompt.auto': '🤖 Automatically apply the update? (y/n): ',
     'update.prompt.now': '🤔 Update now? (y/n): ',
     'update.forced.title': '🚨 Forced update required',
     'update.available.title': '📢 Update available',
-    'update.success.restart': '🎉 Update complete! The program will exit. Please rerun dvcode',
-    'update.manual.then.rerun': '💡 Please run the update command manually, then rerun dvcode',
+    'update.success.restart':
+      '🎉 Update complete! The program will exit. Please rerun dvcode',
+    'update.manual.then.rerun':
+      '💡 Please run the update command manually, then rerun dvcode',
     'update.continue.current': '✨ Continuing with current version...',
     'update.force.checking': '🔄 Forcing update check...',
     // Session Summary
-    'agent.powering.down': 'Thanks for using DeepV Code! Run dvcode -c to continue.',
+    'agent.powering.down':
+      'Thanks for using DeepV Code! Run dvcode -c to continue.',
 
     // Input Prompt
     'input.placeholder.base': 'Type your message or @filepath',
-    'input.placeholder.help_ask': 'Ask how to use this program? Press esc to exit help mode',
-    'input.hint.newline.win32': 'Ctrl+Enter: newline, Ctrl+X: editor, Esc: cancel',
-    'input.hint.newline.win32.vscode': 'Shift+Enter: newline, Ctrl+X: editor, Esc: cancel',
-    'input.hint.newline.win32.idea': 'Ctrl+J: newline, Ctrl+X: editor, Esc: cancel',
+    'input.placeholder.help_ask':
+      'Ask how to use this program? Press esc to exit help mode',
+    'input.hint.newline.win32':
+      'Ctrl+Enter: newline, Ctrl+X: editor, Esc: cancel',
+    'input.hint.newline.win32.vscode':
+      'Shift+Enter: newline, Ctrl+X: editor, Esc: cancel',
+    'input.hint.newline.win32.idea':
+      'Ctrl+J: newline, Ctrl+X: editor, Esc: cancel',
     'input.hint.newline.darwin': 'Ctrl+J: newline, Ctrl+X: editor, Esc: cancel',
-    'input.hint.newline.darwin.vscode': 'Ctrl+J: newline, Ctrl+X: editor, Esc: cancel',
-    'input.hint.newline.darwin.idea': 'Ctrl+J: newline, Ctrl+X: editor, Esc: cancel',
+    'input.hint.newline.darwin.vscode':
+      'Ctrl+J: newline, Ctrl+X: editor, Esc: cancel',
+    'input.hint.newline.darwin.idea':
+      'Ctrl+J: newline, Ctrl+X: editor, Esc: cancel',
     'input.hint.newline.linux': 'Ctrl+J: newline, Ctrl+X: editor, Esc: cancel',
-    'input.hint.newline.linux.idea': 'Ctrl+J: newline, Ctrl+X: editor, Esc: cancel',
-    'input.hint.newline.default': 'Ctrl+J: newline, Ctrl+X: editor, Esc: cancel',
+    'input.hint.newline.linux.idea':
+      'Ctrl+J: newline, Ctrl+X: editor, Esc: cancel',
+    'input.hint.newline.default':
+      'Ctrl+J: newline, Ctrl+X: editor, Esc: cancel',
 
     // Cancel hints
     'input.hint.cancel.default': 'esc: cancel',
     'input.hint.cancel.win32.idea': 'ctrl+q: cancel',
     'input.hint.cancel.darwin.idea': 'ctrl+q: cancel',
     'input.hint.cancel.linux.idea': 'ctrl+q: cancel',
-    'input.paste.detected': 'Detected {count} long text paste segments, showing summary in input. Full content will be used when sent.',
+    'input.paste.detected':
+      'Detected {count} long text paste segments, showing summary in input. Full content will be used when sent.',
     'input.paste.segment': 'Segment {index}: {lines} lines',
     'input.paste.clipboard.image': '🖼️ Pasting image from clipboard...',
     'input.paste.unified.hotkey': 'Ctrl+V for unified paste (image or text)',
-    'input.paste.vscode.recommendation': 'In VSCode terminal, use Ctrl+V for unified paste',
-    'input.queue.busy': '🤖 Model is still working; new prompts will be queued automatically.',
+    'input.paste.vscode.recommendation':
+      'In VSCode terminal, use Ctrl+V for unified paste',
+    'input.queue.busy':
+      '🤖 Model is still working; new prompts will be queued automatically.',
     'input.queue.working': 'Working (esc to interrupt)',
     'input.queue.edit.hint': 'ctrl + ↑ edit',
     'input.queue.edit.mode': 'Editing queue #{current}/{total}',
@@ -232,7 +255,8 @@ export const translations = {
     'input.queue.added': 'Queued #{position}: {preview}',
     'input.queue.cleared': '✅ Cleared {count} queued prompt(s)',
     'input.queue.empty': 'ℹ️ Queue is already empty',
-    'completion.clipboard.description': 'Paste clipboard content (image or text)',
+    'completion.clipboard.description':
+      'Paste clipboard content (image or text)',
 
     // Suggestions Display
     'suggestions.loading': 'Loading suggestions...',
@@ -339,22 +363,28 @@ export const translations = {
     'subagent.avg.latency': 'Avg Latency: ',
 
     // Task execution
-    'task.timeout.warning': '⚠️ Task execution timeout: Completed {turns} conversation turns but task remains unfinished',
-    'task.timeout.credits.notice': 'Continuing may consume additional credits. Please review carefully.',
+    'task.timeout.warning':
+      '⚠️ Task execution timeout: Completed {turns} conversation turns but task remains unfinished',
+    'task.timeout.credits.notice':
+      'Continuing may consume additional credits. Please review carefully.',
 
     // Conversation limits
-    'conversation.token.limit.warning': 'IMPORTANT: Context approaching limit. Conversation context will be compressed for future messages.\nIf you notice the model becomes less focused, use "/session new" to start a fresh conversation.',
+    'conversation.token.limit.warning':
+      'IMPORTANT: Context approaching limit. Conversation context will be compressed for future messages.\nIf you notice the model becomes less focused, use "/session new" to start a fresh conversation.',
 
     // Tool Names
     'tool.edit': 'Edit',
     'tool.ppt_generate': 'PPT Generate',
-    'tool.ppt_generate.description': 'Submit PPT outline and start generation task.\n\nThis tool will perform the following operations:\n1. Submit the current outline to the server\n2. Start the PPT generation task\n3. Automatically open browser to the PPT editing preview page\n4. Exit PPT editing mode\n\nMake sure to set the outline content (topic, page count, outline text) via ppt_outline tool before calling.',
+    'tool.ppt_generate.description':
+      'Submit PPT outline and start generation task.\n\nThis tool will perform the following operations:\n1. Submit the current outline to the server\n2. Start the PPT generation task\n3. Automatically open browser to the PPT editing preview page\n4. Exit PPT editing mode\n\nMake sure to set the outline content (topic, page count, outline text) via ppt_outline tool before calling.',
     'ppt_generate.param.confirm': 'Confirm submission (default true)',
     'tool.ppt_outline': 'PPT Outline',
-    'tool.ppt_outline.description': 'Manage PPT outline content. Supports the following actions:\n- init: Initialize PPT editing mode, start creating new PPT\n- update: Update outline content (topic, page count, outline text)\n- view: View current outline state\n- clear: Clear current outline and exit PPT mode',
+    'tool.ppt_outline.description':
+      'Manage PPT outline content. Supports the following actions:\n- init: Initialize PPT editing mode, start creating new PPT\n- update: Update outline content (topic, page count, outline text)\n- view: View current outline state\n- clear: Clear current outline and exit PPT mode',
 
     // Web Search
-    'websearch.results.returned': 'Search results for "{query}" returned.{truncated}',
+    'websearch.results.returned':
+      'Search results for "{query}" returned.{truncated}',
     'websearch.results.truncated': ' (Content truncated)',
     'tool.readfile': 'ReadFile',
     'tool.writefile': 'WriteFile',
@@ -371,7 +401,8 @@ export const translations = {
     'tool.task': 'Task',
 
     // Shell output
-    'shell.output.truncated': '... (showing last {maxLines} lines, {totalLines} lines total)',
+    'shell.output.truncated':
+      '... (showing last {maxLines} lines, {totalLines} lines total)',
 
     // Background task
     'shell.background.hint': 'ctrl+b to run in background',
@@ -388,7 +419,6 @@ export const translations = {
 
     // Text Truncator
     'text_truncator.omitted_lines': '[ ... {count} lines omitted ... ]',
-
 
     // IDE Connection
     'ide.connected': '• IDE Connected',
@@ -417,64 +447,95 @@ export const translations = {
 
     // Tool Confirmation Messages
     'tool.confirmation.modifying': 'Modification in progress:',
-    'tool.confirmation.save.editor': 'Save and close external editor to continue',
+    'tool.confirmation.save.editor':
+      'Save and close external editor to continue',
     'tool.confirmation.apply.changes': 'Apply this change?',
     'tool.confirmation.once': 'Yes, allow once',
     'tool.confirmation.type.always': 'Yes, always allow this type of tool',
-    'tool.confirmation.project.always': 'Yes, always allow all tools in this project',
+    'tool.confirmation.project.always':
+      'Yes, always allow all tools in this project',
     'tool.confirmation.modify.editor': 'Modify with external editor',
-    'tool.confirmation.cancel': 'No ({cancelKey}), tell DeepV Code your thoughts',
-    'tool.confirmation.execute': 'Allow execution: \'{command}\'?',
+    'tool.confirmation.cancel':
+      'No ({cancelKey}), tell DeepV Code your thoughts',
+    'tool.confirmation.execute': "Allow execution: '{command}'?",
     'tool.confirmation.type.always.exec': 'Yes, always allow this type',
     'tool.confirmation.continue': 'Do you want to continue?',
     'tool.confirmation.urls.label': 'URLs to fetch:',
     'tool.confirmation.mcp.server': 'MCP Server:',
     'tool.confirmation.mcp.tool': 'Tool:',
-    'tool.confirmation.mcp.execute': 'Allow execution of MCP tool "{toolName}" (from server "{serverName}")?',
-    'tool.confirmation.mcp.tool.always': 'Yes, always allow tool "{toolName}" from server "{serverName}"',
-    'tool.confirmation.mcp.server.always': 'Yes, always allow all tools from server "{serverName}"',
+    'tool.confirmation.mcp.execute':
+      'Allow execution of MCP tool "{toolName}" (from server "{serverName}")?',
+    'tool.confirmation.mcp.tool.always':
+      'Yes, always allow tool "{toolName}" from server "{serverName}"',
+    'tool.confirmation.mcp.server.always':
+      'Yes, always allow all tools from server "{serverName}"',
     'tool.confirmation.delete.file': 'Delete this file?',
 
     // Git error messages
     'git.error.old.version.title': 'Git Version Too Old',
-    'git.error.old.version.message': 'Your Git version does not support the "--initial-branch" option required for checkpointing.',
-    'git.error.old.version.impact': 'Impact: File checkpointing and snapshot features will be disabled.',
-    'git.error.old.version.solution': 'Solution: Please upgrade Git to version 2.28+ or disable checkpointing in settings.',
-    'git.error.old.version.continuing': 'The CLI will continue running with checkpointing disabled.',
+    'git.error.old.version.message':
+      'Your Git version does not support the "--initial-branch" option required for checkpointing.',
+    'git.error.old.version.impact':
+      'Impact: File checkpointing and snapshot features will be disabled.',
+    'git.error.old.version.solution':
+      'Solution: Please upgrade Git to version 2.28+ or disable checkpointing in settings.',
+    'git.error.old.version.continuing':
+      'The CLI will continue running with checkpointing disabled.',
     'git.error.not.available.title': 'Git Not Available',
-    'git.error.not.available.message': 'Git is not installed or not available in PATH.',
-    'git.error.not.available.impact': 'Impact: File checkpointing and snapshot features will be disabled.',
-    'git.error.not.available.solution': 'Solution: Please install Git or disable checkpointing in settings.',
-    'git.error.not.available.continuing': 'The CLI will continue running with checkpointing disabled.',
+    'git.error.not.available.message':
+      'Git is not installed or not available in PATH.',
+    'git.error.not.available.impact':
+      'Impact: File checkpointing and snapshot features will be disabled.',
+    'git.error.not.available.solution':
+      'Solution: Please install Git or disable checkpointing in settings.',
+    'git.error.not.available.continuing':
+      'The CLI will continue running with checkpointing disabled.',
     'git.error.init.failed.title': 'Git Initialization Failed',
-    'git.error.init.failed.message': 'Failed to initialize Git repository for checkpointing: {error}',
-    'git.error.init.failed.impact': 'Impact: File checkpointing and snapshot features will be disabled.',
-    'git.error.init.failed.solution': 'Solution: Check Git installation and permissions, or disable checkpointing.',
-    'git.error.init.failed.continuing': 'The CLI will continue running with checkpointing disabled.',
+    'git.error.init.failed.message':
+      'Failed to initialize Git repository for checkpointing: {error}',
+    'git.error.init.failed.impact':
+      'Impact: File checkpointing and snapshot features will be disabled.',
+    'git.error.init.failed.solution':
+      'Solution: Check Git installation and permissions, or disable checkpointing.',
+    'git.error.init.failed.continuing':
+      'The CLI will continue running with checkpointing disabled.',
 
     // Checkpoint messages
     'checkpoint.creating': 'Creating auto checkpoint...',
-    'checkpoint.created.success': 'Checkpoint created.\n   Use \x1b[36m/restore {checkpointId}\x1b[32m to restore to this checkpoint\n',
+    'checkpoint.created.success':
+      'Checkpoint created.\n   Use \x1b[36m/restore {checkpointId}\x1b[32m to restore to this checkpoint\n',
     'checkpoint.created.failed': 'Failed to create checkpoint: {error}',
-    'checkpoint.creation.skipped': 'Subsequent auto checkpoint attempts will be skipped for this conversation',
+    'checkpoint.creation.skipped':
+      'Subsequent auto checkpoint attempts will be skipped for this conversation',
 
     // Checkpoint CLI command
     'checkpoint.command.description': 'Manage checkpoint history',
-    'checkpoint.command.require.subcommand': 'You need to specify a subcommand. Use --help to see available commands.',
-    'checkpoint.clean.description': 'Clean all checkpoint history to free disk space',
+    'checkpoint.command.require.subcommand':
+      'You need to specify a subcommand. Use --help to see available commands.',
+    'checkpoint.clean.description':
+      'Clean all checkpoint history to free disk space',
     'checkpoint.clean.force.description': 'Skip confirmation prompt',
-    'checkpoint.clean.dryrun.description': 'Show what would be deleted without actually deleting',
-    'checkpoint.clean.no.history': '✅ No checkpoint history found. Nothing to clean.',
-    'checkpoint.clean.no.checkpoints': '✅ Checkpoint history directory is empty. Nothing to clean.',
-    'checkpoint.clean.summary': '📊 Checkpoint History Summary:\n   Projects: {count}\n   Total Size: {size}\n   Location: {path}',
-    'checkpoint.clean.dryrun.notice': '\n🔍 Dry run mode - no files were deleted.',
-    'checkpoint.clean.confirm': '\n⚠️  This will permanently delete all checkpoint history.\nAre you sure? (y/N): ',
+    'checkpoint.clean.dryrun.description':
+      'Show what would be deleted without actually deleting',
+    'checkpoint.clean.no.history':
+      '✅ No checkpoint history found. Nothing to clean.',
+    'checkpoint.clean.no.checkpoints':
+      '✅ Checkpoint history directory is empty. Nothing to clean.',
+    'checkpoint.clean.summary':
+      '📊 Checkpoint History Summary:\n   Projects: {count}\n   Total Size: {size}\n   Location: {path}',
+    'checkpoint.clean.dryrun.notice':
+      '\n🔍 Dry run mode - no files were deleted.',
+    'checkpoint.clean.confirm':
+      '\n⚠️  This will permanently delete all checkpoint history.\nAre you sure? (y/N): ',
     'checkpoint.clean.cancelled': '❌ Operation cancelled.',
     'checkpoint.clean.deleting': '🗑️  Deleting checkpoint history...',
-    'checkpoint.clean.success': '✅ Successfully cleaned checkpoint history. Freed {size} of disk space.',
+    'checkpoint.clean.success':
+      '✅ Successfully cleaned checkpoint history. Freed {size} of disk space.',
     'checkpoint.clean.error': '❌ Error cleaning checkpoint history: {error}',
-    'checkpoint.history.large.warning': '⚠️  Checkpoint history is quite large ({size}).',
-    'checkpoint.history.large.question': 'Would you like to clean it now to free up space? (y/N): ',
+    'checkpoint.history.large.warning':
+      '⚠️  Checkpoint history is quite large ({size}).',
+    'checkpoint.history.large.question':
+      'Would you like to clean it now to free up space? (y/N): ',
 
     // Diff display messages
     'diff.new.file': '📄 New file',
@@ -488,16 +549,24 @@ export const translations = {
     'diff.test.completed': 'Test completed ✅',
 
     // Startup Warnings
-    'startup.warning.home.directory': 'You are running DeepV Code CLI in your home directory. It is recommended to run in a project-specific directory.',
-    'startup.warning.root.directory': 'Warning: You are running DeepV Code CLI in the root directory. Your entire folder structure will be used for context. It is strongly recommended to run in a project-specific directory.',
-    'startup.warning.filesystem.error': 'Could not verify the current directory due to a file system error.',
-    'startup.warning.custom.proxy.server': '🔗 Custom server: {url}\n   Please verify trustworthiness and monitor your API usage.',
-    'startup.warning.low.credits': '⚠️  Your remaining credits are running low ({percentage}% left). Please consider purchasing more credits to continue using the service.',
+    'startup.warning.home.directory':
+      'You are running DeepV Code CLI in your home directory. It is recommended to run in a project-specific directory.',
+    'startup.warning.root.directory':
+      'Warning: You are running DeepV Code CLI in the root directory. Your entire folder structure will be used for context. It is strongly recommended to run in a project-specific directory.',
+    'startup.warning.filesystem.error':
+      'Could not verify the current directory due to a file system error.',
+    'startup.warning.custom.proxy.server':
+      '🔗 Custom server: {url}\n   Please verify trustworthiness and monitor your API usage.',
+    'startup.warning.low.credits':
+      '⚠️  Your remaining credits are running low ({percentage}% left). Please consider purchasing more credits to continue using the service.',
 
     // DeepX Quota Error Messages
-    'deepx.quota.no.configuration': '─────────────────────────────────────────────────────\n🚫 Your account\'s available Credits are insufficient to continue using this service\n💡 Please consider subscribing to a higher quota plan. Details: https://dvcode.deepvlab.ai/\n\n\x1b[33m🎁 For free trial opportunities, contact our Boss: https://x.com/fusheng_0306\x1b[0m\n─────────────────────────────────────────────────────',
-    'deepx.quota.exceeded.with.upgrade': '🚫 Daily {limitType} limit reached for {model}\n💡 Please upgrade your plan at: https://dvcode.deepvlab.ai/',
-    'deepx.quota.exceeded.default': '🚫 Service quota exceeded\n💡 Please upgrade your plan at: https://dvcode.deepvlab.ai/',
+    'deepx.quota.no.configuration':
+      "─────────────────────────────────────────────────────\n🚫 Your account's available Credits are insufficient to continue using this service\n💡 Please consider subscribing to a higher quota plan. Details: https://dvcode.deepvlab.ai/\n\n\x1b[33m🎁 For free trial opportunities, contact our Boss: https://x.com/fusheng_0306\x1b[0m\n─────────────────────────────────────────────────────",
+    'deepx.quota.exceeded.with.upgrade':
+      '🚫 Daily {limitType} limit reached for {model}\n💡 Please upgrade your plan at: https://dvcode.deepvlab.ai/',
+    'deepx.quota.exceeded.default':
+      '🚫 Service quota exceeded\n💡 Please upgrade your plan at: https://dvcode.deepvlab.ai/',
     'deepx.quota.limit.token': 'token limit',
     'deepx.quota.limit.request': 'request limit',
     'deepx.quota.limit.cost': 'cost limit',
@@ -509,28 +578,37 @@ export const translations = {
     'model.command.available.models': 'Available models',
     'model.command.from.server': '(from server)',
     'model.command.from.cache': '(from cache)',
-    'model.command.usage.instruction.set': 'Use /model <model name> to set preferred model.',
-    'model.command.usage.instruction.set.friendly': '💡 Tip: Type /model then press SPACE or TAB to see model options, select your preferred model, then press ENTER.',
+    'model.command.usage.instruction.set':
+      'Use /model <model name> to set preferred model.',
+    'model.command.usage.instruction.set.friendly':
+      '💡 Tip: Type /model then press SPACE or TAB to see model options, select your preferred model, then press ENTER.',
     'model.command.current.preferred': 'Current preferred model: {model}',
-    'model.command.usage.instruction.change': 'Use /model <model name> to change model.',
-    'model.command.usage.instruction.change.friendly': '💡 Tip: Type /model then press SPACE or TAB to see model options, select your preferred model, then press ENTER.',
+    'model.command.usage.instruction.change':
+      'Use /model <model name> to change model.',
+    'model.command.usage.instruction.change.friendly':
+      '💡 Tip: Type /model then press SPACE or TAB to see model options, select your preferred model, then press ENTER.',
     'model.command.invalid.model': 'Invalid model: {model}',
     'model.command.switching': 'Switching to model {model}, please wait...',
     'model.command.set.success': '✅ Preferred model set to: {model}',
     'model.command.credit.cost': '💰 Cost per request: {credits}x credits',
-    'model.command.credit.cost.long.context': '💰 Long context (>{threshold} tokens): {credits}x credits',
+    'model.command.credit.cost.long.context':
+      '💰 Long context (>{threshold} tokens): {credits}x credits',
     'model.command.long.context.short': 'long context >{threshold}: {credits}x',
-    'model.command.auto.mode': '🤖 Server will automatically select the most suitable model based on request type',
-    'model.command.hint.press.enter': 'Press Enter to select a model (Ctrl+L works anytime)',
+    'model.command.auto.mode':
+      '🤖 Server will automatically select the most suitable model based on request type',
+    'model.command.hint.press.enter':
+      'Press Enter to select a model (Ctrl+L works anytime)',
     'model.command.not.logged.in': '❌ You are not logged in.',
-    'model.command.please.login': '💡 Please use /auth to login to your account first.',
+    'model.command.please.login':
+      '💡 Please use /auth to login to your account first.',
 
     // Model Dialog Messages
     'model.dialog.title': 'Select AI Model',
     'model.dialog.current': 'Current: {model}',
     'model.dialog.total': 'Total {count} models available',
     'model.dialog.loading': 'Loading model list...',
-    'model.dialog.error.not.logged.in': 'You are not logged in. Please use /auth command to login first.',
+    'model.dialog.error.not.logged.in':
+      'You are not logged in. Please use /auth command to login first.',
     'model.dialog.error.load.failed': 'Failed to load model list: {error}',
     'model.dialog.details.title': 'Model Details',
     'model.dialog.details.name': 'Name: ',
@@ -557,17 +635,20 @@ export const translations = {
     'model.management.delete.hint': '(Press Enter to delete, ESC to cancel)',
     'model.management.delete.hint.back': '(Press ESC to go back)',
     'model.management.delete.confirm.title': '⚠️  Confirm Deletion',
-    'model.management.delete.confirm.message': 'Are you sure you want to delete "{model}"?',
+    'model.management.delete.confirm.message':
+      'Are you sure you want to delete "{model}"?',
     'model.management.delete.confirm.yes': 'Yes, delete it',
     'model.management.delete.confirm.no': 'No, keep it',
 
     // Tips Component Messages
     'tips.guide.title': 'User Guide:',
     'tips.guide.step1': '1. Ask questions, edit files, or run commands.',
-    'tips.guide.step2': '2. The more specific your description, the better the results.',
+    'tips.guide.step2':
+      '2. The more specific your description, the better the results.',
     'tips.guide.step3': '3. Create',
     'tips.guide.deepv.file': 'DEEPV.md',
-    'tips.guide.step3.suffix': 'file to customize your interaction with DeepV Code.',
+    'tips.guide.step3.suffix':
+      'file to customize your interaction with DeepV Code.',
     'tips.guide.help': '/help',
     'tips.guide.help.suffix': 'for more information.',
 
@@ -581,18 +662,26 @@ export const translations = {
     // DeepVlab Authentication
     'auth.deepvlab.login.title': '🔐 DeepVlab Unified Login',
     'auth.deepvlab.login.button': '🌐 DeepVlab Unified Login',
-    'auth.deepvlab.login.description': 'Click the button below to complete the login process',
-    'auth.deepvlab.starting': '🚀 Starting DeepVlab unified authentication process, please wait...',
+    'auth.deepvlab.login.description':
+      'Click the button below to complete the login process',
+    'auth.deepvlab.starting':
+      '🚀 Starting DeepVlab unified authentication process, please wait...',
     'auth.deepvlab.success': '✅ DeepVlab authentication successful!',
-    'auth.deepvlab.failed': '❌ DeepVlab authentication failed, please try again.',
+    'auth.deepvlab.failed':
+      '❌ DeepVlab authentication failed, please try again.',
     'auth.deepvlab.error': '❌ Error during DeepVlab authentication: {error}',
-    'auth.deepvlab.config.success': '✅ DeepVlab authentication successful! Configuring Cheeth OA proxy mode...',
-    'auth.deepvlab.config.error': 'DeepVlab authentication successful, but proxy configuration error:\n{error}',
-    'auth.deepvlab.server.started': '✅ DeepVlab unified authentication server started, please complete authentication in your browser...',
-    'auth.deepvlab.server.error': '❌ Failed to start DeepVlab authentication: {error}',
+    'auth.deepvlab.config.success':
+      '✅ DeepVlab authentication successful! Configuring Cheeth OA proxy mode...',
+    'auth.deepvlab.config.error':
+      'DeepVlab authentication successful, but proxy configuration error:\n{error}',
+    'auth.deepvlab.server.started':
+      '✅ DeepVlab unified authentication server started, please complete authentication in your browser...',
+    'auth.deepvlab.server.error':
+      '❌ Failed to start DeepVlab authentication: {error}',
     'auth.deepvlab.page.title': 'DeepVlab Authentication Successful',
     'auth.deepvlab.page.success': '✅ DeepVlab Authentication Successful!',
-    'auth.deepvlab.browser.url': 'If the browser doesn\'t open automatically, please visit: {url}',
+    'auth.deepvlab.browser.url':
+      "If the browser doesn't open automatically, please visit: {url}",
     'auth.deepvlab.cancel.hint': 'Press ESC to cancel authentication',
     'auth.deepvlab.cancelled': 'Authentication cancelled',
     'auth.option.deepvlab': 'Press Enter to sign in to DeepV Code',
@@ -602,22 +691,29 @@ export const translations = {
     'welcome.title': '🎉 Welcome to DeepV Code! ✨',
     'welcome.subtitle': '🚀 Start your intelligent coding journey 💻',
     'welcome.daily.tip.title': 'Daily Tip',
-    'welcome.daily.tip.more': 'Type /help for traditional help, /help-ask for AI-guided help',
+    'welcome.daily.tip.more':
+      'Type /help for traditional help, /help-ask for AI-guided help',
     'auth.dialog.title': 'Get Started',
-    'auth.dialog.authenticating': '(Authentication in progress, please wait...)',
+    'auth.dialog.authenticating':
+      '(Authentication in progress, please wait...)',
     'auth.dialog.select.hint': '(Press Enter to select)',
     'auth.dialog.how.to.authenticate': 'Please log in to continue',
-    'auth.tokenExpiredPrompt': '⚠️  Login credentials have expired. Please use /auth command to re-login.',
+    'auth.tokenExpiredPrompt':
+      '⚠️  Login credentials have expired. Please use /auth command to re-login.',
 
     // MCP Command Messages
-    'mcp.first.start.hint': 'Note: The first launch may take longer. Tool availability will update automatically.',
+    'mcp.first.start.hint':
+      'Note: The first launch may take longer. Tool availability will update automatically.',
     'mcp.starting': 'Starting...',
     'mcp.starting.first.launch': 'Starting... (first launch may take longer)',
-    'mcp.no.servers.opening.docs': 'No MCP servers configured. Opening documentation in browser: {url}',
+    'mcp.no.servers.opening.docs':
+      'No MCP servers configured. Opening documentation in browser: {url}',
 
     // Theme Command Messages
-    'theme.first.start.no.color': 'First launch detected, but theme configuration is unavailable due to NO_COLOR environment variable.',
-    'theme.first.start.select.style': '🎨 First launch detected, please select a theme style.',
+    'theme.first.start.no.color':
+      'First launch detected, but theme configuration is unavailable due to NO_COLOR environment variable.',
+    'theme.first.start.select.style':
+      '🎨 First launch detected, please select a theme style.',
     'theme.name': 'Theme',
     'theme.current': 'Current Theme: {theme} ({scope})',
     'theme.select': 'Select Theme',
@@ -633,19 +729,24 @@ export const translations = {
     'theme.hint.normal': '(Press Enter to select{tabHint})',
     'theme.hint.tab': ', press Tab to switch focus',
     'theme.error.not_found': 'Theme "{theme}" not found, please select again.',
-    'theme.error.scope_not_found': 'Theme "{theme}" not found in selected scope.',
+    'theme.error.scope_not_found':
+      'Theme "{theme}" not found in selected scope.',
 
     // Cloud mode authentication
     'cloud.auth.required': '❌ Authentication required for cloud mode',
     'cloud.auth.not.found': '❌ No authentication information found',
     'cloud.auth.token.invalid': '❌ No valid JWT access token',
-    'cloud.auth.starting': '🚀 Starting authentication process for cloud mode...',
+    'cloud.auth.starting':
+      '🚀 Starting authentication process for cloud mode...',
     'cloud.auth.success': '✅ Authentication successful! Cloud mode is ready.',
     'cloud.auth.complete.title': '🌐 Cloud Mode Authentication Complete',
-    'cloud.auth.complete.ready': '✅ Authentication successful! Your cloud environment is ready.',
+    'cloud.auth.complete.ready':
+      '✅ Authentication successful! Your cloud environment is ready.',
     'cloud.auth.complete.url': '🌍 Remote Access URL: {url}',
-    'cloud.auth.complete.share': '📱 Share this URL to access DeepV Code remotely from any device',
-    'cloud.auth.instruction': '💡 Please authenticate using the auth dialog that will open...',
+    'cloud.auth.complete.share':
+      '📱 Share this URL to access DeepV Code remotely from any device',
+    'cloud.auth.instruction':
+      '💡 Please authenticate using the auth dialog that will open...',
 
     // Cloud mode connection and health
     'cloud.connection.url': '🌐 Connection URL:',
@@ -656,18 +757,24 @@ export const translations = {
     'cloud.remote.message.failed': '❌ Request failed',
     'cloud.connection.retry': '🔄 Connection attempt {attempt}/{maxRetries}...',
     'cloud.connection.retry.delay': '⏳ Retrying in {delay} seconds...',
-    'cloud.connection.failed.max.retries': '❌ Cloud connection failed after {maxRetries} attempts',
+    'cloud.connection.failed.max.retries':
+      '❌ Cloud connection failed after {maxRetries} attempts',
     'cloud.auth.retry': '🔄 Authentication attempt {attempt}/{maxRetries}...',
-    'cloud.auth.failed.max.retries': '❌ Authentication failed after {maxRetries} attempts',
-    'cloud.health.check.started': '💓 Cloud connection health check started (every 30 seconds)',
-    'cloud.health.check.disconnected': '⚠️  Cloud connection interrupted, attempting to reconnect...',
+    'cloud.auth.failed.max.retries':
+      '❌ Authentication failed after {maxRetries} attempts',
+    'cloud.health.check.started':
+      '💓 Cloud connection health check started (every 30 seconds)',
+    'cloud.health.check.disconnected':
+      '⚠️  Cloud connection interrupted, attempting to reconnect...',
     'cloud.health.check.failed': '❌ Health check failed',
     'cloud.reconnect.success': '✅ Cloud reconnection successful',
     'cloud.reconnect.failed': '❌ Cloud reconnection failed',
-    'cloud.reconnect.full.retry': '🔄 Attempting full cloud connection reinitialization...',
+    'cloud.reconnect.full.retry':
+      '🔄 Attempting full cloud connection reinitialization...',
     'cloud.health.check.cleared': '💓 Health check timer cleared',
     'cloud.cli.register.success': '✅ CLI registration successful: {message}',
-    'cloud.remote.access.ready': '🌐 You can now access cloud mode from anywhere at: {url}',
+    'cloud.remote.access.ready':
+      '🌐 You can now access cloud mode from anywhere at: {url}',
 
     // Exit confirmation messages
     'exit.confirm.ctrl.c': 'Press Ctrl+C again to exit.',
@@ -677,25 +784,31 @@ export const translations = {
     'cloud.mode.starting': '☁️  Starting cloud mode...',
     'cloud.mode.connecting.to.server': '🌐 Connecting to cloud server: {url}',
     'cloud.mode.server.url': '🌐 Cloud server: {url}',
-    'cloud.mode.connecting.to.server.progress': '🔗 Connecting to cloud server...',
+    'cloud.mode.connecting.to.server.progress':
+      '🔗 Connecting to cloud server...',
     'cloud.mode.connection.successful': '✅ Cloud connection successful',
-    'cloud.mode.connection.attempt.failed': '❌ Cloud connection attempt {attempt} failed: {error}',
+    'cloud.mode.connection.attempt.failed':
+      '❌ Cloud connection attempt {attempt} failed: {error}',
     'cloud.mode.started.success': '✅ Cloud mode started successfully',
-    'cloud.mode.waiting.web.client': '📡 CLI connected to cloud server, waiting for web client connection...',
+    'cloud.mode.waiting.web.client':
+      '📡 CLI connected to cloud server, waiting for web client connection...',
     'cloud.mode.closed': '👋 Cloud mode closed',
     'cloud.mode.start.failed': '❌ Failed to start cloud mode: {error}',
 
     // Cloud auth user info
-    'cloud.auth.user.authenticated': '✅ [Cloud Auth] Authenticated user: {name} ({info})',
+    'cloud.auth.user.authenticated':
+      '✅ [Cloud Auth] Authenticated user: {name} ({info})',
     'cloud.user.info': '👤 User: {name} ({info})',
     'cloud.cli.id': '🆔 CLI ID: {cliId}',
 
     // Cloud connection states
     'cloud.connection.already.exists': '✅ Cloud connection already exists',
     'cloud.connection.waiting': '⏳ Waiting for connection to complete...',
-    'cloud.connection.established': '✅ Cloud connection established successfully',
+    'cloud.connection.established':
+      '✅ Cloud connection established successfully',
     'cloud.connection.failed': '❌ Connection failed: {error}',
-    'cloud.connection.normal.cancel.reconnect': '✅ Connection normal, canceling reconnect',
+    'cloud.connection.normal.cancel.reconnect':
+      '✅ Connection normal, canceling reconnect',
     'cloud.disconnecting': '📡 Disconnecting from cloud...',
     'cloud.disconnected': '✅ Cloud connection disconnected',
     'cloud.reconnecting': '🔄 Reconnecting to cloud...',
@@ -703,13 +816,15 @@ export const translations = {
     'cloud.reinit.no.url': '⚠️  cloudServerUrl not saved, cannot reinitialize',
     'cloud.reinit.failed': '❌ Full reinitialization also failed: {error}',
     'cloud.cleanup.existing': '🧹 Cleaning up existing cloud connection...',
-    'cloud.reconnect.scheduled': '🔄 Reconnecting in {delay} seconds (attempt {attempt})',
+    'cloud.reconnect.scheduled':
+      '🔄 Reconnecting in {delay} seconds (attempt {attempt})',
 
     // Stream interruption recovery
     'stream.interrupted': 'Connection hiccup detected',
     'stream.interrupted.prefix': '⚠️ Oops, connection hiccup!',
     'stream.interrupted.suffix': 'DeepV Code will resume in {seconds}s...',
-    'stream.continue.prompt': '[System] The previous response was interrupted due to a network issue. Please continue from where you left off.',
+    'stream.continue.prompt':
+      '[System] The previous response was interrupted due to a network issue. Please continue from where you left off.',
     'stream.autoRetry': 'Resuming',
 
     // Cloud WebSocket
@@ -719,83 +834,132 @@ export const translations = {
 
     // Cloud messages
     'cloud.message.handle.failed': '❌ Failed to handle cloud message: {error}',
-    'cloud.message.forward.local': '📨 Forwarding message to local processing: {type}',
-    'cloud.message.forward.failed': '❌ Failed to forward message to local server: {error}',
-    'cloud.send.unavailable': '⚠️  Cloud connection unavailable, message send failed',
+    'cloud.message.forward.local':
+      '📨 Forwarding message to local processing: {type}',
+    'cloud.message.forward.failed':
+      '❌ Failed to forward message to local server: {error}',
+    'cloud.send.unavailable':
+      '⚠️  Cloud connection unavailable, message send failed',
     'cloud.send.failed': '❌ Failed to send message to cloud: {error}',
 
     // Cloud sessions
-    'cloud.session.sync.triggered': '📋 [CloudClient] Manually triggered session sync',
+    'cloud.session.sync.triggered':
+      '📋 [CloudClient] Manually triggered session sync',
     'cloud.session.get.failed': '❌ Failed to get local sessions: {error}',
-    'cloud.session.count.failed': '❌ Failed to get active session count: {error}',
+    'cloud.session.count.failed':
+      '❌ Failed to get active session count: {error}',
     'session.cleaned.oldest': '🧹 Cleaned oldest session: {sessionId}',
     'session.created.new': '✨ Created new session: {sessionId}',
 
     // Cloud mode message handling
-    'cloud.mode.handle.message': '🌐 [CloudMode] Handling cloud message: {type}',
+    'cloud.mode.handle.message':
+      '🌐 [CloudMode] Handling cloud message: {type}',
     'cloud.mode.create.session': '🎯 [CloudMode] Creating new session...',
-    'cloud.mode.session.created': '✅ [CloudMode] Successfully created session: {sessionId}',
-    'cloud.mode.session.initialized': '✅ [CloudMode] Session initialized: {sessionId}',
-    'cloud.mode.session.not.exist': '❌ [CloudMode] Session does not exist: {sessionId}',
-    'cloud.mode.session.init.failed': '❌ [CloudMode] Session initialization failed: {sessionId}, {error}',
-    'cloud.mode.create.session.response': '✅ [CloudMode] CREATE_SESSION response sent to web {webId}: {status}',
+    'cloud.mode.session.created':
+      '✅ [CloudMode] Successfully created session: {sessionId}',
+    'cloud.mode.session.initialized':
+      '✅ [CloudMode] Session initialized: {sessionId}',
+    'cloud.mode.session.not.exist':
+      '❌ [CloudMode] Session does not exist: {sessionId}',
+    'cloud.mode.session.init.failed':
+      '❌ [CloudMode] Session initialization failed: {sessionId}, {error}',
+    'cloud.mode.create.session.response':
+      '✅ [CloudMode] CREATE_SESSION response sent to web {webId}: {status}',
     'cloud.mode.handle.command': '🎯 [CloudMode] Handling COMMAND message...',
-    'cloud.mode.command.no.session': '❌ [CloudMode] COMMAND message missing sessionId',
-    'cloud.mode.command.forward': '📨 [CloudMode] Forwarding COMMAND to session: {sessionId}',
-    'cloud.mode.command.success': '✅ [CloudMode] COMMAND processed successfully',
-    'cloud.mode.command.failed': '❌ [CloudMode] COMMAND processing failed: {error}',
-    'cloud.mode.handle.ui.state': '🎯 [CloudMode] Handling REQUEST_UI_STATE message...',
-    'cloud.mode.ui.state.no.session': '❌ [CloudMode] REQUEST_UI_STATE message missing sessionId',
-    'cloud.mode.ui.state.get': '📨 [CloudMode] Getting session UI state: {sessionId}',
-    'cloud.mode.ui.state.sent': '✅ [CloudMode] UI state response sent to web {webId}',
-    'cloud.mode.ui.state.failed': '❌ [CloudMode] Failed to get UI state: {error}',
-    'cloud.mode.handle.interrupt': '🛑 [CloudMode] Handling INTERRUPT message...',
-    'cloud.mode.interrupt.no.session': '❌ [CloudMode] INTERRUPT message missing sessionId',
-    'cloud.mode.interrupt.session': '🛑 [CloudMode] Interrupting session: {sessionId}',
-    'cloud.mode.interrupt.success': '✅ [CloudMode] Session interrupted successfully',
-    'cloud.mode.interrupt.failed': '❌ [CloudMode] Session interrupt failed: {error}',
-    'cloud.mode.handle.clear.session': '🧹 [CloudMode] Handling CLEAR_SESSION message...',
-    'cloud.mode.clear.session.no.session': '❌ [CloudMode] CLEAR_SESSION message missing sessionId',
-    'cloud.mode.clear.session.cleaning': '🧹 [CloudMode] Cleaning session: {sessionId}',
-    'cloud.mode.clear.session.success': '✅ [CloudMode] Session cleaned successfully',
-    'cloud.mode.clear.session.failed': '❌ [CloudMode] Session cleanup failed: {error}',
-    'cloud.mode.unhandled.message': '⚠️ [CloudMode] Unhandled message type: {type}',
-    'cloud.mode.handle.message.failed': '❌ [CloudMode] Failed to handle cloud message: {error}',
+    'cloud.mode.command.no.session':
+      '❌ [CloudMode] COMMAND message missing sessionId',
+    'cloud.mode.command.forward':
+      '📨 [CloudMode] Forwarding COMMAND to session: {sessionId}',
+    'cloud.mode.command.success':
+      '✅ [CloudMode] COMMAND processed successfully',
+    'cloud.mode.command.failed':
+      '❌ [CloudMode] COMMAND processing failed: {error}',
+    'cloud.mode.handle.ui.state':
+      '🎯 [CloudMode] Handling REQUEST_UI_STATE message...',
+    'cloud.mode.ui.state.no.session':
+      '❌ [CloudMode] REQUEST_UI_STATE message missing sessionId',
+    'cloud.mode.ui.state.get':
+      '📨 [CloudMode] Getting session UI state: {sessionId}',
+    'cloud.mode.ui.state.sent':
+      '✅ [CloudMode] UI state response sent to web {webId}',
+    'cloud.mode.ui.state.failed':
+      '❌ [CloudMode] Failed to get UI state: {error}',
+    'cloud.mode.handle.interrupt':
+      '🛑 [CloudMode] Handling INTERRUPT message...',
+    'cloud.mode.interrupt.no.session':
+      '❌ [CloudMode] INTERRUPT message missing sessionId',
+    'cloud.mode.interrupt.session':
+      '🛑 [CloudMode] Interrupting session: {sessionId}',
+    'cloud.mode.interrupt.success':
+      '✅ [CloudMode] Session interrupted successfully',
+    'cloud.mode.interrupt.failed':
+      '❌ [CloudMode] Session interrupt failed: {error}',
+    'cloud.mode.handle.clear.session':
+      '🧹 [CloudMode] Handling CLEAR_SESSION message...',
+    'cloud.mode.clear.session.no.session':
+      '❌ [CloudMode] CLEAR_SESSION message missing sessionId',
+    'cloud.mode.clear.session.cleaning':
+      '🧹 [CloudMode] Cleaning session: {sessionId}',
+    'cloud.mode.clear.session.success':
+      '✅ [CloudMode] Session cleaned successfully',
+    'cloud.mode.clear.session.failed':
+      '❌ [CloudMode] Session cleanup failed: {error}',
+    'cloud.mode.unhandled.message':
+      '⚠️ [CloudMode] Unhandled message type: {type}',
+    'cloud.mode.handle.message.failed':
+      '❌ [CloudMode] Failed to handle cloud message: {error}',
 
     // Power management
     'power.management.check.title': '⚡ Power management check:',
     'power.management.macos.detected': '🍎 macOS system detected',
-    'power.management.macos.warning': '⚠️  System may enter sleep state, which will interrupt remote connection',
-    'power.management.macos.error': '❌ System may sleep, program will exit to ensure stable remote connection',
+    'power.management.macos.warning':
+      '⚠️  System may enter sleep state, which will interrupt remote connection',
+    'power.management.macos.error':
+      '❌ System may sleep, program will exit to ensure stable remote connection',
     'power.management.macos.solution.title': '💡 Solution:',
-    'power.management.macos.solution.step1': '   1. Open "System Preferences" > "Energy Saver"',
-    'power.management.macos.solution.step2': '   2. Enable "Prevent computer from sleeping automatically"',
-    'power.management.macos.solution.step3': '   3. Or run command: sudo pmset -c sleep 0',
-    'power.management.macos.ok': '✅ macOS system sleep disabled, remote connection will remain stable',
+    'power.management.macos.solution.step1':
+      '   1. Open "System Preferences" > "Energy Saver"',
+    'power.management.macos.solution.step2':
+      '   2. Enable "Prevent computer from sleeping automatically"',
+    'power.management.macos.solution.step3':
+      '   3. Or run command: sudo pmset -c sleep 0',
+    'power.management.macos.ok':
+      '✅ macOS system sleep disabled, remote connection will remain stable',
     'power.management.windows.detected': '🪟 Windows system detected',
-    'power.management.windows.warning': '⚠️  To ensure stable remote connection, please adjust power settings:',
-    'power.management.windows.solution.step1': '   1. Open "Settings" > "System" > "Power & sleep"',
+    'power.management.windows.warning':
+      '⚠️  To ensure stable remote connection, please adjust power settings:',
+    'power.management.windows.solution.step1':
+      '   1. Open "Settings" > "System" > "Power & sleep"',
     'power.management.windows.solution.step2': '   2. Set sleep to "Never"',
-    'power.management.windows.solution.step3': '   3. Or run command: powercfg /change standby-timeout-ac 0',
+    'power.management.windows.solution.step3':
+      '   3. Or run command: powercfg /change standby-timeout-ac 0',
     'power.management.linux.detected': '🐧 Linux system detected',
-    'power.management.linux.warning': '⚠️  To ensure stable remote connection, please disable suspend:',
-    'power.management.linux.solution.step1': '   1. Run command: sudo systemctl mask sleep.target suspend.target',
-    'power.management.linux.solution.step2': '   2. Or disable auto-suspend in desktop environment',
-    'power.management.check.failed': '⚠️  Unable to detect power management settings, please manually ensure system won\'t enter sleep state',
-    'power.management.dev.hint': '💡 Tip: If this is a dev/test environment, you can temporarily ignore this suggestion',
+    'power.management.linux.warning':
+      '⚠️  To ensure stable remote connection, please disable suspend:',
+    'power.management.linux.solution.step1':
+      '   1. Run command: sudo systemctl mask sleep.target suspend.target',
+    'power.management.linux.solution.step2':
+      '   2. Or disable auto-suspend in desktop environment',
+    'power.management.check.failed':
+      "⚠️  Unable to detect power management settings, please manually ensure system won't enter sleep state",
+    'power.management.dev.hint':
+      '💡 Tip: If this is a dev/test environment, you can temporarily ignore this suggestion',
 
     // Help UI text
     'help.basics.title': 'Basics:',
     'help.add.context': 'Add Context',
-    'help.add.context.description': ': Use {symbol} to specify files as context (e.g., {example}) to specify specific files or folders.',
+    'help.add.context.description':
+      ': Use {symbol} to specify files as context (e.g., {example}) to specify specific files or folders.',
     'help.shell.mode': 'Shell Mode',
-    'help.shell.mode.description': ': Execute shell commands via {symbol} (e.g., {example1}) or use natural language (e.g., {example2}).',
+    'help.shell.mode.description':
+      ': Execute shell commands via {symbol} (e.g., {example1}) or use natural language (e.g., {example2}).',
     'help.commands.title': 'Commands:',
     'help.shell.command.description': '- shell commands',
     'help.shortcuts.title': 'Keyboard Shortcuts:',
     'help.shortcut.enter': '- Send message',
     'help.shortcut.newline': '- New line',
-    'help.shortcut.newline.linux': '- New line (some Linux distributions can use Alt+Enter)',
+    'help.shortcut.newline.linux':
+      '- New line (some Linux distributions can use Alt+Enter)',
     'help.shortcut.history': '- Browse prompt history',
     'help.shortcut.word.jump': '- Jump cursor by word',
     'help.shortcut.toggle.edit': '- Toggle auto-accept edits',
@@ -809,38 +973,53 @@ export const translations = {
 
     // Slash command descriptions
     'command.help.description': 'Get deepv-code help',
-    'command.clear.description': 'Clear terminal screen (keeps conversation context)',
+    'command.report.description': 'Generate a diagnostic report for sharing',
+    'command.history.description': 'Show recent input history',
+    'command.clear.description':
+      'Clear terminal screen (keeps conversation context)',
     'command.queue.description': 'Manage prompt queue',
     'command.queue.clear.description': 'Clear all queued prompts',
     'command.quit.description': 'Exit command line interface',
     'command.export.description': 'Export session',
     'command.export_debug.description': 'Export debug logs',
     'command.issue.description': 'Submit a GitHub issue with error logs',
-    'command.issue.missing_description': 'Please provide a short issue description after /issue.',
+    'command.issue.missing_description':
+      'Please provide a short issue description after /issue.',
     'command.issue.default_title': 'Issue report',
     'command.issue.section.description': 'Description',
     'command.issue.section.environment': 'Environment',
     'command.issue.section.error_logs': 'Error Logs',
     'command.issue.no_error_logs': 'No error logs captured in this session.',
     'command.issue.opening': 'Opening GitHub issue form in your browser...',
-    'command.issue.open.manual': 'Please open the following URL in your browser to submit the issue:\n{url}',
+    'command.report.copied': 'Report copied to clipboard.',
+    'command.report.copy_failed': 'Failed to copy report to clipboard:',
+    'command.history.header': 'Recent history:',
+    'command.history.empty': 'No matching history entries found.',
+    'command.issue.open.manual':
+      'Please open the following URL in your browser to submit the issue:\n{url}',
     'command.issue.open.failed': 'Failed to open the issue URL: {error}',
     'command.about.description': 'Show version information',
     'command.theme.description': 'Theme',
     'command.auth.description': 'Login to your account',
     'command.chat.description': 'Manage conversation history',
-    'command.compress.description': 'Compress context through summary replacement',
-    'command.compress.starting': 'Compressing context, approximately 20 seconds, please wait...',
+    'command.compress.description':
+      'Compress context through summary replacement',
+    'command.compress.starting':
+      'Compressing context, approximately 20 seconds, please wait...',
     'command.copy.description': 'Copy last result or code snippet to clipboard',
     'command.copy.success': '📋 Copied to clipboard',
     'command.editor.description': 'Set external editor preferences',
     'command.memory.description': 'Commands to interact with memory',
-    'command.stats.description': 'View all statistics (session, model, and tools). Usage: /stats [model [name]|tools]',
-    'command.context.description': 'View detailed context token usage breakdown',
+    'command.stats.description':
+      'View all statistics (session, model, and tools). Usage: /stats [model [name]|tools]',
+    'command.context.description':
+      'View detailed context token usage breakdown',
     'command.tools.description': 'List available tools and their descriptions',
     'command.vim.description': 'Toggle vim mode',
-    'command.yolo.description': 'Manage YOLO mode (auto-approve all tool calls)',
-    'command.config.description': 'Unified settings menu - configure theme, editor, model, vim, agent style, yolo mode, and healthy use',
+    'command.yolo.description':
+      'Manage YOLO mode (auto-approve all tool calls)',
+    'command.config.description':
+      'Unified settings menu - configure theme, editor, model, vim, agent style, yolo mode, and healthy use',
     'command.config.available.options': 'Available options:',
     'command.config.theme': 'Theme',
     'command.config.editor': 'Editor',
@@ -873,7 +1052,8 @@ export const translations = {
     'config.value.off': 'Off',
     'config.value.auto': 'Auto',
     'config.submenu.yolo.title': 'YOLO Mode - Auto-approve tool calls',
-    'config.submenu.agent.style.title': 'Agent Style - Choose your assistant behavior',
+    'config.submenu.agent.style.title':
+      'Agent Style - Choose your assistant behavior',
     'config.submenu.healthy.use.title': 'Healthy Use - Night work reminders',
     'config.submenu.language.title': 'Enter your preferred response language:',
     'config.option.yolo.enable': '🚀 Enable (Auto-approve all)',
@@ -906,41 +1086,59 @@ export const translations = {
     'config.hint.language.help': 'Leave empty for default (AI decided)',
     'config.hint.confirm.cancel': 'Enter to confirm · escape to cancel',
 
-  'command.healthyUse.description': 'Manage healthy use reminders',
-  'command.healthyUse.status': 'Healthy use reminder is currently {status}',
-  'command.healthyUse.on': 'Healthy use reminder turned ON',
-  'command.healthyUse.off': 'Healthy use reminder turned OFF',
-  'command.healthyUse.usage.title': 'Usage:',
-  'command.healthyUse.usage.on': '  /healthy-use on   - Turn on healthy use reminder',
-  'command.healthyUse.usage.off': '  /healthy-use off  - Turn off healthy use reminder',
-  'command.healthyUse.usage.status': '  /healthy-use      - View current status',
-  'command.healthyUse.error.invalid_args': '❌ Invalid arguments: {args}',
-  'healthy.reminder.title': "It's late, time to rest",
-  'healthy.reminder.content': 'Work is important, but your health is priceless.',
-  'healthy.reminder.suggestion': "It's late night (22:00 - 06:00), we suggest saving your progress and resting.",
-  'healthy.reminder.agentRunning': "Agent is working in the background and won't be affected.",
-  'healthy.reminder.waiting': 'Please wait {{seconds}}s to confirm...',
-  'healthy.reminder.dismiss': ' Press [Enter] or [Space] to remind later ',
-    'command.ppt.description': 'Create PowerPoint presentations with AI-assisted outline design',
-    'command.ppt.prompt': 'What topic would you like to create a PPT for?\n\nExamples:\n  /ppt "AI in Education"\n  /ppt "2025 Annual Summary" --pages 15',
+    'command.healthyUse.description': 'Manage healthy use reminders',
+    'command.healthyUse.status': 'Healthy use reminder is currently {status}',
+    'command.healthyUse.on': 'Healthy use reminder turned ON',
+    'command.healthyUse.off': 'Healthy use reminder turned OFF',
+    'command.healthyUse.usage.title': 'Usage:',
+    'command.healthyUse.usage.on':
+      '  /healthy-use on   - Turn on healthy use reminder',
+    'command.healthyUse.usage.off':
+      '  /healthy-use off  - Turn off healthy use reminder',
+    'command.healthyUse.usage.status':
+      '  /healthy-use      - View current status',
+    'command.healthyUse.error.invalid_args': '❌ Invalid arguments: {args}',
+    'healthy.reminder.title': "It's late, time to rest",
+    'healthy.reminder.content':
+      'Work is important, but your health is priceless.',
+    'healthy.reminder.suggestion':
+      "It's late night (22:00 - 06:00), we suggest saving your progress and resting.",
+    'healthy.reminder.agentRunning':
+      "Agent is working in the background and won't be affected.",
+    'healthy.reminder.waiting': 'Please wait {{seconds}}s to confirm...',
+    'healthy.reminder.dismiss': ' Press [Enter] or [Space] to remind later ',
+    'command.ppt.description':
+      'Create PowerPoint presentations with AI-assisted outline design',
+    'command.ppt.prompt':
+      'What topic would you like to create a PPT for?\n\nExamples:\n  /ppt "AI in Education"\n  /ppt "2025 Annual Summary" --pages 15',
     'command.ppt.expected_pages': '\n\nExpected pages: {count}',
-    'command.session.description': 'Session management - list, select and create conversation sessions',
-    'command.trim.description': 'Manage automatic trailing space removal configuration (for C++, Python, etc.)',
+    'command.session.description':
+      'Session management - list, select and create conversation sessions',
+    'command.trim.description':
+      'Manage automatic trailing space removal configuration (for C++, Python, etc.)',
     'command.myplan.description': 'Quick access to user information page',
     'command.account.description': 'Quick access to user information page',
     'command.account.opening_browser': '🌐 Opening browser for you...',
-    'command.account.success': '✅ Browser opened successfully, please check the user information page',
+    'command.account.success':
+      '✅ Browser opened successfully, please check the user information page',
     'command.account.error': '❌ Account command failed: {error}',
-    'command.restore.description': 'Restore checkpoint. This restores conversation and file history to the state when checkpoint was created',
-    'command.restore.no_checkpoints': '⚠️  No checkpoints in current session\n\n💡 Tips:\n  • Use /session select to choose a session with checkpoints\n  • After loading a session, use /restore to view and restore checkpoints',
-    'command.restore.project.state.restored': 'Project state restored to checkpoint: {timeInfo}{messageInfo}',
-    'command.restore.complete': 'Checkpoint restore complete. Project files have been reverted to the state when the checkpoint was created.',
-    'command.restore.context.message': '[SYSTEM CONTEXT] The user has manually restored the project files to a previous checkpoint{messageInfo}. All file modifications made after this checkpoint have been intentionally reverted by the user. This is a deliberate action, not an error. Please acknowledge this state and continue assisting based on the restored file state.',
-    'command.mcp.description': 'List configured MCP servers and tools, or authenticate with OAuth servers',
+    'command.restore.description':
+      'Restore checkpoint. This restores conversation and file history to the state when checkpoint was created',
+    'command.restore.no_checkpoints':
+      '⚠️  No checkpoints in current session\n\n💡 Tips:\n  • Use /session select to choose a session with checkpoints\n  • After loading a session, use /restore to view and restore checkpoints',
+    'command.restore.project.state.restored':
+      'Project state restored to checkpoint: {timeInfo}{messageInfo}',
+    'command.restore.complete':
+      'Checkpoint restore complete. Project files have been reverted to the state when the checkpoint was created.',
+    'command.restore.context.message':
+      '[SYSTEM CONTEXT] The user has manually restored the project files to a previous checkpoint{messageInfo}. All file modifications made after this checkpoint have been intentionally reverted by the user. This is a deliberate action, not an error. Please acknowledge this state and continue assisting based on the restored file state.',
+    'command.mcp.description':
+      'List configured MCP servers and tools, or authenticate with OAuth servers',
     'command.docs.description': 'Open full DeepV Code documentation in browser',
     'command.extensions.description': 'List active extensions',
     'command.extensions.info.title': 'Extension System',
-    'command.extensions.info.intro': 'DVCode supports Gemini CLI extensions. To manage extensions, use:',
+    'command.extensions.info.intro':
+      'DVCode supports Gemini CLI extensions. To manage extensions, use:',
     'command.extensions.info.install': 'Install extension',
     'command.extensions.info.list': 'List extensions',
     'command.extensions.info.validate': 'Validate config',
@@ -951,9 +1149,12 @@ export const translations = {
     'command.login.description': 'Start login server',
     'command.privacy.description': 'Display privacy statement',
     'command.corgi.description': 'Toggle corgi mode',
-    'command.init.description': 'Analyzes the project and creates a tailored DEEPV.md file',
-    'command.init.emptyFileDetected': 'Empty DEEPV.md detected. Proceeding with project analysis...',
-    'command.init.fileCreating': 'Creating DEEPV.md... Now analyzing the project to populate it.',
+    'command.init.description':
+      'Analyzes the project and creates a tailored DEEPV.md file',
+    'command.init.emptyFileDetected':
+      'Empty DEEPV.md detected. Proceeding with project analysis...',
+    'command.init.fileCreating':
+      'Creating DEEPV.md... Now analyzing the project to populate it.',
     'command.init.fileExistsTitle': 'DEEPV.md already exists',
     'command.init.fileExistsInfo': 'File size: {size}KB | Lines: {lines}',
     'command.init.choiceAppend': 'Append & Update',
@@ -962,59 +1163,82 @@ export const translations = {
     'command.init.choiceOverwriteDesc': 'Replace with fresh analysis',
     'command.init.choiceCancel': 'Cancel',
     'command.init.choiceCancelDesc': 'Exit without making changes',
-    'command.init.choiceHint': 'Use ↑/↓ to navigate, Enter to select, Esc to cancel',
-    'command.init.appendStarting': 'Appending to DEEPV.md... Analyzing new project insights.',
-    'command.init.overwriteStarting': 'Overwriting DEEPV.md... Analyzing the project to populate it.',
-    'command.init.cancelled': 'Project analysis cancelled. DEEPV.md was not modified.',
-    'command.help-ask.description': 'AI-powered help assistant - ask anything about CLI features',
+    'command.init.choiceHint':
+      'Use ↑/↓ to navigate, Enter to select, Esc to cancel',
+    'command.init.appendStarting':
+      'Appending to DEEPV.md... Analyzing new project insights.',
+    'command.init.overwriteStarting':
+      'Overwriting DEEPV.md... Analyzing the project to populate it.',
+    'command.init.cancelled':
+      'Project analysis cancelled. DEEPV.md was not modified.',
+    'command.help-ask.description':
+      'AI-powered help assistant - ask anything about CLI features',
     'command.help-ask.description.cost-note': '(Uses 1 credit per question)',
-    'command.help-ask.no-args': '❌ The /help-ask command does not accept arguments.\n\n✅ Correct usage: Just type /help-ask and press Enter to enter help mode, then ask your questions.',
-    'command.help-ask.hint.press.enter': 'Press Enter to enter help mode, then ask your questions',
-    'command.refine.description': 'Professional prompt refinement: Clear expression, precise input, make AI understand you better',
-    'command.refine.error.no-input': '⚠️  Please provide text to refine.\n\n📖 Usage:\n   /refine <your text>           - Refine inline text\n   /refine --file <path>         - Refine file content\n   echo "text" | deepv /refine --stdin  - Refine from stdin',
+    'command.help-ask.no-args':
+      '❌ The /help-ask command does not accept arguments.\n\n✅ Correct usage: Just type /help-ask and press Enter to enter help mode, then ask your questions.',
+    'command.help-ask.hint.press.enter':
+      'Press Enter to enter help mode, then ask your questions',
+    'command.refine.description':
+      'Professional prompt refinement: Clear expression, precise input, make AI understand you better',
+    'command.refine.error.no-input':
+      '⚠️  Please provide text to refine.\n\n📖 Usage:\n   /refine <your text>           - Refine inline text\n   /refine --file <path>         - Refine file content\n   echo "text" | deepv /refine --stdin  - Refine from stdin',
     'command.refine.error.read-stdin': 'Failed to read from stdin: {error}',
     'command.refine.error.read-file': 'Failed to read file "{file}": {error}',
     'command.refine.error.write-file': 'Failed to write file: {error}',
-    'command.refine.error.from-last': 'Reading from last result is not yet supported',
+    'command.refine.error.from-last':
+      'Reading from last result is not yet supported',
     'command.refine.error.refine-failed': 'Refinement failed: {error}',
     'command.refine.success.file-written': '✅ File updated: {file}',
     'command.refine.info.dry-run': '🔍 Dry-run mode: File will not be modified',
     'command.refine.result.title': '✨ Refined Result',
     'command.refine.result.params': '📊 Parameters',
-    'command.refine.result.params.language': '   Language: {detected} → {target}',
+    'command.refine.result.params.language':
+      '   Language: {detected} → {target}',
     'command.refine.result.params.tone': '   Tone: {tone} | Level: {level}',
     'command.refine.result.params.protection': '   Protection: {format}{code}',
     'command.refine.result.params.model': '   Model: {model}',
     'command.refine.result.params.rules': '   Rules: {rules}',
     'command.refine.result.changes': '📝 Changes',
     'command.refine.result.output': '✨ Refined Text',
-    'command.refine.result.next-step': '\n💡 Next Steps:\n   • Copy the refined text above and send it to AI\n   • Or use /refine --out text for plain text output',
+    'command.refine.result.next-step':
+      '\n💡 Next Steps:\n   • Copy the refined text above and send it to AI\n   • Or use /refine --out text for plain text output',
     'command.refine.confirm.title': '✨ Refinement Complete',
     'command.refine.confirm.hint.send': '⏎  Send to AI',
     'command.refine.confirm.hint.refine-again': 'R  Refine again',
     'command.refine.confirm.hint.view-full': 'F  View Full Text',
     'command.refine.confirm.hint.cancel': 'Esc  Cancel',
-    'command.refine.omitted_lines': '[ ... {count} lines omitted, press F to view full text ... ]',
+    'command.refine.omitted_lines':
+      '[ ... {count} lines omitted, press F to view full text ... ]',
     'command.refine.loading.title': 'Refining...',
-    'command.refine.loading.message': 'AI is refining your text, please wait...',
+    'command.refine.loading.message':
+      'AI is refining your text, please wait...',
 
     // NanoBanana Command
-    'command.nanobanana.description': 'Generate images using NanoBanana. Usage: /NanoBanana <ratio> <size> <prompt> [@image]',
-    'nanobanana.usage.error': 'Usage: /NanoBanana <ratio> <size> <prompt> [@image]\nRatio: 1:1, 16:9, 9:16, etc.\nSize: 1K or 2K\n@image can appear anywhere in the command\nExample: /NanoBanana 16:9 2K A futuristic city @ref.jpg',
-    'nanobanana.missing.prompt': 'Missing required parameters. Usage: /NanoBanana <ratio> <size> <prompt> [@image]',
-    'nanobanana.invalid.size': 'Invalid image size. Use 1K or 2K. Usage: /NanoBanana <ratio> <size> <prompt>',
-    'nanobanana.submitting': 'Submitting image generation task...\nPrompt: "{prompt}"\nRatio: {ratio}',
-    'nanobanana.submitted': 'Task submitted (ID: {taskId}).\nEstimated Credits: {credits} (Subject to actual deduction)\nWaiting for image generation...',
+    'command.nanobanana.description':
+      'Generate images using NanoBanana. Usage: /NanoBanana <ratio> <size> <prompt> [@image]',
+    'nanobanana.usage.error':
+      'Usage: /NanoBanana <ratio> <size> <prompt> [@image]\nRatio: 1:1, 16:9, 9:16, etc.\nSize: 1K or 2K\n@image can appear anywhere in the command\nExample: /NanoBanana 16:9 2K A futuristic city @ref.jpg',
+    'nanobanana.missing.prompt':
+      'Missing required parameters. Usage: /NanoBanana <ratio> <size> <prompt> [@image]',
+    'nanobanana.invalid.size':
+      'Invalid image size. Use 1K or 2K. Usage: /NanoBanana <ratio> <size> <prompt>',
+    'nanobanana.submitting':
+      'Submitting image generation task...\nPrompt: "{prompt}"\nRatio: {ratio}',
+    'nanobanana.submitted':
+      'Task submitted (ID: {taskId}).\nEstimated Credits: {credits} (Subject to actual deduction)\nWaiting for image generation...',
     'nanobanana.timeout': 'Image generation timed out after {seconds}s.',
-    'nanobanana.completed': 'Image generation completed!\nActual Credits: {credits}\n{urlText}',
+    'nanobanana.completed':
+      'Image generation completed!\nActual Credits: {credits}\n{urlText}',
     'nanobanana.failed': 'Image generation failed: {error}',
-    'nanobanana.auth.failed': 'Authentication failed. Please run /login or /auth to authenticate first.',
+    'nanobanana.auth.failed':
+      'Authentication failed. Please run /login or /auth to authenticate first.',
     'nanobanana.submit.failed': 'Failed to submit task: {error}',
     'nanobanana.uploading_image': 'Uploading image: {path}...',
     'nanobanana.image_uploaded': 'Image uploaded successfully.',
     'nanobanana.upload_failed': 'Failed to upload image: {error}',
     'nanobanana.tip.use_at_for_image': 'Use @ to select a reference image',
-    'nanobanana.tip.use_at_for_image.description': 'Type @ followed by a filename to search for images',
+    'nanobanana.tip.use_at_for_image.description':
+      'Type @ followed by a filename to search for images',
 
     // Common terms
     'common.format': 'Format',
@@ -1022,16 +1246,21 @@ export const translations = {
     'error.empty.content': 'Empty content',
 
     'command.ide.description': 'Manage IDE integration',
-    'command.mcp.auth.description': 'Authenticate with OAuth-enabled MCP servers',
+    'command.mcp.auth.description':
+      'Authenticate with OAuth-enabled MCP servers',
     'command.mcp.list.description': 'List configured MCP servers and tools',
     'command.mcp.refresh.description': 'Refresh MCP servers and tools list',
     'command.mcp.load.description': 'Load or reconnect a specific MCP server',
     'command.mcp.load.usage': 'Usage: /mcp load <server-name>',
-    'command.mcp.load.success': '✅ MCP server \'{serverName}\' loaded successfully.',
-    'command.mcp.load.failed': '❌ Failed to load MCP server \'{serverName}\': {error}',
-    'command.mcp.unload.description': 'Unload an MCP server from the current session',
+    'command.mcp.load.success':
+      "✅ MCP server '{serverName}' loaded successfully.",
+    'command.mcp.load.failed':
+      "❌ Failed to load MCP server '{serverName}': {error}",
+    'command.mcp.unload.description':
+      'Unload an MCP server from the current session',
     'command.session.list.description': 'List all available session records',
-    'command.session.select.description': 'Select and load specified session. Usage: /session select <number or session-id>',
+    'command.session.select.description':
+      'Select and load specified session. Usage: /session select <number or session-id>',
     'command.session.create.description': 'Create new session record',
 
     // Session command messages
@@ -1050,11 +1279,14 @@ export const translations = {
     'session.list.firstQuestion': 'First question',
     'session.list.lastQuestion': 'Last question',
     'session.list.tips': 'Tips:',
-    'session.list.selectSession': 'Select session: /session select <number or session-id>',
+    'session.list.selectSession':
+      'Select session: /session select <number or session-id>',
     'session.list.createSession': 'Create new session: /session new',
     'session.list.helpInfo': 'View help: /session help',
-    'command.session.rebuild.description': 'Rebuild session index (fix session list display issues)',
-    'command.session.help.description': 'Show session management help information',
+    'command.session.rebuild.description':
+      'Rebuild session index (fix session list display issues)',
+    'command.session.help.description':
+      'Show session management help information',
     'export.success': 'Success: {path}',
     'export.exporting': 'Exporting',
     'export.failed': 'Failed',
@@ -1063,25 +1295,35 @@ export const translations = {
     'export_debug.no_messages': 'No debug messages found.',
     'export_debug.no_errors': 'No errors or warnings found, nothing to export.',
     'command.chat.list.description': 'List saved conversation checkpoints', // 已被 /session 替代，但保留以支持旧代码
-    'command.chat.delete.description': 'Delete saved conversation checkpoints. Usage: /chat delete <label> or /chat delete --all', // 已被 /session 替代，但保留以支持旧代码
+    'command.chat.delete.description':
+      'Delete saved conversation checkpoints. Usage: /chat delete <label> or /chat delete --all', // 已被 /session 替代，但保留以支持旧代码
     'command.memory.show.description': 'Show current memory content',
     'command.memory.add.description': 'Add content to memory',
-    'command.memory.refresh.description': 'Refresh memory content from source files',
+    'command.memory.refresh.description':
+      'Refresh memory content from source files',
 
     // Memory command messages
     'memory.add.trying': 'Trying to save to memory',
-    'memory.add.refreshSuccess': 'Memory automatically refreshed and updated to AI model.',
+    'memory.add.refreshSuccess':
+      'Memory automatically refreshed and updated to AI model.',
     'memory.add.refreshError': 'Failed to auto-refresh memory',
-    'memory.add.configNotLoaded': 'Configuration not loaded, unable to save memory',
+    'memory.add.configNotLoaded':
+      'Configuration not loaded, unable to save memory',
     'memory.add.saveError': 'Failed to save memory',
-    'memory.refreshed': 'Loaded {charCount} characters from {fileCount} file(s).',
+    'memory.refreshed':
+      'Loaded {charCount} characters from {fileCount} file(s).',
     'memory.refresh.refreshing': 'Refreshing memory from source files...',
-    'memory.refresh.success': 'Memory refreshed and updated to AI model successfully.',
-    'memory.refresh.noContent': 'Memory refreshed successfully. No memory content found.',
-    'command.stats.model.description': 'Show model-specific usage statistics. Usage: /stats model [model name]',
+    'memory.refresh.success':
+      'Memory refreshed and updated to AI model successfully.',
+    'memory.refresh.noContent':
+      'Memory refreshed successfully. No memory content found.',
+    'command.stats.model.description':
+      'Show model-specific usage statistics. Usage: /stats model [model name]',
     'command.stats.tools.description': 'Show tool-specific usage statistics',
-    'command.stats.error.noSessionStartTime': 'Session start time is unavailable, cannot calculate stats.',
-    'command.stats.error.modelNotFound': 'Model "{modelName}" not found in statistics. Use /stats model to see all available models.',
+    'command.stats.error.noSessionStartTime':
+      'Session start time is unavailable, cannot calculate stats.',
+    'command.stats.error.modelNotFound':
+      'Model "{modelName}" not found in statistics. Use /stats model to see all available models.',
 
     // Model Stats Display - Full Format
     'model.stats.title': 'Geek Model Statistics',
@@ -1119,21 +1361,27 @@ export const translations = {
     'mcp.wizard.title': '🔧 MCP Server Configuration Wizard',
     'mcp.wizard.config.ways': 'Available configuration methods:',
     'mcp.wizard.predefined': 'Predefined Templates',
-    'mcp.wizard.predefined.desc': 'Quick setup for common servers (GitHub, SQLite, etc.)',
+    'mcp.wizard.predefined.desc':
+      'Quick setup for common servers (GitHub, SQLite, etc.)',
     'mcp.wizard.custom': 'Custom Configuration',
     'mcp.wizard.custom.desc': 'Manual server parameter configuration',
     'mcp.wizard.view.templates': 'View Template List',
     'mcp.wizard.view.templates.desc': 'Browse all available templates',
     'mcp.wizard.available.templates': 'Available predefined templates:',
     'mcp.wizard.examples': 'Usage examples:',
-    'mcp.wizard.help.hint': 'Tip: Use \'/mcp help add\' for detailed parameter documentation',
+    'mcp.wizard.help.hint':
+      "Tip: Use '/mcp help add' for detailed parameter documentation",
 
     'mcp.add.description': 'Add new MCP server configuration',
-    'mcp.error.template.not.exist': '❌ Template \'{templateName}\' does not exist\n\nAvailable templates: {availableTemplates}',
-    'mcp.error.server.already.exists': '❌ MCP server \'{serverName}\' already exists\n\nUse a different name or delete the existing configuration first',
-    'mcp.error.missing.connection.params': '❌ Missing connection parameters\n\nPlease specify one of the following connection methods:\n  --command <cmd>     Executable command\n  --url <url>         SSE server URL\n  --http-url <url>    HTTP server URL\n  --tcp <host:port>   TCP connection address\n\nExample: /mcp add my-server --command "npx @my/mcp-server"',
+    'mcp.error.template.not.exist':
+      "❌ Template '{templateName}' does not exist\n\nAvailable templates: {availableTemplates}",
+    'mcp.error.server.already.exists':
+      "❌ MCP server '{serverName}' already exists\n\nUse a different name or delete the existing configuration first",
+    'mcp.error.missing.connection.params':
+      '❌ Missing connection parameters\n\nPlease specify one of the following connection methods:\n  --command <cmd>     Executable command\n  --url <url>         SSE server URL\n  --http-url <url>    HTTP server URL\n  --tcp <host:port>   TCP connection address\n\nExample: /mcp add my-server --command "npx @my/mcp-server"',
     'mcp.error.save.config.failed': '❌ Failed to save configuration: {error}',
-    'mcp.success.server.added': '✅ MCP server \'{serverName}\' added successfully!',
+    'mcp.success.server.added':
+      "✅ MCP server '{serverName}' added successfully!",
     'mcp.success.config.location': '📍 Configuration location:',
     'mcp.success.template': '🏷️  Template:',
     'mcp.success.description': '📝 Description:',
@@ -1143,16 +1391,20 @@ export const translations = {
     'mcp.success.http': 'HTTP: {url}',
     'mcp.success.tcp': 'TCP: {tcp}',
     'mcp.success.unknown': 'Unknown',
-    'mcp.success.config.effective': 'Configuration is now active! Use \'/mcp\' to view server status',
+    'mcp.success.config.effective':
+      "Configuration is now active! Use '/mcp' to view server status",
     'mcp.warning.missing.env': '⚠️  Missing environment variables:',
     'mcp.setup.instructions': '🔧 Setup instructions:',
-    'mcp.setup.default.instruction': 'Please refer to server documentation for environment variable setup',
+    'mcp.setup.default.instruction':
+      'Please refer to server documentation for environment variable setup',
     'mcp.related.links': '📚 Related links:',
 
     'mcp.status.no.servers.title': '🔧 No MCP Servers Configured',
-    'mcp.status.no.servers.description': 'MCP (Model Context Protocol) allows you to connect external tools and services, extending DeepV Code functionality.',
+    'mcp.status.no.servers.description':
+      'MCP (Model Context Protocol) allows you to connect external tools and services, extending DeepV Code functionality.',
     'mcp.status.quick.start': '🚀 Quick Start:',
-    'mcp.status.predefined.templates': '1️⃣ Use Predefined Templates (Recommended)',
+    'mcp.status.predefined.templates':
+      '1️⃣ Use Predefined Templates (Recommended)',
     'mcp.status.interactive.wizard': '2️⃣ Interactive Configuration Wizard',
     'mcp.status.custom.config': '3️⃣ Custom Configuration',
     'mcp.status.get.help': '📚 Get Help:',
@@ -1165,37 +1417,50 @@ export const translations = {
     'mcp.status.run.after.config': 'After configuration, run',
     'mcp.status.view.status': 'to view server status',
 
-    'mcp.status.starting': '⏳ MCP servers are starting up ({count} initializing)...',
+    'mcp.status.starting':
+      '⏳ MCP servers are starting up ({count} initializing)...',
     'mcp.status.configured.servers': 'Configured MCP servers:',
     'mcp.status.ready': 'Ready',
     'mcp.status.connecting': 'Connecting',
     'mcp.status.disconnected': 'Disconnected',
     'mcp.status.from.extension': '(from {extensionName})',
 
-    'mcp.auth.no.oauth.servers': 'No MCP servers configured with OAuth authentication.',
-    'mcp.auth.oauth.servers.list': 'OAuth-enabled MCP servers:\n{servers}\n\nUse /mcp auth <server-name> to authenticate.',
-    'mcp.auth.server.not.found': 'MCP server \'{serverName}\' not found.',
-    'mcp.auth.starting': 'Starting OAuth authentication for MCP server \'{serverName}\'...',
+    'mcp.auth.no.oauth.servers':
+      'No MCP servers configured with OAuth authentication.',
+    'mcp.auth.oauth.servers.list':
+      'OAuth-enabled MCP servers:\n{servers}\n\nUse /mcp auth <server-name> to authenticate.',
+    'mcp.auth.server.not.found': "MCP server '{serverName}' not found.",
+    'mcp.auth.starting':
+      "Starting OAuth authentication for MCP server '{serverName}'...",
     'mcp.auth.opening.browser': 'Opening browser for authentication...',
-    'mcp.auth.success': '✅ Authentication successful with MCP server \'{serverName}\'!',
-    'mcp.auth.failed': 'Authentication failed with MCP server \'{serverName}\': {error}',
-    'mcp.auth.rediscovering.tools': 'Rediscovering tools for \'{serverName}\'...',
-    'mcp.auth.refresh.success': 'Successfully authenticated and refreshed tools for \'{serverName}\'.',
+    'mcp.auth.success':
+      "✅ Authentication successful with MCP server '{serverName}'!",
+    'mcp.auth.failed':
+      "Authentication failed with MCP server '{serverName}': {error}",
+    'mcp.auth.rediscovering.tools': "Rediscovering tools for '{serverName}'...",
+    'mcp.auth.refresh.success':
+      "Successfully authenticated and refreshed tools for '{serverName}'.",
 
     'mcp.refresh.starting': 'Refreshing MCP servers and tools...',
-    'command.mcp.unload.server.not.found': '❌ MCP server \'{serverName}\' not found.',
-    'command.mcp.unload.success': '✅ MCP server \'{serverName}\' unloaded successfully.',
-    'command.mcp.unload.failed': '❌ Failed to unload MCP server \'{serverName}\': {error}',
+    'command.mcp.unload.server.not.found':
+      "❌ MCP server '{serverName}' not found.",
+    'command.mcp.unload.success':
+      "✅ MCP server '{serverName}' unloaded successfully.",
+    'command.mcp.unload.failed':
+      "❌ Failed to unload MCP server '{serverName}': {error}",
     'command.mcp.unload.usage': 'Usage: /mcp unload <server-name>',
 
     'mcp.help.system.title': '🔧 MCP (Model Context Protocol) Help System',
-    'mcp.help.system.description': 'MCP allows you to connect external tools and services, extending DeepV Code functionality.',
+    'mcp.help.system.description':
+      'MCP allows you to connect external tools and services, extending DeepV Code functionality.',
     'mcp.help.commands.title': '📋 Available Commands:',
-    'mcp.help.description': 'MCP Help System - Get detailed usage guides and configuration help',
+    'mcp.help.description':
+      'MCP Help System - Get detailed usage guides and configuration help',
 
     // Main help content
     'mcp.help.main.title': '🔧 MCP (Model Context Protocol) Help System',
-    'mcp.help.main.description': 'MCP allows you to connect external tools and services, extending DeepV Code functionality.',
+    'mcp.help.main.description':
+      'MCP allows you to connect external tools and services, extending DeepV Code functionality.',
     'mcp.help.main.commands.title': '📋 Available Commands:',
     'mcp.help.main.command.status': '- View configured MCP server status',
     'mcp.help.main.command.add': '- Add new MCP server',
@@ -1209,78 +1474,108 @@ export const translations = {
     'mcp.help.main.help.oauth': '- OAuth authentication configuration',
     'mcp.help.main.help.security': '- Security best practices',
     'mcp.help.main.quickstart.title': '🚀 Quick Start:',
-    'mcp.help.main.quickstart.step1': 'Run {command} to start configuration wizard',
-    'mcp.help.main.quickstart.step2': 'Select predefined templates (like GitHub, SQLite)',
-    'mcp.help.main.quickstart.step3': 'Configure environment variables as prompted',
-    'mcp.help.main.quickstart.step4': 'Run {command} to verify connection status',
+    'mcp.help.main.quickstart.step1':
+      'Run {command} to start configuration wizard',
+    'mcp.help.main.quickstart.step2':
+      'Select predefined templates (like GitHub, SQLite)',
+    'mcp.help.main.quickstart.step3':
+      'Configure environment variables as prompted',
+    'mcp.help.main.quickstart.step4':
+      'Run {command} to verify connection status',
     'mcp.help.main.tip': '💡 Tips: Configuration saved in {path} file',
-    'mcp.help.main.subcommand': 'Enter subcommand for detailed help, e.g.: {example}',
+    'mcp.help.main.subcommand':
+      'Enter subcommand for detailed help, e.g.: {example}',
 
     // Templates help content
     'mcp.help.templates.title': '📋 MCP Predefined Template List',
-    'mcp.help.templates.description': 'These templates provide pre-configuration for common MCP servers, requiring minimal setup.',
+    'mcp.help.templates.description':
+      'These templates provide pre-configuration for common MCP servers, requiring minimal setup.',
     'mcp.help.templates.github.title': '🐙 GitHub (Recommended)',
-    'mcp.help.templates.github.purpose': 'Purpose: GitHub repository operations, Issue management, PR comments',
+    'mcp.help.templates.github.purpose':
+      'Purpose: GitHub repository operations, Issue management, PR comments',
     'mcp.help.templates.github.command': 'Command: {command}',
-    'mcp.help.templates.github.env': 'Environment Variables: GITHUB_PERSONAL_ACCESS_TOKEN',
-    'mcp.help.templates.github.tools': 'Tools: create_issue, comment_on_pr, get_issues, create_pr',
-    'mcp.help.templates.github.docs': 'Documentation: https://github.com/github/github-mcp-server',
+    'mcp.help.templates.github.env':
+      'Environment Variables: GITHUB_PERSONAL_ACCESS_TOKEN',
+    'mcp.help.templates.github.tools':
+      'Tools: create_issue, comment_on_pr, get_issues, create_pr',
+    'mcp.help.templates.github.docs':
+      'Documentation: https://github.com/github/github-mcp-server',
     'mcp.help.templates.sqlite.title': '💾 SQLite',
-    'mcp.help.templates.sqlite.purpose': 'Purpose: Database queries and operations',
+    'mcp.help.templates.sqlite.purpose':
+      'Purpose: Database queries and operations',
     'mcp.help.templates.sqlite.command': 'Command: {command}',
     'mcp.help.templates.sqlite.args': 'Arguments: Database file path',
-    'mcp.help.templates.sqlite.tools': 'Tools: query, create_table, insert, update',
+    'mcp.help.templates.sqlite.tools':
+      'Tools: query, create_table, insert, update',
     'mcp.help.templates.sqlite.example': 'Example: {example}',
     'mcp.help.templates.filesystem.title': '📁 Filesystem',
-    'mcp.help.templates.filesystem.purpose': 'Purpose: Local file and directory operations',
+    'mcp.help.templates.filesystem.purpose':
+      'Purpose: Local file and directory operations',
     'mcp.help.templates.filesystem.command': 'Command: {command}',
     'mcp.help.templates.filesystem.args': 'Arguments: Root directory to access',
-    'mcp.help.templates.filesystem.tools': 'Tools: read_file, write_file, list_dir, create_dir',
+    'mcp.help.templates.filesystem.tools':
+      'Tools: read_file, write_file, list_dir, create_dir',
     'mcp.help.templates.filesystem.example': 'Example: {example}',
     'mcp.help.templates.search.title': '🔍 Brave Search',
     'mcp.help.templates.search.purpose': 'Purpose: Web search functionality',
     'mcp.help.templates.search.command': 'Command: {command}',
     'mcp.help.templates.search.env': 'Environment Variables: BRAVE_API_KEY',
     'mcp.help.templates.search.tools': 'Tools: web_search, news_search',
-    'mcp.help.templates.search.register': 'Registration: https://api.search.brave.com/register',
+    'mcp.help.templates.search.register':
+      'Registration: https://api.search.brave.com/register',
     'mcp.help.templates.slack.title': '💬 Slack (Beta)',
-    'mcp.help.templates.slack.purpose': 'Purpose: Slack message sending and management',
+    'mcp.help.templates.slack.purpose':
+      'Purpose: Slack message sending and management',
     'mcp.help.templates.slack.command': 'Command: {command}',
-    'mcp.help.templates.slack.env': 'Environment Variables: SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET',
-    'mcp.help.templates.slack.tools': 'Tools: send_message, list_channels, get_history',
+    'mcp.help.templates.slack.env':
+      'Environment Variables: SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET',
+    'mcp.help.templates.slack.tools':
+      'Tools: send_message, list_channels, get_history',
     'mcp.help.templates.http.title': '🌐 HTTP',
     'mcp.help.templates.http.purpose': 'Purpose: Generic HTTP request tool',
     'mcp.help.templates.http.command': 'Command: {command}',
-    'mcp.help.templates.http.tools': 'Tools: get_request, post_request, put_request',
+    'mcp.help.templates.http.tools':
+      'Tools: get_request, post_request, put_request',
     'mcp.help.templates.tips.title': '💡 Usage Tips:',
-    'mcp.help.templates.tips.check': '• Templates automatically check dependencies and environment variables',
-    'mcp.help.templates.tips.wizard': '• Support interactive configuration wizard',
+    'mcp.help.templates.tips.check':
+      '• Templates automatically check dependencies and environment variables',
+    'mcp.help.templates.tips.wizard':
+      '• Support interactive configuration wizard',
     'mcp.help.templates.tips.custom': '• Can be customized based on templates',
-    'mcp.help.templates.tips.update': '• Templates are updated regularly, run {command} to get latest version',
+    'mcp.help.templates.tips.update':
+      '• Templates are updated regularly, run {command} to get latest version',
     'mcp.help.templates.need.more': '❓ Need other templates?',
-    'mcp.help.templates.github.issues': 'Submit an Issue on GitHub: https://github.com/your-repo/issues',
-    'mcp.help.templates.custom.wizard': 'Or run {command} to use custom configuration wizard',
+    'mcp.help.templates.github.issues':
+      'Submit an Issue on GitHub: https://github.com/your-repo/issues',
+    'mcp.help.templates.custom.wizard':
+      'Or run {command} to use custom configuration wizard',
 
     // OAuth help content
     'mcp.help.oauth.title': '🔐 MCP OAuth Authentication Configuration Guide',
-    'mcp.help.oauth.description': 'OAuth authentication allows MCP servers to securely access third-party services like GitHub, Google, etc.',
+    'mcp.help.oauth.description':
+      'OAuth authentication allows MCP servers to securely access third-party services like GitHub, Google, etc.',
     'mcp.help.oauth.supported.title': '📋 Supported Authentication Types',
     'mcp.help.oauth.dynamic.title': '🔹 Dynamic Discovery (Recommended)',
-    'mcp.help.oauth.dynamic.description': 'Automatically discover OAuth configuration from server',
+    'mcp.help.oauth.dynamic.description':
+      'Automatically discover OAuth configuration from server',
     'mcp.help.oauth.dynamic.example': '/mcp add github --oauth',
     'mcp.help.oauth.google.title': '🔹 Google Credentials',
-    'mcp.help.oauth.google.description': 'Use Google service account authentication',
-    'mcp.help.oauth.google.example': '/mcp add google-service --auth-provider google_credentials',
+    'mcp.help.oauth.google.description':
+      'Use Google service account authentication',
+    'mcp.help.oauth.google.example':
+      '/mcp add google-service --auth-provider google_credentials',
     'mcp.help.oauth.quickstart.title': '🚀 Quick Configuration',
     'mcp.help.oauth.quickstart.step1.title': '1️⃣ Enable OAuth',
     'mcp.help.oauth.quickstart.step1.example': '/mcp add my-server --oauth',
     'mcp.help.oauth.quickstart.step2.title': '2️⃣ Complete Authentication',
     'mcp.help.oauth.quickstart.step2.example': '/mcp auth my-server',
     'mcp.help.oauth.quickstart.step3.title': '3️⃣ Verify Status',
-    'mcp.help.oauth.quickstart.step3.example': '/mcp  # View authentication status',
+    'mcp.help.oauth.quickstart.step3.example':
+      '/mcp  # View authentication status',
     'mcp.help.oauth.best.practices.title': '💡 Authentication Best Practices',
     'mcp.help.oauth.best.practices.update': '• Regularly update access tokens',
-    'mcp.help.oauth.best.practices.minimal': '• Use minimal permissions principle',
+    'mcp.help.oauth.best.practices.minimal':
+      '• Use minimal permissions principle',
     'mcp.help.oauth.best.practices.protect': '• Protect client secrets',
     'mcp.help.oauth.best.practices.monitor': '• Monitor authentication status',
 
@@ -1294,11 +1589,13 @@ export const translations = {
     'mcp.status.oauth.authenticated': '(OAuth authenticated)',
     'mcp.status.oauth.not.authenticated': '(OAuth not authenticated)',
     'mcp.status.zero.tools': '(0 tools)',
-    'mcp.status.tools.prompts.ready': '(tools and prompts will appear when ready)',
+    'mcp.status.tools.prompts.ready':
+      '(tools and prompts will appear when ready)',
     'mcp.status.tools.cached.count': '({count} tools cached)',
     'mcp.status.no.tools.prompts': 'No available tools or prompts',
     'mcp.status.no.tools.simple': 'No available tools',
-    'mcp.status.type.auth.command': '(Type "/mcp auth {serverName}" to authenticate)',
+    'mcp.status.type.auth.command':
+      '(Type "/mcp auth {serverName}" to authenticate)',
     'mcp.status.blocked.server': 'Blocked',
     'mcp.status.tools.count': '{count} {unit}',
     'mcp.status.tool.unit.singular': 'tool',
@@ -1313,44 +1610,61 @@ export const translations = {
     'mcp.status.tip.desc': 'Use /mcp desc to show server and tool descriptions',
     'mcp.status.tip.schema': 'Use /mcp schema to show tool parameter schemas',
     'mcp.status.tip.nodesc': 'Use /mcp nodesc to hide descriptions',
-    'mcp.status.tip.auth': 'Use /mcp auth <server-name> to authenticate with OAuth-enabled servers',
+    'mcp.status.tip.auth':
+      'Use /mcp auth <server-name> to authenticate with OAuth-enabled servers',
     'mcp.status.tip.toggle': 'Press Ctrl+T to toggle tool descriptions on/off',
 
     // Plan Mode
-    'command.plan.description': 'Switch Plan mode: focus on requirements discussion, allow code reading but disable modifications',
+    'command.plan.description':
+      'Switch Plan mode: focus on requirements discussion, allow code reading but disable modifications',
     'plan.mode.indicator': 'plan mode - read only',
-    'plan.mode.enabled.message': '📋 Entered Plan mode\nFeatures:\n• Focus on requirements understanding and solution design\n• Allow code reading and analysis tools\n• Disable code modifications and command execution\n• Suitable for initial requirements discussion and architecture planning\n• Use /plan off to exit this mode',
-    'plan.mode.disabled.message': '✅ Exited Plan mode, now all tools and code modifications can be executed',
+    'plan.mode.enabled.message':
+      '📋 Entered Plan mode\nFeatures:\n• Focus on requirements understanding and solution design\n• Allow code reading and analysis tools\n• Disable code modifications and command execution\n• Suitable for initial requirements discussion and architecture planning\n• Use /plan off to exit this mode',
+    'plan.mode.disabled.message':
+      '✅ Exited Plan mode, now all tools and code modifications can be executed',
     'plan.mode.status.message': '📋 Plan mode status: {status}',
     'plan.mode.status.on': 'ON',
     'plan.mode.status.off': 'OFF',
     'plan.usage.error': 'Usage: /plan [on|off|status]',
     'plan.error.config.unavailable': 'Configuration unavailable',
-    'plan.mode.blocked.tools': '🚫 Plan mode has disabled modification tools: {tools}',
-    'plan.mode.focus.message': '📋 Currently focused on requirements discussion and solution design',
-    'plan.mode.available.tools': '✅ Available tools: file reading, search analysis, task planning, network fetch',
-    'plan.mode.exit.instruction': '💡 Use /plan off to exit Plan mode and enable modification operations',
+    'plan.mode.blocked.tools':
+      '🚫 Plan mode has disabled modification tools: {tools}',
+    'plan.mode.focus.message':
+      '📋 Currently focused on requirements discussion and solution design',
+    'plan.mode.available.tools':
+      '✅ Available tools: file reading, search analysis, task planning, network fetch',
+    'plan.mode.exit.instruction':
+      '💡 Use /plan off to exit Plan mode and enable modification operations',
 
     // Agent Style
-    'command.agentStyle.description': 'Switch Agent style: default, codex, cursor, augment, claude-code, antigravity, windsurf',
+    'command.agentStyle.description':
+      'Switch Agent style: default, codex, cursor, augment, claude-code, antigravity, windsurf',
     'agentStyle.error.config.unavailable': 'Configuration unavailable',
     'agentStyle.status.current': 'Current Agent style: {style}',
     'agentStyle.style.default.label': 'Default (Claude-style)',
-    'agentStyle.style.default.description': 'Emphasizes planning, explanation, and iterative confirmation before acting.',
+    'agentStyle.style.default.description':
+      'Emphasizes planning, explanation, and iterative confirmation before acting.',
     'agentStyle.style.codex.label': 'Codex (Codex-style)',
-    'agentStyle.style.codex.description': 'Quick confirmation, then silent execution. Reports only when blocked or complete.',
+    'agentStyle.style.codex.description':
+      'Quick confirmation, then silent execution. Reports only when blocked or complete.',
     'agentStyle.style.cursor.label': 'Cursor (Cursor-style)',
-    'agentStyle.style.cursor.description': 'Optimized for semantic search and high-concurrency tool execution.',
+    'agentStyle.style.cursor.description':
+      'Optimized for semantic search and high-concurrency tool execution.',
     'agentStyle.style.augment.label': 'Augment (Augment-style)',
-    'agentStyle.style.augment.description': 'Strict tasklist-driven workflow with aggressive verification.',
+    'agentStyle.style.augment.description':
+      'Strict tasklist-driven workflow with aggressive verification.',
     'agentStyle.style.claudeCode.label': 'Claude Code (CLI-style)',
-    'agentStyle.style.claudeCode.description': 'Ultra-concise, direct, and high-performance CLI interaction.',
+    'agentStyle.style.claudeCode.description':
+      'Ultra-concise, direct, and high-performance CLI interaction.',
     'agentStyle.style.claude-code.label': 'Claude Code (CLI-style)',
-    'agentStyle.style.claude-code.description': 'Ultra-concise, direct, and high-performance CLI interaction.',
+    'agentStyle.style.claude-code.description':
+      'Ultra-concise, direct, and high-performance CLI interaction.',
     'agentStyle.style.antigravity.label': 'Antigravity (KI-style)',
-    'agentStyle.style.antigravity.description': 'Knowledge-first approach with premium aesthetic and systemic workflows.',
+    'agentStyle.style.antigravity.description':
+      'Knowledge-first approach with premium aesthetic and systemic workflows.',
     'agentStyle.style.windsurf.label': 'Windsurf (Flow-style)',
-    'agentStyle.style.windsurf.description': 'Operates on AI Flow paradigm, balancing independent and collaborative work.',
+    'agentStyle.style.windsurf.description':
+      'Operates on AI Flow paradigm, balancing independent and collaborative work.',
     'agentStyle.usage.title': 'Usage:',
     'agentStyle.usage.default': 'Switch to Default (Claude-style)',
     'agentStyle.usage.codex': 'Switch to Codex (Codex-style)',
@@ -1360,13 +1674,15 @@ export const translations = {
     'agentStyle.usage.antigravity': 'Switch to Antigravity (Premium-style)',
     'agentStyle.usage.windsurf': 'Switch to Windsurf (Flow-style)',
     'agentStyle.usage.status': 'Show current style',
-    'agentStyle.usage.error': 'Usage: /agent-style [style] or /agent-style status',
+    'agentStyle.usage.error':
+      'Usage: /agent-style [style] or /agent-style status',
     'agentStyle.already.default': 'Already using Default (Claude-style).',
     'agentStyle.already.codex': 'Already using Codex (Codex-style).',
     'agentStyle.already.using': 'Already using {style} style.',
     'agentStyle.error.switch.failed': 'Failed to switch Agent style',
     'agentStyle.switched.success': 'Switched to {style}',
-    'agentStyle.codex.yolo.enabled': '🚀 YOLO mode auto-enabled (all tool calls will execute without confirmation)',
+    'agentStyle.codex.yolo.enabled':
+      '🚀 YOLO mode auto-enabled (all tool calls will execute without confirmation)',
 
     // Error messages
     'error.config.not.loaded': 'Configuration not loaded.',
@@ -1374,14 +1690,20 @@ export const translations = {
 
     // Loop Detection Messages
     'loop.consecutive.tool.calls.title': '🔄 Repetitive Tool Calls Detected',
-    'loop.consecutive.tool.calls.description': 'The AI model is repeatedly calling the same tool, exhausting context and API quota without making meaningful progress.\n\nWhy this happens:\n• The AI may be stuck exploring the same path\n• The current approach is not productive\n• Missing or unclear task context\n\nWhat to do:\n1. Review the task: Is the request clear and specific enough?\n2. Provide new guidance: Give the AI a different approach or new information\n3. Restart if needed: Use /session new to start with a fresh context\n\nExamples:\n• ❌ "Read all files to understand the codebase"\n• ✅ "Focus on src/auth.ts and explain the login flow"\n• ❌ "Fix the error"\n• ✅ "The error is in authentication. Check the token validation logic"',
-    'loop.consecutive.tool.calls.action': 'Quick actions:\n• Continue with a more specific request\n• Ask the AI to try a different approach\n• Use /session new to start fresh',
+    'loop.consecutive.tool.calls.description':
+      'The AI model is repeatedly calling the same tool, exhausting context and API quota without making meaningful progress.\n\nWhy this happens:\n• The AI may be stuck exploring the same path\n• The current approach is not productive\n• Missing or unclear task context\n\nWhat to do:\n1. Review the task: Is the request clear and specific enough?\n2. Provide new guidance: Give the AI a different approach or new information\n3. Restart if needed: Use /session new to start with a fresh context\n\nExamples:\n• ❌ "Read all files to understand the codebase"\n• ✅ "Focus on src/auth.ts and explain the login flow"\n• ❌ "Fix the error"\n• ✅ "The error is in authentication. Check the token validation logic"',
+    'loop.consecutive.tool.calls.action':
+      'Quick actions:\n• Continue with a more specific request\n• Ask the AI to try a different approach\n• Use /session new to start fresh',
     'loop.chanting.identical.sentences.title': '🔄 Repetitive Content Detected',
-    'loop.chanting.identical.sentences.description': 'The AI model is repeatedly generating the same text or responses.',
-    'loop.chanting.identical.sentences.action': 'How to fix:\n• The model may be stuck on a specific pattern\n• Try breaking the pattern with a new instruction\n• Ask the AI to try a different approach\n• Continue the conversation with new context or /session new for a fresh start',
+    'loop.chanting.identical.sentences.description':
+      'The AI model is repeatedly generating the same text or responses.',
+    'loop.chanting.identical.sentences.action':
+      'How to fix:\n• The model may be stuck on a specific pattern\n• Try breaking the pattern with a new instruction\n• Ask the AI to try a different approach\n• Continue the conversation with new context or /session new for a fresh start',
     'loop.llm.detected.title': '⚠️ Unproductive Loop Detected',
-    'loop.llm.detected.description': 'The AI model appears to be stuck without making meaningful progress on the task.',
-    'loop.llm.detected.action': 'How to fix:\n• Provide clearer task requirements or accept the current progress\n• Refocus the AI on the core problem\n• Consider breaking the task into smaller subtasks\n• Continue with new instructions or /session new to restart',
+    'loop.llm.detected.description':
+      'The AI model appears to be stuck without making meaningful progress on the task.',
+    'loop.llm.detected.action':
+      'How to fix:\n• Provide clearer task requirements or accept the current progress\n• Refocus the AI on the core problem\n• Consider breaking the task into smaller subtasks\n• Continue with new instructions or /session new to restart',
 
     // Daily Tips
     'tip.help': '/help - View all available commands',
@@ -1405,69 +1727,92 @@ export const translations = {
     'tip.cli.cloud': 'dvcode --cloud-mode - Enable cloud remote control',
 
     // Skills System
-    'skill.command.description': 'Manage AI Skills (Marketplace → Plugin → Skill)',
-    'skill.help.text': 'DeepV Code Skills System\n\nManage AI Skills with a three-tier architecture:\n  Marketplace → Plugin → Skill\n\nCommands:\n  /skill marketplace list              - List all marketplaces\n  /skill marketplace add <url> [alias] - Add a marketplace\n  /skill marketplace update <name>     - Update marketplace\n  /skill marketplace remove <name>     - Remove marketplace\n  /skill marketplace browse <name>     - Browse plugins\n\n  /skill plugin list [marketplace]     - List plugins\n  /skill install <name>                - Install a plugin (auto-finds marketplace)\n  /skill install <name@mp>             - Install from specific marketplace\n  /skill plugin install <name>         - Alias for /skill install\n  /skill plugin uninstall <id>         - Uninstall a plugin\n  /skill plugin enable <id>            - Enable a plugin\n  /skill plugin disable <id>           - Disable a plugin\n  /skill plugin info <id>              - Show plugin info\n\n  /skill list                          - List all skills\n  /skill info <id>                     - Show skill details\n  /skill stats                         - Show statistics\n\nQuick Start:\n  1. Add official marketplace:\n     /skill marketplace add https://github.com/anthropics/skills.git\n\n  2. Browse plugins:\n     /skill marketplace browse skills\n\n  3. Install a plugin (no marketplace needed if unique):\n     /skill install example-skills\n\n  4. View skills:\n     /skill list',
+    'skill.command.description':
+      'Manage AI Skills (Marketplace → Plugin → Skill)',
+    'skill.help.text':
+      'DeepV Code Skills System\n\nManage AI Skills with a three-tier architecture:\n  Marketplace → Plugin → Skill\n\nCommands:\n  /skill marketplace list              - List all marketplaces\n  /skill marketplace add <url> [alias] - Add a marketplace\n  /skill marketplace update <name>     - Update marketplace\n  /skill marketplace remove <name>     - Remove marketplace\n  /skill marketplace browse <name>     - Browse plugins\n\n  /skill plugin list [marketplace]     - List plugins\n  /skill install <name>                - Install a plugin (auto-finds marketplace)\n  /skill install <name@mp>             - Install from specific marketplace\n  /skill plugin install <name>         - Alias for /skill install\n  /skill plugin uninstall <id>         - Uninstall a plugin\n  /skill plugin enable <id>            - Enable a plugin\n  /skill plugin disable <id>           - Disable a plugin\n  /skill plugin info <id>              - Show plugin info\n\n  /skill list                          - List all skills\n  /skill info <id>                     - Show skill details\n  /skill stats                         - Show statistics\n\nQuick Start:\n  1. Add official marketplace:\n     /skill marketplace add https://github.com/anthropics/skills.git\n\n  2. Browse plugins:\n     /skill marketplace browse skills\n\n  3. Install a plugin (no marketplace needed if unique):\n     /skill install example-skills\n\n  4. View skills:\n     /skill list',
     'plugin.command.description': 'Manage Plugins (Marketplace → Plugin)',
-    'plugin.help.text': 'DeepV Code Plugin System\n\nManage Plugins and Marketplaces:\n  /plugin marketplace add <url> [alias] - Add a marketplace\n  /plugin install <name>                - Install a plugin\n  /plugin list                          - List installed plugins\n\nThis is an alias for the /skill command system.',
+    'plugin.help.text':
+      'DeepV Code Plugin System\n\nManage Plugins and Marketplaces:\n  /plugin marketplace add <url> [alias] - Add a marketplace\n  /plugin install <name>                - Install a plugin\n  /plugin list                          - List installed plugins\n\nThis is an alias for the /skill command system.',
     'skill.marketplace.description': 'Manage Skills marketplaces',
-    'skill.marketplace.usage': 'Usage: /skill marketplace <list|add|update|remove|browse>',
+    'skill.marketplace.usage':
+      'Usage: /skill marketplace <list|add|update|remove|browse>',
     'skill.marketplace.list.description': 'List all marketplaces',
     'skill.marketplace.list.empty': 'No marketplaces installed.',
-    'skill.marketplace.list.empty.hint': 'Add one:\n  /skill marketplace add https://github.com/anthropics/skills.git',
+    'skill.marketplace.list.empty.hint':
+      'Add one:\n  /skill marketplace add https://github.com/anthropics/skills.git',
     'skill.marketplace.list.found': 'Found {count} marketplace(s):\n\n',
     'skill.marketplace.list.failed': 'Failed to list marketplaces: {error}',
-    'skill.marketplace.add.description': 'Add a marketplace from Git URL or local path',
-    'skill.marketplace.add.usage': 'Usage: /skill marketplace add <url|path> [alias] [--name <name>]',
+    'skill.marketplace.add.description':
+      'Add a marketplace from Git URL or local path',
+    'skill.marketplace.add.usage':
+      'Usage: /skill marketplace add <url|path> [alias] [--name <name>]',
     'skill.marketplace.add.progress': 'Adding marketplace from {url}{name}...',
-    'skill.marketplace.add.success': '✅ Successfully added: {name}\n   ID: {id}\n   Plugins: {count}',
+    'skill.marketplace.add.success':
+      '✅ Successfully added: {name}\n   ID: {id}\n   Plugins: {count}',
     'skill.marketplace.add.failed': 'Failed to add marketplace: {error}',
     'skill.marketplace.update.description': 'Update a marketplace (git pull)',
     'skill.marketplace.update.usage': 'Usage: /skill marketplace update <name>',
     'skill.marketplace.update.progress': 'Updating marketplace {id}...',
-    'skill.marketplace.update.success': '✅ Successfully updated: {name}\n   Plugins: {count}',
+    'skill.marketplace.update.success':
+      '✅ Successfully updated: {name}\n   Plugins: {count}',
     'skill.marketplace.update.failed': 'Failed to update marketplace: {error}',
     'skill.marketplace.remove.description': 'Remove a marketplace',
     'skill.marketplace.remove.empty': 'No marketplaces installed.',
-    'skill.marketplace.remove.select': 'Please select a marketplace to remove:\n\n',
+    'skill.marketplace.remove.select':
+      'Please select a marketplace to remove:\n\n',
     'skill.marketplace.remove.success': '✅ Successfully removed: {id}{files}',
     'skill.marketplace.remove.files_deleted': '\n   Files deleted from disk',
     'skill.marketplace.remove.failed': 'Failed to remove marketplace: {error}',
     'skill.marketplace.browse.description': 'Browse plugins in a marketplace',
-    'skill.marketplace.browse.select': 'Please select a marketplace to browse:\n\n',
+    'skill.marketplace.browse.select':
+      'Please select a marketplace to browse:\n\n',
     'skill.marketplace.browse.empty': 'No plugins found in {id}{query}',
     'skill.marketplace.browse.found': 'Found {count} plugin(s) in {id}:\n\n',
     'skill.marketplace.browse.failed': 'Failed to browse marketplace: {error}',
     'skill.plugin.description': 'Manage Skills plugins',
-    'skill.plugin.usage': 'Usage: /skill plugin <list|install|uninstall|enable|disable|info>',
-    'skill.plugin.list.description': 'List installed plugins or available plugins',
+    'skill.plugin.usage':
+      'Usage: /skill plugin <list|install|uninstall|enable|disable|info>',
+    'skill.plugin.list.description':
+      'List installed plugins or available plugins',
     'skill.plugin.list.marketplace.empty': 'No plugins found in {id}',
     'skill.plugin.list.marketplace.found': 'Available plugins in {id}:\n\n',
-    'skill.plugin.list.installed.empty': 'No plugins installed.\n\nInstall one:\n  /skill plugin install <plugin-name>',
+    'skill.plugin.list.installed.empty':
+      'No plugins installed.\n\nInstall one:\n  /skill plugin install <plugin-name>',
     'skill.plugin.list.installed.found': 'Installed plugins ({count}):\n',
     'skill.plugin.list.failed': 'Failed to list plugins: {error}',
     'skill.plugin.install.description': 'Install a plugin from marketplace',
-    'skill.plugin.install.usage': 'Usage: /skill plugin install <plugin-name> or /skill plugin install <plugin-name@marketplace-id>',
-    'skill.install.description': 'Install a plugin (alias for /skill plugin install)',
-    'skill.install.usage': 'Usage: /skill install <plugin-name> or /skill install <plugin-name@marketplace-id>',
+    'skill.plugin.install.usage':
+      'Usage: /skill plugin install <plugin-name> or /skill plugin install <plugin-name@marketplace-id>',
+    'skill.install.description':
+      'Install a plugin (alias for /skill plugin install)',
+    'skill.install.usage':
+      'Usage: /skill install <plugin-name> or /skill install <plugin-name@marketplace-id>',
     'skill.plugin.install.select.plugin': 'Available plugins to install:\n\n',
-    'skill.plugin.install.no.available': 'All available plugins are already installed. Use /skill plugin list to see installed plugins.',
-    'skill.plugin.install.progress': 'Installing plugin {plugin} from {marketplace}...',
-    'skill.plugin.install.success': '✅ Successfully installed: {name}\n   ID: {id}\n   Skills: {count}\n   Status: Enabled',
+    'skill.plugin.install.no.available':
+      'All available plugins are already installed. Use /skill plugin list to see installed plugins.',
+    'skill.plugin.install.progress':
+      'Installing plugin {plugin} from {marketplace}...',
+    'skill.plugin.install.success':
+      '✅ Successfully installed: {name}\n   ID: {id}\n   Skills: {count}\n   Status: Enabled',
     'skill.plugin.install.failed': 'Failed to install plugin: {error}',
     'skill.plugin.uninstall.description': 'Uninstall a plugin',
-    'skill.plugin.uninstall.usage': 'Usage: /skill plugin uninstall <plugin-id>',
+    'skill.plugin.uninstall.usage':
+      'Usage: /skill plugin uninstall <plugin-id>',
     'skill.plugin.uninstall.progress': 'Uninstalling plugin {id}...',
     'skill.plugin.uninstall.success': '✅ Successfully uninstalled: {id}',
     'skill.plugin.uninstall.failed': 'Failed to uninstall plugin: {error}',
     'skill.plugin.enable.description': 'Enable a plugin',
     'skill.plugin.enable.usage': 'Usage: /skill plugin enable <plugin-id>',
     'skill.plugin.enable.progress': 'Enabling plugin {id}...',
-    'skill.plugin.enable.success': '✅ Successfully enabled: {id}\n\nSkills from this plugin are now available.',
+    'skill.plugin.enable.success':
+      '✅ Successfully enabled: {id}\n\nSkills from this plugin are now available.',
     'skill.plugin.enable.failed': 'Failed to enable plugin: {error}',
     'skill.plugin.disable.description': 'Disable a plugin',
     'skill.plugin.disable.usage': 'Usage: /skill plugin disable <plugin-id>',
     'skill.plugin.disable.progress': 'Disabling plugin {id}...',
-    'skill.plugin.disable.success': '✅ Successfully disabled: {id}\n\nSkills from this plugin are no longer available.',
+    'skill.plugin.disable.success':
+      '✅ Successfully disabled: {id}\n\nSkills from this plugin are no longer available.',
     'skill.plugin.disable.failed': 'Failed to disable plugin: {error}',
     'skill.plugin.info.description': 'Show plugin details',
     'skill.plugin.info.usage': 'Usage: /skill plugin info <plugin-id>',
@@ -1534,6 +1879,7 @@ export const translations = {
     'update.completed': '✅ 更新完成！',
     'update.failed.code': '❌ 更新失败，退出码：{code}',
     'update.exec.command.error': '❌ 执行更新命令失败：{error}',
+    'update.command.unsafe': '更新命令包含不安全的操作符，请手动执行。',
     'update.manual.run.hint': '💡 请手动执行更新命令',
     'update.prompt.auto': '🤖 是否自动执行更新？ (y/n): ',
     'update.prompt.now': '🤔 是否现在更新？ (y/n): ',
@@ -1544,7 +1890,8 @@ export const translations = {
     'update.continue.current': '✨ 继续使用当前版本...',
     'update.force.checking': '🔄 强制检查更新...',
     // Session Summary
-    'agent.powering.down': '感谢使用DeepV Code！ 如要继续上次对话 可执行dvcode -c',
+    'agent.powering.down':
+      '感谢使用DeepV Code！ 如要继续上次对话 可执行dvcode -c',
 
     // Input Prompt
     'input.placeholder.base': '输入您的消息或 @文件路径',
@@ -1564,11 +1911,13 @@ export const translations = {
     'input.hint.cancel.win32.idea': 'ctrl+q: 取消',
     'input.hint.cancel.darwin.idea': 'ctrl+q: 取消',
     'input.hint.cancel.linux.idea': 'ctrl+q: 取消',
-    'input.paste.detected': '已检测到 {count} 个长文本粘贴片段，输入框中显示摘要版本。发送时将使用完整内容。',
+    'input.paste.detected':
+      '已检测到 {count} 个长文本粘贴片段，输入框中显示摘要版本。发送时将使用完整内容。',
     'input.paste.segment': '片段 {index}: {lines} 行',
     'input.paste.clipboard.image': '🖼️ 正在从剪贴板粘贴图片...',
     'input.paste.unified.hotkey': 'Ctrl+V 统一粘贴（图像或文本）',
-    'input.paste.vscode.recommendation': '在 VSCode 终端中，使用 Ctrl+V 进行统一粘贴',
+    'input.paste.vscode.recommendation':
+      '在 VSCode 终端中，使用 Ctrl+V 进行统一粘贴',
     'input.queue.busy': '🤖 模型正在思考，新的指令会进入队列。',
     'input.queue.working': '正在处理 (esc 中断)',
     'input.queue.edit.hint': 'ctrl + ↑ 编辑',
@@ -1688,19 +2037,23 @@ export const translations = {
     'subagent.avg.latency': '平均延迟: ',
 
     // Task execution
-    'task.timeout.warning': '⚠️ 任务执行超时：已执行{turns}轮对话但任务仍未完成',
+    'task.timeout.warning':
+      '⚠️ 任务执行超时：已执行{turns}轮对话但任务仍未完成',
     'task.timeout.credits.notice': '继续执行可能消耗更多 Credits，请谨慎审视。',
 
     // Conversation limits
-    'conversation.token.limit.warning': '重要提示：上下文即将达到限制，对话上下文将被压缩以继续会话。\n如果你发现模型变得不够专注，可以使用 "/session new" 开启全新对话。',
+    'conversation.token.limit.warning':
+      '重要提示：上下文即将达到限制，对话上下文将被压缩以继续会话。\n如果你发现模型变得不够专注，可以使用 "/session new" 开启全新对话。',
 
     // Tool Names
     'tool.edit': '编辑',
     'tool.ppt_generate': 'PPT生成',
-    'tool.ppt_generate.description': '提交PPT大纲并启动生成任务。\n\n此工具会执行以下操作：\n1. 将当前大纲提交到服务端\n2. 启动PPT生成任务\n3. 自动打开浏览器跳转到PPT编辑预览页面\n4. 退出PPT编辑模式\n\n调用前请确保已通过 ppt_outline 工具设置好大纲内容（主题、页数、大纲文本）。',
+    'tool.ppt_generate.description':
+      '提交PPT大纲并启动生成任务。\n\n此工具会执行以下操作：\n1. 将当前大纲提交到服务端\n2. 启动PPT生成任务\n3. 自动打开浏览器跳转到PPT编辑预览页面\n4. 退出PPT编辑模式\n\n调用前请确保已通过 ppt_outline 工具设置好大纲内容（主题、页数、大纲文本）。',
     'ppt_generate.param.confirm': '确认提交（默认true）',
     'tool.ppt_outline': 'PPT大纲',
-    'tool.ppt_outline.description': '管理PPT大纲内容。支持以下操作：\n- init: 初始化PPT编辑模式，开始创建新PPT\n- update: 更新大纲内容（主题、页数、大纲文本）\n- view: 查看当前大纲状态\n- clear: 清除当前大纲并退出PPT模式',
+    'tool.ppt_outline.description':
+      '管理PPT大纲内容。支持以下操作：\n- init: 初始化PPT编辑模式，开始创建新PPT\n- update: 更新大纲内容（主题、页数、大纲文本）\n- view: 查看当前大纲状态\n- clear: 清除当前大纲并退出PPT模式',
 
     // Web Search
     'websearch.results.returned': '"{query}"的搜索结果已返回。{truncated}',
@@ -1720,7 +2073,8 @@ export const translations = {
     'tool.task': '任务',
 
     // Shell output
-    'shell.output.truncated': '... (显示最新 {maxLines} 行，共 {totalLines} 行)',
+    'shell.output.truncated':
+      '... (显示最新 {maxLines} 行，共 {totalLines} 行)',
 
     // Background task
     'shell.background.hint': 'ctrl+b 后台运行',
@@ -1737,7 +2091,6 @@ export const translations = {
 
     // Text Truncator
     'text_truncator.omitted_lines': '[ ... 已省略显示 {count} 行 ... ]',
-
 
     // IDE Connection
     'ide.connected': '• 已与IDE连接',
@@ -1773,55 +2126,69 @@ export const translations = {
     'tool.confirmation.project.always': '是，本项目所有工具始终允许',
     'tool.confirmation.modify.editor': '使用外部编辑器修改',
     'tool.confirmation.cancel': '否 ({cancelKey})，告诉DeepV Code你的想法',
-    'tool.confirmation.execute': '允许执行：\'{command}\'？',
+    'tool.confirmation.execute': "允许执行：'{command}'？",
     'tool.confirmation.type.always.exec': '是，本类型始终允许...',
     'tool.confirmation.continue': '您要继续吗？',
     'tool.confirmation.urls.label': '要获取的URL：',
     'tool.confirmation.mcp.server': 'MCP服务器：',
     'tool.confirmation.mcp.tool': '工具：',
-    'tool.confirmation.mcp.execute': '允许执行MCP工具"{toolName}"（来自服务器"{serverName}"）？',
-    'tool.confirmation.mcp.tool.always': '是，始终允许服务器"{serverName}"中的工具"{toolName}"',
-    'tool.confirmation.mcp.server.always': '是，始终允许服务器"{serverName}"中的所有工具',
+    'tool.confirmation.mcp.execute':
+      '允许执行MCP工具"{toolName}"（来自服务器"{serverName}"）？',
+    'tool.confirmation.mcp.tool.always':
+      '是，始终允许服务器"{serverName}"中的工具"{toolName}"',
+    'tool.confirmation.mcp.server.always':
+      '是，始终允许服务器"{serverName}"中的所有工具',
     'tool.confirmation.delete.file': '删除此文件？',
-
 
     // Git error messages
     'git.error.old.version.title': 'Git 版本过低',
-    'git.error.old.version.message': '您的 Git 版本不支持检查点功能所需的 "--initial-branch" 选项。',
+    'git.error.old.version.message':
+      '您的 Git 版本不支持检查点功能所需的 "--initial-branch" 选项。',
     'git.error.old.version.impact': '影响：文件检查点和快照功能将被禁用。',
-    'git.error.old.version.solution': '解决方案：请升级 Git 至 2.28+ 版本，或在设置中禁用检查点功能。',
-    'git.error.old.version.continuing': 'CLI 将在禁用检查点功能的情况下继续运行。',
+    'git.error.old.version.solution':
+      '解决方案：请升级 Git 至 2.28+ 版本，或在设置中禁用检查点功能。',
+    'git.error.old.version.continuing':
+      'CLI 将在禁用检查点功能的情况下继续运行。',
     'git.error.not.available.title': 'Git 不可用',
     'git.error.not.available.message': 'Git 未安装或不在 PATH 环境变量中。',
     'git.error.not.available.impact': '影响：文件检查点和快照功能将被禁用。',
-    'git.error.not.available.solution': '解决方案：请安装 Git 或在设置中禁用检查点功能。',
-    'git.error.not.available.continuing': 'CLI 将在禁用检查点功能的情况下继续运行。',
+    'git.error.not.available.solution':
+      '解决方案：请安装 Git 或在设置中禁用检查点功能。',
+    'git.error.not.available.continuing':
+      'CLI 将在禁用检查点功能的情况下继续运行。',
     'git.error.init.failed.title': 'Git 初始化失败',
     'git.error.init.failed.message': '检查点功能的 Git 仓库初始化失败：{error}',
     'git.error.init.failed.impact': '影响：文件检查点和快照功能将被禁用。',
-    'git.error.init.failed.solution': '解决方案：检查 Git 安装和权限，或禁用检查点功能。',
-    'git.error.init.failed.continuing': 'CLI 将在禁用检查点功能的情况下继续运行。',
+    'git.error.init.failed.solution':
+      '解决方案：检查 Git 安装和权限，或禁用检查点功能。',
+    'git.error.init.failed.continuing':
+      'CLI 将在禁用检查点功能的情况下继续运行。',
 
     // Checkpoint messages
     'checkpoint.creating': '正在执行自动检查点...',
-    'checkpoint.created.success': '检查点已建立。\n  使用 \x1b[36m/restore {checkpointId}\x1b[32m 恢复到此检查点\n',
+    'checkpoint.created.success':
+      '检查点已建立。\n  使用 \x1b[36m/restore {checkpointId}\x1b[32m 恢复到此检查点\n',
     'checkpoint.created.failed': '检查点创建失败: {error}',
     'checkpoint.creation.skipped': '本次对话将跳过后续的自动检查点尝试',
 
     // Checkpoint CLI command
     'checkpoint.command.description': '管理检查点历史记录',
-    'checkpoint.command.require.subcommand': '请指定子命令。使用 --help 查看可用命令。',
+    'checkpoint.command.require.subcommand':
+      '请指定子命令。使用 --help 查看可用命令。',
     'checkpoint.clean.description': '清理所有检查点历史记录以释放磁盘空间',
     'checkpoint.clean.force.description': '跳过确认提示',
     'checkpoint.clean.dryrun.description': '显示将要删除的内容但不实际删除',
     'checkpoint.clean.no.history': '✅ 未找到检查点历史记录。无需清理。',
     'checkpoint.clean.no.checkpoints': '✅ 检查点历史目录为空。无需清理。',
-    'checkpoint.clean.summary': '📊 检查点历史概览：\n   项目数量：{count}\n   总大小：{size}\n   存储位置：{path}',
+    'checkpoint.clean.summary':
+      '📊 检查点历史概览：\n   项目数量：{count}\n   总大小：{size}\n   存储位置：{path}',
     'checkpoint.clean.dryrun.notice': '\n🔍 预览模式 - 未删除任何文件。',
-    'checkpoint.clean.confirm': '\n⚠️  此操作将永久删除所有检查点历史记录。\n确定要继续吗？(y/N): ',
+    'checkpoint.clean.confirm':
+      '\n⚠️  此操作将永久删除所有检查点历史记录。\n确定要继续吗？(y/N): ',
     'checkpoint.clean.cancelled': '❌ 操作已取消。',
     'checkpoint.clean.deleting': '🗑️  正在删除检查点历史...',
-    'checkpoint.clean.success': '✅ 检查点历史清理完成。已释放 {size} 磁盘空间。',
+    'checkpoint.clean.success':
+      '✅ 检查点历史清理完成。已释放 {size} 磁盘空间。',
     'checkpoint.clean.error': '❌ 清理检查点历史时出错：{error}',
     'checkpoint.history.large.warning': '⚠️  检查点历史记录较大 ({size})。',
     'checkpoint.history.large.question': '是否现在清理以释放空间？(y/N): ',
@@ -1838,16 +2205,23 @@ export const translations = {
     'diff.test.completed': '测试完成 ✅',
 
     // Startup Warnings
-    'startup.warning.home.directory': '您正在主目录中运行 DeepV Code CLI。建议在项目特定目录中运行。',
-    'startup.warning.root.directory': '警告：您正在根目录中运行 DeepV Code CLI。将使用整个文件夹结构作为上下文。强烈建议在项目特定目录中运行。',
+    'startup.warning.home.directory':
+      '您正在主目录中运行 DeepV Code CLI。建议在项目特定目录中运行。',
+    'startup.warning.root.directory':
+      '警告：您正在根目录中运行 DeepV Code CLI。将使用整个文件夹结构作为上下文。强烈建议在项目特定目录中运行。',
     'startup.warning.filesystem.error': '由于文件系统错误，无法验证当前目录。',
-    'startup.warning.custom.proxy.server': '🔗 检测到自定义代理服务器地址：{url}\n   您正在使用企业级服务器地址。',
-    'startup.warning.low.credits': '⚠️  您的剩余积分不多了（剩余 {percentage}%）。请考虑充值以继续使用服务。',
+    'startup.warning.custom.proxy.server':
+      '🔗 检测到自定义代理服务器地址：{url}\n   您正在使用企业级服务器地址。',
+    'startup.warning.low.credits':
+      '⚠️  您的剩余积分不多了（剩余 {percentage}%）。请考虑充值以继续使用服务。',
 
     // DeepX Quota Error Messages
-    'deepx.quota.no.configuration': '─────────────────────────────────────────────────────\n🚫 当前账户可用的 Credit（积分）不足以继续使用本服务\n💡 请考虑订阅更多额度的套餐。详情请访问官网：https://dvcode.deepvlab.ai/\n\n\x1b[33m🎁 如果希望获得免费体验机会，请联系我们的Boss：https://x.com/fusheng_0306\x1b[0m\n─────────────────────────────────────────────────────',
-    'deepx.quota.exceeded.with.upgrade': '🚫 {model} 的日{limitType}已达上限\n💡 请升级套餐：https://dvcode.deepvlab.ai/',
-    'deepx.quota.exceeded.default': '🚫 服务配额已达上限\n💡 请升级套餐：https://dvcode.deepvlab.ai/',
+    'deepx.quota.no.configuration':
+      '─────────────────────────────────────────────────────\n🚫 当前账户可用的 Credit（积分）不足以继续使用本服务\n💡 请考虑订阅更多额度的套餐。详情请访问官网：https://dvcode.deepvlab.ai/\n\n\x1b[33m🎁 如果希望获得免费体验机会，请联系我们的Boss：https://x.com/fusheng_0306\x1b[0m\n─────────────────────────────────────────────────────',
+    'deepx.quota.exceeded.with.upgrade':
+      '🚫 {model} 的日{limitType}已达上限\n💡 请升级套餐：https://dvcode.deepvlab.ai/',
+    'deepx.quota.exceeded.default':
+      '🚫 服务配额已达上限\n💡 请升级套餐：https://dvcode.deepvlab.ai/',
     'deepx.quota.limit.token': 'Token限额',
     'deepx.quota.limit.request': '请求次数限额',
     'deepx.quota.limit.cost': '费用限额',
@@ -1859,19 +2233,25 @@ export const translations = {
     'model.command.available.models': '可用模型',
     'model.command.from.server': '（从服务端获取）',
     'model.command.from.cache': '（从缓存）',
-    'model.command.usage.instruction.set': '使用 /model <模型名称> 来设置首选模型。',
-    'model.command.usage.instruction.set.friendly': '💡 提示：输入 /model 后按空格键或Tab键可直接选择模型，选中后按回车确认。',
+    'model.command.usage.instruction.set':
+      '使用 /model <模型名称> 来设置首选模型。',
+    'model.command.usage.instruction.set.friendly':
+      '💡 提示：输入 /model 后按空格键或Tab键可直接选择模型，选中后按回车确认。',
     'model.command.current.preferred': '当前首选模型：{model}',
-    'model.command.usage.instruction.change': '使用 /model <模型名称> 来更改模型。',
-    'model.command.usage.instruction.change.friendly': '💡 提示：输入 /model 后按空格键或Tab键可直接选择模型，选中后按回车确认。',
+    'model.command.usage.instruction.change':
+      '使用 /model <模型名称> 来更改模型。',
+    'model.command.usage.instruction.change.friendly':
+      '💡 提示：输入 /model 后按空格键或Tab键可直接选择模型，选中后按回车确认。',
     'model.command.invalid.model': '无效的模型：{model}',
     'model.command.switching': '正在切换到模型 {model}，请稍候...',
     'model.command.set.success': '✅ 已设置首选模型为：{model}',
     'model.command.credit.cost': '💰 单次请求消耗：{credits}x credits',
-    'model.command.credit.cost.long.context': '💰 长上下文 (>{threshold} tokens)：{credits}x credits',
+    'model.command.credit.cost.long.context':
+      '💰 长上下文 (>{threshold} tokens)：{credits}x credits',
     'model.command.long.context.short': '长上下文 >{threshold}: {credits}x',
     'model.command.auto.mode': '🤖 服务端将根据请求类型自动选择最适合的模型',
-    'model.command.hint.press.enter': '请直接回车以选择模型（任何时候可按 Ctrl+L）',
+    'model.command.hint.press.enter':
+      '请直接回车以选择模型（任何时候可按 Ctrl+L）',
     'model.command.not.logged.in': '❌ 您尚未登录。',
     'model.command.please.login': '💡 请先使用 /auth 命令登录账号。',
 
@@ -1939,9 +2319,11 @@ export const translations = {
     'auth.deepvlab.success': '✅ DeepVlab认证成功！',
     'auth.deepvlab.failed': '❌ DeepVlab认证失败，请重试。',
     'auth.deepvlab.error': '❌ DeepVlab认证过程中发生错误：{error}',
-    'auth.deepvlab.config.success': '✅ DeepVlab认证成功！正在配置 Cheeth OA 代理模式...',
+    'auth.deepvlab.config.success':
+      '✅ DeepVlab认证成功！正在配置 Cheeth OA 代理模式...',
     'auth.deepvlab.config.error': 'DeepVlab认证成功，但代理配置有误：\n{error}',
-    'auth.deepvlab.server.started': '✅ DeepVlab统一认证服务器已启动，请在浏览器中完成认证...',
+    'auth.deepvlab.server.started':
+      '✅ DeepVlab统一认证服务器已启动，请在浏览器中完成认证...',
     'auth.deepvlab.server.error': '❌ DeepVlab认证启动失败：{error}',
     'auth.deepvlab.page.title': 'DeepVlab认证成功',
     'auth.deepvlab.page.success': '✅ DeepVlab认证成功！',
@@ -1950,22 +2332,28 @@ export const translations = {
     'welcome.title': '🎉 欢迎使用 DeepV Code！✨',
     'welcome.subtitle': '🚀 开启您的智能编程之旅 💻',
     'welcome.daily.tip.title': '每日技巧',
-    'welcome.daily.tip.more': '输入 /help 查看传统帮助，输入 /help-ask 进入智能问答式帮助',
+    'welcome.daily.tip.more':
+      '输入 /help 查看传统帮助，输入 /help-ask 进入智能问答式帮助',
     'auth.dialog.title': '开始使用',
     'auth.dialog.authenticating': '(认证进行中，请稍候...)',
     'auth.dialog.select.hint': '(按回车键选择)',
     'auth.dialog.how.to.authenticate': '请先登录后使用',
-    'auth.tokenExpiredPrompt': '⚠️  登录凭据已过期，请使用 /auth 命令重新登录。',
+    'auth.tokenExpiredPrompt':
+      '⚠️  登录凭据已过期，请使用 /auth 命令重新登录。',
 
     // MCP Command Messages
-    'mcp.first.start.hint': '注意：首次启动可能需要更长时间。工具可用性将自动更新。',
+    'mcp.first.start.hint':
+      '注意：首次启动可能需要更长时间。工具可用性将自动更新。',
     'mcp.starting': '启动中...',
     'mcp.starting.first.launch': '启动中... (首次启动可能需要更长时间)',
-    'mcp.no.servers.opening.docs': '未配置 MCP 服务器。正在打开浏览器中的文档：{url}',
+    'mcp.no.servers.opening.docs':
+      '未配置 MCP 服务器。正在打开浏览器中的文档：{url}',
 
     // Theme Command Messages
-    'theme.first.start.no.color': '检测到首次启动，但由于 NO_COLOR 环境变量，主题配置不可用。',
-    'theme.first.start.select.style': '🎨 检测到本次为首次启动，请选择一个主题风格。',
+    'theme.first.start.no.color':
+      '检测到首次启动，但由于 NO_COLOR 环境变量，主题配置不可用。',
+    'theme.first.start.select.style':
+      '🎨 检测到本次为首次启动，请选择一个主题风格。',
     'theme.name': '主题',
     'theme.current': '当前主题: {theme} ({scope})',
     'theme.select': '选择主题',
@@ -1992,7 +2380,8 @@ export const translations = {
     'cloud.auth.complete.title': '🌐 云端模式认证完成',
     'cloud.auth.complete.ready': '✅ 认证成功！您的云端环境已就绪。',
     'cloud.auth.complete.url': '🌍 远程访问链接：{url}',
-    'cloud.auth.complete.share': '📱 分享此链接即可从任何设备远程访问 DeepV Code',
+    'cloud.auth.complete.share':
+      '📱 分享此链接即可从任何设备远程访问 DeepV Code',
     'cloud.auth.instruction': '💡 请在即将打开的认证对话框中完成身份验证...',
 
     // Cloud mode connection and health
@@ -2004,11 +2393,14 @@ export const translations = {
     'cloud.remote.message.failed': '❌ 请求失败',
     'cloud.connection.retry': '🔄 云端连接尝试 {attempt}/{maxRetries}...',
     'cloud.connection.retry.delay': '⏳ {delay}秒后重试连接...',
-    'cloud.connection.failed.max.retries': '❌ 云端连接失败，已达到最大重试次数 {maxRetries}',
+    'cloud.connection.failed.max.retries':
+      '❌ 云端连接失败，已达到最大重试次数 {maxRetries}',
     'cloud.auth.retry': '🔄 认证尝试 {attempt}/{maxRetries}...',
-    'cloud.auth.failed.max.retries': '❌ 认证失败，已达到最大重试次数 {maxRetries}',
+    'cloud.auth.failed.max.retries':
+      '❌ 认证失败，已达到最大重试次数 {maxRetries}',
     'cloud.health.check.started': '💓 云端连接健康检查已启动 (每30秒检查一次)',
-    'cloud.health.check.disconnected': '⚠️  检测到云端连接中断，尝试重新连接...',
+    'cloud.health.check.disconnected':
+      '⚠️  检测到云端连接中断，尝试重新连接...',
     'cloud.health.check.failed': '❌ 健康检查失败',
     'cloud.reconnect.success': '✅ 云端重连成功',
     'cloud.reconnect.failed': '❌ 云端重连失败',
@@ -2027,14 +2419,17 @@ export const translations = {
     'cloud.mode.server.url': '🌐 云端服务器: {url}',
     'cloud.mode.connecting.to.server.progress': '🔗 正在连接云端server...',
     'cloud.mode.connection.successful': '✅ 云端连接成功',
-    'cloud.mode.connection.attempt.failed': '❌ 云端连接尝试 {attempt} 失败: {error}',
+    'cloud.mode.connection.attempt.failed':
+      '❌ 云端连接尝试 {attempt} 失败: {error}',
     'cloud.mode.started.success': '✅ 云端模式启动成功',
-    'cloud.mode.waiting.web.client': '📡 CLI已连接到云端server，等待Web客户端连接...',
+    'cloud.mode.waiting.web.client':
+      '📡 CLI已连接到云端server，等待Web客户端连接...',
     'cloud.mode.closed': '👋 云端模式已关闭',
     'cloud.mode.start.failed': '❌ 启动云端模式失败: {error}',
 
     // Cloud auth user info
-    'cloud.auth.user.authenticated': '✅ [Cloud Auth] 已认证用户: {name} ({info})',
+    'cloud.auth.user.authenticated':
+      '✅ [Cloud Auth] 已认证用户: {name} ({info})',
     'cloud.user.info': '👤 用户: {name} ({info})',
     'cloud.cli.id': '🆔 CLI ID: {cliId}',
 
@@ -2057,7 +2452,8 @@ export const translations = {
     'stream.interrupted': '传输过程遇到抖动',
     'stream.interrupted.prefix': '⚠️ 哎呀，传输遇到小抖动！',
     'stream.interrupted.suffix': 'DeepV Code 将在 {seconds} 秒后恢复...',
-    'stream.continue.prompt': '[系统] 上次回复因网络问题中断了，请从中断处继续。',
+    'stream.continue.prompt':
+      '[系统] 上次回复因网络问题中断了，请从中断处继续。',
     'stream.autoRetry': '恢复中',
 
     // Cloud WebSocket
@@ -2083,61 +2479,87 @@ export const translations = {
     'cloud.mode.handle.message': '🌐 [CloudMode] 处理云端消息: {type}',
     'cloud.mode.create.session': '🎯 [CloudMode] 创建新session...',
     'cloud.mode.session.created': '✅ [CloudMode] 成功创建session: {sessionId}',
-    'cloud.mode.session.initialized': '✅ [CloudMode] Session初始化完成: {sessionId}',
+    'cloud.mode.session.initialized':
+      '✅ [CloudMode] Session初始化完成: {sessionId}',
     'cloud.mode.session.not.exist': '❌ [CloudMode] Session不存在: {sessionId}',
-    'cloud.mode.session.init.failed': '❌ [CloudMode] Session初始化失败: {sessionId}, {error}',
-    'cloud.mode.create.session.response': '✅ [CloudMode] CREATE_SESSION响应已发送到Web {webId}: {status}',
+    'cloud.mode.session.init.failed':
+      '❌ [CloudMode] Session初始化失败: {sessionId}, {error}',
+    'cloud.mode.create.session.response':
+      '✅ [CloudMode] CREATE_SESSION响应已发送到Web {webId}: {status}',
     'cloud.mode.handle.command': '🎯 [CloudMode] 处理COMMAND消息...',
     'cloud.mode.command.no.session': '❌ [CloudMode] COMMAND消息缺少sessionId',
-    'cloud.mode.command.forward': '📨 [CloudMode] 转发COMMAND到session: {sessionId}',
+    'cloud.mode.command.forward':
+      '📨 [CloudMode] 转发COMMAND到session: {sessionId}',
     'cloud.mode.command.success': '✅ [CloudMode] COMMAND处理成功',
     'cloud.mode.command.failed': '❌ [CloudMode] COMMAND处理失败: {error}',
     'cloud.mode.handle.ui.state': '🎯 [CloudMode] 处理REQUEST_UI_STATE消息...',
-    'cloud.mode.ui.state.no.session': '❌ [CloudMode] REQUEST_UI_STATE消息缺少sessionId',
+    'cloud.mode.ui.state.no.session':
+      '❌ [CloudMode] REQUEST_UI_STATE消息缺少sessionId',
     'cloud.mode.ui.state.get': '📨 [CloudMode] 获取session UI状态: {sessionId}',
     'cloud.mode.ui.state.sent': '✅ [CloudMode] UI状态响应已发送到Web {webId}',
     'cloud.mode.ui.state.failed': '❌ [CloudMode] UI状态获取失败: {error}',
     'cloud.mode.handle.interrupt': '🛑 [CloudMode] 处理INTERRUPT消息...',
-    'cloud.mode.interrupt.no.session': '❌ [CloudMode] INTERRUPT消息缺少sessionId',
+    'cloud.mode.interrupt.no.session':
+      '❌ [CloudMode] INTERRUPT消息缺少sessionId',
     'cloud.mode.interrupt.session': '🛑 [CloudMode] 中断session: {sessionId}',
     'cloud.mode.interrupt.success': '✅ [CloudMode] Session中断成功',
     'cloud.mode.interrupt.failed': '❌ [CloudMode] Session中断失败: {error}',
-    'cloud.mode.handle.clear.session': '🧹 [CloudMode] 处理CLEAR_SESSION消息...',
-    'cloud.mode.clear.session.no.session': '❌ [CloudMode] CLEAR_SESSION消息缺少sessionId',
-    'cloud.mode.clear.session.cleaning': '🧹 [CloudMode] 清理session: {sessionId}',
+    'cloud.mode.handle.clear.session':
+      '🧹 [CloudMode] 处理CLEAR_SESSION消息...',
+    'cloud.mode.clear.session.no.session':
+      '❌ [CloudMode] CLEAR_SESSION消息缺少sessionId',
+    'cloud.mode.clear.session.cleaning':
+      '🧹 [CloudMode] 清理session: {sessionId}',
     'cloud.mode.clear.session.success': '✅ [CloudMode] Session清理成功',
-    'cloud.mode.clear.session.failed': '❌ [CloudMode] Session清理失败: {error}',
+    'cloud.mode.clear.session.failed':
+      '❌ [CloudMode] Session清理失败: {error}',
     'cloud.mode.unhandled.message': '⚠️ [CloudMode] 未处理的消息类型: {type}',
-    'cloud.mode.handle.message.failed': '❌ [CloudMode] 处理云端消息失败: {error}',
+    'cloud.mode.handle.message.failed':
+      '❌ [CloudMode] 处理云端消息失败: {error}',
 
     // Power management
     'power.management.check.title': '⚡ 电源管理检查：',
     'power.management.macos.detected': '🍎 检测到 macOS 系统',
-    'power.management.macos.warning': '⚠️  系统可能会进入睡眠状态，这会中断远程连接',
-    'power.management.macos.error': '❌ 检测到系统可能会休眠，为保证远程连接稳定，程序将退出',
+    'power.management.macos.warning':
+      '⚠️  系统可能会进入睡眠状态，这会中断远程连接',
+    'power.management.macos.error':
+      '❌ 检测到系统可能会休眠，为保证远程连接稳定，程序将退出',
     'power.management.macos.solution.title': '💡 解决方法：',
-    'power.management.macos.solution.step1': '   1. 打开 "系统偏好设置" > "节能器"',
-    'power.management.macos.solution.step2': '   2. 设置 "防止电脑自动进入睡眠" 为开启',
-    'power.management.macos.solution.step3': '   3. 或者运行命令: sudo pmset -c sleep 0',
+    'power.management.macos.solution.step1':
+      '   1. 打开 "系统偏好设置" > "节能器"',
+    'power.management.macos.solution.step2':
+      '   2. 设置 "防止电脑自动进入睡眠" 为开启',
+    'power.management.macos.solution.step3':
+      '   3. 或者运行命令: sudo pmset -c sleep 0',
     'power.management.macos.ok': '✅ macOS 系统睡眠已禁用，远程连接将保持稳定',
     'power.management.windows.detected': '🪟 检测到 Windows 系统',
-    'power.management.windows.warning': '⚠️  为了确保远程连接稳定，建议调整电源设置：',
-    'power.management.windows.solution.step1': '   1. 打开 "设置" > "系统" > "电源和睡眠"',
+    'power.management.windows.warning':
+      '⚠️  为了确保远程连接稳定，建议调整电源设置：',
+    'power.management.windows.solution.step1':
+      '   1. 打开 "设置" > "系统" > "电源和睡眠"',
     'power.management.windows.solution.step2': '   2. 设置睡眠为 "从不"',
-    'power.management.windows.solution.step3': '   3. 或者运行命令: powercfg /change standby-timeout-ac 0',
+    'power.management.windows.solution.step3':
+      '   3. 或者运行命令: powercfg /change standby-timeout-ac 0',
     'power.management.linux.detected': '🐧 检测到 Linux 系统',
-    'power.management.linux.warning': '⚠️  为了确保远程连接稳定，建议关闭挂起功能：',
-    'power.management.linux.solution.step1': '   1. 运行命令: sudo systemctl mask sleep.target suspend.target',
-    'power.management.linux.solution.step2': '   2. 或者在桌面环境中禁用自动挂起',
-    'power.management.check.failed': '⚠️  无法检测电源管理设置，建议手动确保系统不会进入睡眠状态',
-    'power.management.dev.hint': '💡 提示：如果是开发/测试环境，可以临时忽略此建议',
+    'power.management.linux.warning':
+      '⚠️  为了确保远程连接稳定，建议关闭挂起功能：',
+    'power.management.linux.solution.step1':
+      '   1. 运行命令: sudo systemctl mask sleep.target suspend.target',
+    'power.management.linux.solution.step2':
+      '   2. 或者在桌面环境中禁用自动挂起',
+    'power.management.check.failed':
+      '⚠️  无法检测电源管理设置，建议手动确保系统不会进入睡眠状态',
+    'power.management.dev.hint':
+      '💡 提示：如果是开发/测试环境，可以临时忽略此建议',
 
     // Help UI text
     'help.basics.title': '基础功能:',
     'help.add.context': '添加上下文',
-    'help.add.context.description': ': 使用 {symbol} 指定文件作为上下文 (例如: {example}) 来指定特定的文件或文件夹。',
+    'help.add.context.description':
+      ': 使用 {symbol} 指定文件作为上下文 (例如: {example}) 来指定特定的文件或文件夹。',
     'help.shell.mode': 'Shell 模式',
-    'help.shell.mode.description': ': 通过 {symbol} 执行 shell 命令 (例如: {example1}) 或使用自然语言 (例如: {example2})。',
+    'help.shell.mode.description':
+      ': 通过 {symbol} 执行 shell 命令 (例如: {example1}) 或使用自然语言 (例如: {example2})。',
     'help.commands.title': '命令:',
     'help.shell.command.description': '- shell 命令',
     'help.shortcuts.title': '键盘快捷键:',
@@ -2157,6 +2579,8 @@ export const translations = {
 
     // Slash command descriptions
     'command.help.description': '获取 deepv-code 帮助',
+    'command.report.description': '生成可分享的诊断报告',
+    'command.history.description': '显示最近的输入历史',
     'command.clear.description': '清除终端屏幕（保留对话上下文）',
     'command.queue.description': '管理提示队列',
     'command.queue.clear.description': '清空所有排队的提示',
@@ -2171,6 +2595,10 @@ export const translations = {
     'command.issue.section.error_logs': '错误日志',
     'command.issue.no_error_logs': '本次会话未捕获到错误日志。',
     'command.issue.opening': '正在为你打开 GitHub Issue 提交页面...',
+    'command.report.copied': '报告已复制到剪切板。',
+    'command.report.copy_failed': '复制报告到剪切板失败：',
+    'command.history.header': '最近历史记录：',
+    'command.history.empty': '未找到匹配的历史记录。',
     'command.issue.open.manual': '请在浏览器中打开以下链接提交 Issue：\n{url}',
     'command.issue.open.failed': '打开 Issue 链接失败：{error}',
     'command.about.description': '显示版本信息',
@@ -2183,12 +2611,14 @@ export const translations = {
     'command.copy.success': '📋已复制到粘贴板',
     'command.editor.description': '设置外部编辑器偏好',
     'command.memory.description': '与记忆交互的命令',
-    'command.stats.description': '查看所有统计信息（会话、模型和工具）。用法：/stats [model [名称]|tools]',
+    'command.stats.description':
+      '查看所有统计信息（会话、模型和工具）。用法：/stats [model [名称]|tools]',
     'command.context.description': '查看详细的上下文Token占用分析',
     'command.tools.description': '列出可用的工具及其描述',
     'command.vim.description': '开启/关闭 vim 模式',
     'command.yolo.description': '管理YOLO模式（自动批准所有工具调用）',
-    'command.config.description': '统一配置菜单 - 配置主题、编辑器、模型、Vim、Agent风格、YOLO模式和健康使用提醒',
+    'command.config.description':
+      '统一配置菜单 - 配置主题、编辑器、模型、Vim、Agent风格、YOLO模式和健康使用提醒',
     'command.config.available.options': '可用选项：',
     'command.config.theme': '主题',
     'command.config.editor': '编辑器',
@@ -2253,41 +2683,52 @@ export const translations = {
     'config.hint.language.placeholder': '例如：English, 中文, Español...',
     'config.hint.language.help': '留空则由 AI 决定',
     'config.hint.confirm.cancel': 'Enter 确认 · escape 取消',
-  'command.healthyUse.description': '管理健康使用提醒',
-  'command.healthyUse.status': '健康使用提醒当前为 {status}',
-  'command.healthyUse.on': '已开启健康使用提醒',
-  'command.healthyUse.off': '已关闭健康使用提醒',
-  'command.healthyUse.usage.title': '使用方法：',
-  'command.healthyUse.usage.on': '  /healthy-use on   - 开启健康使用提醒',
-  'command.healthyUse.usage.off': '  /healthy-use off  - 关闭健康使用提醒',
-  'command.healthyUse.usage.status': '  /healthy-use      - 查看当前状态',
-  'command.healthyUse.error.invalid_args': '❌ 无效的参数：{args}',
-  'healthy.reminder.title': '夜深了，该休息了',
-  'healthy.reminder.content': '工作固然重要，但您的身体健康更珍贵。',
-  'healthy.reminder.suggestion': '现在已经是深夜时段（22:00 - 06:00），建议您保存进度，早点休息。',
-  'healthy.reminder.agentRunning': 'Agent 正在后台处理任务，不会受此提醒影响。',
-  'healthy.reminder.waiting': '请在 {{seconds}} 秒后尝试确认...',
-  'healthy.reminder.dismiss': ' 按 [回车] 或 [空格] 稍后提醒 ',
+    'command.healthyUse.description': '管理健康使用提醒',
+    'command.healthyUse.status': '健康使用提醒当前为 {status}',
+    'command.healthyUse.on': '已开启健康使用提醒',
+    'command.healthyUse.off': '已关闭健康使用提醒',
+    'command.healthyUse.usage.title': '使用方法：',
+    'command.healthyUse.usage.on': '  /healthy-use on   - 开启健康使用提醒',
+    'command.healthyUse.usage.off': '  /healthy-use off  - 关闭健康使用提醒',
+    'command.healthyUse.usage.status': '  /healthy-use      - 查看当前状态',
+    'command.healthyUse.error.invalid_args': '❌ 无效的参数：{args}',
+    'healthy.reminder.title': '夜深了，该休息了',
+    'healthy.reminder.content': '工作固然重要，但您的身体健康更珍贵。',
+    'healthy.reminder.suggestion':
+      '现在已经是深夜时段（22:00 - 06:00），建议您保存进度，早点休息。',
+    'healthy.reminder.agentRunning':
+      'Agent 正在后台处理任务，不会受此提醒影响。',
+    'healthy.reminder.waiting': '请在 {{seconds}} 秒后尝试确认...',
+    'healthy.reminder.dismiss': ' 按 [回车] 或 [空格] 稍后提醒 ',
     'command.ppt.description': '通过AI辅助的大纲设计创建PowerPoint演示文稿',
-    'command.ppt.prompt': '请告诉我你想创建的PPT主题是什么？\n\n示例:\n  /ppt "AI在教育中的应用"\n  /ppt "2025年度总结" --pages 15',
+    'command.ppt.prompt':
+      '请告诉我你想创建的PPT主题是什么？\n\n示例:\n  /ppt "AI在教育中的应用"\n  /ppt "2025年度总结" --pages 15',
     'command.ppt.expected_pages': '\n\n预期页数: {count}页',
     'command.session.description': '会话管理 - 列出、选择和创建对话会话',
-    'command.trim.description': '管理自动删除行末空格配置（适用于C++、Python等源代码）',
+    'command.trim.description':
+      '管理自动删除行末空格配置（适用于C++、Python等源代码）',
     'command.myplan.description': '快速打开用户信息页面',
     'command.account.description': '快速打开用户信息页面',
     'command.account.opening_browser': '🌐 正在为您打开浏览器...',
     'command.account.success': '✅ 浏览器已打开，请查看用户信息页面',
     'command.account.error': '❌ Account命令执行失败: {error}',
-    'command.restore.description': '恢复checkpoint。这会将对话和文件历史恢复到checkpoint创建时的状态',
-    'command.restore.no_checkpoints': '⚠️  本次会话暂无检查点\n\n💡 提示：\n  • 使用 /session select 选择一个包含检查点的历史会话\n  • 加载历史会话后，可以使用 /restore 查看并恢复检查点',
-    'command.restore.project.state.restored': '已恢复到checkpoint时的项目状态: {timeInfo}{messageInfo}',
-    'command.restore.complete': 'Checkpoint恢复完成。项目文件已回滚到checkpoint创建时的状态。',
-    'command.restore.context.message': '[系统上下文] 用户已主动将项目文件恢复到之前的检查点{messageInfo}状态。此检查点之后的所有文件修改均已被用户有意回滚。这是用户的主动操作，不是错误。请确认此状态，并基于恢复后的文件状态继续提供协助。',
-    'command.mcp.description': '列出已配置的 MCP 服务器和工具，或使用 OAuth 服务器进行身份验证',
+    'command.restore.description':
+      '恢复checkpoint。这会将对话和文件历史恢复到checkpoint创建时的状态',
+    'command.restore.no_checkpoints':
+      '⚠️  本次会话暂无检查点\n\n💡 提示：\n  • 使用 /session select 选择一个包含检查点的历史会话\n  • 加载历史会话后，可以使用 /restore 查看并恢复检查点',
+    'command.restore.project.state.restored':
+      '已恢复到checkpoint时的项目状态: {timeInfo}{messageInfo}',
+    'command.restore.complete':
+      'Checkpoint恢复完成。项目文件已回滚到checkpoint创建时的状态。',
+    'command.restore.context.message':
+      '[系统上下文] 用户已主动将项目文件恢复到之前的检查点{messageInfo}状态。此检查点之后的所有文件修改均已被用户有意回滚。这是用户的主动操作，不是错误。请确认此状态，并基于恢复后的文件状态继续提供协助。',
+    'command.mcp.description':
+      '列出已配置的 MCP 服务器和工具，或使用 OAuth 服务器进行身份验证',
     'command.docs.description': '在浏览器中打开完整的 DeepV Code 文档',
     'command.extensions.description': '列出活跃的扩展',
     'command.extensions.info.title': '扩展系统',
-    'command.extensions.info.intro': 'DVCode 支持 Gemini CLI 扩展。要管理扩展，请使用：',
+    'command.extensions.info.intro':
+      'DVCode 支持 Gemini CLI 扩展。要管理扩展，请使用：',
     'command.extensions.info.install': '安装扩展',
     'command.extensions.info.list': '列出扩展',
     'command.extensions.info.validate': '验证配置',
@@ -2300,7 +2741,8 @@ export const translations = {
     'command.corgi.description': '开启/关闭柯基模式',
     'command.init.description': '分析项目并创建定制的 DEEPV.md 文件',
     'command.init.emptyFileDetected': '检测到空的 DEEPV.md。开始项目分析...',
-    'command.init.fileCreating': '正在创建 DEEPV.md... 现在分析项目内容来填充它。',
+    'command.init.fileCreating':
+      '正在创建 DEEPV.md... 现在分析项目内容来填充它。',
     'command.init.fileExistsTitle': 'DEEPV.md 已存在',
     'command.init.fileExistsInfo': '文件大小：{size}KB | 行数：{lines}',
     'command.init.choiceAppend': '追加更新',
@@ -2313,12 +2755,16 @@ export const translations = {
     'command.init.appendStarting': '正在追加 DEEPV.md... 分析新的项目信息。',
     'command.init.overwriteStarting': '正在覆盖 DEEPV.md... 分析项目来填充它。',
     'command.init.cancelled': '项目分析已取消。DEEPV.md 未被修改。',
-    'command.help-ask.description': 'AI 智能帮助助手 - 询问任何关于 CLI 功能的问题',
+    'command.help-ask.description':
+      'AI 智能帮助助手 - 询问任何关于 CLI 功能的问题',
     'command.help-ask.description.cost-note': '（使用1积分/每问）',
-    'command.help-ask.no-args': '❌ /help-ask 命令不接受任何参数。\n\n✅ 正确用法：直接输入 /help-ask 并回车进入帮助模式，然后再提出您的问题。',
+    'command.help-ask.no-args':
+      '❌ /help-ask 命令不接受任何参数。\n\n✅ 正确用法：直接输入 /help-ask 并回车进入帮助模式，然后再提出您的问题。',
     'command.help-ask.hint.press.enter': '请直接回车进入帮助模式，然后再提问',
-    'command.refine.description': '输入提示词专业润色：清晰表达，精准投喂，让大模型更懂你',
-    'command.refine.error.no-input': '⚠️  请提供需要优化的文本。\n\n📖 使用方法：\n   /refine <文本内容>           - 优化行内文本\n   /refine --file <文件路径>     - 优化文件内容\n   echo "文本" | deepv /refine --stdin  - 从标准输入优化',
+    'command.refine.description':
+      '输入提示词专业润色：清晰表达，精准投喂，让大模型更懂你',
+    'command.refine.error.no-input':
+      '⚠️  请提供需要优化的文本。\n\n📖 使用方法：\n   /refine <文本内容>           - 优化行内文本\n   /refine --file <文件路径>     - 优化文件内容\n   echo "文本" | deepv /refine --stdin  - 从标准输入优化',
     'command.refine.error.read-stdin': '从标准输入读取失败：{error}',
     'command.refine.error.read-file': '无法读取文件 "{file}"：{error}',
     'command.refine.error.write-file': '文件写入失败：{error}',
@@ -2335,25 +2781,34 @@ export const translations = {
     'command.refine.result.params.rules': '   规则：{rules}',
     'command.refine.result.changes': '📝 变更内容',
     'command.refine.result.output': '✨ 优化后的文本',
-    'command.refine.result.next-step': '\n💡 下一步操作：\n   • 复制上方优化后的文本发送给 AI\n   • 或使用 /refine --out text 获取纯文本输出',
+    'command.refine.result.next-step':
+      '\n💡 下一步操作：\n   • 复制上方优化后的文本发送给 AI\n   • 或使用 /refine --out text 获取纯文本输出',
     'command.refine.confirm.title': '✨ 优化完成',
     'command.refine.confirm.hint.send': '⏎  发送给 AI',
     'command.refine.confirm.hint.refine-again': 'R  重新优化',
     'command.refine.confirm.hint.view-full': 'F  查看全文',
     'command.refine.confirm.hint.cancel': 'Esc  取消',
-    'command.refine.omitted_lines': '[ ... 已省略显示 {count} 行，按 F 查看全文 ... ]',
+    'command.refine.omitted_lines':
+      '[ ... 已省略显示 {count} 行，按 F 查看全文 ... ]',
     'command.refine.loading.title': '正在优化中...',
     'command.refine.loading.message': 'AI 正在为您优化文本，请稍候...',
 
     // NanoBanana Command
-    'command.nanobanana.description': '使用 NanoBanana 生成图像。用法：/NanoBanana <比例> <尺寸> <提示词> [@参考图]',
-    'nanobanana.usage.error': '用法：/NanoBanana <比例> <尺寸> <提示词> [@参考图]\n比例：1:1、16:9、9:16 等\n尺寸：1K 或 2K\n@参考图可以放在命令中的任意位置\n示例：/NanoBanana 16:9 2K 赛博朋克风格城市 @ref.jpg',
-    'nanobanana.missing.prompt': '缺少必要参数。用法：/NanoBanana <比例> <尺寸> <提示词> [@参考图]',
-    'nanobanana.invalid.size': '无效的图像尺寸。请使用 1K 或 2K。用法：/NanoBanana <比例> <尺寸> <提示词>',
-    'nanobanana.submitting': '正在提交图像生成任务...\n提示词："{prompt}"\n比例：{ratio}',
-    'nanobanana.submitted': '任务已提交 (ID: {taskId})。\n积分预估：{credits} (以实际完成扣为准)\n正在等待图像生成...',
+    'command.nanobanana.description':
+      '使用 NanoBanana 生成图像。用法：/NanoBanana <比例> <尺寸> <提示词> [@参考图]',
+    'nanobanana.usage.error':
+      '用法：/NanoBanana <比例> <尺寸> <提示词> [@参考图]\n比例：1:1、16:9、9:16 等\n尺寸：1K 或 2K\n@参考图可以放在命令中的任意位置\n示例：/NanoBanana 16:9 2K 赛博朋克风格城市 @ref.jpg',
+    'nanobanana.missing.prompt':
+      '缺少必要参数。用法：/NanoBanana <比例> <尺寸> <提示词> [@参考图]',
+    'nanobanana.invalid.size':
+      '无效的图像尺寸。请使用 1K 或 2K。用法：/NanoBanana <比例> <尺寸> <提示词>',
+    'nanobanana.submitting':
+      '正在提交图像生成任务...\n提示词："{prompt}"\n比例：{ratio}',
+    'nanobanana.submitted':
+      '任务已提交 (ID: {taskId})。\n积分预估：{credits} (以实际完成扣为准)\n正在等待图像生成...',
     'nanobanana.timeout': '图像生成在 {seconds} 秒后超时。',
-    'nanobanana.completed': '图像生成完成！\n实际消费积分：{credits}\n{urlText}',
+    'nanobanana.completed':
+      '图像生成完成！\n实际消费积分：{credits}\n{urlText}',
     'nanobanana.failed': '图像生成失败：{error}',
     'nanobanana.auth.failed': '认证失败。请先运行 /login 或 /auth 进行认证。',
     'nanobanana.submit.failed': '提交任务失败：{error}',
@@ -2361,7 +2816,8 @@ export const translations = {
     'nanobanana.image_uploaded': '图片上传成功。',
     'nanobanana.upload_failed': '图片上传失败：{error}',
     'nanobanana.tip.use_at_for_image': '使用 @ 选择参考图片',
-    'nanobanana.tip.use_at_for_image.description': '输入 @ 后跟文件名来搜索图片',
+    'nanobanana.tip.use_at_for_image.description':
+      '输入 @ 后跟文件名来搜索图片',
 
     // Common terms
     'common.format': '格式',
@@ -2374,11 +2830,13 @@ export const translations = {
     'command.mcp.refresh.description': '刷新MCP服务器和工具列表',
     'command.mcp.load.description': '加载或重新连接特定的MCP服务器',
     'command.mcp.load.usage': '用法: /mcp load <server-name>',
-    'command.mcp.load.success': '✅ 已成功加载 MCP 服务器 \'{serverName}\'。',
-    'command.mcp.load.failed': '❌ 加载 MCP 服务器 \'{serverName}\' 失败: {error}',
+    'command.mcp.load.success': "✅ 已成功加载 MCP 服务器 '{serverName}'。",
+    'command.mcp.load.failed':
+      "❌ 加载 MCP 服务器 '{serverName}' 失败: {error}",
     'command.mcp.unload.description': '从当前会话中卸载MCP服务器',
     'command.session.list.description': '列出所有可用的会话记录',
-    'command.session.select.description': '选择并加载指定的会话。用法: /session select <编号或session-id>',
+    'command.session.select.description':
+      '选择并加载指定的会话。用法: /session select <编号或session-id>',
     'command.session.create.description': '创建新的会话记录',
 
     // Session command messages
@@ -2397,10 +2855,12 @@ export const translations = {
     'session.list.firstQuestion': '用户首次发问',
     'session.list.lastQuestion': '用户末次发问',
     'session.list.tips': '💡 提示：',
-    'session.list.selectSession': '选择会话: /session select <编号或session-id>',
+    'session.list.selectSession':
+      '选择会话: /session select <编号或session-id>',
     'session.list.createSession': '创建新会话: /session new',
     'session.list.helpInfo': '查看帮助: /session help',
-    'command.session.rebuild.description': '重建会话索引（修复会话列表显示问题）',
+    'command.session.rebuild.description':
+      '重建会话索引（修复会话列表显示问题）',
     'command.session.help.description': '显示会话管理帮助信息',
     'export.success': '导出成功: {path}',
     'export.exporting': '正在导出',
@@ -2410,7 +2870,8 @@ export const translations = {
     'export_debug.no_messages': '未找到调试信息。',
     'export_debug.no_errors': '当前没有警告或错误信息，无需导出。',
     'command.chat.list.description': '列出已保存的对话检查点', // 已被 /session 替代，但保留以支持旧代码
-    'command.chat.delete.description': '删除已保存的对话检查点。用法：/chat delete <标签> 或 /chat delete --all', // 已被 /session 替代，但保留以支持旧代码
+    'command.chat.delete.description':
+      '删除已保存的对话检查点。用法：/chat delete <标签> 或 /chat delete --all', // 已被 /session 替代，但保留以支持旧代码
     'command.memory.show.description': '显示当前记忆内容',
     'command.memory.add.description': '向记忆添加内容',
     'command.memory.refresh.description': '从源文件刷新记忆内容',
@@ -2425,10 +2886,13 @@ export const translations = {
     'memory.refresh.refreshing': '正在从源文件刷新记忆...',
     'memory.refresh.success': '记忆刷新并更新到AI模型成功。',
     'memory.refresh.noContent': '记忆刷新成功。未找到记忆内容。',
-    'command.stats.model.description': '显示模型特定的使用统计。用法：/stats model [模型名]',
+    'command.stats.model.description':
+      '显示模型特定的使用统计。用法：/stats model [模型名]',
     'command.stats.tools.description': '显示工具特定的使用统计',
-    'command.stats.error.noSessionStartTime': '会话开始时间不可用，无法计算统计数据。',
-    'command.stats.error.modelNotFound': '模型 "{modelName}" 未找到统计数据。使用 /stats model 查看所有可用的模型。',
+    'command.stats.error.noSessionStartTime':
+      '会话开始时间不可用，无法计算统计数据。',
+    'command.stats.error.modelNotFound':
+      '模型 "{modelName}" 未找到统计数据。使用 /stats model 查看所有可用的模型。',
 
     // Model Stats Display - Full Format
     'model.stats.title': 'Geek专用模型统计',
@@ -2473,14 +2937,17 @@ export const translations = {
     'mcp.wizard.view.templates.desc': '浏览所有可用模板',
     'mcp.wizard.available.templates': '可用的预定义模板:',
     'mcp.wizard.examples': '使用示例:',
-    'mcp.wizard.help.hint': '提示: 使用 \'/mcp help add\' 查看详细参数说明',
+    'mcp.wizard.help.hint': "提示: 使用 '/mcp help add' 查看详细参数说明",
 
     'mcp.add.description': '添加新的MCP服务器配置',
-    'mcp.error.template.not.exist': '❌ 模板 \'{templateName}\' 不存在\n\n可用模板: {availableTemplates}',
-    'mcp.error.server.already.exists': '❌ MCP服务器 \'{serverName}\' 已存在\n\n使用不同的名称或先删除现有配置',
-    'mcp.error.missing.connection.params': '❌ 缺少连接参数\n\n请指定以下其中一种连接方式:\n  --command <cmd>     可执行命令\n  --url <url>         SSE服务器URL\n  --http-url <url>    HTTP服务器URL\n  --tcp <host:port>   TCP连接地址\n\n示例: /mcp add my-server --command "npx @my/mcp-server"',
+    'mcp.error.template.not.exist':
+      "❌ 模板 '{templateName}' 不存在\n\n可用模板: {availableTemplates}",
+    'mcp.error.server.already.exists':
+      "❌ MCP服务器 '{serverName}' 已存在\n\n使用不同的名称或先删除现有配置",
+    'mcp.error.missing.connection.params':
+      '❌ 缺少连接参数\n\n请指定以下其中一种连接方式:\n  --command <cmd>     可执行命令\n  --url <url>         SSE服务器URL\n  --http-url <url>    HTTP服务器URL\n  --tcp <host:port>   TCP连接地址\n\n示例: /mcp add my-server --command "npx @my/mcp-server"',
     'mcp.error.save.config.failed': '❌ 保存配置失败: {error}',
-    'mcp.success.server.added': '✅ MCP服务器 \'{serverName}\' 添加成功！',
+    'mcp.success.server.added': "✅ MCP服务器 '{serverName}' 添加成功！",
     'mcp.success.config.location': '📍 配置位置:',
     'mcp.success.template': '🏷️  模板:',
     'mcp.success.description': '📝 描述:',
@@ -2490,14 +2957,15 @@ export const translations = {
     'mcp.success.http': 'HTTP: {url}',
     'mcp.success.tcp': 'TCP: {tcp}',
     'mcp.success.unknown': '未知',
-    'mcp.success.config.effective': '配置已生效！使用 \'/mcp\' 查看服务器状态',
+    'mcp.success.config.effective': "配置已生效！使用 '/mcp' 查看服务器状态",
     'mcp.warning.missing.env': '⚠️  缺少环境变量:',
     'mcp.setup.instructions': '🔧 设置说明:',
     'mcp.setup.default.instruction': '请查看服务器文档设置环境变量',
     'mcp.related.links': '📚 相关链接:',
 
     'mcp.status.no.servers.title': '🔧 未配置 MCP 服务器',
-    'mcp.status.no.servers.description': 'MCP (Model Context Protocol) 允许您连接外部工具和服务，扩展DeepV Code的功能。',
+    'mcp.status.no.servers.description':
+      'MCP (Model Context Protocol) 允许您连接外部工具和服务，扩展DeepV Code的功能。',
     'mcp.status.quick.start': '🚀 快速开始:',
     'mcp.status.predefined.templates': '1️⃣ 使用预定义模板 (推荐)',
     'mcp.status.interactive.wizard': '2️⃣ 交互式配置向导',
@@ -2519,31 +2987,36 @@ export const translations = {
     'mcp.status.disconnected': '断开连接',
     'mcp.status.from.extension': '(来自 {extensionName})',
 
-
     'mcp.auth.no.oauth.servers': '未配置启用 OAuth 身份验证的 MCP 服务器。',
-    'mcp.auth.oauth.servers.list': '启用 OAuth 身份验证的 MCP 服务器：\n{servers}\n\n使用 /mcp auth <server-name> 进行身份验证。',
-    'mcp.auth.server.not.found': 'MCP 服务器 \'{serverName}\' 未找到。',
-    'mcp.auth.starting': '开始对 MCP 服务器 \'{serverName}\' 进行 OAuth 身份验证...',
+    'mcp.auth.oauth.servers.list':
+      '启用 OAuth 身份验证的 MCP 服务器：\n{servers}\n\n使用 /mcp auth <server-name> 进行身份验证。',
+    'mcp.auth.server.not.found': "MCP 服务器 '{serverName}' 未找到。",
+    'mcp.auth.starting':
+      "开始对 MCP 服务器 '{serverName}' 进行 OAuth 身份验证...",
     'mcp.auth.opening.browser': '正在打开浏览器进行身份验证...',
-    'mcp.auth.success': '✅ 与 MCP 服务器 \'{serverName}\' 身份验证成功！',
-    'mcp.auth.failed': '与 MCP 服务器 \'{serverName}\' 身份验证失败: {error}',
-    'mcp.auth.rediscovering.tools': '重新发现 \'{serverName}\' 的工具...',
-    'mcp.auth.refresh.success': '成功验证并刷新了 \'{serverName}\' 的工具。',
+    'mcp.auth.success': "✅ 与 MCP 服务器 '{serverName}' 身份验证成功！",
+    'mcp.auth.failed': "与 MCP 服务器 '{serverName}' 身份验证失败: {error}",
+    'mcp.auth.rediscovering.tools': "重新发现 '{serverName}' 的工具...",
+    'mcp.auth.refresh.success': "成功验证并刷新了 '{serverName}' 的工具。",
 
     'mcp.refresh.starting': '刷新 MCP 服务器和工具...',
-    'command.mcp.unload.server.not.found': '❌ 未找到名为 \'{serverName}\' 的 MCP 服务器。',
-    'command.mcp.unload.success': '✅ 已成功卸载 MCP 服务器 \'{serverName}\'。',
-    'command.mcp.unload.failed': '❌ 卸载 MCP 服务器 \'{serverName}\' 失败: {error}',
+    'command.mcp.unload.server.not.found':
+      "❌ 未找到名为 '{serverName}' 的 MCP 服务器。",
+    'command.mcp.unload.success': "✅ 已成功卸载 MCP 服务器 '{serverName}'。",
+    'command.mcp.unload.failed':
+      "❌ 卸载 MCP 服务器 '{serverName}' 失败: {error}",
     'command.mcp.unload.usage': '用法: /mcp unload <server-name>',
 
     'mcp.help.system.title': '🔧 MCP (Model Context Protocol) 帮助系统',
-    'mcp.help.system.description': 'MCP允许您连接外部工具和服务，扩展DeepV Code的功能。',
+    'mcp.help.system.description':
+      'MCP允许您连接外部工具和服务，扩展DeepV Code的功能。',
     'mcp.help.commands.title': '📋 可用命令:',
     'mcp.help.description': 'MCP帮助系统 - 获取详细的使用指南和配置帮助',
 
     // Main help content
     'mcp.help.main.title': '🔧 MCP (Model Context Protocol) 帮助系统',
-    'mcp.help.main.description': 'MCP允许您连接外部工具和服务，扩展DeepV Code的功能。',
+    'mcp.help.main.description':
+      'MCP允许您连接外部工具和服务，扩展DeepV Code的功能。',
     'mcp.help.main.commands.title': '📋 可用命令:',
     'mcp.help.main.command.status': '- 查看已配置的MCP服务器状态',
     'mcp.help.main.command.add': '- 添加新的MCP服务器',
@@ -2566,59 +3039,73 @@ export const translations = {
 
     // Templates help content
     'mcp.help.templates.title': '📋 MCP 预定义模板列表',
-    'mcp.help.templates.description': '这些模板提供了常用MCP服务器的预配置，只需少量设置即可使用。',
+    'mcp.help.templates.description':
+      '这些模板提供了常用MCP服务器的预配置，只需少量设置即可使用。',
     'mcp.help.templates.github.title': '🐙 GitHub (推荐)',
-    'mcp.help.templates.github.purpose': '用途: GitHub仓库操作、Issue管理、PR评论',
+    'mcp.help.templates.github.purpose':
+      '用途: GitHub仓库操作、Issue管理、PR评论',
     'mcp.help.templates.github.command': '命令: {command}',
     'mcp.help.templates.github.env': '环境变量: GITHUB_PERSONAL_ACCESS_TOKEN',
-    'mcp.help.templates.github.tools': '工具: create_issue, comment_on_pr, get_issues, create_pr',
-    'mcp.help.templates.github.docs': '文档: https://github.com/github/github-mcp-server',
+    'mcp.help.templates.github.tools':
+      '工具: create_issue, comment_on_pr, get_issues, create_pr',
+    'mcp.help.templates.github.docs':
+      '文档: https://github.com/github/github-mcp-server',
     'mcp.help.templates.sqlite.title': '💾 SQLite',
     'mcp.help.templates.sqlite.purpose': '用途: 数据库查询和操作',
     'mcp.help.templates.sqlite.command': '命令: {command}',
     'mcp.help.templates.sqlite.args': '参数: 数据库文件路径',
-    'mcp.help.templates.sqlite.tools': '工具: query, create_table, insert, update',
+    'mcp.help.templates.sqlite.tools':
+      '工具: query, create_table, insert, update',
     'mcp.help.templates.sqlite.example': '示例: {example}',
     'mcp.help.templates.filesystem.title': '📁 Filesystem',
     'mcp.help.templates.filesystem.purpose': '用途: 本地文件和目录操作',
     'mcp.help.templates.filesystem.command': '命令: {command}',
     'mcp.help.templates.filesystem.args': '参数: 允许访问的根目录',
-    'mcp.help.templates.filesystem.tools': '工具: read_file, write_file, list_dir, create_dir',
+    'mcp.help.templates.filesystem.tools':
+      '工具: read_file, write_file, list_dir, create_dir',
     'mcp.help.templates.filesystem.example': '示例: {example}',
     'mcp.help.templates.search.title': '🔍 Brave Search',
     'mcp.help.templates.search.purpose': '用途: 网络搜索功能',
     'mcp.help.templates.search.command': '命令: {command}',
     'mcp.help.templates.search.env': '环境变量: BRAVE_API_KEY',
     'mcp.help.templates.search.tools': '工具: web_search, news_search',
-    'mcp.help.templates.search.register': '注册: https://api.search.brave.com/register',
+    'mcp.help.templates.search.register':
+      '注册: https://api.search.brave.com/register',
     'mcp.help.templates.slack.title': '💬 Slack (Beta)',
     'mcp.help.templates.slack.purpose': '用途: Slack消息发送和管理',
     'mcp.help.templates.slack.command': '命令: {command}',
-    'mcp.help.templates.slack.env': '环境变量: SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET',
-    'mcp.help.templates.slack.tools': '工具: send_message, list_channels, get_history',
+    'mcp.help.templates.slack.env':
+      '环境变量: SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET',
+    'mcp.help.templates.slack.tools':
+      '工具: send_message, list_channels, get_history',
     'mcp.help.templates.http.title': '🌐 HTTP',
     'mcp.help.templates.http.purpose': '用途: 通用HTTP请求工具',
     'mcp.help.templates.http.command': '命令: {command}',
-    'mcp.help.templates.http.tools': '工具: get_request, post_request, put_request',
+    'mcp.help.templates.http.tools':
+      '工具: get_request, post_request, put_request',
     'mcp.help.templates.tips.title': '💡 使用提示:',
     'mcp.help.templates.tips.check': '• 模板会自动检查依赖和环境变量',
     'mcp.help.templates.tips.wizard': '• 支持交互式配置向导',
     'mcp.help.templates.tips.custom': '• 可以基于模板进行自定义修改',
-    'mcp.help.templates.tips.update': '• 模板定期更新，运行 {command} 获取最新版本',
+    'mcp.help.templates.tips.update':
+      '• 模板定期更新，运行 {command} 获取最新版本',
     'mcp.help.templates.need.more': '❓ 需要其他模板？',
-    'mcp.help.templates.github.issues': '在GitHub提交Issue: https://github.com/your-repo/issues',
+    'mcp.help.templates.github.issues':
+      '在GitHub提交Issue: https://github.com/your-repo/issues',
     'mcp.help.templates.custom.wizard': '或运行 {command} 使用自定义配置向导',
 
     // OAuth help content
     'mcp.help.oauth.title': '🔐 MCP OAuth 认证配置指南',
-    'mcp.help.oauth.description': 'OAuth认证允许MCP服务器安全地访问第三方服务，如GitHub、Google等。',
+    'mcp.help.oauth.description':
+      'OAuth认证允许MCP服务器安全地访问第三方服务，如GitHub、Google等。',
     'mcp.help.oauth.supported.title': '📋 支持的认证类型',
     'mcp.help.oauth.dynamic.title': '🔹 动态发现 (推荐)',
     'mcp.help.oauth.dynamic.description': '自动从服务器发现OAuth配置',
     'mcp.help.oauth.dynamic.example': '/mcp add github --oauth',
     'mcp.help.oauth.google.title': '🔹 Google凭证',
     'mcp.help.oauth.google.description': '使用Google服务账户认证',
-    'mcp.help.oauth.google.example': '/mcp add google-service --auth-provider google_credentials',
+    'mcp.help.oauth.google.example':
+      '/mcp add google-service --auth-provider google_credentials',
     'mcp.help.oauth.quickstart.title': '🚀 快速配置',
     'mcp.help.oauth.quickstart.step1.title': '1️⃣ 启用OAuth',
     'mcp.help.oauth.quickstart.step1.example': '/mcp add my-server --oauth',
@@ -2646,7 +3133,8 @@ export const translations = {
     'mcp.status.tools.cached.count': '({count} 工具缓存)',
     'mcp.status.no.tools.prompts': '无可用工具或提示',
     'mcp.status.no.tools.simple': '无可用工具',
-    'mcp.status.type.auth.command': '(类型: "/mcp auth {serverName}" 进行身份验证)',
+    'mcp.status.type.auth.command':
+      '(类型: "/mcp auth {serverName}" 进行身份验证)',
     'mcp.status.blocked.server': '已阻止',
     'mcp.status.tools.count': '{count} {unit}',
     'mcp.status.tool.unit.singular': '工具',
@@ -2661,14 +3149,18 @@ export const translations = {
     'mcp.status.tip.desc': '使用 /mcp desc 显示服务器和工具描述',
     'mcp.status.tip.schema': '使用 /mcp schema 显示工具参数架构',
     'mcp.status.tip.nodesc': '使用 /mcp nodesc 隐藏描述',
-    'mcp.status.tip.auth': '使用 /mcp auth <server-name> 对启用 OAuth 的服务器进行身份验证',
+    'mcp.status.tip.auth':
+      '使用 /mcp auth <server-name> 对启用 OAuth 的服务器进行身份验证',
     'mcp.status.tip.toggle': '按 Ctrl+T 切换工具描述的开/关',
 
     // Plan Mode
-    'command.plan.description': '切换Plan模式：专注需求讨论，允许读取代码但禁用修改',
+    'command.plan.description':
+      '切换Plan模式：专注需求讨论，允许读取代码但禁用修改',
     'plan.mode.indicator': '计划模式 - 只读',
-    'plan.mode.enabled.message': '📋 已进入Plan模式\n特点：\n• 专注需求理解和方案设计\n• 允许代码读取和分析工具\n• 禁用代码修改和命令执行\n• 适合初期需求讨论和架构规划\n• 使用 /plan off 退出此模式',
-    'plan.mode.disabled.message': '✅ 已退出Plan模式，现在可以执行所有工具和代码修改',
+    'plan.mode.enabled.message':
+      '📋 已进入Plan模式\n特点：\n• 专注需求理解和方案设计\n• 允许代码读取和分析工具\n• 禁用代码修改和命令执行\n• 适合初期需求讨论和架构规划\n• 使用 /plan off 退出此模式',
+    'plan.mode.disabled.message':
+      '✅ 已退出Plan模式，现在可以执行所有工具和代码修改',
     'plan.mode.status.message': '📋 Plan模式状态：{status}',
     'plan.mode.status.on': '开启',
     'plan.mode.status.off': '关闭',
@@ -2676,29 +3168,40 @@ export const translations = {
     'plan.error.config.unavailable': '配置不可用',
     'plan.mode.blocked.tools': '🚫 Plan模式下已禁用修改性工具：{tools}',
     'plan.mode.focus.message': '📋 当前专注于需求讨论和方案设计',
-    'plan.mode.available.tools': '✅ 可用工具：文件读取、搜索分析、任务规划、网络获取',
-    'plan.mode.exit.instruction': '💡 使用 /plan off 退出Plan模式后可执行修改操作',
+    'plan.mode.available.tools':
+      '✅ 可用工具：文件读取、搜索分析、任务规划、网络获取',
+    'plan.mode.exit.instruction':
+      '💡 使用 /plan off 退出Plan模式后可执行修改操作',
 
     // Agent Style
-    'command.agentStyle.description': '切换 Agent 风格：default, codex, cursor, augment, claude-code, antigravity, windsurf',
+    'command.agentStyle.description':
+      '切换 Agent 风格：default, codex, cursor, augment, claude-code, antigravity, windsurf',
     'agentStyle.error.config.unavailable': '配置不可用',
     'agentStyle.status.current': '当前 Agent 风格：{style}',
     'agentStyle.style.default.label': '默认 (Claude 风格)',
-    'agentStyle.style.default.description': '强调计划、解释，行动前进行迭代确认。',
+    'agentStyle.style.default.description':
+      '强调计划、解释，行动前进行迭代确认。',
     'agentStyle.style.codex.label': 'Codex (极速风格)',
-    'agentStyle.style.codex.description': '快速确认后静默执行，仅在阻塞或完成时汇报。',
+    'agentStyle.style.codex.description':
+      '快速确认后静默执行，仅在阻塞或完成时汇报。',
     'agentStyle.style.cursor.label': 'Cursor (语义风格)',
-    'agentStyle.style.cursor.description': '优化语义搜索和高并发工具调用，遵循严格的代码规范。',
+    'agentStyle.style.cursor.description':
+      '优化语义搜索和高并发工具调用，遵循严格的代码规范。',
     'agentStyle.style.augment.label': 'Augment (任务风格)',
-    'agentStyle.style.augment.description': '严格的任务列表驱动工作流，强调验证和版本管理。',
+    'agentStyle.style.augment.description':
+      '严格的任务列表驱动工作流，强调验证和版本管理。',
     'agentStyle.style.claudeCode.label': 'Claude Code (极简风格)',
-    'agentStyle.style.claudeCode.description': '极致极简、直接、高性能的命令行交互风格。',
+    'agentStyle.style.claudeCode.description':
+      '极致极简、直接、高性能的命令行交互风格。',
     'agentStyle.style.claude-code.label': 'Claude Code (极简风格)',
-    'agentStyle.style.claude-code.description': '极致极简、直接、高性能的命令行交互风格。',
+    'agentStyle.style.claude-code.description':
+      '极致极简、直接、高性能的命令行交互风格。',
     'agentStyle.style.antigravity.label': 'Antigravity (KI 风格)',
-    'agentStyle.style.antigravity.description': '知识库优先，强调美学标准和系统化工作流。',
+    'agentStyle.style.antigravity.description':
+      '知识库优先，强调美学标准和系统化工作流。',
     'agentStyle.style.windsurf.label': 'Windsurf (Flow 风格)',
-    'agentStyle.style.windsurf.description': '基于 AI Flow 范式，平衡独立执行与协作。',
+    'agentStyle.style.windsurf.description':
+      '基于 AI Flow 范式，平衡独立执行与协作。',
     'agentStyle.usage.title': '用法：',
     'agentStyle.usage.default': '切换到默认风格 (Claude)',
     'agentStyle.usage.codex': '切换到极速风格 (Codex)',
@@ -2708,13 +3211,15 @@ export const translations = {
     'agentStyle.usage.antigravity': '切换到高级风格 (Antigravity)',
     'agentStyle.usage.windsurf': '切换到 Flow 风格 (Windsurf)',
     'agentStyle.usage.status': '查看当前风格',
-    'agentStyle.usage.error': '用法：/agent-style [风格名称] 或 /agent-style status',
+    'agentStyle.usage.error':
+      '用法：/agent-style [风格名称] 或 /agent-style status',
     'agentStyle.already.default': '已经是 默认风格 (Claude)。',
     'agentStyle.already.codex': '已经是 极速风格 (Codex)。',
     'agentStyle.already.using': '已经是 {style} 风格。',
     'agentStyle.error.switch.failed': '切换 Agent 风格失败',
     'agentStyle.switched.success': '已切换到 {style}',
-    'agentStyle.codex.yolo.enabled': '🚀 已自动开启 YOLO 模式（所有工具调用将自动执行）',
+    'agentStyle.codex.yolo.enabled':
+      '🚀 已自动开启 YOLO 模式（所有工具调用将自动执行）',
 
     // Error messages
     'error.config.not.loaded': '配置未加载。',
@@ -2722,14 +3227,20 @@ export const translations = {
 
     // Loop Detection Messages
     'loop.consecutive.tool.calls.title': '🔄 检测到重复工具调用',
-    'loop.consecutive.tool.calls.description': 'AI模型在反复调用相同的工具，浪费上下文和API配额，没有取得实质进展。\n\n为什么会发生：\n• AI可能被困在同一个方向的探索中\n• 当前的方法不可行\n• 任务描述不清楚或缺少关键信息\n\n应该做什么：\n1. 检查任务：请求是否足够清晰和具体？\n2. 提供新指导：告诉AI尝试不同的方向或提供新信息\n3. 如需要可重启：使用 /session new 清空上下文重新开始\n\n举例：\n• ❌ "读所有文件来理解代码库"\n• ✅ "重点看 src/auth.ts，解释登录流程"\n• ❌ "修复这个错误"\n• ✅ "错误在认证模块，检查token验证逻辑"',
-    'loop.consecutive.tool.calls.action': '快速操作：\n• 继续提供更具体的请求\n• 要求AI尝试不同的方法\n• 使用 /session new 清空上下文重新开始',
+    'loop.consecutive.tool.calls.description':
+      'AI模型在反复调用相同的工具，浪费上下文和API配额，没有取得实质进展。\n\n为什么会发生：\n• AI可能被困在同一个方向的探索中\n• 当前的方法不可行\n• 任务描述不清楚或缺少关键信息\n\n应该做什么：\n1. 检查任务：请求是否足够清晰和具体？\n2. 提供新指导：告诉AI尝试不同的方向或提供新信息\n3. 如需要可重启：使用 /session new 清空上下文重新开始\n\n举例：\n• ❌ "读所有文件来理解代码库"\n• ✅ "重点看 src/auth.ts，解释登录流程"\n• ❌ "修复这个错误"\n• ✅ "错误在认证模块，检查token验证逻辑"',
+    'loop.consecutive.tool.calls.action':
+      '快速操作：\n• 继续提供更具体的请求\n• 要求AI尝试不同的方法\n• 使用 /session new 清空上下文重新开始',
     'loop.chanting.identical.sentences.title': '🔄 检测到重复内容',
-    'loop.chanting.identical.sentences.description': 'AI模型在反复生成相同的文本或响应。',
-    'loop.chanting.identical.sentences.action': '解决方案：\n• 模型可能陷入特定的文本模式\n• 尝试用新的指示打破这个模式\n• 要求AI采用不同的方法\n• 继续对话并提供新的上下文，或执行 /session new 重新开始',
+    'loop.chanting.identical.sentences.description':
+      'AI模型在反复生成相同的文本或响应。',
+    'loop.chanting.identical.sentences.action':
+      '解决方案：\n• 模型可能陷入特定的文本模式\n• 尝试用新的指示打破这个模式\n• 要求AI采用不同的方法\n• 继续对话并提供新的上下文，或执行 /session new 重新开始',
     'loop.llm.detected.title': '⚠️ 检测到无进展循环',
-    'loop.llm.detected.description': 'AI模型似乎陷入困境，在任务上没有取得有意义的进展。',
-    'loop.llm.detected.action': '解决方案：\n• 提供更清晰的任务要求或接受当前进展\n• 将AI的注意力重新集中在核心问题上\n• 考虑将任务分解为更小的子任务\n• 继续进行新的指示或执行 /session new 来重新启动',
+    'loop.llm.detected.description':
+      'AI模型似乎陷入困境，在任务上没有取得有意义的进展。',
+    'loop.llm.detected.action':
+      '解决方案：\n• 提供更清晰的任务要求或接受当前进展\n• 将AI的注意力重新集中在核心问题上\n• 考虑将任务分解为更小的子任务\n• 继续进行新的指示或执行 /session new 来重新启动',
 
     // Daily Tips - 每日技巧
     'tip.help': '/help - 查看所有可用命令',
@@ -2753,26 +3264,35 @@ export const translations = {
     'tip.cli.cloud': 'dvcode --cloud-mode - 启用云端远程控制模式',
 
     // Skills System
-    'skill.command.description': '管理 AI Skills (Marketplace → Plugin → Skill)',
-    'skill.help.text': 'DeepV Code Skills 系统\n\n使用三层架构管理 AI Skills：\n  Marketplace → Plugin → Skill\n\n命令：\n  /skill marketplace list              - 列出所有 Marketplace\n  /skill marketplace add <url> [alias] - 添加 Marketplace\n  /skill marketplace update <name>     - 更新 Marketplace\n  /skill marketplace remove <name>     - 删除 Marketplace\n  /skill marketplace browse <name>     - 浏览 Plugins\n\n  /skill plugin list [marketplace]     - 列出 Plugins\n  /skill install <name>                - 安装 Plugin (自动查找市场)\n  /skill install <name@mp>             - 从指定市场安装\n  /skill plugin install <name>         - /skill install 的别名\n  /skill plugin uninstall <id>         - 卸载 Plugin\n  /skill plugin enable <id>            - 启用 Plugin\n  /skill plugin disable <id>           - 禁用 Plugin\n  /skill plugin info <id>              - 显示 Plugin 信息\n\n  /skill list                          - 列出所有 Skills\n  /skill info <id>                     - 显示 Skill 详情\n  /skill stats                         - 显示统计信息\n\n快速开始：\n  1. 添加官方 Marketplace：\n     /skill marketplace add https://github.com/anthropics/skills.git\n\n  2. 浏览 Plugins：\n     /skill marketplace browse skills\n\n  3. 安装 Plugin (如果唯一则无需指定市场)：\n     /skill install example-skills\n\n  4. 查看 Skills：\n     /skill list',
+    'skill.command.description':
+      '管理 AI Skills (Marketplace → Plugin → Skill)',
+    'skill.help.text':
+      'DeepV Code Skills 系统\n\n使用三层架构管理 AI Skills：\n  Marketplace → Plugin → Skill\n\n命令：\n  /skill marketplace list              - 列出所有 Marketplace\n  /skill marketplace add <url> [alias] - 添加 Marketplace\n  /skill marketplace update <name>     - 更新 Marketplace\n  /skill marketplace remove <name>     - 删除 Marketplace\n  /skill marketplace browse <name>     - 浏览 Plugins\n\n  /skill plugin list [marketplace]     - 列出 Plugins\n  /skill install <name>                - 安装 Plugin (自动查找市场)\n  /skill install <name@mp>             - 从指定市场安装\n  /skill plugin install <name>         - /skill install 的别名\n  /skill plugin uninstall <id>         - 卸载 Plugin\n  /skill plugin enable <id>            - 启用 Plugin\n  /skill plugin disable <id>           - 禁用 Plugin\n  /skill plugin info <id>              - 显示 Plugin 信息\n\n  /skill list                          - 列出所有 Skills\n  /skill info <id>                     - 显示 Skill 详情\n  /skill stats                         - 显示统计信息\n\n快速开始：\n  1. 添加官方 Marketplace：\n     /skill marketplace add https://github.com/anthropics/skills.git\n\n  2. 浏览 Plugins：\n     /skill marketplace browse skills\n\n  3. 安装 Plugin (如果唯一则无需指定市场)：\n     /skill install example-skills\n\n  4. 查看 Skills：\n     /skill list',
     'plugin.command.description': '管理插件 (Marketplace → Plugin)',
-    'plugin.help.text': 'DeepV Code 插件系统\n\n管理插件和市场：\n  /plugin marketplace add <url> [alias] - 添加 Marketplace\n  /plugin install <name>                - 安装 Plugin\n  /plugin list                          - 列出已安装的 Plugins\n\n这是 /skill 命令系统的别名。',
+    'plugin.help.text':
+      'DeepV Code 插件系统\n\n管理插件和市场：\n  /plugin marketplace add <url> [alias] - 添加 Marketplace\n  /plugin install <name>                - 安装 Plugin\n  /plugin list                          - 列出已安装的 Plugins\n\n这是 /skill 命令系统的别名。',
     'skill.marketplace.description': '管理 Skills Marketplaces',
-    'skill.marketplace.usage': '用法：/skill marketplace <list|add|update|remove|browse>',
+    'skill.marketplace.usage':
+      '用法：/skill marketplace <list|add|update|remove|browse>',
     'skill.marketplace.list.description': '列出所有 Marketplaces',
     'skill.marketplace.list.empty': '未安装任何 Marketplace。',
-    'skill.marketplace.list.empty.hint': '添加一个：\n  /skill marketplace add https://github.com/anthropics/skills.git',
+    'skill.marketplace.list.empty.hint':
+      '添加一个：\n  /skill marketplace add https://github.com/anthropics/skills.git',
     'skill.marketplace.list.found': '找到 {count} 个 Marketplace：\n\n',
     'skill.marketplace.list.failed': '列出 Marketplaces 失败：{error}',
-    'skill.marketplace.add.description': '从 Git URL 或本地路径添加 Marketplace',
-    'skill.marketplace.add.usage': '用法：/skill marketplace add <url|path> [alias] [--name <name>]',
+    'skill.marketplace.add.description':
+      '从 Git URL 或本地路径添加 Marketplace',
+    'skill.marketplace.add.usage':
+      '用法：/skill marketplace add <url|path> [alias] [--name <name>]',
     'skill.marketplace.add.progress': '正在从 {url}{name} 添加 Marketplace...',
-    'skill.marketplace.add.success': '✅ 成功添加：{name}\n   ID：{id}\n   Plugins：{count}',
+    'skill.marketplace.add.success':
+      '✅ 成功添加：{name}\n   ID：{id}\n   Plugins：{count}',
     'skill.marketplace.add.failed': '添加 Marketplace 失败：{error}',
     'skill.marketplace.update.description': '更新 Marketplace (git pull)',
     'skill.marketplace.update.usage': '用法：/skill marketplace update <name>',
     'skill.marketplace.update.progress': '正在更新 Marketplace {id}...',
-    'skill.marketplace.update.success': '✅ 成功更新：{name}\n   Plugins：{count}',
+    'skill.marketplace.update.success':
+      '✅ 成功更新：{name}\n   Plugins：{count}',
     'skill.marketplace.update.failed': '更新 Marketplace 失败：{error}',
     'skill.marketplace.remove.description': '删除 Marketplace',
     'skill.marketplace.remove.empty': '未安装任何 Marketplace。',
@@ -2786,21 +3306,28 @@ export const translations = {
     'skill.marketplace.browse.found': '在 {id} 中找到 {count} 个 Plugin：\n\n',
     'skill.marketplace.browse.failed': '浏览 Marketplace 失败：{error}',
     'skill.plugin.description': '管理 Skills Plugins',
-    'skill.plugin.usage': '用法：/skill plugin <list|install|uninstall|enable|disable|info>',
+    'skill.plugin.usage':
+      '用法：/skill plugin <list|install|uninstall|enable|disable|info>',
     'skill.plugin.list.description': '列出已安装或可用的 Plugins',
     'skill.plugin.list.marketplace.empty': '在 {id} 中未找到 Plugin',
     'skill.plugin.list.marketplace.found': '{id} 中可用的 Plugins：\n\n',
-    'skill.plugin.list.installed.empty': '未安装任何 Plugin。\n\n安装一个：\n  /skill plugin install <plugin-name>',
+    'skill.plugin.list.installed.empty':
+      '未安装任何 Plugin。\n\n安装一个：\n  /skill plugin install <plugin-name>',
     'skill.plugin.list.installed.found': '已安装的 Plugins ({count})：\n',
     'skill.plugin.list.failed': '列出 Plugins 失败：{error}',
     'skill.plugin.install.description': '从 Marketplace 安装 Plugin',
-    'skill.plugin.install.usage': '用法：/skill plugin install <plugin-name> 或 /skill plugin install <plugin-name@marketplace-id>',
+    'skill.plugin.install.usage':
+      '用法：/skill plugin install <plugin-name> 或 /skill plugin install <plugin-name@marketplace-id>',
     'skill.install.description': '安装插件 (/skill plugin install 的别名)',
-    'skill.install.usage': '用法：/skill install <plugin-name> 或 /skill install <plugin-name@marketplace-id>',
+    'skill.install.usage':
+      '用法：/skill install <plugin-name> 或 /skill install <plugin-name@marketplace-id>',
     'skill.plugin.install.select.plugin': '可安装的 Plugins：\n\n',
-    'skill.plugin.install.no.available': '所有可用的 Plugins 都已安装。使用 /skill plugin list 查看已安装的插件。',
-    'skill.plugin.install.progress': '正在从 {marketplace} 安装 Plugin {plugin}...',
-    'skill.plugin.install.success': '✅ 成功安装：{name}\n   ID：{id}\n   Skills：{count}\n   状态：已启用',
+    'skill.plugin.install.no.available':
+      '所有可用的 Plugins 都已安装。使用 /skill plugin list 查看已安装的插件。',
+    'skill.plugin.install.progress':
+      '正在从 {marketplace} 安装 Plugin {plugin}...',
+    'skill.plugin.install.success':
+      '✅ 成功安装：{name}\n   ID：{id}\n   Skills：{count}\n   状态：已启用',
     'skill.plugin.install.failed': '安装 Plugin 失败：{error}',
     'skill.plugin.uninstall.description': '卸载 Plugin',
     'skill.plugin.uninstall.usage': '用法：/skill plugin uninstall <plugin-id>',
@@ -2810,12 +3337,14 @@ export const translations = {
     'skill.plugin.enable.description': '启用 Plugin',
     'skill.plugin.enable.usage': '用法：/skill plugin enable <plugin-id>',
     'skill.plugin.enable.progress': '正在启用 Plugin {id}...',
-    'skill.plugin.enable.success': '✅ 成功启用：{id}\n\n该 Plugin 的 Skills 现已可用。',
+    'skill.plugin.enable.success':
+      '✅ 成功启用：{id}\n\n该 Plugin 的 Skills 现已可用。',
     'skill.plugin.enable.failed': '启用 Plugin 失败：{error}',
     'skill.plugin.disable.description': '禁用 Plugin',
     'skill.plugin.disable.usage': '用法：/skill plugin disable <plugin-id>',
     'skill.plugin.disable.progress': '正在禁用 Plugin {id}...',
-    'skill.plugin.disable.success': '✅ 成功禁用：{id}\n\n该 Plugin 的 Skills 已不可用。',
+    'skill.plugin.disable.success':
+      '✅ 成功禁用：{id}\n\n该 Plugin 的 Skills 已不可用。',
     'skill.plugin.disable.failed': '禁用 Plugin 失败：{error}',
     'skill.plugin.info.description': '显示 Plugin 详情',
     'skill.plugin.info.usage': '用法：/skill plugin info <plugin-id>',
@@ -2881,7 +3410,10 @@ export function t(key: keyof typeof translations.en): string {
  * @param params Parameters to substitute
  * @returns Translated text with parameters substituted
  */
-export function tp(key: keyof typeof translations.en, params: Record<string, string | number>): string {
+export function tp(
+  key: keyof typeof translations.en,
+  params: Record<string, string | number>,
+): string {
   let text = t(key);
 
   // Ensure text is not undefined before calling replace
@@ -2912,20 +3444,20 @@ export function getLocalizedToolName(toolName: string): string {
 
   // Map common tool names to translation keys
   const toolKeyMap: Record<string, keyof typeof translations.en> = {
-    'Edit': 'tool.edit',
-    'ReadFile': 'tool.readfile',
-    'WriteFile': 'tool.writefile',
-    'SearchText': 'tool.searchtext',
-    'TodoWrite': 'tool.todowrite',
-    'TodoRead': 'tool.todoread',
-    'FindFiles': 'tool.findfiles',
-    'ReadFolder': 'tool.readfolder',
-    'ReadManyFiles': 'tool.readmanyfiles',
-    'Shell': 'tool.shell',
-    'WebFetch': 'tool.webfetch',
+    Edit: 'tool.edit',
+    ReadFile: 'tool.readfile',
+    WriteFile: 'tool.writefile',
+    SearchText: 'tool.searchtext',
+    TodoWrite: 'tool.todowrite',
+    TodoRead: 'tool.todoread',
+    FindFiles: 'tool.findfiles',
+    ReadFolder: 'tool.readfolder',
+    ReadManyFiles: 'tool.readmanyfiles',
+    Shell: 'tool.shell',
+    WebFetch: 'tool.webfetch',
     'Web Search': 'tool.websearch',
     'Save Memory': 'tool.savememory',
-    'Task': 'tool.task',
+    Task: 'tool.task',
   };
 
   const translationKey = toolKeyMap[toolName];

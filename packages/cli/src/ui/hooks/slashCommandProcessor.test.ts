@@ -102,10 +102,12 @@ describe('useSlashCommandProcessor', () => {
     getHealthyUseEnabled: () => true,
   } as unknown as Config;
 
-  const mockSettings = {} as LoadedSettings;
+  const mockSettings = { merged: {} } as unknown as LoadedSettings;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    (mockSettings as unknown as { merged: Record<string, unknown> }).merged =
+      {};
     (vi.mocked(BuiltinCommandLoader) as Mock).mockClear();
     mockBuiltinLoadCommands.mockResolvedValue([]);
     mockFileLoadCommands.mockResolvedValue([]);
@@ -131,11 +133,13 @@ describe('useSlashCommandProcessor', () => {
         mockAddItem,
         mockClearItems,
         mockLoadHistory,
+        [],
         vi.fn(), // refreshStatic
         mockSetShowHelp,
         vi.fn(), // onDebugMessage
         vi.fn(), // openThemeDialog
         vi.fn(), // openModelDialog
+        vi.fn(), // openCustomModelWizard
         mockOpenAuthDialog,
         vi.fn(), // openLoginDialog
         vi.fn(), // openEditorDialog
@@ -219,6 +223,31 @@ describe('useSlashCommandProcessor', () => {
       // Only the file-based command's action should be called.
       expect(fileAction).toHaveBeenCalledTimes(1);
       expect(builtinAction).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('Command aliases', () => {
+    it('should resolve user-defined command aliases with arguments', async () => {
+      const action = vi.fn().mockResolvedValue({
+        type: 'message',
+        messageType: 'info',
+        content: 'ok',
+      });
+      const testCommand = createTestCommand({ name: 'test', action });
+      (mockSettings as unknown as { merged: Record<string, unknown> }).merged =
+        {
+          commandAliases: { d: 'test' },
+        };
+
+      const result = setupProcessorHook([testCommand]);
+      await waitFor(() => expect(result.current.slashCommands).toHaveLength(1));
+
+      await act(async () => {
+        await result.current.handleSlashCommand('/d foo');
+      });
+
+      expect(action).toHaveBeenCalledTimes(1);
+      expect(action.mock.calls[0]?.[1]).toBe('foo');
     });
   });
 
@@ -647,15 +676,23 @@ describe('useSlashCommandProcessor', () => {
           mockAddItem,
           mockClearItems,
           mockLoadHistory,
+          [],
           vi.fn(), // refreshStatic
           mockSetShowHelp,
           vi.fn(), // onDebugMessage
           vi.fn(), // openThemeDialog
+          vi.fn(), // openModelDialog
+          vi.fn(), // openCustomModelWizard
           mockOpenAuthDialog,
+          vi.fn(), // openLoginDialog
           vi.fn(), // openEditorDialog
           vi.fn(), // toggleCorgiMode
           mockSetQuittingMessages,
           vi.fn(), // openPrivacyNotice
+          vi.fn().mockResolvedValue(true), // toggleVimEnabled
+          0, // cumulativeCredits
+          0, // totalSessionCredits
+          [], // consoleMessages
         ),
       );
 
