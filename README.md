@@ -340,6 +340,7 @@ dvcode --session abc123
 | `/help`            | 显示帮助信息和快速入门指南            |
 | `/doctor`          | 运行 CLI 快速诊断                     |
 | `/report`          | 生成诊断报告（默认复制到剪切板）      |
+| `/history`         | 查看最近输入历史                      |
 | `/help-ask`        | AI 智能帮助助手，解答使用问题         |
 | `/issue <描述>`    | 提交 GitHub Issue（自动附带错误日志） |
 | `/quit` 或 `/exit` | 退出应用，显示会话统计                |

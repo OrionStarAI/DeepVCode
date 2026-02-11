@@ -973,6 +973,7 @@ export const translations = {
     'command.help.description': 'Get deepv-code help',
     'command.doctor.description': 'Run quick diagnostics for the CLI',
     'command.report.description': 'Generate a diagnostic report for sharing',
+    'command.history.description': 'Show recent input history',
     'command.clear.description':
       'Clear terminal screen (keeps conversation context)',
     'command.queue.description': 'Manage prompt queue',
@@ -991,6 +992,8 @@ export const translations = {
     'command.issue.opening': 'Opening GitHub issue form in your browser...',
     'command.report.copied': 'Report copied to clipboard.',
     'command.report.copy_failed': 'Failed to copy report to clipboard:',
+    'command.history.header': 'Recent history:',
+    'command.history.empty': 'No matching history entries found.',
     'command.issue.open.manual':
       'Please open the following URL in your browser to submit the issue:\n{url}',
     'command.issue.open.failed': 'Failed to open the issue URL: {error}',
@@ -2576,6 +2579,7 @@ export const translations = {
     'command.help.description': '获取 deepv-code 帮助',
     'command.doctor.description': '运行 CLI 快速诊断',
     'command.report.description': '生成可分享的诊断报告',
+    'command.history.description': '显示最近的输入历史',
     'command.clear.description': '清除终端屏幕（保留对话上下文）',
     'command.queue.description': '管理提示队列',
     'command.queue.clear.description': '清空所有排队的提示',
@@ -2592,6 +2596,8 @@ export const translations = {
     'command.issue.opening': '正在为你打开 GitHub Issue 提交页面...',
     'command.report.copied': '报告已复制到剪切板。',
     'command.report.copy_failed': '复制报告到剪切板失败：',
+    'command.history.header': '最近历史记录：',
+    'command.history.empty': '未找到匹配的历史记录。',
     'command.issue.open.manual': '请在浏览器中打开以下链接提交 Issue：\n{url}',
     'command.issue.open.failed': '打开 Issue 链接失败：{error}',
     'command.about.description': '显示版本信息',
