@@ -43,6 +43,8 @@
     "generate": "node scripts/generate-git-commit-info.js",
     "build": "node scripts/build.js",
     "build:all": "cross-env INCLUDE_VSCODE_PLUGIN=true npm run build && npm run build:sandbox && npm run build:vscode",
+    "build:cli": "npm run build --workspace=packages/core && npm run build --workspace=packages/cli",
+    "build:plugin": "npm run build --workspace=packages/vscode-ui-plugin",
     "build:vscode": "node scripts/build_vscode_companion.js",
     "build:packages": "npm run build --workspaces",
     "build:full": "cross-env INCLUDE_VSCODE_PLUGIN=true node scripts/build.js",
