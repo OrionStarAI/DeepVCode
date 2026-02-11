@@ -5,6 +5,7 @@
  */
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { logDebug } from '../../utils/cliLogger.js';
 import * as fs from 'fs/promises';
 import * as path from 'path';
 import { glob } from 'glob';
@@ -26,7 +27,10 @@ import { TextBuffer } from '../components/shared/text-buffer.js';
 import { isSlashCommand } from '../utils/commandUtils.js';
 import { toCodePoints } from '../utils/textUtils.js';
 import { t } from '../utils/i18n.js';
-import { getShellCompletions, isShellCompletionSupported } from '../utils/shellCompletionUtils.js';
+import {
+  getShellCompletions,
+  isShellCompletionSupported,
+} from '../utils/shellCompletionUtils.js';
 import { fuzzyMatch, sortByRelevance } from '../utils/fuzzyMatch.js';
 
 export interface UseCompletionReturn {
@@ -64,7 +68,8 @@ export function useCompletion(
   const [isLoadingSuggestions, setIsLoadingSuggestions] =
     useState<boolean>(false);
   const [isPerfectMatch, setIsPerfectMatch] = useState<boolean>(false);
-  const [suppressUntilNextChange, setSuppressUntilNextChange] = useState<boolean>(false);
+  const [suppressUntilNextChange, setSuppressUntilNextChange] =
+    useState<boolean>(false);
   const prevTextRef = useRef<string>(buffer.text);
 
   const resetCompletionState = useCallback(() => {
@@ -82,31 +87,37 @@ export function useCompletion(
   }, [resetCompletionState]);
 
   // 🔧 智能匹配：根据用户输入自动选中匹配的建议项
-  const findBestMatch = useCallback((currentInput: string, suggestions: Suggestion[]): number => {
-    if (!currentInput || suggestions.length === 0) return 0;
+  const findBestMatch = useCallback(
+    (currentInput: string, suggestions: Suggestion[]): number => {
+      if (!currentInput || suggestions.length === 0) return 0;
 
-    // 1. 精确匹配（优先级最高）
-    const exactMatchIndex = suggestions.findIndex(s =>
-      s.value === currentInput || s.label === currentInput
-    );
-    if (exactMatchIndex !== -1) return exactMatchIndex;
+      // 1. 精确匹配（优先级最高）
+      const exactMatchIndex = suggestions.findIndex(
+        (s) => s.value === currentInput || s.label === currentInput,
+      );
+      if (exactMatchIndex !== -1) return exactMatchIndex;
 
-    // 2. 前缀匹配
-    const prefixMatchIndex = suggestions.findIndex(s =>
-      s.value.startsWith(currentInput) || s.label.startsWith(currentInput)
-    );
-    if (prefixMatchIndex !== -1) return prefixMatchIndex;
+      // 2. 前缀匹配
+      const prefixMatchIndex = suggestions.findIndex(
+        (s) =>
+          s.value.startsWith(currentInput) || s.label.startsWith(currentInput),
+      );
+      if (prefixMatchIndex !== -1) return prefixMatchIndex;
 
-    // 3. 包含匹配（不区分大小写）
-    const lowerInput = currentInput.toLowerCase();
-    const containsMatchIndex = suggestions.findIndex(s =>
-      s.value.toLowerCase().includes(lowerInput) || s.label.toLowerCase().includes(lowerInput)
-    );
-    if (containsMatchIndex !== -1) return containsMatchIndex;
+      // 3. 包含匹配（不区分大小写）
+      const lowerInput = currentInput.toLowerCase();
+      const containsMatchIndex = suggestions.findIndex(
+        (s) =>
+          s.value.toLowerCase().includes(lowerInput) ||
+          s.label.toLowerCase().includes(lowerInput),
+      );
+      if (containsMatchIndex !== -1) return containsMatchIndex;
 
-    // 4. 没有匹配则返回第一个
-    return 0;
-  }, []);
+      // 4. 没有匹配则返回第一个
+      return 0;
+    },
+    [],
+  );
 
   const navigateUp = useCallback(() => {
     if (suggestions.length === 0) return;
@@ -226,8 +237,6 @@ export function useCompletion(
 
     const trimmedQuery = buffer.text.trimStart();
 
-
-
     // 🚀 性能优化：早期退出，避免不必要的计算
     // 只有在输入特殊字符时才需要补全处理
     if (!trimmedQuery.startsWith('/') && !buffer.text.includes('@')) {
@@ -265,8 +274,8 @@ export function useCompletion(
       let availableCommands: readonly SlashCommand[] = slashCommands;
       if (isBusy && !isInSpecialMode) {
         // AI 正在工作时，只显示队列管理和退出命令
-        availableCommands = slashCommands.filter(cmd =>
-          cmd.name === 'queue' || cmd.name === 'quit'
+        availableCommands = slashCommands.filter(
+          (cmd) => cmd.name === 'queue' || cmd.name === 'quit',
         );
       } else if (isInSpecialMode) {
         // 特殊模式（润色确认、队列编辑）时，不提供命令补全
@@ -308,7 +317,9 @@ export function useCompletion(
         const exactMatchAsParent = currentLevel.find(
           (cmd) =>
             (cmd.name.toLowerCase() === lowerPartial ||
-              cmd.altNames?.some((alt) => alt.toLowerCase() === lowerPartial)) &&
+              cmd.altNames?.some(
+                (alt) => alt.toLowerCase() === lowerPartial,
+              )) &&
             cmd.subCommands,
         );
 
@@ -356,7 +367,8 @@ export function useCompletion(
         const fetchAndSetSuggestions = async () => {
           setIsLoadingSuggestions(true);
           // Preserve trailing space so completion function knows user is moving to next parameter
-          const argString = rawParts.slice(depth).join(' ') + (hasTrailingSpace ? ' ' : '');
+          const argString =
+            rawParts.slice(depth).join(' ') + (hasTrailingSpace ? ' ' : '');
           const results =
             (await leafCommand!.completion!(commandContext, argString)) || [];
 
@@ -373,13 +385,16 @@ export function useCompletion(
           let bestMatchIndex = 0;
           if (finalSuggestions.length > 0) {
             // 获取当前正在输入的参数（最后一个参数）
-            const currentArg = rawParts.length > depth ? rawParts[rawParts.length - 1] : '';
+            const currentArg =
+              rawParts.length > depth ? rawParts[rawParts.length - 1] : '';
             bestMatchIndex = findBestMatch(currentArg, finalSuggestions);
           }
 
           setSuggestions(finalSuggestions);
           setShowSuggestions(finalSuggestions.length > 0);
-          setActiveSuggestionIndex(finalSuggestions.length > 0 ? bestMatchIndex : -1);
+          setActiveSuggestionIndex(
+            finalSuggestions.length > 0 ? bestMatchIndex : -1,
+          );
           setVisibleStartIndex(0); // 🔧 重置滚动位置，防止列表更新后由于偏移过大导致显示空白
           setIsLoadingSuggestions(false);
         };
@@ -388,10 +403,15 @@ export function useCompletion(
       }
 
       // Command/Sub-command Completion
-      const commandsToSearch = (currentLevel || []).filter(cmd => !cmd.hidden);
+      const commandsToSearch = (currentLevel || []).filter(
+        (cmd) => !cmd.hidden,
+      );
       if (commandsToSearch.length > 0) {
         let potentialSuggestions: SlashCommand[];
-        const potentialSuggestionsWithScore: Array<{ cmd: SlashCommand; fuzzyScore: number }> = [];
+        const potentialSuggestionsWithScore: Array<{
+          cmd: SlashCommand;
+          fuzzyScore: number;
+        }> = [];
 
         // 只有当用户输入了搜索词时，才使用模糊匹配；否则显示所有命令
         if (partial) {
@@ -401,16 +421,25 @@ export function useCompletion(
             .map((cmd) => {
               // 获取命令名和别名的匹配结果
               const nameMatch = fuzzyMatch(cmd.name, partial);
-              const aliasMatches = (cmd.altNames || []).map((alt) => fuzzyMatch(alt, partial));
+              const aliasMatches = (cmd.altNames || []).map((alt) =>
+                fuzzyMatch(alt, partial),
+              );
 
               // 选择最高分的匹配
-              const allMatches = [nameMatch, ...aliasMatches].filter((m) => m.matched);
-              const bestMatch = allMatches.reduce((best, current) =>
-                current.score > best.score ? current : best,
+              const allMatches = [nameMatch, ...aliasMatches].filter(
+                (m) => m.matched,
+              );
+              const bestMatch = allMatches.reduce(
+                (best, current) =>
+                  current.score > best.score ? current : best,
                 { matched: false, score: 0, indices: [] as number[] },
               );
 
-              return { cmd, matched: bestMatch.matched, fuzzyScore: bestMatch.score };
+              return {
+                cmd,
+                matched: bestMatch.matched,
+                fuzzyScore: bestMatch.score,
+              };
             })
             .filter((item) => item.matched);
 
@@ -418,7 +447,9 @@ export function useCompletion(
           potentialSuggestionsWithScore.push(...suggestionsWithScore);
         } else {
           // 没有搜索词时，显示所有有描述的命令，保持原顺序
-          potentialSuggestions = commandsToSearch.filter((cmd) => cmd.description);
+          potentialSuggestions = commandsToSearch.filter(
+            (cmd) => cmd.description,
+          );
         }
 
         // If a user's input is an exact match and it is a leaf command,
@@ -428,7 +459,9 @@ export function useCompletion(
           const perfectMatch = potentialSuggestions.find(
             (s) =>
               (s.name.toLowerCase() === lowerPartial ||
-                s.altNames?.some((alt) => alt.toLowerCase() === lowerPartial)) &&
+                s.altNames?.some(
+                  (alt) => alt.toLowerCase() === lowerPartial,
+                )) &&
               s.action &&
               !s.subCommands, // 🔧 如果有子命令，即使名字匹配也不应清除补全，方便用户继续输入
           );
@@ -493,7 +526,9 @@ export function useCompletion(
 
         setSuggestions(finalSuggestions);
         setShowSuggestions(finalSuggestions.length > 0);
-        setActiveSuggestionIndex(finalSuggestions.length > 0 ? bestMatchIndex : -1);
+        setActiveSuggestionIndex(
+          finalSuggestions.length > 0 ? bestMatchIndex : -1,
+        );
         setVisibleStartIndex(0); // 🔧 重置滚动位置，防止列表更新后由于偏移过大导致显示空白
         setIsLoadingSuggestions(false);
         return;
@@ -657,7 +692,9 @@ export function useCompletion(
     };
 
     const fetchSuggestions = async () => {
-      console.log(`[DEBUG] fetchSuggestions triggered for text: "${buffer.text}" (length: ${buffer.text.length})`);
+      logDebug(
+        `fetchSuggestions triggered for text: "${buffer.text}" (length: ${buffer.text.length})`,
+      );
       setIsLoadingSuggestions(true);
       let fetchedSuggestions: Suggestion[] = [];
 
@@ -711,8 +748,12 @@ export function useCompletion(
               path.join(baseDirAbsolute, entry.name),
             );
 
-            const shouldIgnore = fileDiscoveryService &&
-              fileDiscoveryService.shouldIgnoreFile(relativePath, filterOptions);
+            const shouldIgnore =
+              fileDiscoveryService &&
+              fileDiscoveryService.shouldIgnoreFile(
+                relativePath,
+                filterOptions,
+              );
 
             if (shouldIgnore) {
               continue;
@@ -776,11 +817,14 @@ export function useCompletion(
 
         if (isMounted) {
           // 🎯 添加特殊的 clipboard 建议
-          if ('clipboard'.startsWith(prefix.toLowerCase()) && !fetchedSuggestions.some(s => s.value === 'clipboard')) {
+          if (
+            'clipboard'.startsWith(prefix.toLowerCase()) &&
+            !fetchedSuggestions.some((s) => s.value === 'clipboard')
+          ) {
             fetchedSuggestions.unshift({
               label: '📋 clipboard',
               value: 'clipboard',
-              description: t('completion.clipboard.description')
+              description: t('completion.clipboard.description'),
             });
           }
 
@@ -794,7 +838,9 @@ export function useCompletion(
 
           setSuggestions(fetchedSuggestions);
           setShowSuggestions(fetchedSuggestions.length > 0);
-          setActiveSuggestionIndex(fetchedSuggestions.length > 0 ? bestMatchIndex : -1);
+          setActiveSuggestionIndex(
+            fetchedSuggestions.length > 0 ? bestMatchIndex : -1,
+          );
           setVisibleStartIndex(0);
         }
       } catch (error: unknown) {
@@ -825,9 +871,9 @@ export function useCompletion(
     };
   }, [
     buffer.text, // 主要触发条件
-    isActive,    // 激活状态
+    isActive, // 激活状态
     suppressUntilNextChange, // 抑制状态
-    cwd,         // 工作目录（仅在@文件补全时需要）
+    cwd, // 工作目录（仅在@文件补全时需要）
     // 🚀 性能优化：移除不必要的依赖项，减少重复触发
     // resetCompletionState, slashCommands, commandContext, config 这些通常不会频繁变化
   ]);
@@ -877,7 +923,9 @@ export function useCompletion(
 
               // 🚀 优化：使用引号包裹路径，防止终端（如 iTerm2）将其误识别为 URL
               // 同时移除可能存在的引号和转义，统一处理
-              const cleanPrefix = prefix.startsWith('"') ? prefix.substring(1) : prefix;
+              const cleanPrefix = prefix.startsWith('"')
+                ? prefix.substring(1)
+                : prefix;
               const cleanSuggestion = unescapePath(suggestion);
               const isDirectory = cleanSuggestion.endsWith('/');
 
@@ -961,12 +1009,15 @@ export function useCompletion(
 
         const pathPart = query.substring(atIndex + 1);
         const lastSlashIndexInPath = pathPart.lastIndexOf('/');
-        const prefix = lastSlashIndexInPath !== -1
-          ? pathPart.substring(0, lastSlashIndexInPath + 1)
-          : '';
+        const prefix =
+          lastSlashIndexInPath !== -1
+            ? pathPart.substring(0, lastSlashIndexInPath + 1)
+            : '';
 
         // 🚀 优化：使用引号包裹路径，防止终端（如 iTerm2）将其误识别为 URL
-        const cleanPrefix = prefix.startsWith('"') ? prefix.substring(1) : prefix;
+        const cleanPrefix = prefix.startsWith('"')
+          ? prefix.substring(1)
+          : prefix;
         const cleanSuggestion = unescapePath(suggestion);
         const isDirectory = cleanSuggestion.endsWith('/');
 
@@ -987,7 +1038,11 @@ export function useCompletion(
   );
 
   const triggerShellCompletion = useCallback(async () => {
-    if (!shellModeActive || !isShellCompletionSupported() || !buffer.text.trim()) {
+    if (
+      !shellModeActive ||
+      !isShellCompletionSupported() ||
+      !buffer.text.trim()
+    ) {
       return;
     }
 
