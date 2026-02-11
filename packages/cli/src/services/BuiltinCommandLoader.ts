@@ -23,7 +23,6 @@ import { exportDebugCommand } from '../ui/commands/exportDebugCommand.js';
 import { extensionsCommand } from '../ui/commands/extensionsCommand.js';
 import { helpCommand } from '../ui/commands/helpCommand.js';
 import { helpAskCommand } from '../ui/commands/helpAskCommand.js';
-import { doctorCommand } from '../ui/commands/doctorCommand.js';
 import { reportCommand } from '../ui/commands/reportCommand.js';
 import { historyCommand } from '../ui/commands/historyCommand.js';
 import { ideCommand } from '../ui/commands/ideCommand.js';
@@ -90,7 +89,6 @@ export class BuiltinCommandLoader implements ICommandLoader {
       extensionsCommand,
       helpCommand,
       helpAskCommand,
-      doctorCommand,
       reportCommand,
       historyCommand,
       hooksCommand,

@@ -971,7 +971,6 @@ export const translations = {
 
     // Slash command descriptions
     'command.help.description': 'Get deepv-code help',
-    'command.doctor.description': 'Run quick diagnostics for the CLI',
     'command.report.description': 'Generate a diagnostic report for sharing',
     'command.history.description': 'Show recent input history',
     'command.clear.description':
@@ -2577,7 +2576,6 @@ export const translations = {
 
     // Slash command descriptions
     'command.help.description': '获取 deepv-code 帮助',
-    'command.doctor.description': '运行 CLI 快速诊断',
     'command.report.description': '生成可分享的诊断报告',
     'command.history.description': '显示最近的输入历史',
     'command.clear.description': '清除终端屏幕（保留对话上下文）',

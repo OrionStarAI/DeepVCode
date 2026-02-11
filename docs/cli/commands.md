@@ -45,9 +45,6 @@ Slash commands provide meta-level control over the CLI itself.
 - **`/help`** (or **`/?`**)
   - **Description:** Display help information about Gemini CLI, including available commands and their usage.
 
-- **`/doctor`**
-  - **Description:** Run quick diagnostics for the CLI environment (versions, build status, core dependencies).
-
 - **`/report`**
   - **Description:** Generate a diagnostic report for sharing. Copies to clipboard by default.
 
