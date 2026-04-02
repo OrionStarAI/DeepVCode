@@ -3048,7 +3048,11 @@ function setupMultiSessionHandlers() {
       const uploadResult = await imageGenerator.getUploadUrl(payload.filename, payload.contentType);
 
       // 2. 解析base64数据
-      const base64Data = payload.fileData.split(',')[1];
+      const parts = payload.fileData.split(',');
+      const base64Data = parts.length >= 2 ? parts[1] : payload.fileData;
+      if (!base64Data) {
+        throw new Error('Invalid base64 data URI: missing data after comma');
+      }
       const fileBuffer = Buffer.from(base64Data, 'base64');
 
       // 3. 上传图片到GCS
