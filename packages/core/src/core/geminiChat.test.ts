@@ -16,6 +16,8 @@ import { GeminiChat } from './geminiChat.js';
 import { Config } from '../config/config.js';
 import { setSimulate429 } from '../utils/testUtils.js';
 import { SceneType } from './sceneManager.js';
+import * as loggers from '../telemetry/loggers.js';
+import * as telemetrySdk from '../telemetry/sdk.js';
 
 // Mocks
 const mockModelsModule = {
@@ -117,6 +119,87 @@ describe('GeminiChat', () => {
         contents: [{ role: 'user', parts: [{ text: 'hello' }] }],
         config: {},
       }, SceneType.CHAT_CONVERSATION);
+    });
+  });
+
+  describe('telemetry payload serialization (issue #31)', () => {
+    const makeResponse = () =>
+      ({
+        candidates: [
+          {
+            content: { parts: [{ text: 'response' }], role: 'model' },
+            finishReason: 'STOP',
+            index: 0,
+            safetyRatings: [],
+          },
+        ],
+        text: () => 'response',
+      }) as unknown as GenerateContentResponse;
+
+    it('skips serializing request/response when the telemetry SDK is not initialized', async () => {
+      vi.spyOn(telemetrySdk, 'isTelemetrySdkInitialized').mockReturnValue(
+        false,
+      );
+      const reqSpy = vi.spyOn(loggers, 'logApiRequest');
+      const resSpy = vi.spyOn(loggers, 'logApiResponse');
+      vi.mocked(mockModelsModule.generateContent).mockResolvedValue(
+        makeResponse(),
+      );
+
+      await chat.sendMessage(
+        { message: 'hello' },
+        'prompt-id-1',
+        SceneType.CHAT_CONVERSATION,
+      );
+
+      expect(reqSpy).toHaveBeenCalled();
+      expect(resSpy).toHaveBeenCalled();
+      expect(reqSpy.mock.calls[0][1].request_text).toBeUndefined();
+      expect(resSpy.mock.calls[0][1].response_text).toBeUndefined();
+    });
+
+    it('serializes request/response when the telemetry SDK is initialized', async () => {
+      vi.spyOn(telemetrySdk, 'isTelemetrySdkInitialized').mockReturnValue(true);
+      const reqSpy = vi.spyOn(loggers, 'logApiRequest');
+      const resSpy = vi.spyOn(loggers, 'logApiResponse');
+      vi.mocked(mockModelsModule.generateContent).mockResolvedValue(
+        makeResponse(),
+      );
+
+      await chat.sendMessage(
+        { message: 'hello' },
+        'prompt-id-1',
+        SceneType.CHAT_CONVERSATION,
+      );
+
+      expect(typeof reqSpy.mock.calls[0][1].request_text).toBe('string');
+      expect(typeof resSpy.mock.calls[0][1].response_text).toBe('string');
+    });
+
+    it('skips serializing the full chunk array on the streaming path when telemetry is off', async () => {
+      vi.spyOn(telemetrySdk, 'isTelemetrySdkInitialized').mockReturnValue(
+        false,
+      );
+      const resSpy = vi.spyOn(loggers, 'logApiResponse');
+      const stream = (async function* () {
+        yield makeResponse();
+      })();
+      vi.mocked(mockModelsModule.generateContentStream).mockResolvedValue(
+        stream,
+      );
+
+      const result = await chat.sendMessageStream(
+        { message: 'hello' },
+        'prompt-id-1',
+        SceneType.CHAT_CONVERSATION,
+      );
+      // Drain the stream so the end-of-stream logging actually runs.
+      for await (const _chunk of result) {
+        void _chunk;
+      }
+
+      expect(resSpy).toHaveBeenCalled();
+      expect(resSpy.mock.calls[0][1].response_text).toBeUndefined();
     });
   });
 

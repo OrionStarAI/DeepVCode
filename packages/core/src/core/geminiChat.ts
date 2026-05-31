@@ -36,6 +36,7 @@ import {
   ApiResponseEvent,
   AgentContext,
 } from '../telemetry/types.js';
+import { isTelemetrySdkInitialized } from '../telemetry/sdk.js';
 import { DEFAULT_GEMINI_FLASH_MODEL, DEFAULT_GEMINI_MODEL } from '../config/models.js';
 import { tokenUsageEventManager } from '../events/tokenUsageEvents.js';
 import { realTimeTokenEventManager } from '../events/realTimeTokenEvents.js';
@@ -170,8 +171,20 @@ export class GeminiChat {
     this.specifiedModel = specifiedModel || this.config.getModel();
   }
 
-  private _getRequestTextFromContents(contents: Content[]): string {
-    return JSON.stringify(contents);
+  private _getRequestTextFromContents(contents: Content[]): string | undefined {
+    return this._serializeForTelemetry(contents);
+  }
+
+  /**
+   * Serializes a value to JSON for telemetry, but only when the OpenTelemetry
+   * SDK is active. The request/response text is attached as a log attribute
+   * solely inside logApiRequest/logApiResponse, and only when telemetry is
+   * initialized. Serializing eagerly on every turn (a potentially multi-MB
+   * response, or hundreds of accumulated stream chunks) is pure overhead on the
+   * hot path when telemetry is disabled — the common case. See issue #31.
+   */
+  private _serializeForTelemetry(value: unknown): string | undefined {
+    return isTelemetrySdkInitialized() ? JSON.stringify(value) : undefined;
   }
 
   setSpecifiedModel(model: string): void {
@@ -367,7 +380,7 @@ export class GeminiChat {
         durationMs,
         prompt_id,
         response.usageMetadata,
-        JSON.stringify(response),
+        this._serializeForTelemetry(response),
         this.agentContext,
       );
 
@@ -978,7 +991,7 @@ export class GeminiChat {
         durationMs,
         prompt_id,
         this.getFinalUsageMetadata(chunks),
-        JSON.stringify(chunks),
+        this._serializeForTelemetry(chunks),
         this.agentContext,
       );
       // 🎯 正常结束时记录历史
