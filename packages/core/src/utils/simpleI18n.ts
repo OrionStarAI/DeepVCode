@@ -67,6 +67,21 @@ function getCurrentLocale(): 'en' | 'zh' {
   return isChineseEnvironment() ? 'zh' : 'en';
 }
 
+// Cache compiled `{param}` regexes by parameter name. t() is called on hot
+// (per-render) paths and previously rebuilt a global RegExp for every
+// parameter on every call. A global regex has its lastIndex reset by
+// String.prototype.replace, so reuse is safe. See issue #33.
+const paramRegexCache = new Map<string, RegExp>();
+
+function getParamRegex(paramName: string): RegExp {
+  let regex = paramRegexCache.get(paramName);
+  if (!regex) {
+    regex = new RegExp(`\\{${paramName}\\}`, 'g');
+    paramRegexCache.set(paramName, regex);
+  }
+  return regex;
+}
+
 /**
  * 翻译函数，支持参数替换
  * @param key 翻译键
@@ -80,7 +95,7 @@ export function t(key: keyof typeof translations.en, params?: Record<string, str
   // 参数替换
   if (params) {
     Object.entries(params).forEach(([paramName, value]) => {
-      text = text.replace(new RegExp(`\\{${paramName}\\}`, 'g'), String(value));
+      text = text.replace(getParamRegex(paramName), String(value));
     });
   }
 

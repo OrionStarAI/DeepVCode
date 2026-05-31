@@ -213,6 +213,11 @@ const detectIDEAEnvironment = (): boolean => {
   );
 };
 
+// The environment does not change during the process lifetime, so compute this
+// once at module load rather than on every keystroke in the useInput handler.
+// See issue #33.
+const IS_IDEA_ENVIRONMENT = detectIDEAEnvironment();
+
 /**
  * Cross-platform clear screen function that properly clears scroll buffer on Windows
  * 特别优化了IDEA环境下的兼容性
@@ -1871,7 +1876,7 @@ const App = ({
     }
 
     // 检测IDEA环境下的替代取消键
-    const isIDEATerminal = detectIDEAEnvironment();
+    const isIDEATerminal = IS_IDEA_ENVIRONMENT;
     const isCancelKey =
       key.escape ||
       (isIDEATerminal && key.ctrl && input === 'q') ||

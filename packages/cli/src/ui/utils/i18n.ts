@@ -7,22 +7,24 @@
 
 import * as os from 'os';
 
+// The terminal/IDE environment does not change during the process lifetime, so
+// detect the JetBrains/IDEA terminal once at module load instead of on every
+// call (this check previously ran per keystroke / per hint render). See #33.
+const IS_IDEA_TERMINAL = !!(
+  (process.env.TERMINAL_EMULATOR &&
+    (process.env.TERMINAL_EMULATOR.includes('JetBrains') ||
+      process.env.TERMINAL_EMULATOR.includes('IntelliJ') ||
+      process.env.TERMINAL_EMULATOR.includes('IDEA'))) ||
+  process.env.IDEA_INITIAL_DIRECTORY ||
+  process.env.JETBRAINS_IDE ||
+  (process.env.TERM_PROGRAM && process.env.TERM_PROGRAM.includes('jetbrains'))
+);
+
 /**
  * 获取取消操作的热键提示文本
  */
 export const getCancelKeyHint = (): string => {
-  // 检测IDEA环境
-  const isIDEATerminal = !!(
-    (process.env.TERMINAL_EMULATOR &&
-      (process.env.TERMINAL_EMULATOR.includes('JetBrains') ||
-        process.env.TERMINAL_EMULATOR.includes('IntelliJ') ||
-        process.env.TERMINAL_EMULATOR.includes('IDEA'))) ||
-    process.env.IDEA_INITIAL_DIRECTORY ||
-    process.env.JETBRAINS_IDE ||
-    (process.env.TERM_PROGRAM && process.env.TERM_PROGRAM.includes('jetbrains'))
-  );
-
-  if (isIDEATerminal) {
+  if (IS_IDEA_TERMINAL) {
     // IDEA环境下使用替代热键
     return process.platform === 'darwin' ? 'ctrl+q' : 'ctrl+q';
   }
@@ -3404,6 +3406,21 @@ export function t(key: keyof typeof translations.en): string {
   return translations[locale][key] || translations.en[key] || key;
 }
 
+// Cache compiled `{param}` regexes by parameter name. tp() runs on hot
+// (per-render) paths and previously rebuilt a global RegExp for every
+// parameter on every call. A global regex has its lastIndex reset by
+// String.prototype.replace, so reuse is safe. See issue #33.
+const paramRegexCache = new Map<string, RegExp>();
+
+function getParamRegex(paramName: string): RegExp {
+  let regex = paramRegexCache.get(paramName);
+  if (!regex) {
+    regex = new RegExp(`\\{${paramName}\\}`, 'g');
+    paramRegexCache.set(paramName, regex);
+  }
+  return regex;
+}
+
 /**
  * Get translated text with parameter substitution
  * @param key Translation key
@@ -3424,7 +3441,7 @@ export function tp(
   // Replace {paramName} with actual values
   if (params) {
     Object.entries(params).forEach(([paramName, value]) => {
-      text = text.replace(new RegExp(`\\{${paramName}\\}`, 'g'), String(value));
+      text = text.replace(getParamRegex(paramName), String(value));
     });
   }
 
