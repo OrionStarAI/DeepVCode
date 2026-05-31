@@ -436,6 +436,7 @@ export class GeminiChat {
       messageIndex: number;
     }> = [];
 
+    let hasAnyFunctionResponse = false;
     for (let i = 0; i < requestContents.length; i++) {
       const current = requestContents[i];
       if (current.role === MESSAGE_ROLES.MODEL && current.parts) {
@@ -447,7 +448,20 @@ export class GeminiChat {
             });
           }
         });
+      } else if (current.role === MESSAGE_ROLES.USER && current.parts) {
+        if (current.parts.some(part => part.functionResponse)) {
+          hasAnyFunctionResponse = true;
+        }
       }
+    }
+
+    // ⚡ Fast path: the rest of this method only ever rewrites function
+    // call/response pairing. When the history contains neither, every
+    // subsequent pass is a structural no-op, so we can skip them entirely and
+    // avoid repeating the O(n×p) scans on every send. Callers pass a fresh
+    // curated-history copy, so returning the input as-is is safe. See #32.
+    if (allFunctionCalls.length === 0 && !hasAnyFunctionResponse) {
+      return requestContents;
     }
 
     // 🎯 第一步：收集并仲裁所有 functionResponse（关键修复）
@@ -515,10 +529,12 @@ export class GeminiChat {
               const matchingCall = allFunctionCalls.find(fc => isToolMatch(fc.call, resp));
               if (matchingCall) {
                 if (matchingCall.call.id !== resp.id) {
-                  console.log(
-                    `[fixRequestContents] 🔧 ID 对齐：将响应 ${resp.name} 的 ID 从 "${resp.id || 'unnamed'}" ` +
-                    `同步为调用方的 ID "${matchingCall.call.id || 'unnamed'}"`
-                  );
+                  if (this.config.getDebugMode()) {
+                    console.log(
+                      `[fixRequestContents] 🔧 ID 对齐：将响应 ${resp.name} 的 ID 从 "${resp.id || 'unnamed'}" ` +
+                      `同步为调用方的 ID "${matchingCall.call.id || 'unnamed'}"`
+                    );
+                  }
                   resp.id = matchingCall.call.id;
                 }
               }
@@ -527,10 +543,12 @@ export class GeminiChat {
               usedResponseKeys.add(key);
             } else {
               // 如果不带 ID 的响应被带 ID 的响应取代了，也会进入这里
-              console.warn(
-                `[fixRequestContents] 🗑️ 移除次优或重复的 functionResponse：${resp.name} (id: ${resp.id || 'unnamed'})。` +
-                `保留优先级更高或更精准的响应。`
-              );
+              if (this.config.getDebugMode()) {
+                console.warn(
+                  `[fixRequestContents] 🗑️ 移除次优或重复的 functionResponse：${resp.name} (id: ${resp.id || 'unnamed'})。` +
+                  `保留优先级更高或更精准的响应。`
+                );
+              }
             }
           } else {
             filteredParts.push(part);
@@ -561,7 +579,7 @@ export class GeminiChat {
             });
           });
 
-          if (orphanedResponses.length > 0) {
+          if (orphanedResponses.length > 0 && this.config.getDebugMode()) {
             console.log(
               `[fixRequestContents] 检测到第${i + 1}条消息中有 ${orphanedResponses.length} 个孤立的 function response:`,
               orphanedResponses.map(r => ({
@@ -608,7 +626,9 @@ export class GeminiChat {
             // 如果 bestResponses 中存储的是真实结果（优先级 100），且不是我们当前看到的这条消息中的
             // 说明真实结果在后续消息中，不需要补全 cancel
             if (best && best.priority === 100 && best.originalIndex > i + 1) {
-              console.log(`[fixRequestContents] ⏭️ 跳过补全 cancel：${functionCall.name} (id: ${functionCall.id || 'unnamed'})，真实结果将在后续消息中到达`);
+              if (this.config.getDebugMode()) {
+                console.log(`[fixRequestContents] ⏭️ 跳过补全 cancel：${functionCall.name} (id: ${functionCall.id || 'unnamed'})，真实结果将在后续消息中到达`);
+              }
               return false;
             }
             return true;
@@ -633,7 +653,9 @@ export class GeminiChat {
               parts: cancelResponses
             });
 
-            console.log(`[fixRequestContents] 为第${i + 1}条消息补全了 ${callsNeedingCancel.length} 个未匹配的 function call`);
+            if (this.config.getDebugMode()) {
+              console.log(`[fixRequestContents] 为第${i + 1}条消息补全了 ${callsNeedingCancel.length} 个未匹配的 function call`);
+            }
           }
 
           // 如果下一条消息有混合内容，调整 parts 顺序：function-response 在前，text 在后
@@ -646,7 +668,9 @@ export class GeminiChat {
                 ...next,
                 parts: [...nextFunctionResponses, ...textParts]
               };
-              console.log(`[fixRequestContents] 调整了第${i + 2}条消息的内容顺序，function-response 在前`);
+              if (this.config.getDebugMode()) {
+                console.log(`[fixRequestContents] 调整了第${i + 2}条消息的内容顺序，function-response 在前`);
+              }
             }
           }
         }
@@ -682,17 +706,19 @@ export class GeminiChat {
           if (hasMatchingId || hasMatchingName) {
             return true;
           } else {
-            console.warn(
-              `[fixRequestContents] ❌ 移除孤立的 functionResponse：${response.name} (id: ${response.id})。` +
-              `这个 response 没有对应的 function call。`
-            );
+            if (this.config.getDebugMode()) {
+              console.warn(
+                `[fixRequestContents] ❌ 移除孤立的 functionResponse：${response.name} (id: ${response.id})。` +
+                `这个 response 没有对应的 function call。`
+              );
+            }
             return false;
           }
         });
 
         if (validParts.length > 0) {
           finalContents.push({ ...content, parts: validParts });
-        } else {
+        } else if (this.config.getDebugMode()) {
           console.warn(`[fixRequestContents] 移除空的用户消息（所有 functionResponse 都被过滤）`);
         }
       } else {

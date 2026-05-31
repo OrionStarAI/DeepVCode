@@ -120,6 +120,74 @@ describe('GeminiChat', () => {
     });
   });
 
+  describe('fixRequestContents (issue #32)', () => {
+    type WithFix = { fixRequestContents(c: Content[]): Content[] };
+    const callFix = (c: GeminiChat, contents: Content[]) =>
+      (c as unknown as WithFix).fixRequestContents(contents);
+
+    const orphanHistory = (): Content[] => [
+      { role: 'user', parts: [{ text: 'run tool' }] },
+      {
+        role: 'user',
+        parts: [
+          { functionResponse: { name: 'ghost', response: { result: 'x' } } },
+        ],
+      },
+    ];
+
+    it('returns the input unchanged via the fast path when there are no function calls or responses', () => {
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const contents: Content[] = [
+        { role: 'user', parts: [{ text: 'hi' }] },
+        { role: 'model', parts: [{ text: 'hello' }] },
+      ];
+
+      const result = callFix(chat, contents);
+
+      expect(result).toBe(contents); // early-out: no rebuild
+      expect(logSpy).not.toHaveBeenCalled();
+      expect(warnSpy).not.toHaveBeenCalled();
+    });
+
+    it('still repairs the history (drops orphaned functionResponse) but stays silent when debug mode is off', () => {
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      const result = callFix(chat, orphanHistory());
+
+      const stillHasGhost = result.some((c) =>
+        c.parts?.some(
+          (p) =>
+            (p as { functionResponse?: { name?: string } }).functionResponse
+              ?.name === 'ghost',
+        ),
+      );
+      expect(stillHasGhost).toBe(false); // behavior preserved
+      expect(logSpy).not.toHaveBeenCalled();
+      expect(warnSpy).not.toHaveBeenCalled();
+    });
+
+    it('emits diagnostic logs only when debug mode is on', () => {
+      const debugConfig = {
+        ...mockConfig,
+        getDebugMode: () => true,
+      } as unknown as Config;
+      const debugChat = new GeminiChat(
+        debugConfig,
+        mockModelsModule,
+        config,
+        [],
+      );
+      vi.spyOn(console, 'log').mockImplementation(() => {});
+      const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+      callFix(debugChat, orphanHistory());
+
+      expect(warnSpy).toHaveBeenCalled();
+    });
+  });
+
   describe('recordHistory', () => {
     const userInput: Content = {
       role: 'user',
