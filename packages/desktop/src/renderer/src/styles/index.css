@@ -706,13 +706,16 @@ select {
 }
 .msg-user {
   position: relative;
-  background: var(--bg-elev);
-  border: 1px solid var(--border);
+  background: var(--accent-weak);
+  border: 1px solid var(--accent-border);
   border-radius: var(--radius);
   padding: 12px 15px;
   white-space: pre-wrap;
   word-break: break-word;
   box-shadow: var(--shadow-sm);
+  /* Distinguish from tool cards: right-align the user's bubble so it reads
+     as an outgoing message, not another system-generated card. */
+  margin-left: 15%;
 }
 .msg-assistant {
   white-space: normal;
