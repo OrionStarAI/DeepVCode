@@ -12,6 +12,11 @@ export function ChatPane({ view }: { view: SessionView }) {
   const rewindTo = useStore((s) => s.rewindTo);
   const t = useT();
   const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  // Whether the user is near the bottom of the transcript. When false (user
+  // scrolled up to read history) we suppress auto-scroll so new content doesn't
+  // yank them back down. Updated on scroll, checked before auto-scrolling.
+  const atBottomRef = useRef(true);
 
   // The backend reports 'thinking' from prompt submit through turn_end (covering
   // model streaming and tool runs) and 'starting' while the bridge spins up. In
@@ -22,14 +27,45 @@ export function ChatPane({ view }: { view: SessionView }) {
   const last = view.transcript[view.transcript.length - 1];
   const showDots = busy && (!last || last.kind !== 'assistant');
 
+  // Auto-scroll to bottom only when the user is already near the bottom. If
+  // they scrolled up to read history, new streaming content should not pull
+  // them back down. A user-sent message always resets this (their own action
+  // implies "I want to see the response").
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'auto' });
+    if (atBottomRef.current) {
+      bottomRef.current?.scrollIntoView({ behavior: 'auto' });
+    }
   }, [view.transcript, showDots]);
+
+  // Track scroll position: "at bottom" = within 80px of the bottom edge. This
+  // threshold tolerates small scroll offsets from rendering quirks while still
+  // detecting a deliberate upward scroll.
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const onScroll = () => {
+      const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+      atBottomRef.current = distFromBottom < 80;
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, []);
+
+  // When the user sends a new message, reset to bottom (their own action implies
+  // they want to see the result). The transcript gains a new 'user' item, so we
+  // detect that and force-scroll.
+  const lastItem = view.transcript[view.transcript.length - 1];
+  useEffect(() => {
+    if (lastItem?.kind === 'user') {
+      atBottomRef.current = true;
+      bottomRef.current?.scrollIntoView({ behavior: 'auto' });
+    }
+  }, [lastItem?.kind === 'user' ? lastItem.id : null]);
 
   let userIndex = -1;
 
   return (
-    <div className="pane-body">
+    <div className="pane-body" ref={scrollRef}>
       <div className="transcript">
         {view.transcript.length === 0 && (
           <div className="empty" style={{ height: 280 }}>
