@@ -298,6 +298,8 @@ export interface DesktopUserSettings {
   healthyUse?: boolean;
   /** How project memory (DEEPV.md / AGENTS.md) is loaded. Undefined = "all". */
   projectMemoryMode?: ProjectMemoryMode;
+  /** Minimize to system tray instead of quitting when window is closed. */
+  minimizeToTray?: boolean;
 }
 
 export interface CreateSessionOptions {

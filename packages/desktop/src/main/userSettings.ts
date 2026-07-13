@@ -63,6 +63,7 @@ function project(raw: Record<string, unknown>): DesktopUserSettings {
   ) {
     out.projectMemoryMode = raw.projectMemoryMode;
   }
+  if (typeof raw.minimizeToTray === 'boolean') out.minimizeToTray = raw.minimizeToTray;
   return out;
 }
 
@@ -89,6 +90,9 @@ export function updateUserSettings(patch: DesktopUserSettings): DesktopUserSetti
   }
   if ('projectMemoryMode' in patch && patch.projectMemoryMode) {
     raw.projectMemoryMode = patch.projectMemoryMode;
+  }
+  if ('minimizeToTray' in patch && typeof patch.minimizeToTray === 'boolean') {
+    raw.minimizeToTray = patch.minimizeToTray;
   }
 
   writeRaw(raw);

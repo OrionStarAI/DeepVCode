@@ -2574,6 +2574,8 @@ function setupLoginHandlers() {
             });
           } else if (config && config.setModel) {
             config.setModel(payload.modelName);
+            // Fix: notify frontend when model is set via config.setModel (no geminiClient)
+            await communicationService.sendModelSwitchComplete(payload.sessionId, payload.modelName);
           }
         }
 
@@ -2599,6 +2601,10 @@ function setupLoginHandlers() {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
       });
+      // Fix: notify frontend to clear isModelSwitching state on failure
+      if (payload.sessionId) {
+        await communicationService.sendModelSwitchComplete(payload.sessionId, payload.modelName);
+      }
     }
   });
 

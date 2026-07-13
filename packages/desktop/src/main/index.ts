@@ -7,7 +7,7 @@
  * IPC bridge and ACP session hub wired in.
  */
 
-import { app, BrowserWindow, Menu, shell, nativeTheme } from 'electron';
+import { app, BrowserWindow, Menu, shell, nativeTheme, Tray, nativeImage } from 'electron';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { registerIpc } from './ipc.js';
@@ -19,10 +19,13 @@ import type { UpdateManager } from './updater.js';
 // taskbar icon at runtime (dev + Linux/Windows). On macOS the dock icon comes
 // from the packaged .app bundle, so this is harmless there.
 import appIcon from '../../build/icon.png?asset';
+import { getUserSettings } from './userSettings.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 let mainWindow: BrowserWindow | null = null;
+let tray: Tray | null = null;
+let isQuitting = false;
 let hub: SessionHub | null = null;
 let feishu: FeishuManager | null = null;
 let updater: UpdateManager | null = null;
@@ -94,6 +97,18 @@ function createWindow(): void {
 
   mainWindow.on('ready-to-show', () => mainWindow?.show());
 
+  // Intercept window close: if minimizeToTray is enabled, hide instead of close
+  mainWindow.on('close', (e) => {
+    const settings = getUserSettings();
+    if (settings.minimizeToTray && !isQuitting) {
+      e.preventDefault();
+      mainWindow?.hide();
+      if (tray && !tray.isDestroyed()) {
+        // Tray icon click restores window; no IPC needed
+      }
+    }
+  });
+
   // Open target=_blank / external links in the system browser, never in-app.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     void shell.openExternal(url);
@@ -133,6 +148,25 @@ app.whenReady().then(() => {
   }
   ({ hub, feishu, updater } = registerIpc(() => mainWindow));
   createWindow();
+
+  // Create system tray
+  const trayIcon = nativeImage.createFromPath(appIcon);
+  tray = new Tray(trayIcon.resize({ width: 16, height: 16 }));
+  tray.setToolTip('Easy Code');
+  tray.on('click', () => {
+    if (mainWindow) {
+      if (mainWindow.isVisible()) {
+        mainWindow.hide();
+      } else {
+        mainWindow.show();
+        mainWindow.focus();
+      }
+    }
+  });
+  tray.setContextMenu(Menu.buildFromTemplate([
+    { label: 'Show Easy Code', click: () => { mainWindow?.show(); mainWindow?.focus(); } },
+    { label: 'Quit', click: () => { isQuitting = true; app.quit(); } },
+  ]));
   // Kick off the version-update lifecycle (startup check + periodic poll). It
   // delays its first check internally so it never competes with boot.
   updater.start();
@@ -142,11 +176,18 @@ app.whenReady().then(() => {
   });
 });
 
-app.on('window-all-closed', () => {
+app.on('window-all-closed', (e: Event) => {
+  // In tray mode, prevent app from quitting when all windows are closed
+  const settings = getUserSettings();
+  if (settings.minimizeToTray && !isQuitting) {
+    e.preventDefault();
+    return;
+  }
   if (process.platform !== 'darwin') app.quit();
 });
 
 app.on('before-quit', () => {
+  isQuitting = true;
   hub?.disposeAll();
   // Tear down the desktop-managed Feishu gateway so we never leave an orphan
   // gateway behind (which the next launch would otherwise detect + kill).

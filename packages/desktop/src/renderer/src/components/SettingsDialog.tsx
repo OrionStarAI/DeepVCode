@@ -246,6 +246,19 @@ function GeneralTab({ onClose }: { onClose: () => void }) {
         </div>
 
         <div className="setting-item">
+          <label className="field-label">Background</label>
+          <label className="toggle-row">
+            <input
+              type="checkbox"
+              checked={settings?.minimizeToTray === true}
+              onChange={(e) => void patch({ minimizeToTray: e.target.checked })}
+            />
+            Keep running in background (minimize to tray on close)
+          </label>
+          <div className="setting-desc">When enabled, closing the window minimizes Easy Code to the system tray. AI tasks continue running in the background. Click the tray icon to restore.</div>
+        </div>
+
+        <div className="setting-item">
           <label className="field-label">{t('update.section')}</label>
           <div className="update-check-row">
             <button className="btn" disabled={checking} onClick={() => void runCheck()}>
