@@ -2574,6 +2574,8 @@ function setupLoginHandlers() {
             });
           } else if (config && config.setModel) {
             config.setModel(payload.modelName);
+            // Fix: model_switch_complete is sent below after updateSessionModelConfig
+            // — no need to send it here (would cause double notification)
           }
         }
 
@@ -2599,6 +2601,18 @@ function setupLoginHandlers() {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error'
       });
+      // Fix: notify frontend to clear isModelSwitching state on failure
+      // Use try-catch to avoid masking the original error if webview is disposed
+      if (payload.sessionId) {
+        try {
+          await communicationService.sendModelResponse(payload.requestId, {
+            success: false,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+          // Only clear isModelSwitching, don't update selectedModelId
+          await communicationService.sendModelSwitchComplete(payload.sessionId, '');
+        } catch {}
+      }
     }
   });
 
