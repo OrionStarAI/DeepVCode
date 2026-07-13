@@ -40,6 +40,7 @@ import { WorkflowTool } from '../tools/workflow.js';
 import { UseSkillTool } from '../tools/use-skill.js';
 import { ListSkillsTool } from '../tools/list-skills.js';
 import { GetSkillDetailsTool } from '../tools/get-skill-details.js';
+import { DesktopAutomationTool } from '../tools/desktop-automation.js';
 // Old LSP tools imports removed
 
 import { PptOutlineTool } from '../tools/ppt/pptOutlineTool.js';
@@ -1169,6 +1170,9 @@ export class Config {
 
     // TaskTool (SubAgent) is available in both CLI and VSCode environments
     registerCoreTool(TaskTool, this, registry);
+
+    // DesktopAutomationTool - cross-platform desktop automation (macOS + Windows)
+    registerCoreTool(DesktopAutomationTool, this);
 
     // WorkflowTool is disabled in VSCode plugin mode (not yet adapted)
     // but remains available in CLI mode
