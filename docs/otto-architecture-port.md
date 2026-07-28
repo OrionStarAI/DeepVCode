@@ -157,3 +157,7 @@ Otto（前身 EasyCode）的兼容性处于**过渡期**：
 - **Fail-safe 设计**：知识捕获失败静默吞掉，内存注入失败不打断 turn
 - **测试隔离约定**：`OTTO_USER_DIR` 环境变量覆盖，永不污染真实 `~/.otto-user`
 - **Deny-by-default 策略**：`CentralPolicy.canExecute()` 缺配置时默认 Deny
+
+---
+
+*Signed: king*
