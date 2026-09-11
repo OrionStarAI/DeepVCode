@@ -4,7 +4,7 @@
 
 **AI-Powered Intelligent Software Engineering Assistant**
 
-> ℹ️ **Rebranding notice**: This project was previously known as **Easy Code** and has been renamed to **Easy Code**.
+> ℹ️ **Rebranding notice**: This project was previously known as **DeepV Code** and has been renamed to **Easy Code**.
 > Package names, command names, and config directories (`easycode-ai` / `easycode` / `.easycode/` etc.) are kept in the transition period for backward compatibility; new docs and UI use the new brand name.
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
